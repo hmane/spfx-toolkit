@@ -46,6 +46,8 @@
     "node": ">=18 <23"
   },
   "peerDependencies": {
+    "@fluentui/react": "8.106.4",
+    "@pnp/spfx-controls-react": "^3.22.0",
     "@pnp/logging": "^4.16.0",
     "@pnp/sp": "^3.20.1",
     "devextreme": "^22.2.3",

@@ -36,8 +36,10 @@ export {
   // Hooks
   useCardController,
   useMaximize,
-  usePersistence,
+  usePersistence
 } from './Card';
+
+export * from './spForm';
 
 // Conflict detection exports
 export {
@@ -45,7 +47,7 @@ export {
   ConflictNotificationBar,
   ConflictResolutionDialog,
   useConflictContext,
-  useConflictDetection,
+  useConflictDetection
 } from './ConflictDetector';
 
 // Workflow stepper exports
@@ -55,7 +57,7 @@ export {
   getStepStatistics,
   isStepClickable,
   StepItem,
-  validateStepData,
+  validateStepData
 } from './WorkflowStepper';
 
 // ========================================
@@ -71,7 +73,7 @@ export type {
   CardState,
   ContentProps,
   HeaderProps,
-  LoadingType,
+  LoadingType
 } from './Card';
 
 // Conflict detector types
@@ -79,7 +81,7 @@ export type {
   ConflictDetectionOptions,
   ConflictInfo,
   ConflictSeverity,
-  UseConflictDetectionReturn,
+  UseConflictDetectionReturn
 } from './ConflictDetector';
 
 // Workflow stepper types

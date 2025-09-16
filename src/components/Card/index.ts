@@ -29,6 +29,8 @@ import Accordion, {
   type AccordionHandle,
 } from './Accordion';
 
+import "./card.css";
+
 // Loading Components
 import {
   CardLoading,

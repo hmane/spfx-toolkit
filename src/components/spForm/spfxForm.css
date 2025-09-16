@@ -1,0 +1,305 @@
+/* SPFx Form Components - Complete CSS */
+
+/* FormContainer Styles */
+.spfx-form-container {
+  --label-width: var(--default-label-width, 140px);
+}
+
+.spfx-form-section {
+  margin-bottom: 24px;
+}
+
+.spfx-form-section:last-child {
+  margin-bottom: 0;
+}
+
+.spfx-form-section-header {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+/* FormItem Styles */
+.spfx-form-item {
+  display: grid;
+  margin-bottom: 16px;
+  gap: 4px 16px;
+  grid-template-columns: 1fr;
+  grid-template-areas: 'label' 'value';
+}
+
+@media (min-width: 769px) {
+  .spfx-form-item {
+    grid-template-columns: var(--label-width, 140px) 1fr;
+    grid-template-areas: 'label value';
+    align-items: start;
+  }
+}
+
+.spfx-form-item-label-area {
+  grid-area: label;
+}
+
+.spfx-form-item-value-area {
+  grid-area: value;
+}
+
+.spfx-form-item.spfx-form-item-custom-label-width {
+  @media (min-width: 769px) {
+    grid-template-columns: var(--custom-label-width) 1fr;
+  }
+}
+
+.spfx-form-item.spfx-form-item-full-width {
+  width: 100%;
+}
+
+.spfx-form-item.spfx-form-item-inline {
+  display: inline-grid;
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+
+/* Form Row Responsive Layout - Global class as in original SCSS */
+.form-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+.form-row .spfx-form-item {
+  flex: 1 1 300px !important;
+  min-width: 300px !important;
+  max-width: 100% !important;
+}
+
+@media (min-width: 1400px) {
+  .form-row .spfx-form-item {
+    flex: 1 1 400px !important;
+    max-width: 500px !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  .form-row .spfx-form-item {
+    flex: 1 1 calc(50% - 8px) !important;
+    min-width: 280px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-row .spfx-form-item {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+/* FormLabel Styles */
+.spfx-form-label {
+  min-width: var(--label-width, 140px);
+  flex-shrink: 0;
+  padding-top: 8px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.87);
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.spfx-form-label-text {
+  display: inline;
+}
+
+.spfx-form-label-content {
+  display: inline;
+}
+
+.spfx-form-label-suffix {
+  display: inline;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+.spfx-form-label-required {
+  color: #d32f2f;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+.spfx-form-label-info-icon {
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  vertical-align: baseline;
+}
+
+.spfx-form-label-info-icon:hover {
+  background-color: rgba(25, 118, 210, 0.08);
+  color: #1565c0;
+}
+
+.spfx-form-label-info-icon:focus {
+  outline: 1px solid #1976d2;
+  outline-offset: 1px;
+}
+
+@media (max-width: 768px) {
+  .spfx-form-label {
+    min-width: auto;
+    padding-top: 0;
+    margin-bottom: 8px;
+  }
+}
+
+/* FormValue Styles */
+.spfx-form-value {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.spfx-form-value-control-container {
+  width: 100%;
+}
+
+.spfx-form-value-control-container .dx-textbox,
+.spfx-form-value-control-container .dx-selectbox,
+.spfx-form-value-control-container .dx-numberbox,
+.spfx-form-value-control-container .dx-datebox,
+.spfx-form-value-control-container .dx-textarea,
+.spfx-form-value-control-container .dx-autocomplete,
+.spfx-form-value-control-container .dx-lookup,
+.spfx-form-value-control-container .dx-tagbox,
+.spfx-form-value-control-container .dx-switch,
+.spfx-form-value-control-container .dx-checkbox,
+.spfx-form-value-control-container .dx-radiogroup {
+  width: 100%;
+}
+
+.spfx-form-value-control-container > * {
+  width: 100%;
+}
+
+.spfx-form-value-control-container > * + * {
+  margin-top: 8px;
+}
+
+.spfx-form-value-description-error-container {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* FormDescription Styles */
+.spfx-form-description {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1.4;
+  margin-top: 4px;
+  padding-left: 0;
+}
+
+.spfx-form-description p {
+  margin: 0 0 8px 0;
+}
+
+.spfx-form-description p:last-child {
+  margin-bottom: 0;
+}
+
+.spfx-form-description ul,
+.spfx-form-description ol {
+  margin: 4px 0 8px 16px;
+  padding: 0;
+}
+
+.spfx-form-description li {
+  margin-bottom: 2px;
+}
+
+.spfx-form-description ul:last-child,
+.spfx-form-description ol:last-child {
+  margin-bottom: 0;
+}
+
+.spfx-form-description strong {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.spfx-form-description em {
+  font-style: italic;
+}
+
+.spfx-form-description code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.spfx-form-description a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.spfx-form-description a:hover {
+  text-decoration: underline;
+}
+
+/* FormError Styles */
+.spfx-form-error {
+  margin-top: 4px;
+  padding-left: 0;
+  animation: spfx-slide-in-error 0.2s ease-out;
+}
+
+.spfx-form-error-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.spfx-form-error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.spfx-form-error-item:last-child {
+  margin-bottom: 0;
+}
+
+.spfx-form-error-icon {
+  color: #d32f2f;
+  font-size: 12px;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.spfx-form-error-text {
+  font-size: 12px;
+  color: #d32f2f;
+  line-height: 1.3;
+  word-wrap: break-word;
+  flex: 1;
+}
+
+@keyframes spfx-slide-in-error {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

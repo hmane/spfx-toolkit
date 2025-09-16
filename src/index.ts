@@ -157,7 +157,9 @@ export type {
 // All components in organized groups
 export * as CardComponents from './components/Card';
 export * as ConflictComponents from './components/ConflictDetector';
+export * from './components/spForm';
 export * as WorkflowComponents from './components/WorkflowStepper';
+
 // All hooks organized
 export * as Hooks from './hooks';
 
