@@ -5,9 +5,11 @@
 import {
   Card,
   ConflictDetector,
-  WorkflowStepper,
+  ErrorBoundary,
   useCardController,
   useConflictDetection,
+  useErrorHandler,
+  WorkflowStepper,
 } from './components';
 import { useLocalStorage, useViewport } from './hooks';
 import { BatchBuilder, PermissionHelper } from './utilities';
@@ -22,6 +24,7 @@ export const TOOLKIT_VERSION = '0.0.1-alpha.0';
 // Essential components (likely to be imported together)
 export { Card, SafeCard, useCardController } from './components/Card';
 export { ConflictDetector, useConflictDetection } from './components/ConflictDetector';
+export { ErrorBoundary, useErrorHandler, withErrorBoundary } from './components/ErrorBoundary';
 export { WorkflowStepper } from './components/WorkflowStepper';
 
 // Core hooks
@@ -80,9 +83,9 @@ export { useConflictMonitor, usePreSaveConflictCheck } from './components/Confli
 
 // Batch operations
 export {
-  ListOperationBuilder,
   addOperationToBatch,
   executeBatch,
+  ListOperationBuilder,
   splitIntoBatches
 } from './utilities/batchBuilder';
 
@@ -121,6 +124,16 @@ export type {
   WorkflowStepperProps
 } from './components';
 
+// Error Boundary Types
+export type {
+  IErrorBoundaryProps,
+  IErrorBoundaryState,
+  IErrorDetails,
+  IErrorFallbackProps,
+  IErrorInfo,
+  IUserFriendlyMessages
+} from './components/ErrorBoundary';
+
 // Hook types
 export type {
   BreakpointKey,
@@ -157,6 +170,7 @@ export type {
 // All components in organized groups
 export * as CardComponents from './components/Card';
 export * as ConflictComponents from './components/ConflictDetector';
+export * as ErrorBoundaryComponents from './components/ErrorBoundary';
 export * from './components/spForm';
 export * as WorkflowComponents from './components/WorkflowStepper';
 
@@ -210,10 +224,28 @@ export const ToolkitUtils = {
       pnpsp: '^3.20.1',
       devextreme: '^22.2.3',
       zustand: '^4.3.9',
+      fluentui: '^8.106.4',
     },
-    components: ['Card', 'ConflictDetector', 'WorkflowStepper'],
+    components: [
+      'Card',
+      'ConflictDetector',
+      'WorkflowStepper',
+      'Toast/Notification System',
+      'ErrorBoundary',
+      'spForm Components',
+    ],
     utilities: ['BatchBuilder', 'PermissionHelper', 'ListItemHelper'],
-    hooks: ['useLocalStorage', 'useViewport', 'useCardController'],
+    hooks: [
+      'useLocalStorage',
+      'useViewport',
+      'useCardController',
+      'useToast',
+      'useProgressToast',
+      'useBatchToast',
+      'useUndoToast',
+      'useFormToast',
+      'useErrorHandler',
+    ],
   }),
 } as const;
 
@@ -238,12 +270,14 @@ const SpfxToolkit = {
   Card: Card,
   ConflictDetector: ConflictDetector,
   WorkflowStepper: WorkflowStepper,
+  ErrorBoundary: ErrorBoundary,
 
   // Essential hooks
   useCardController: useCardController,
   useLocalStorage: useLocalStorage,
   useViewport: useViewport,
   useConflictDetection: useConflictDetection,
+  useErrorHandler: useErrorHandler,
 
   // Essential utilities
   BatchBuilder: BatchBuilder,

@@ -39,8 +39,8 @@ export {
   usePersistence
 } from './Card';
 
+export * from './ErrorBoundary';
 export * from './spForm';
-
 // Conflict detection exports
 export {
   ConflictDetectionProvider,

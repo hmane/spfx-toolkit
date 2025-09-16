@@ -1,0 +1,326 @@
+/* SPFx Error Boundary Styles - Professional Design */
+
+.spfx-error-boundary {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  width: 100%;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+}
+
+.spfx-error-boundary-container {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #dc3545;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-width: 700px;
+  margin: 16px auto;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  color: #374151 !important;
+}
+
+.spfx-error-boundary-container:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Force text colors to be readable */
+.spfx-error-boundary-container * {
+  color: inherit !important;
+}
+
+.spfx-error-boundary-container .ms-Text {
+  color: inherit !important;
+}
+
+/* Error Animation */
+@keyframes spfx-error-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spfx-error-boundary-container {
+  animation: spfx-error-fade-in 0.4s ease-out;
+}
+
+/* Error Icon Pulse Animation */
+@keyframes spfx-error-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.spfx-error-boundary-container .ms-Icon[data-icon-name="ErrorBadge"] {
+  animation: spfx-error-pulse 2s infinite;
+  color: #dc3545 !important;
+}
+
+/* Professional button styling */
+.spfx-error-boundary .ms-Button {
+  min-width: 140px;
+  height: 40px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spfx-error-boundary .ms-Button--primary {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+}
+
+.spfx-error-boundary .ms-Button--primary:hover {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.spfx-error-boundary .ms-Button--default {
+  background-color: #ffffff;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.spfx-error-boundary .ms-Button--default:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* Button group responsive layout */
+.spfx-error-boundary .ms-Stack--horizontal {
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Error Details Modal - Professional styling */
+.spfx-error-details-modal {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.spfx-error-details-modal .ms-Modal-scrollableContent {
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+/* Code blocks in error details */
+.spfx-error-details-modal pre,
+.spfx-error-details-modal code {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #1e293b;
+}
+
+/* Professional card styling for error info */
+.spfx-error-info-card {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.spfx-error-warning-card {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .spfx-error-boundary-container {
+    margin: 8px;
+    border-radius: 6px;
+    max-width: calc(100% - 16px);
+  }
+
+  .spfx-error-boundary .ms-Stack--horizontal {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .spfx-error-boundary .ms-Button {
+    width: 100%;
+    min-width: auto;
+    margin-bottom: 0;
+  }
+
+  .spfx-error-details-modal {
+    max-width: 95vw;
+    margin: 10px;
+  }
+
+  .spfx-error-boundary-container .ms-Stack-inner {
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .spfx-error-boundary-container {
+    margin: 4px;
+    border-radius: 4px;
+  }
+
+  .spfx-error-boundary-container .ms-Stack-inner {
+    padding: 20px 12px;
+  }
+
+  .spfx-error-boundary .ms-Icon[data-icon-name="ErrorBadge"] {
+    font-size: 40px !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .spfx-error-boundary-container {
+    border: 2px solid #000000;
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .spfx-error-boundary-container .ms-Icon[data-icon-name="ErrorBadge"] {
+    color: #ff0000 !important;
+  }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .spfx-error-boundary-container {
+    background: #1f2937 !important;
+    border-color: #374151;
+    border-left-color: #ef4444;
+    color: #f9fafb !important;
+  }
+
+  .spfx-error-boundary-container * {
+    color: #f9fafb !important;
+  }
+
+  .spfx-error-info-card {
+    background: #2d1b1b;
+    border-color: #5a2d2d;
+  }
+
+  .spfx-error-warning-card {
+    background: #2d2616;
+    border-color: #5a4d2d;
+  }
+
+  .spfx-error-details-modal pre,
+  .spfx-error-details-modal code {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .spfx-error-boundary-container {
+    box-shadow: none;
+    border: 2px solid #000000;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .spfx-error-boundary .ms-Button {
+    display: none;
+  }
+
+  .spfx-error-boundary-container * {
+    color: #000000 !important;
+  }
+}
+
+/* Focus management for accessibility */
+.spfx-error-boundary-container:focus-within {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+.spfx-error-boundary .ms-Button:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.spfx-error-boundary.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.spfx-error-boundary.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+/* Error severity indicators */
+.spfx-error-boundary.severity-low .spfx-error-boundary-container {
+  border-left-color: #f59e0b;
+}
+
+.spfx-error-boundary.severity-medium .spfx-error-boundary-container {
+  border-left-color: #f97316;
+}
+
+.spfx-error-boundary.severity-high .spfx-error-boundary-container {
+  border-left-color: #dc2626;
+}
+
+.spfx-error-boundary.severity-critical .spfx-error-boundary-container {
+  border-left-color: #7c3aed;
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.3);
+}
+
+/* Improved text spacing and readability */
+.spfx-error-boundary .ms-Text {
+  line-height: 1.6;
+}
+
+/* Better spacing for stack items */
+.spfx-error-boundary .ms-Stack .ms-StackItem {
+  margin-bottom: 0;
+}
+
+/* Ensure buttons don't shrink too much */
+.spfx-error-boundary .ms-Stack--horizontal .ms-StackItem {
+  flex-shrink: 0;
+}
