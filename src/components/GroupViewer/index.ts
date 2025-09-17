@@ -2,10 +2,10 @@
 export { GroupViewer } from './GroupViewer';
 
 // Export types
-export type { IGroupViewerProps, IGroupMember, IGroupInfo } from './types';
+export type { IGroupInfo, IGroupMember, IGroupViewerProps } from './types';
 
 // Export constants
-export { DefaultProps } from './types';
+export { GroupViewerDefaultSettings } from './types';
 
 // Import styles to ensure they're included
 import './GroupViewer.css';

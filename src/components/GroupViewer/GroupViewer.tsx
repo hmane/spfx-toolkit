@@ -1,30 +1,30 @@
-import * as React from 'react';
 import {
-  TooltipHost,
   DirectionalHint,
-  Stack,
-  Text,
+  Icon,
   Spinner,
   SpinnerSize,
-  Icon,
+  Stack,
+  Text,
+  TooltipHost,
 } from '@fluentui/react';
-import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
-import { spfi, SPFx } from '@pnp/sp';
 import { Caching } from '@pnp/queryable';
+import { spfi, SPFx } from '@pnp/sp';
 import '@pnp/sp/site-groups';
 import '@pnp/sp/site-users';
 import '@pnp/sp/webs';
-import { IGroupViewerProps, IGroupMember, IGroupInfo, DefaultProps } from './types';
+import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
+import * as React from 'react';
 import './GroupViewer.css';
+import { GroupViewerDefaultSettings, IGroupInfo, IGroupMember, IGroupViewerProps } from './types';
 
 export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const {
     spContext,
     groupId,
     groupName,
-    size = DefaultProps.size,
-    displayMode = DefaultProps.displayMode,
-    iconName = DefaultProps.iconName,
+    size = GroupViewerDefaultSettings.size,
+    displayMode = GroupViewerDefaultSettings.displayMode,
+    iconName = GroupViewerDefaultSettings.iconName,
     className = '',
     onClick,
   } = props;

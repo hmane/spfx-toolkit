@@ -1,5 +1,5 @@
-import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ExtensionContext } from '@microsoft/sp-extension-base';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 
 // Union type for SPFx contexts
 export type SPFxContext = WebPartContext | ExtensionContext;
@@ -30,7 +30,7 @@ export interface IGroupInfo {
   LoginName: string;
 }
 
-export const DefaultProps = {
+export const GroupViewerDefaultSettings = {
   size: 32,
   displayMode: 'iconAndName' as const,
   iconName: 'Group',
