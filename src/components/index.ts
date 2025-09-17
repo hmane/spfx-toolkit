@@ -71,7 +71,7 @@ export {
 } from './WorkflowStepper';
 
 // GroupViewer exports
-export { DefaultProps as GroupViewerDefaults } from './GroupViewer';
+export { GroupViewerDefaultSettings } from './GroupViewer';
 
 // ManageAccess exports
 export { DefaultProps as ManageAccessDefaults, PermissionLevelOptions } from './ManageAccess';
@@ -108,8 +108,14 @@ export type { IGroupInfo, IGroupMember, IGroupViewerProps } from './GroupViewer'
 
 // ManageAccess types
 export type {
-  IActivityFeedItem, IManageAccessComponentProps,
-  IManageAccessComponentState, IPermissionLevelOption, IPermissionPrincipal, ISPMember, ISPRoleAssignment, ISPRoleDefinition
+  IActivityFeedItem,
+  IManageAccessComponentProps,
+  IManageAccessComponentState,
+  IPermissionLevelOption,
+  IPermissionPrincipal,
+  ISPMember,
+  ISPRoleAssignment,
+  ISPRoleDefinition
 } from './ManageAccess';
 
 // SPFx Context types (avoiding naming conflicts)
