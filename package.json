@@ -50,6 +50,7 @@
     "@pnp/spfx-controls-react": "^3.22.0",
     "@pnp/logging": "^4.16.0",
     "@pnp/sp": "^3.20.1",
+    "@pnp/queryable": "^3.20.1",
     "devextreme": "^22.2.3",
     "devextreme-react": "^22.2.3",
     "react": "^17.0.1",

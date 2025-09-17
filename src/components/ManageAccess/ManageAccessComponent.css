@@ -1,0 +1,389 @@
+/* ManageAccess Main Component Styles */
+.manage-access-component {
+  display: inline-block;
+}
+
+.manage-access-loading {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px;
+}
+
+.manage-access-avatar-container {
+  display: inline-block;
+}
+
+.manage-access-avatar {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.manage-access-avatar:hover {
+  transform: scale(1.05);
+}
+
+/* LivePersona Styles */
+.manage-access-live-persona {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manage-access-live-persona:hover {
+  transform: scale(1.05);
+}
+
+.manage-access-live-persona .ms-Persona-coin {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+}
+
+.manage-access-live-persona .ms-Persona-image {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+}
+
+.manage-access-live-persona .ms-Persona-initials {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  font-size: 12px !important;
+  line-height: 32px !important;
+}
+
+/* Permission Indicator Styles */
+.manage-access-permission-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #f3f2f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e1dfdd;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.manage-access-permission-indicator:hover {
+  background-color: #edebe9;
+}
+
+.manage-access-permission-indicator i {
+  font-size: 14px;
+  color: #605e5c;
+}
+
+/* Remaining Count Styles */
+.manage-access-remaining {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #f3f2f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e1dfdd;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.manage-access-remaining:hover {
+  background-color: #edebe9;
+}
+
+/* Link Styles */
+.manage-access-link {
+  font-size: 14px;
+  text-decoration: none;
+  color: #0078d4;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.manage-access-link:hover {
+  text-decoration: underline;
+}
+
+/* Panel Styles */
+.manage-access-panel {
+  z-index: 1000;
+}
+
+.manage-access-panel .ms-Panel-content {
+  padding: 0;
+}
+
+.manage-access-panel .ms-Panel-scrollableContent {
+  padding: 24px;
+}
+
+/* Inline Message Styles */
+.manage-access-inline-message {
+  margin: 8px 0;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.manage-access-inline-message.hide {
+  animation: slideOut 0.3s ease-out forwards;
+}
+
+/* Permission Dropdown Styles */
+.manage-access-permission-dropdown {
+  max-width: 200px;
+}
+
+/* Section Header Styles */
+.manage-access-section-header {
+  font-weight: 600;
+  color: #323130;
+  margin-bottom: 8px;
+}
+
+/* Permission Item Styles */
+.manage-access-permission-item {
+  padding: 12px 16px;
+  border: 1px solid #e1dfdd;
+  border-radius: 4px;
+  background-color: #ffffff;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.manage-access-permission-item:hover {
+  background-color: #f8f8f8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.manage-access-permission-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.manage-access-permission-persona {
+  flex-shrink: 0;
+}
+
+.manage-access-permission-email {
+  color: #605e5c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-access-permission-icon {
+  color: #605e5c;
+  font-size: 12px;
+}
+
+/* Remove Button Styles */
+.manage-access-remove-button {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: #d13438;
+}
+
+.manage-access-permission-item:hover .manage-access-remove-button {
+  opacity: 1;
+}
+
+.manage-access-remove-button:hover {
+  background-color: rgba(209, 52, 56, 0.1);
+  color: #d13438;
+}
+
+/* No Permissions Styles */
+.manage-access-no-permissions {
+  text-align: center;
+  color: #605e5c;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* Activity Panel Styles */
+.manage-access-activity-panel {
+  z-index: 1001;
+}
+
+/* Focus Styles for Accessibility */
+.manage-access-permission-indicator:focus,
+.manage-access-remaining:focus,
+.manage-access-link:focus,
+.manage-access-remove-button:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}
+
+/* Custom Scrollbar */
+.manage-access-panel .ms-Panel-scrollableContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.manage-access-panel .ms-Panel-scrollableContent::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.manage-access-panel .ms-Panel-scrollableContent::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.manage-access-panel .ms-Panel-scrollableContent::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Success/Error States */
+.manage-access-success {
+  border-left: 4px solid #107c10;
+  background-color: #dff6dd;
+  color: #323130;
+}
+
+.manage-access-error {
+  border-left: 4px solid #d13438;
+  background-color: #fde7e9;
+  color: #323130;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .manage-access-component {
+    width: 100%;
+  }
+
+  .manage-access-permission-item {
+    padding: 8px 12px;
+  }
+
+  .manage-access-permission-item .ms-Stack {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .manage-access-permission-info {
+    width: 100%;
+  }
+
+  .manage-access-remove-button {
+    opacity: 1;
+    align-self: flex-end;
+  }
+
+  .manage-access-panel .ms-Panel-scrollableContent {
+    padding: 16px;
+  }
+
+  .manage-access-permission-dropdown {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .manage-access-avatar,
+  .manage-access-live-persona {
+    width: 28px;
+    height: 28px;
+  }
+
+  .manage-access-permission-indicator,
+  .manage-access-remaining {
+    width: 28px;
+    height: 28px;
+  }
+
+  .manage-access-permission-indicator i {
+    font-size: 12px;
+  }
+
+  .manage-access-link {
+    font-size: 12px;
+  }
+
+  .manage-access-panel .ms-Panel-scrollableContent {
+    padding: 12px;
+  }
+
+  .manage-access-live-persona .ms-Persona-initials {
+    line-height: 28px !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .manage-access-permission-indicator,
+  .manage-access-remaining {
+    border: 2px solid;
+  }
+
+  .manage-access-permission-item {
+    border: 2px solid;
+  }
+
+  .manage-access-remove-button {
+    opacity: 1;
+  }
+}
+
+/* Dark Theme Support */
+@media (prefers-color-scheme: dark) {
+  .manage-access-permission-indicator,
+  .manage-access-remaining {
+    background-color: #2d2d30;
+    border-color: #3e3e42;
+  }
+
+  .manage-access-permission-indicator:hover,
+  .manage-access-remaining:hover {
+    background-color: #3e3e42;
+  }
+
+  .manage-access-permission-item {
+    background-color: #2d2d30;
+    border-color: #3e3e42;
+    color: #ffffff;
+  }
+
+  .manage-access-permission-item:hover {
+    background-color: #3e3e42;
+  }
+
+  .manage-access-permission-email {
+    color: #c8c6c4;
+  }
+
+  .manage-access-permission-icon {
+    color: #c8c6c4;
+  }
+}
