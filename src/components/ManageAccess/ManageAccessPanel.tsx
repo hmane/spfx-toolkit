@@ -7,6 +7,7 @@ import {
   IconButton,
   Persona,
   PersonaSize,
+  PersonaInitialsColor,
   Stack,
   Text,
   Separator,
@@ -18,13 +19,15 @@ import {
   Dropdown,
   IDropdownOption,
   Icon,
-  Link,
   TooltipHost,
   Spinner,
   SpinnerSize,
+  IPersonaProps,
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import { IPermissionPrincipal, PermissionLevelOptions, SPFxContext } from './types';
+import { GroupViewer } from '../GroupViewer';
 
 export interface IManageAccessPanelProps {
   spContext: SPFxContext;
@@ -57,8 +60,12 @@ export class ManageAccessPanel extends React.Component<
   IManageAccessPanelProps,
   IManageAccessPanelState
 > {
+  private panelRef: React.RefObject<HTMLDivElement>;
+
   constructor(props: IManageAccessPanelProps) {
     super(props);
+
+    this.panelRef = React.createRef();
 
     this.state = {
       selectedUsers: [],
@@ -71,11 +78,74 @@ export class ManageAccessPanel extends React.Component<
     };
   }
 
+  // Handle clicking outside the panel
+  componentDidMount(): void {
+    if (this.props.isOpen) {
+      document.addEventListener('mousedown', this.handleClickOutside);
+    }
+  }
+
+  componentDidUpdate(prevProps: IManageAccessPanelProps): void {
+    if (this.props.isOpen !== prevProps.isOpen) {
+      if (this.props.isOpen) {
+        document.addEventListener('mousedown', this.handleClickOutside);
+      } else {
+        document.removeEventListener('mousedown', this.handleClickOutside);
+      }
+    }
+  }
+
+  componentWillUnmount(): void {
+    document.removeEventListener('mousedown', this.handleClickOutside);
+  }
+
+  // Handle clicking outside to close panel
+  private handleClickOutside = (event: MouseEvent): void => {
+    if (this.panelRef.current && !this.panelRef.current.contains(event.target as Node)) {
+      // Check if click is on panel overlay or outside
+      const panelOverlay = document.querySelector('.ms-Panel');
+      if (panelOverlay && !panelOverlay.contains(event.target as Node)) {
+        this.props.onDismiss();
+      }
+    }
+  };
+
   // Get default permission level based on permissionTypes
   private getDefaultPermissionLevel = (): 'view' | 'edit' => {
     const { permissionTypes } = this.props;
     if (permissionTypes === 'both') return 'view';
     return permissionTypes;
+  };
+
+  // Generate initials from display name
+  private getInitials = (displayName: string): string => {
+    if (!displayName) return '?';
+
+    const words = displayName.split(' ').filter(word => word.length > 0);
+    if (words.length === 1) {
+      return words[0].substring(0, 2).toUpperCase();
+    }
+    return words
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 2);
+  };
+
+  // Get persona color based on name
+  private getPersonaColor = (displayName: string): PersonaInitialsColor => {
+    const colors = [
+      PersonaInitialsColor.lightBlue,
+      PersonaInitialsColor.lightGreen,
+      PersonaInitialsColor.lightPink,
+      PersonaInitialsColor.magenta,
+      PersonaInitialsColor.orange,
+      PersonaInitialsColor.teal,
+      PersonaInitialsColor.violet,
+      PersonaInitialsColor.warmGray,
+    ];
+
+    const hash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
   };
 
   // Handle people picker change with user validation
@@ -174,7 +244,7 @@ export class ManageAccessPanel extends React.Component<
     );
   };
 
-  // Render permission item
+  // Enhanced permission item renderer with proper avatars and GroupViewer
   private renderPermissionItem = (permission: IPermissionPrincipal): React.ReactElement => {
     const { canManagePermissions } = this.props;
     const canRemove = canManagePermissions && permission.canBeRemoved;
@@ -188,17 +258,73 @@ export class ManageAccessPanel extends React.Component<
             verticalAlign='center'
             className='manage-access-permission-info'
           >
-            <Persona
-              size={PersonaSize.size32}
-              text={permission.displayName}
-              secondaryText={permission.email}
-              className='manage-access-permission-persona'
-            />
+            {/* Enhanced avatar display */}
+            <div className='manage-access-permission-persona'>
+              {permission.isSharingLink ? (
+                // Sharing link icon
+                <div className='manage-access-sharing-link-avatar'>
+                  <Icon
+                    iconName={
+                      permission.sharingLinkType === 'anonymous'
+                        ? 'Link'
+                        : permission.sharingLinkType === 'organization'
+                        ? 'People'
+                        : 'Contact'
+                    }
+                  />
+                </div>
+              ) : permission.isGroup ? (
+                // Group with GroupViewer for hover tooltip
+                <GroupViewer
+                  spContext={this.props.spContext}
+                  groupId={parseInt(permission.id)}
+                  groupName={permission.displayName}
+                  displayMode='icon'
+                  size={32}
+                />
+              ) : (
+                // User persona with proper initials and LivePersona
+                <div style={{ position: 'relative' }}>
+                  <Persona
+                    size={PersonaSize.size32}
+                    text={permission.displayName}
+                    secondaryText={permission.email}
+                    initialsColor={this.getPersonaColor(permission.displayName)}
+                    imageInitials={this.getInitials(permission.displayName)}
+                    showInitialsUntilImageLoads={true}
+                  />
+                  {/* Overlay LivePersona for hover functionality */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '32px',
+                      height: '32px',
+                      opacity: 0,
+                      pointerEvents: 'all',
+                    }}
+                  >
+                    <LivePersona
+                      upn={permission.email || permission.displayName}
+                      disableHover={false}
+                      serviceScope={this.props.spContext.serviceScope}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Stack>
               <Text variant='medium'>{permission.displayName}</Text>
               {permission.email && (
                 <Text variant='small' className='manage-access-permission-email'>
                   {permission.email}
+                </Text>
+              )}
+              {permission.inheritedFrom && (
+                <Text variant='xSmall' style={{ color: '#605e5c', fontStyle: 'italic' }}>
+                  via {permission.inheritedFrom}
                 </Text>
               )}
             </Stack>
@@ -230,29 +356,23 @@ export class ManageAccessPanel extends React.Component<
     );
   };
 
-  // Render panel footer
+  // Render panel footer with proper spacing
   private renderPanelFooter = (): React.ReactElement => {
     return (
-      <Stack horizontal horizontalAlign='end'>
-        <DefaultButton text='Done' onClick={this.props.onDismiss} />
-      </Stack>
-    );
-  };
-
-  // Render activity feed panel
-  private renderActivityFeedPanel = (): React.ReactElement => {
-    return (
-      <Panel
-        isOpen={this.props.showActivityFeed}
-        type={PanelType.medium}
-        onDismiss={this.props.onHideActivityFeed}
-        headerText='Recent activity'
-        className='manage-access-activity-panel'
+      <div
+        style={{
+          padding: '16px 24px',
+          borderTop: '1px solid #e1dfdd',
+          backgroundColor: '#ffffff',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 1000,
+        }}
       >
-        <Stack tokens={{ childrenGap: 16 }}>
-          <Text>Activity feed coming soon...</Text>
+        <Stack horizontal horizontalAlign='end'>
+          <DefaultButton text='Done' onClick={this.props.onDismiss} />
         </Stack>
-      </Panel>
+      </div>
     );
   };
 
@@ -285,11 +405,9 @@ export class ManageAccessPanel extends React.Component<
       permissions,
       canManagePermissions,
       permissionTypes,
-      showActivityFeed,
       inlineMessage,
       showInlineMessage,
       onDismiss,
-      onShowActivityFeed,
     } = this.props;
 
     const {
@@ -300,135 +418,227 @@ export class ManageAccessPanel extends React.Component<
       peoplePickerKey,
     } = this.state;
 
+    // Sort permissions: Groups first, then users, then shared users
     const groups = permissions.filter(p => p.isGroup);
-    const users = permissions.filter(p => !p.isGroup);
+    const users = permissions.filter(p => !p.isGroup && !p.isSharingLink && !p.inheritedFrom);
+    const sharedUsers = permissions.filter(p => !p.isGroup && (p.isSharingLink || p.inheritedFrom));
     const showPermissionDropdown = permissionTypes === 'both';
 
     return (
       <>
         <Panel
-          isOpen={isOpen && !showActivityFeed}
+          isOpen={isOpen}
           type={PanelType.medium}
           onDismiss={onDismiss}
           headerText='Manage access'
           className='manage-access-panel'
-          isFooterAtBottom={true}
-          onRenderFooter={this.renderPanelFooter}
+          isFooterAtBottom={false}
+          onRenderFooter={undefined}
+          isBlocking={false}
+          isLightDismiss={true}
+          styles={{
+            main: {
+              zIndex: 1000,
+            },
+            overlay: {
+              zIndex: 999,
+            },
+            content: {
+              padding: 0,
+            },
+            scrollableContent: {
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+            header: {
+              borderBottom: '1px solid #e1dfdd',
+              padding: '16px 24px',
+              position: 'sticky',
+              top: 0,
+              backgroundColor: '#ffffff',
+              zIndex: 1001,
+            },
+            // Enhanced mobile responsiveness
+            root: {
+              '@media (max-width: 768px)': {
+                width: '100vw !important',
+                height: '100vh !important',
+                maxWidth: 'none !important',
+                maxHeight: 'none !important',
+              },
+            },
+          }}
         >
-          <Stack tokens={{ childrenGap: 16 }}>
-            {/* Grant Access Section */}
-            {canManagePermissions && (
-              <Stack tokens={{ childrenGap: 12 }}>
-                <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-                  <Text variant='mediumPlus'>Grant access</Text>
-                </Stack>
+          <div ref={this.panelRef} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Scrollable content area with better mobile padding */}
+            <div
+              style={{
+                flex: 1,
+                padding: window.innerWidth <= 768 ? '16px' : '24px',
+                overflowY: 'auto',
+              }}
+            >
+              <Stack tokens={{ childrenGap: 16 }}>
+                {/* Grant Access Section */}
+                {canManagePermissions && (
+                  <Stack tokens={{ childrenGap: 12 }}>
+                    <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
+                      <Text variant='mediumPlus'>Grant access</Text>
+                    </Stack>
 
-                {/* Inline Message */}
-                {showInlineMessage && inlineMessage && (
-                  <MessageBar
-                    messageBarType={MessageBarType.warning}
-                    isMultiline={false}
-                    className='manage-access-inline-message'
-                  >
-                    {inlineMessage}
-                  </MessageBar>
+                    {/* Inline Message */}
+                    {showInlineMessage && inlineMessage && (
+                      <MessageBar
+                        messageBarType={MessageBarType.warning}
+                        isMultiline={false}
+                        className='manage-access-inline-message'
+                      >
+                        {inlineMessage}
+                      </MessageBar>
+                    )}
+
+                    <Stack tokens={{ childrenGap: 8 }}>
+                      <PeoplePicker
+                        context={this.props.spContext as any}
+                        titleText=''
+                        personSelectionLimit={10}
+                        groupName=''
+                        showtooltip={true}
+                        disabled={false}
+                        onChange={this.onPeoplePickerChange}
+                        showHiddenInUI={false}
+                        principalTypes={[PrincipalType.User, PrincipalType.SharePointGroup]}
+                        resolveDelay={300}
+                        placeholder='Enter names or email addresses'
+                        key={peoplePickerKey}
+                      />
+
+                      {isValidatingUsers && (
+                        <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
+                          <Spinner size={SpinnerSize.xSmall} />
+                          <Text variant='small'>Validating users...</Text>
+                        </Stack>
+                      )}
+
+                      {showPermissionDropdown && (
+                        <Dropdown
+                          placeholder='Select permission level'
+                          options={PermissionLevelOptions.map(option => ({
+                            key: option.key,
+                            text: option.text,
+                            data: { icon: option.iconName },
+                          }))}
+                          selectedKey={selectedPermissionLevel}
+                          onChange={this.onPermissionLevelChange}
+                          onRenderOption={this.renderPermissionOption}
+                          className='manage-access-permission-dropdown'
+                          styles={{
+                            dropdown: {
+                              '@media (max-width: 768px)': {
+                                width: '100%',
+                              },
+                            },
+                          }}
+                        />
+                      )}
+
+                      <Stack
+                        horizontal={window.innerWidth > 768}
+                        tokens={{ childrenGap: 8 }}
+                        styles={{
+                          root: {
+                            '@media (max-width: 768px)': {
+                              flexDirection: 'column',
+                            },
+                          },
+                        }}
+                      >
+                        <PrimaryButton
+                          text={isGrantingAccess ? 'Granting...' : 'Grant access'}
+                          disabled={
+                            selectedUsers.length === 0 || isGrantingAccess || isValidatingUsers
+                          }
+                          onClick={this.onGrantAccessClick}
+                          iconProps={isGrantingAccess ? { iconName: 'Sync' } : { iconName: 'Add' }}
+                          styles={{
+                            root: {
+                              '@media (max-width: 768px)': {
+                                width: '100%',
+                              },
+                            },
+                          }}
+                        />
+                        {/* Done button moved here - only show when granting access */}
+                        {!isGrantingAccess && !isValidatingUsers && (
+                          <DefaultButton
+                            text='Done'
+                            onClick={this.props.onDismiss}
+                            styles={{
+                              root: {
+                                '@media (max-width: 768px)': {
+                                  width: '100%',
+                                },
+                              },
+                            }}
+                          />
+                        )}
+                      </Stack>
+                    </Stack>
+
+                    <Separator />
+                  </Stack>
                 )}
 
-                <Stack tokens={{ childrenGap: 8 }}>
-                  <PeoplePicker
-                    context={this.props.spContext as any}
-                    titleText=''
-                    personSelectionLimit={10}
-                    groupName=''
-                    showtooltip={true}
-                    disabled={false}
-                    onChange={this.onPeoplePickerChange}
-                    showHiddenInUI={false}
-                    principalTypes={[PrincipalType.User, PrincipalType.SharePointGroup]}
-                    resolveDelay={300}
-                    placeholder='Enter names or email addresses'
-                    key={peoplePickerKey}
-                  />
+                {/* Current Permissions Section */}
+                <Stack tokens={{ childrenGap: 16 }}>
+                  <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
+                    <Text variant='mediumPlus'>People with access</Text>
+                  </Stack>
 
-                  {isValidatingUsers && (
-                    <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-                      <Spinner size={SpinnerSize.xSmall} />
-                      <Text variant='small'>Validating users...</Text>
+                  {/* Groups Section - First */}
+                  {groups.length > 0 && (
+                    <Stack tokens={{ childrenGap: 8 }}>
+                      <Text variant='medium' className='manage-access-section-header'>
+                        Groups ({groups.length})
+                      </Text>
+                      {groups.map(this.renderPermissionItem)}
                     </Stack>
                   )}
 
-                  {showPermissionDropdown && (
-                    <Dropdown
-                      placeholder='Select permission level'
-                      options={PermissionLevelOptions.map(option => ({
-                        key: option.key,
-                        text: option.text,
-                        data: { icon: option.iconName },
-                      }))}
-                      selectedKey={selectedPermissionLevel}
-                      onChange={this.onPermissionLevelChange}
-                      onRenderOption={this.renderPermissionOption}
-                      className='manage-access-permission-dropdown'
-                    />
+                  {/* Users Section - Second */}
+                  {users.length > 0 && (
+                    <Stack tokens={{ childrenGap: 8 }}>
+                      <Text variant='medium' className='manage-access-section-header'>
+                        Users ({users.length})
+                      </Text>
+                      {users.map(this.renderPermissionItem)}
+                    </Stack>
                   )}
 
-                  <Stack horizontal tokens={{ childrenGap: 8 }}>
-                    <PrimaryButton
-                      text={isGrantingAccess ? 'Granting...' : 'Grant access'}
-                      disabled={selectedUsers.length === 0 || isGrantingAccess || isValidatingUsers}
-                      onClick={this.onGrantAccessClick}
-                      iconProps={isGrantingAccess ? { iconName: 'Sync' } : { iconName: 'Add' }}
-                    />
-                  </Stack>
-                </Stack>
+                  {/* Shared Users Section - Third */}
+                  {sharedUsers.length > 0 && (
+                    <Stack tokens={{ childrenGap: 8 }}>
+                      <Text variant='medium' className='manage-access-section-header'>
+                        Shared ({sharedUsers.length})
+                      </Text>
+                      {sharedUsers.map(this.renderPermissionItem)}
+                    </Stack>
+                  )}
 
-                <Separator />
+                  {permissions.length === 0 && (
+                    <Text variant='medium' className='manage-access-no-permissions'>
+                      No permissions found
+                    </Text>
+                  )}
+                </Stack>
               </Stack>
-            )}
+            </div>
 
-            {/* Current Permissions Section */}
-            <Stack tokens={{ childrenGap: 16 }}>
-              <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-                <Text variant='mediumPlus'>People with access</Text>
-                {canManagePermissions && (
-                  <Link onClick={onShowActivityFeed}>
-                    <Icon iconName='History' style={{ marginRight: 4 }} />
-                    Activity
-                  </Link>
-                )}
-              </Stack>
-
-              {/* Groups Section */}
-              {groups.length > 0 && (
-                <Stack tokens={{ childrenGap: 8 }}>
-                  <Text variant='medium' className='manage-access-section-header'>
-                    Groups ({groups.length})
-                  </Text>
-                  {groups.map(this.renderPermissionItem)}
-                </Stack>
-              )}
-
-              {/* Users Section */}
-              {users.length > 0 && (
-                <Stack tokens={{ childrenGap: 8 }}>
-                  <Text variant='medium' className='manage-access-section-header'>
-                    Users ({users.length})
-                  </Text>
-                  {users.map(this.renderPermissionItem)}
-                </Stack>
-              )}
-
-              {permissions.length === 0 && (
-                <Text variant='medium' className='manage-access-no-permissions'>
-                  No permissions found
-                </Text>
-              )}
-            </Stack>
-          </Stack>
+            {/* Fixed footer - only for non-management users or at the very end */}
+            {!canManagePermissions && this.renderPanelFooter()}
+          </div>
         </Panel>
-
-        {/* Activity Feed Panel */}
-        {this.renderActivityFeedPanel()}
 
         {/* Remove Confirmation Dialog */}
         {this.renderRemoveDialog()}

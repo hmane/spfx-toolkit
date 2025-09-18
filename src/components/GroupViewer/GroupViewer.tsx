@@ -1,21 +1,21 @@
+import * as React from 'react';
 import {
+  TooltipHost,
   DirectionalHint,
-  Icon,
-  Spinner,
-  SpinnerSize,
   Stack,
   Text,
-  TooltipHost,
+  Spinner,
+  SpinnerSize,
+  Icon,
 } from '@fluentui/react';
-import { Caching } from '@pnp/queryable';
+import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import { spfi, SPFx } from '@pnp/sp';
+import { Caching } from '@pnp/queryable';
 import '@pnp/sp/site-groups';
 import '@pnp/sp/site-users';
 import '@pnp/sp/webs';
-import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
-import * as React from 'react';
+import { IGroupViewerProps, IGroupMember, IGroupInfo, GroupViewerDefaultSettings } from './types';
 import './GroupViewer.css';
-import { GroupViewerDefaultSettings, IGroupInfo, IGroupMember, IGroupViewerProps } from './types';
 
 export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const {
@@ -41,6 +41,85 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     return spfi().using(SPFx(spContext));
   }, [spContext]);
 
+  // Enhanced system account detection (matching ManageAccess logic)
+  const isSystemAccount = React.useCallback((user: any): boolean => {
+    if (!user || (!user.Title && !user.LoginName)) return false;
+
+    const systemPatterns = [
+      // Standard system accounts
+      'System Account',
+      'SharePoint App',
+      'SHAREPOINT\\system',
+      'app@sharepoint',
+      'SYSTEM',
+
+      // Service accounts
+      'Everyone',
+      'NT AUTHORITY',
+      'BUILTIN\\',
+
+      // Claims-based system identities
+      'c:0(.s|true',
+      'c:0-.f|rolemanager|',
+      'c:0-.t|',
+      'c:0!.s|windows',
+
+      // SharePoint service accounts
+      's-1-0-0',
+      'sharepoint\\',
+
+      // Search and indexing accounts
+      'Search',
+      'Crawl',
+      'MySite',
+
+      // Anonymous and guest accounts
+      'Anonymous',
+      'Guest',
+
+      // App-only tokens
+      'app@local',
+      'app@',
+    ];
+
+    const title = (user.Title || '').toLowerCase().trim();
+    const loginName = (user.LoginName || '').toLowerCase().trim();
+    const email = (user.Email || '').toLowerCase().trim();
+
+    // Check against system patterns
+    const isSystemPattern = systemPatterns.some(pattern => {
+      const lowerPattern = pattern.toLowerCase();
+      return (
+        title.includes(lowerPattern) ||
+        loginName.includes(lowerPattern) ||
+        email.includes(lowerPattern)
+      );
+    });
+
+    // Additional checks for specific system account characteristics
+    const isSystemByCharacteristics =
+      // No email and suspicious login name
+      (!user.Email && loginName.startsWith('c:0')) ||
+      // System-like ID patterns
+      loginName.includes('|rolemanager|') ||
+      loginName.includes('|membership|') ||
+      // Hidden or deleted users
+      title.startsWith('_') ||
+      // App-only principals
+      (loginName.includes('@') && loginName.includes('app'));
+
+    return isSystemPattern || isSystemByCharacteristics;
+  }, []);
+
+  // Check if member is the current group itself (nested group reference)
+  const isCurrentGroup = React.useCallback((user: any, currentGroupName: string): boolean => {
+    return (
+      user.Title === currentGroupName ||
+      user.LoginName === currentGroupName ||
+      (user.PrincipalType === 8 && user.Title === currentGroupName)
+    );
+  }, []);
+
   // Cleanup timeout on unmount
   React.useEffect(() => {
     return () => {
@@ -50,7 +129,106 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     };
   }, [loadTimeout]);
 
-  // Load group data with caching
+  // Enhanced system account detection with more specific patterns
+  const checkIfSystemAccount = React.useCallback((user: any): boolean => {
+    if (!user || (!user.Title && !user.LoginName)) {
+      console.log('GroupViewer: User has no Title or LoginName:', user);
+      return true; // Filter out incomplete user objects
+    }
+
+    const systemPatterns = [
+      // Standard system accounts - be more specific
+      'System Account',
+      'SharePoint App',
+      'SHAREPOINT\\system',
+      'app@sharepoint',
+
+      // Service accounts - be more specific
+      'NT AUTHORITY\\',
+      'BUILTIN\\',
+
+      // Claims-based system identities - be more specific
+      'c:0(.s|true',
+      'c:0-.f|rolemanager|',
+      'c:0!.s|windows',
+
+      // SharePoint service accounts
+      'sharepoint\\system',
+
+      // Search and indexing accounts
+      'Search Service',
+      'Crawl Account',
+
+      // App-only tokens
+      'app@local',
+    ];
+
+    const title = (user.Title || '').toLowerCase().trim();
+    const loginName = (user.LoginName || '').toLowerCase().trim();
+    const email = (user.Email || '').toLowerCase().trim();
+
+    // Check against system patterns - be more specific in matching
+    const isSystemPattern = systemPatterns.some(pattern => {
+      const lowerPattern = pattern.toLowerCase();
+      // Use exact matches or starts with for more precision
+      return (
+        title === lowerPattern ||
+        title.startsWith(lowerPattern) ||
+        loginName === lowerPattern ||
+        loginName.startsWith(lowerPattern) ||
+        (email && email.startsWith(lowerPattern))
+      );
+    });
+
+    // More specific system account characteristics
+    const isSystemByCharacteristics =
+      // Very specific suspicious login patterns
+      loginName.startsWith('c:0-.f|rolemanager|') ||
+      loginName.startsWith('c:0!.s|windows') ||
+      // Hidden or deleted users (starting with underscore)
+      title.startsWith('_') ||
+      // Very specific app patterns
+      (loginName.includes('app@') && loginName.includes('.local'));
+
+    const result = isSystemPattern || isSystemByCharacteristics;
+
+    if (result) {
+      console.log(
+        `GroupViewer: Identified system account - Title: "${user.Title}", LoginName: "${user.LoginName}", Email: "${user.Email}"`
+      );
+    }
+
+    return result;
+  }, []);
+
+  // Check if member is the current group itself (nested group reference)
+  const checkIfCurrentGroup = React.useCallback((user: any, currentGroupName: string): boolean => {
+    if (!user || !user.Title || !currentGroupName) return false;
+
+    const result =
+      user.Title === currentGroupName ||
+      user.LoginName === currentGroupName ||
+      (user.PrincipalType === 8 && user.Title === currentGroupName);
+
+    if (result) {
+      console.log(
+        `GroupViewer: Identified self-reference - Title: "${user.Title}", Current Group: "${currentGroupName}"`
+      );
+    }
+
+    return result;
+  }, []);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (loadTimeout) {
+        clearTimeout(loadTimeout);
+      }
+    };
+  }, [loadTimeout]);
+
+  // Load group data with caching and proper filtering
   const loadGroupData = async (): Promise<void> => {
     if (members.length > 0) return; // Already loaded
 
@@ -68,7 +246,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       }
 
       // Load group info and members in parallel with caching
-      const [groupData, usersData] = await Promise.all([
+      const [groupData, usersResponse] = await Promise.all([
         // Group info with 15 minutes cache
         group.select('Id', 'Title', 'Description', 'LoginName').using(
           Caching({
@@ -87,9 +265,57 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
           })
         )(),
       ]);
+      debugger;
+      // Ensure usersResponse is an array
+      const usersData = Array.isArray(usersResponse) ? usersResponse : [];
+
+      console.log(`GroupViewer: Raw API response for "${groupName}":`, usersResponse);
+      console.log(`GroupViewer: Users array length: ${usersData.length}`);
+
+      // Log all users before filtering
+      usersData.forEach((user, index) => {
+        console.log(`GroupViewer: User ${index + 1}:`, {
+          Title: user.Title,
+          LoginName: user.LoginName,
+          Email: user.Email,
+          PrincipalType: user.PrincipalType,
+          Id: user.Id,
+        });
+      });
+
+      const currentGroupName = groupData.Title || groupName;
+      console.log(`GroupViewer: Current group name: "${currentGroupName}"`);
+
+      // Filter out system accounts AND the current group itself
+      const filteredMembers = usersData.filter((user: any, index: number) => {
+        try {
+          const isSystem = checkIfSystemAccount(user);
+          const isSelfReference = checkIfCurrentGroup(user, currentGroupName);
+          const shouldKeep = !isSystem && !isSelfReference;
+
+          console.log(
+            `GroupViewer: User ${index + 1} "${
+              user.Title
+            }" - System: ${isSystem}, SelfRef: ${isSelfReference}, Keep: ${shouldKeep}`
+          );
+
+          return shouldKeep;
+        } catch (filterError) {
+          console.warn('GroupViewer: Error filtering user:', user, filterError);
+          return false; // Filter out problematic entries
+        }
+      });
+
+      console.log(`GroupViewer: Final results for "${currentGroupName}"`);
+      console.log(`- Total members from API: ${usersData.length}`);
+      console.log(`- After filtering: ${filteredMembers.length}`);
+      console.log(
+        `- Kept users:`,
+        filteredMembers.map(u => u.Title)
+      );
 
       setGroupInfo(groupData as IGroupInfo);
-      setMembers(usersData as IGroupMember[]);
+      setMembers(filteredMembers as IGroupMember[]);
     } catch (err) {
       console.error('Error loading group data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load group data');

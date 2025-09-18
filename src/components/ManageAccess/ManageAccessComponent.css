@@ -387,3 +387,25 @@
     color: #c8c6c4;
   }
 }
+
+/* Sharing Link Avatar Styles */
+.manage-access-sharing-link-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #0078d4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.manage-access-sharing-link-avatar:hover {
+  transform: scale(1.05);
+}
+
+.manage-access-sharing-link-avatar i {
+  font-size: 12px;
+}
