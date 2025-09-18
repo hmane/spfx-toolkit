@@ -41,77 +41,74 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     return spfi().using(SPFx(spContext));
   }, [spContext]);
 
-  // Enhanced system account detection (matching ManageAccess logic)
+  // Enhanced system account detection - Less aggressive filtering
   const isSystemAccount = React.useCallback((user: any): boolean => {
-    if (!user || (!user.Title && !user.LoginName)) return false;
+    if (!user || (!user.Title && !user.LoginName)) return true;
 
+    // More specific system patterns to avoid false positives
     const systemPatterns = [
-      // Standard system accounts
+      // Standard system accounts - exact matches
       'System Account',
       'SharePoint App',
       'SHAREPOINT\\system',
       'app@sharepoint',
-      'SYSTEM',
 
-      // Service accounts
-      'Everyone',
-      'NT AUTHORITY',
+      // Service accounts - more specific
+      'NT AUTHORITY\\SYSTEM',
+      'NT AUTHORITY\\LOCAL SERVICE',
+      'NT AUTHORITY\\NETWORK SERVICE',
       'BUILTIN\\',
 
-      // Claims-based system identities
+      // Claims-based system identities - more specific
       'c:0(.s|true',
-      'c:0-.f|rolemanager|',
-      'c:0-.t|',
+      'c:0-.f|rolemanager|spo-grid',
       'c:0!.s|windows',
 
-      // SharePoint service accounts
-      's-1-0-0',
-      'sharepoint\\',
-
-      // Search and indexing accounts
-      'Search',
-      'Crawl',
-      'MySite',
-
-      // Anonymous and guest accounts
-      'Anonymous',
-      'Guest',
-
-      // App-only tokens
+      // SharePoint service accounts - specific
+      'sharepoint\\system',
       'app@local',
-      'app@',
     ];
 
     const title = (user.Title || '').toLowerCase().trim();
     const loginName = (user.LoginName || '').toLowerCase().trim();
     const email = (user.Email || '').toLowerCase().trim();
 
-    // Check against system patterns
+    // Use more specific matching to avoid false positives
     const isSystemPattern = systemPatterns.some(pattern => {
       const lowerPattern = pattern.toLowerCase();
       return (
-        title.includes(lowerPattern) ||
-        loginName.includes(lowerPattern) ||
-        email.includes(lowerPattern)
+        title === lowerPattern ||
+        loginName === lowerPattern ||
+        loginName.startsWith(lowerPattern) ||
+        (email && email === lowerPattern)
       );
     });
 
-    // Additional checks for specific system account characteristics
+    // More specific system account characteristics
     const isSystemByCharacteristics =
-      // No email and suspicious login name
-      (!user.Email && loginName.startsWith('c:0')) ||
-      // System-like ID patterns
-      loginName.includes('|rolemanager|') ||
-      loginName.includes('|membership|') ||
-      // Hidden or deleted users
-      title.startsWith('_') ||
-      // App-only principals
-      (loginName.includes('@') && loginName.includes('app'));
+      // Very specific suspicious login patterns
+      loginName.startsWith('c:0-.f|rolemanager|spo-grid') ||
+      loginName.startsWith('c:0!.s|windows') ||
+      // App-only principals - be more specific
+      (loginName.includes('app@') && loginName.endsWith('.local'));
 
-    return isSystemPattern || isSystemByCharacteristics;
+    const result = isSystemPattern || isSystemByCharacteristics;
+
+    // Debug logging for troubleshooting
+    if (result) {
+      console.log(
+        `GroupViewer: Filtered system account - Title: "${user.Title}", LoginName: "${user.LoginName}"`
+      );
+    } else {
+      console.log(
+        `GroupViewer: Keeping user - Title: "${user.Title}", LoginName: "${user.LoginName}", Email: "${user.Email}"`
+      );
+    }
+
+    return result;
   }, []);
 
-  // Check if member is the current group itself (nested group reference)
+  // Check if member is the current group itself
   const isCurrentGroup = React.useCallback((user: any, currentGroupName: string): boolean => {
     return (
       user.Title === currentGroupName ||
@@ -129,106 +126,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     };
   }, [loadTimeout]);
 
-  // Enhanced system account detection with more specific patterns
-  const checkIfSystemAccount = React.useCallback((user: any): boolean => {
-    if (!user || (!user.Title && !user.LoginName)) {
-      console.log('GroupViewer: User has no Title or LoginName:', user);
-      return true; // Filter out incomplete user objects
-    }
-
-    const systemPatterns = [
-      // Standard system accounts - be more specific
-      'System Account',
-      'SharePoint App',
-      'SHAREPOINT\\system',
-      'app@sharepoint',
-
-      // Service accounts - be more specific
-      'NT AUTHORITY\\',
-      'BUILTIN\\',
-
-      // Claims-based system identities - be more specific
-      'c:0(.s|true',
-      'c:0-.f|rolemanager|',
-      'c:0!.s|windows',
-
-      // SharePoint service accounts
-      'sharepoint\\system',
-
-      // Search and indexing accounts
-      'Search Service',
-      'Crawl Account',
-
-      // App-only tokens
-      'app@local',
-    ];
-
-    const title = (user.Title || '').toLowerCase().trim();
-    const loginName = (user.LoginName || '').toLowerCase().trim();
-    const email = (user.Email || '').toLowerCase().trim();
-
-    // Check against system patterns - be more specific in matching
-    const isSystemPattern = systemPatterns.some(pattern => {
-      const lowerPattern = pattern.toLowerCase();
-      // Use exact matches or starts with for more precision
-      return (
-        title === lowerPattern ||
-        title.startsWith(lowerPattern) ||
-        loginName === lowerPattern ||
-        loginName.startsWith(lowerPattern) ||
-        (email && email.startsWith(lowerPattern))
-      );
-    });
-
-    // More specific system account characteristics
-    const isSystemByCharacteristics =
-      // Very specific suspicious login patterns
-      loginName.startsWith('c:0-.f|rolemanager|') ||
-      loginName.startsWith('c:0!.s|windows') ||
-      // Hidden or deleted users (starting with underscore)
-      title.startsWith('_') ||
-      // Very specific app patterns
-      (loginName.includes('app@') && loginName.includes('.local'));
-
-    const result = isSystemPattern || isSystemByCharacteristics;
-
-    if (result) {
-      console.log(
-        `GroupViewer: Identified system account - Title: "${user.Title}", LoginName: "${user.LoginName}", Email: "${user.Email}"`
-      );
-    }
-
-    return result;
-  }, []);
-
-  // Check if member is the current group itself (nested group reference)
-  const checkIfCurrentGroup = React.useCallback((user: any, currentGroupName: string): boolean => {
-    if (!user || !user.Title || !currentGroupName) return false;
-
-    const result =
-      user.Title === currentGroupName ||
-      user.LoginName === currentGroupName ||
-      (user.PrincipalType === 8 && user.Title === currentGroupName);
-
-    if (result) {
-      console.log(
-        `GroupViewer: Identified self-reference - Title: "${user.Title}", Current Group: "${currentGroupName}"`
-      );
-    }
-
-    return result;
-  }, []);
-
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (loadTimeout) {
-        clearTimeout(loadTimeout);
-      }
-    };
-  }, [loadTimeout]);
-
-  // Load group data with caching and proper filtering
+  // Load group data with enhanced caching
   const loadGroupData = async (): Promise<void> => {
     if (members.length > 0) return; // Already loaded
 
@@ -247,7 +145,6 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
       // Load group info and members in parallel with caching
       const [groupData, usersResponse] = await Promise.all([
-        // Group info with 15 minutes cache
         group.select('Id', 'Title', 'Description', 'LoginName').using(
           Caching({
             store: 'session',
@@ -256,7 +153,6 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
           })
         )(),
 
-        // Group members with 5 minutes cache
         group.users.using(
           Caching({
             store: 'session',
@@ -265,57 +161,74 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
           })
         )(),
       ]);
-      debugger;
-      // Ensure usersResponse is an array
+
       const usersData = Array.isArray(usersResponse) ? usersResponse : [];
-
-      console.log(`GroupViewer: Raw API response for "${groupName}":`, usersResponse);
-      console.log(`GroupViewer: Users array length: ${usersData.length}`);
-
-      // Log all users before filtering
-      usersData.forEach((user, index) => {
-        console.log(`GroupViewer: User ${index + 1}:`, {
-          Title: user.Title,
-          LoginName: user.LoginName,
-          Email: user.Email,
-          PrincipalType: user.PrincipalType,
-          Id: user.Id,
-        });
-      });
-
       const currentGroupName = groupData.Title || groupName;
-      console.log(`GroupViewer: Current group name: "${currentGroupName}"`);
 
-      // Filter out system accounts AND the current group itself
+      console.log(
+        `GroupViewer: Processing group "${currentGroupName}" with ${usersData.length} raw members`
+      );
+
+      // Filter out system accounts and self-references with detailed logging
       const filteredMembers = usersData.filter((user: any, index: number) => {
         try {
-          const isSystem = checkIfSystemAccount(user);
-          const isSelfReference = checkIfCurrentGroup(user, currentGroupName);
+          console.log(`GroupViewer: Checking user ${index + 1}:`, {
+            Title: user.Title,
+            LoginName: user.LoginName,
+            Email: user.Email,
+            PrincipalType: user.PrincipalType,
+          });
+
+          const isSystem = isSystemAccount(user);
+          const isSelfReference = isCurrentGroup(user, currentGroupName);
           const shouldKeep = !isSystem && !isSelfReference;
 
           console.log(
-            `GroupViewer: User ${index + 1} "${
-              user.Title
-            }" - System: ${isSystem}, SelfRef: ${isSelfReference}, Keep: ${shouldKeep}`
+            `GroupViewer: User "${user.Title}" - System: ${isSystem}, SelfRef: ${isSelfReference}, Keep: ${shouldKeep}`
           );
 
           return shouldKeep;
         } catch (filterError) {
           console.warn('GroupViewer: Error filtering user:', user, filterError);
-          return false; // Filter out problematic entries
+          return false;
         }
       });
 
-      console.log(`GroupViewer: Final results for "${currentGroupName}"`);
-      console.log(`- Total members from API: ${usersData.length}`);
-      console.log(`- After filtering: ${filteredMembers.length}`);
       console.log(
-        `- Kept users:`,
+        `GroupViewer: Final results - Kept ${filteredMembers.length} out of ${usersData.length} members`
+      );
+      console.log(
+        'GroupViewer: Kept members:',
         filteredMembers.map(u => u.Title)
       );
 
+      // Fallback: if no members after filtering but we have raw data, show a less filtered version
+      let finalMembers = filteredMembers;
+      if (filteredMembers.length === 0 && usersData.length > 0) {
+        console.log('GroupViewer: No members after filtering, trying less aggressive filtering...');
+
+        // Less aggressive filtering - only filter out obvious system accounts
+        finalMembers = usersData.filter((user: any) => {
+          const title = (user.Title || '').toLowerCase();
+          const loginName = (user.LoginName || '').toLowerCase();
+
+          // Only filter out very obvious system accounts
+          const isObviousSystem =
+            title === 'system account' ||
+            title === 'sharepoint app' ||
+            loginName.includes('sharepoint\\system') ||
+            loginName.includes('app@sharepoint');
+
+          const isSelfReference = isCurrentGroup(user, currentGroupName);
+
+          return !isObviousSystem && !isSelfReference;
+        });
+
+        console.log(`GroupViewer: Less aggressive filtering kept ${finalMembers.length} members`);
+      }
+
       setGroupInfo(groupData as IGroupInfo);
-      setMembers(filteredMembers as IGroupMember[]);
+      setMembers(finalMembers as IGroupMember[]);
     } catch (err) {
       console.error('Error loading group data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load group data');
@@ -346,14 +259,21 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     }
   };
 
-  // Render tooltip content
+  // Enhanced tooltip content renderer
   const renderTooltipContent = (): React.ReactElement => {
     if (isLoading) {
       return (
         <div className='group-viewer-tooltip loading'>
-          <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-            <Spinner size={SpinnerSize.xSmall} />
-            <Text variant='small'>Loading group members...</Text>
+          <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
+            <Spinner size={SpinnerSize.small} />
+            <Stack>
+              <Text variant='medium' style={{ fontWeight: 600 }}>
+                Loading {groupName}
+              </Text>
+              <Text variant='small' style={{ color: '#605e5c' }}>
+                Fetching group members...
+              </Text>
+            </Stack>
           </Stack>
         </div>
       );
@@ -362,15 +282,15 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     if (error) {
       return (
         <div className='group-viewer-tooltip error'>
-          <Stack tokens={{ childrenGap: 8 }}>
-            <Stack horizontal tokens={{ childrenGap: 4 }} verticalAlign='center'>
-              <Icon iconName='Error' style={{ color: '#d13438' }} />
-              <Text variant='medium' style={{ fontWeight: 600 }}>
+          <Stack tokens={{ childrenGap: 12 }}>
+            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
+              <Icon iconName='Error' style={{ color: '#d13438', fontSize: 20 }} />
+              <Text variant='medium' className='group-viewer-member-name'>
                 {groupInfo?.Title || groupName}
               </Text>
             </Stack>
-            <Text variant='small' style={{ color: '#d13438' }}>
-              {error}
+            <Text variant='small' style={{ color: '#d13438', lineHeight: 1.4 }}>
+              {error.includes('404') ? 'Group not found or access denied' : error}
             </Text>
           </Stack>
         </div>
@@ -380,12 +300,12 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     if (members.length === 0) {
       return (
         <div className='group-viewer-tooltip empty'>
-          <Stack tokens={{ childrenGap: 8 }}>
-            <Text variant='medium' style={{ fontWeight: 600 }}>
+          <Stack tokens={{ childrenGap: 12 }}>
+            <Text variant='medium' className='group-viewer-member-name'>
               {groupInfo?.Title || groupName}
             </Text>
-            <Text variant='small' style={{ fontStyle: 'italic', color: '#605e5c' }}>
-              No members found
+            <Text variant='small' className='group-viewer-member-type'>
+              This group has no visible members or you may not have permission to view them
             </Text>
           </Stack>
         </div>
@@ -397,35 +317,42 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
     return (
       <div className='group-viewer-tooltip'>
-        <Stack tokens={{ childrenGap: 12 }}>
-          {/* Header */}
-          <Stack tokens={{ childrenGap: 4 }}>
-            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-              <Icon iconName={iconName} style={{ color: '#0078d4' }} />
-              <Text variant='medium' style={{ fontWeight: 600 }}>
-                {groupInfo?.Title || groupName}
-              </Text>
-            </Stack>
-            <Text variant='small' style={{ color: '#605e5c' }}>
-              {members.length} {members.length === 1 ? 'member' : 'members'}
-            </Text>
-            {groupInfo?.Description && (
-              <Text variant='small' style={{ color: '#605e5c', fontStyle: 'italic' }}>
-                {groupInfo.Description}
-              </Text>
-            )}
-          </Stack>
+        {/* Enhanced Header */}
+        <div className='group-viewer-tooltip-header'>
+          <div className='group-viewer-title'>
+            <Icon
+              iconName={iconName}
+              styles={{
+                root: {
+                  fontSize: 20,
+                  color: '#0078d4',
+                  flexShrink: 0,
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+              }}
+            />
+            <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
+          </div>
+          <div className='group-viewer-subtitle'>
+            {members.length} {members.length === 1 ? 'member' : 'members'}
+          </div>
+          {groupInfo?.Description && (
+            <div className='group-viewer-description'>{groupInfo.Description}</div>
+          )}
+        </div>
 
-          {/* Users Section */}
-          {users.length > 0 && (
-            <Stack tokens={{ childrenGap: 8 }}>
-              <Text variant='small' style={{ fontWeight: 600, color: '#323130' }}>
-                Users ({users.length})
-              </Text>
-              <Stack tokens={{ childrenGap: 6 }}>
+        {/* Content */}
+        <div style={{ padding: '16px 20px' }}>
+          <Stack tokens={{ childrenGap: 16 }}>
+            {/* Users Section - Remove redundant header */}
+            {users.length > 0 && (
+              <Stack tokens={{ childrenGap: 8 }}>
                 {users.map(user => (
                   <div key={user.Id} className='group-viewer-member-item'>
-                    <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
+                    <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
                       <div className='group-viewer-live-persona-small'>
                         <LivePersona
                           upn={user.Email || user.Title}
@@ -433,64 +360,96 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                           serviceScope={spContext.serviceScope}
                         />
                       </div>
-                      <Stack>
-                        <Text variant='small' style={{ fontWeight: 500 }}>
-                          {user.Title}
-                        </Text>
+                      <Stack style={{ flex: 1, minWidth: 0 }}>
+                        <Text className='group-viewer-member-name'>{user.Title}</Text>
                         {user.Email && (
-                          <Text variant='xSmall' style={{ color: '#605e5c' }}>
-                            {user.Email}
-                          </Text>
+                          <Text className='group-viewer-member-email'>{user.Email}</Text>
                         )}
                       </Stack>
                     </Stack>
                   </div>
                 ))}
               </Stack>
-            </Stack>
-          )}
+            )}
 
-          {/* Nested Groups Section */}
-          {nestedGroups.length > 0 && (
-            <Stack tokens={{ childrenGap: 8 }}>
-              <Text variant='small' style={{ fontWeight: 600, color: '#323130' }}>
-                Groups ({nestedGroups.length})
-              </Text>
-              <Stack tokens={{ childrenGap: 6 }}>
-                {nestedGroups.map(group => (
-                  <div key={group.Id} className='group-viewer-member-item'>
-                    <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-                      <div className='group-viewer-nested-group-icon'>
-                        <Icon iconName='Group' />
-                      </div>
-                      <Stack>
-                        <Text variant='small' style={{ fontWeight: 500 }}>
-                          {group.Title}
-                        </Text>
-                        <Text variant='xSmall' style={{ color: '#605e5c', fontStyle: 'italic' }}>
-                          SharePoint Group
-                        </Text>
+            {/* Nested Groups Section - Only show header if there are nested groups */}
+            {nestedGroups.length > 0 && (
+              <Stack tokens={{ childrenGap: 12 }}>
+                {users.length > 0 && (
+                  <div className='group-viewer-section-header'>Groups ({nestedGroups.length})</div>
+                )}
+                <Stack tokens={{ childrenGap: 8 }}>
+                  {nestedGroups.map(group => (
+                    <div key={group.Id} className='group-viewer-member-item'>
+                      <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
+                        <div className='group-viewer-nested-group-icon'>
+                          <Icon
+                            iconName='Group'
+                            styles={{
+                              root: {
+                                fontSize: 13,
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                height: '100%',
+                                margin: 0,
+                                padding: 0,
+                                lineHeight: 1,
+                              },
+                            }}
+                          />
+                        </div>
+                        <Stack style={{ flex: 1, minWidth: 0 }}>
+                          <Text className='group-viewer-member-name'>{group.Title}</Text>
+                          <Text className='group-viewer-member-type'>SharePoint Group</Text>
+                        </Stack>
                       </Stack>
-                    </Stack>
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </Stack>
               </Stack>
-            </Stack>
-          )}
-        </Stack>
+            )}
+          </Stack>
+        </div>
       </div>
     );
   };
 
-  // Render display content based on display mode
+  // Enhanced display content renderer with proper icon centering
   const renderDisplayContent = (): React.ReactElement => {
-    const iconSize = Math.max(12, size * 0.4);
+    // Make icon size proportional to container size (40-50% of container size)
+    const iconSize = Math.max(12, Math.round(size * 0.45));
+    const fontSize = Math.max(12, size * 0.35);
 
     switch (displayMode) {
       case 'icon':
         return (
-          <div className='group-viewer-icon-only' style={{ fontSize: iconSize }}>
-            <Icon iconName={iconName} />
+          <div
+            className='group-viewer-icon-only'
+            style={{
+              width: size,
+              height: size,
+            }}
+          >
+            <Icon
+              iconName={iconName}
+              styles={{
+                root: {
+                  fontSize: iconSize,
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%',
+                  margin: 0,
+                  padding: 0,
+                  lineHeight: 1,
+                },
+              }}
+            />
           </div>
         );
 
@@ -500,7 +459,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
             variant='small'
             className='group-viewer-name-only'
             style={{
-              fontSize: Math.max(12, size * 0.3),
+              fontSize: fontSize,
               lineHeight: `${size}px`,
             }}
             nowrap
@@ -512,12 +471,21 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       case 'iconAndName':
       default:
         return (
-          <Stack horizontal tokens={{ childrenGap: 4 }} verticalAlign='center'>
-            <Icon iconName={iconName} style={{ fontSize: iconSize }} />
+          <Stack horizontal tokens={{ childrenGap: 6 }} verticalAlign='center'>
+            <Icon
+              iconName={iconName}
+              styles={{
+                root: {
+                  fontSize: iconSize,
+                  color: 'inherit',
+                  lineHeight: 1,
+                },
+              }}
+            />
             <Text
               variant='small'
               className='group-viewer-name-with-icon'
-              style={{ fontSize: Math.max(12, size * 0.3) }}
+              style={{ fontSize: fontSize }}
               nowrap
             >
               {groupName}
@@ -527,25 +495,23 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     }
   };
 
-  // Container styles
+  // Enhanced container styles
   const containerStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     cursor: onClick ? 'pointer' : 'default',
     color: 'inherit',
-    transition: 'opacity 0.2s ease',
     minHeight: size,
+    borderRadius: displayMode === 'icon' ? '50%' : '4px',
+    padding: displayMode === 'icon' ? 0 : '2px 4px',
     ...(displayMode === 'icon' && {
       width: size,
       height: size,
-      borderRadius: '50%',
-      backgroundColor: '#0078d4',
       justifyContent: 'center',
-      color: '#ffffff',
     }),
   };
 
-  // Main render
+  // Main render with enhanced tooltip
   return (
     <TooltipHost
       content={renderTooltipContent()}
@@ -566,15 +532,16 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       tooltipProps={{
         styles: {
           root: {
-            maxWidth: 350,
+            maxWidth: 380,
             padding: 0,
+            filter: 'drop-shadow(0 8px 32px rgba(0, 0, 0, 0.12))',
           },
           content: {
-            padding: 16,
-            background: '#ffffff',
-            border: '1px solid #e1dfdd',
-            borderRadius: 4,
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+            padding: 0,
+            background: 'transparent',
+            border: 'none',
+            borderRadius: 8,
+            boxShadow: 'none',
           },
         },
       }}
@@ -583,12 +550,15 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         className={`group-viewer ${className}`}
         style={containerStyle}
         onClick={handleClick}
-        onMouseEnter={e => {
-          e.currentTarget.style.opacity = '0.8';
+        onKeyDown={e => {
+          if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+            e.preventDefault();
+            handleClick();
+          }
         }}
-        onMouseLeave={e => {
-          e.currentTarget.style.opacity = '1';
-        }}
+        tabIndex={onClick ? 0 : -1}
+        role={onClick ? 'button' : 'text'}
+        aria-label={`${groupName} group${onClick ? ', click to open' : ''}`}
       >
         {renderDisplayContent()}
       </div>

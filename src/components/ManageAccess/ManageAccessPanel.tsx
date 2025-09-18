@@ -78,7 +78,7 @@ export class ManageAccessPanel extends React.Component<
     };
   }
 
-  // Handle clicking outside the panel
+  // Component lifecycle methods
   componentDidMount(): void {
     if (this.props.isOpen) {
       document.addEventListener('mousedown', this.handleClickOutside);
@@ -99,10 +99,9 @@ export class ManageAccessPanel extends React.Component<
     document.removeEventListener('mousedown', this.handleClickOutside);
   }
 
-  // Handle clicking outside to close panel
+  // Utility methods
   private handleClickOutside = (event: MouseEvent): void => {
     if (this.panelRef.current && !this.panelRef.current.contains(event.target as Node)) {
-      // Check if click is on panel overlay or outside
       const panelOverlay = document.querySelector('.ms-Panel');
       if (panelOverlay && !panelOverlay.contains(event.target as Node)) {
         this.props.onDismiss();
@@ -110,14 +109,12 @@ export class ManageAccessPanel extends React.Component<
     }
   };
 
-  // Get default permission level based on permissionTypes
   private getDefaultPermissionLevel = (): 'view' | 'edit' => {
     const { permissionTypes } = this.props;
     if (permissionTypes === 'both') return 'view';
     return permissionTypes;
   };
 
-  // Generate initials from display name
   private getInitials = (displayName: string): string => {
     if (!displayName) return '?';
 
@@ -131,7 +128,6 @@ export class ManageAccessPanel extends React.Component<
       .substring(0, 2);
   };
 
-  // Get persona color based on name
   private getPersonaColor = (displayName: string): PersonaInitialsColor => {
     const colors = [
       PersonaInitialsColor.lightBlue,
@@ -148,7 +144,7 @@ export class ManageAccessPanel extends React.Component<
     return colors[hash % colors.length];
   };
 
-  // Handle people picker change with user validation
+  // Event handlers
   private onPeoplePickerChange = async (items: any[]): Promise<void> => {
     this.setState({ isValidatingUsers: true });
 
@@ -164,7 +160,6 @@ export class ManageAccessPanel extends React.Component<
     }
   };
 
-  // Handle permission level change
   private onPermissionLevelChange = (
     event: React.FormEvent<HTMLDivElement>,
     option?: IDropdownOption
@@ -174,7 +169,6 @@ export class ManageAccessPanel extends React.Component<
     }
   };
 
-  // Handle grant access click
   private onGrantAccessClick = async (): Promise<void> => {
     const { selectedUsers, selectedPermissionLevel } = this.state;
 
@@ -196,7 +190,6 @@ export class ManageAccessPanel extends React.Component<
     }
   };
 
-  // Handle remove click
   private onRemoveClick = (principal: IPermissionPrincipal): void => {
     this.setState({
       showRemoveDialog: true,
@@ -204,7 +197,6 @@ export class ManageAccessPanel extends React.Component<
     });
   };
 
-  // Handle confirm remove
   private onConfirmRemove = async (): Promise<void> => {
     const { userToRemove } = this.state;
     if (!userToRemove) return;
@@ -224,7 +216,6 @@ export class ManageAccessPanel extends React.Component<
     }
   };
 
-  // Handle cancel remove
   private onCancelRemove = (): void => {
     this.setState({
       showRemoveDialog: false,
@@ -232,7 +223,7 @@ export class ManageAccessPanel extends React.Component<
     });
   };
 
-  // Render permission dropdown option
+  // Rendering methods
   private renderPermissionOption = (option?: IDropdownOption): JSX.Element => {
     if (!option) return <div />;
 
@@ -244,139 +235,113 @@ export class ManageAccessPanel extends React.Component<
     );
   };
 
-  // Enhanced permission item renderer with proper avatars and GroupViewer
   private renderPermissionItem = (permission: IPermissionPrincipal): React.ReactElement => {
     const { canManagePermissions } = this.props;
     const canRemove = canManagePermissions && permission.canBeRemoved;
 
     return (
       <div key={permission.id} className='manage-access-permission-item'>
-        <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-          <Stack
-            horizontal
-            tokens={{ childrenGap: 12 }}
-            verticalAlign='center'
-            className='manage-access-permission-info'
-          >
-            {/* Enhanced avatar display */}
-            <div className='manage-access-permission-persona'>
-              {permission.isSharingLink ? (
-                // Sharing link icon
-                <div className='manage-access-sharing-link-avatar'>
-                  <Icon
-                    iconName={
-                      permission.sharingLinkType === 'anonymous'
-                        ? 'Link'
-                        : permission.sharingLinkType === 'organization'
-                        ? 'People'
-                        : 'Contact'
-                    }
-                  />
-                </div>
-              ) : permission.isGroup ? (
-                // Group with GroupViewer for hover tooltip
-                <GroupViewer
-                  spContext={this.props.spContext}
-                  groupId={parseInt(permission.id)}
-                  groupName={permission.displayName}
-                  displayMode='icon'
-                  size={32}
-                />
-              ) : (
-                // User persona with proper initials and LivePersona
-                <div style={{ position: 'relative' }}>
-                  <Persona
-                    size={PersonaSize.size32}
-                    text={permission.displayName}
-                    secondaryText={permission.email}
-                    initialsColor={this.getPersonaColor(permission.displayName)}
-                    imageInitials={this.getInitials(permission.displayName)}
-                    showInitialsUntilImageLoads={true}
-                  />
-                  {/* Overlay LivePersona for hover functionality */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '32px',
-                      height: '32px',
-                      opacity: 0,
-                      pointerEvents: 'all',
-                    }}
-                  >
-                    <LivePersona
-                      upn={permission.email || permission.displayName}
-                      disableHover={false}
-                      serviceScope={this.props.spContext.serviceScope}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Stack>
-              <Text variant='medium'>{permission.displayName}</Text>
-              {permission.email && (
-                <Text variant='small' className='manage-access-permission-email'>
-                  {permission.email}
-                </Text>
-              )}
-              {permission.inheritedFrom && (
-                <Text variant='xSmall' style={{ color: '#605e5c', fontStyle: 'italic' }}>
-                  via {permission.inheritedFrom}
-                </Text>
-              )}
-            </Stack>
-          </Stack>
-
-          <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-            <Stack horizontal tokens={{ childrenGap: 4 }} verticalAlign='center'>
+        {/* Avatar - Left Side */}
+        <div className='manage-access-permission-persona'>
+          {permission.isSharingLink ? (
+            // Sharing link icon
+            <div className='manage-access-sharing-link-avatar'>
               <Icon
-                iconName={permission.permissionLevel === 'edit' ? 'Edit' : 'View'}
-                className='manage-access-permission-icon'
+                iconName={
+                  permission.sharingLinkType === 'anonymous'
+                    ? 'Link'
+                    : permission.sharingLinkType === 'organization'
+                    ? 'People'
+                    : 'Contact'
+                }
               />
-              <Text variant='small'>
-                {permission.permissionLevel === 'edit' ? 'Can edit' : 'Can view'}
-              </Text>
-            </Stack>
-
-            {canRemove && (
-              <TooltipHost content='Remove access'>
-                <IconButton
-                  iconProps={{ iconName: 'Delete' }}
-                  onClick={() => this.onRemoveClick(permission)}
-                  className='manage-access-remove-button'
+            </div>
+          ) : permission.isGroup ? (
+            // Group with GroupViewer for hover tooltip
+            <GroupViewer
+              spContext={this.props.spContext}
+              groupId={parseInt(permission.id)}
+              groupName={permission.displayName}
+              displayMode='icon'
+              size={32}
+            />
+          ) : (
+            // User persona with proper initials and LivePersona overlay
+            <div style={{ position: 'relative' }}>
+              <Persona
+                size={PersonaSize.size32}
+                text={permission.displayName}
+                initialsColor={this.getPersonaColor(permission.displayName)}
+                imageInitials={this.getInitials(permission.displayName)}
+                showInitialsUntilImageLoads={true}
+                styles={{
+                  root: {
+                    cursor: 'pointer',
+                  },
+                }}
+              />
+              {/* Overlay LivePersona for hover functionality */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '32px',
+                  height: '32px',
+                  opacity: 0,
+                  pointerEvents: 'all',
+                }}
+              >
+                <LivePersona
+                  upn={permission.email || permission.displayName}
+                  disableHover={false}
+                  serviceScope={this.props.spContext.serviceScope}
                 />
-              </TooltipHost>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* User/Group Information - Center (Flexible) */}
+        <div className='manage-access-permission-info'>
+          <div className='manage-access-permission-text'>
+            <Text className='manage-access-permission-name'>{permission.displayName}</Text>
+            {permission.email && (
+              <Text className='manage-access-permission-email'>{permission.email}</Text>
             )}
-          </Stack>
-        </Stack>
+            {permission.inheritedFrom && (
+              <Text className='manage-access-permission-details'>
+                via {permission.inheritedFrom}
+              </Text>
+            )}
+          </div>
+        </div>
+
+        {/* Permission Level and Actions - Right Side */}
+        <div className='manage-access-permission-actions'>
+          <div className='manage-access-permission-level'>
+            <Icon
+              iconName={permission.permissionLevel === 'edit' ? 'Edit' : 'View'}
+              className='manage-access-permission-icon'
+            />
+            <Text variant='small'>{permission.permissionLevel === 'edit' ? 'Edit' : 'View'}</Text>
+          </div>
+
+          {canRemove && (
+            <TooltipHost content='Remove access'>
+              <IconButton
+                iconProps={{ iconName: 'Delete' }}
+                onClick={() => this.onRemoveClick(permission)}
+                className='manage-access-remove-button'
+                ariaLabel={`Remove access for ${permission.displayName}`}
+              />
+            </TooltipHost>
+          )}
+        </div>
       </div>
     );
   };
 
-  // Render panel footer with proper spacing
-  private renderPanelFooter = (): React.ReactElement => {
-    return (
-      <div
-        style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #e1dfdd',
-          backgroundColor: '#ffffff',
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 1000,
-        }}
-      >
-        <Stack horizontal horizontalAlign='end'>
-          <DefaultButton text='Done' onClick={this.props.onDismiss} />
-        </Stack>
-      </div>
-    );
-  };
-
-  // Render remove confirmation dialog
   private renderRemoveDialog = (): React.ReactElement => {
     const { showRemoveDialog, userToRemove } = this.state;
 
@@ -398,7 +363,7 @@ export class ManageAccessPanel extends React.Component<
     );
   };
 
-  // Main render
+  // Main render method
   public render(): React.ReactElement {
     const {
       isOpen,
@@ -467,25 +432,33 @@ export class ManageAccessPanel extends React.Component<
                 maxWidth: 'none !important',
                 maxHeight: 'none !important',
               },
+              '@media (min-width: 769px) and (max-width: 1024px)': {
+                width: '60vw !important',
+                maxWidth: '600px !important',
+              },
             },
           }}
         >
           <div ref={this.panelRef} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {/* Scrollable content area with better mobile padding */}
+            {/* Scrollable content area with responsive padding */}
             <div
               style={{
                 flex: 1,
-                padding: window.innerWidth <= 768 ? '16px' : '24px',
+                padding:
+                  window.innerWidth <= 480 ? '12px' : window.innerWidth <= 768 ? '16px' : '24px',
                 overflowY: 'auto',
               }}
             >
-              <Stack tokens={{ childrenGap: 16 }}>
+              <Stack tokens={{ childrenGap: window.innerWidth <= 768 ? 20 : 24 }}>
                 {/* Grant Access Section */}
                 {canManagePermissions && (
-                  <Stack tokens={{ childrenGap: 12 }}>
-                    <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-                      <Text variant='mediumPlus'>Grant access</Text>
-                    </Stack>
+                  <Stack tokens={{ childrenGap: 16 }} className='manage-access-grant-section'>
+                    <Text
+                      variant={window.innerWidth <= 768 ? 'medium' : 'mediumPlus'}
+                      styles={{ root: { fontWeight: 600 } }}
+                    >
+                      Grant access
+                    </Text>
 
                     {/* Inline Message */}
                     {showInlineMessage && inlineMessage && (
@@ -498,7 +471,7 @@ export class ManageAccessPanel extends React.Component<
                       </MessageBar>
                     )}
 
-                    <Stack tokens={{ childrenGap: 8 }}>
+                    <Stack tokens={{ childrenGap: 12 }}>
                       <PeoplePicker
                         context={this.props.spContext as any}
                         titleText=''
@@ -512,6 +485,11 @@ export class ManageAccessPanel extends React.Component<
                         resolveDelay={300}
                         placeholder='Enter names or email addresses'
                         key={peoplePickerKey}
+                        styles={{
+                          root: {
+                            width: '100%',
+                          },
+                        }}
                       />
 
                       {isValidatingUsers && (
@@ -535,25 +513,15 @@ export class ManageAccessPanel extends React.Component<
                           className='manage-access-permission-dropdown'
                           styles={{
                             dropdown: {
-                              '@media (max-width: 768px)': {
-                                width: '100%',
-                              },
+                              width: '100%',
+                              minWidth: '160px',
                             },
                           }}
                         />
                       )}
 
-                      <Stack
-                        horizontal={window.innerWidth > 768}
-                        tokens={{ childrenGap: 8 }}
-                        styles={{
-                          root: {
-                            '@media (max-width: 768px)': {
-                              flexDirection: 'column',
-                            },
-                          },
-                        }}
-                      >
+                      {/* Simplified button layout - No redundant Done button */}
+                      <div className='manage-access-grant-buttons'>
                         <PrimaryButton
                           text={isGrantingAccess ? 'Granting...' : 'Grant access'}
                           disabled={
@@ -563,27 +531,11 @@ export class ManageAccessPanel extends React.Component<
                           iconProps={isGrantingAccess ? { iconName: 'Sync' } : { iconName: 'Add' }}
                           styles={{
                             root: {
-                              '@media (max-width: 768px)': {
-                                width: '100%',
-                              },
+                              minWidth: window.innerWidth <= 768 ? '100%' : '120px',
                             },
                           }}
                         />
-                        {/* Done button moved here - only show when granting access */}
-                        {!isGrantingAccess && !isValidatingUsers && (
-                          <DefaultButton
-                            text='Done'
-                            onClick={this.props.onDismiss}
-                            styles={{
-                              root: {
-                                '@media (max-width: 768px)': {
-                                  width: '100%',
-                                },
-                              },
-                            }}
-                          />
-                        )}
-                      </Stack>
+                      </div>
                     </Stack>
 
                     <Separator />
@@ -591,52 +543,67 @@ export class ManageAccessPanel extends React.Component<
                 )}
 
                 {/* Current Permissions Section */}
-                <Stack tokens={{ childrenGap: 16 }}>
-                  <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-                    <Text variant='mediumPlus'>People with access</Text>
-                  </Stack>
+                <Stack tokens={{ childrenGap: 20 }}>
+                  <Text
+                    variant={window.innerWidth <= 768 ? 'medium' : 'mediumPlus'}
+                    styles={{ root: { fontWeight: 600 } }}
+                  >
+                    People with access
+                  </Text>
 
                   {/* Groups Section - First */}
                   {groups.length > 0 && (
-                    <Stack tokens={{ childrenGap: 8 }}>
+                    <Stack tokens={{ childrenGap: 12 }}>
                       <Text variant='medium' className='manage-access-section-header'>
                         Groups ({groups.length})
                       </Text>
-                      {groups.map(this.renderPermissionItem)}
+                      <Stack tokens={{ childrenGap: 8 }}>
+                        {groups.map(this.renderPermissionItem)}
+                      </Stack>
                     </Stack>
                   )}
 
                   {/* Users Section - Second */}
                   {users.length > 0 && (
-                    <Stack tokens={{ childrenGap: 8 }}>
+                    <Stack tokens={{ childrenGap: 12 }}>
                       <Text variant='medium' className='manage-access-section-header'>
                         Users ({users.length})
                       </Text>
-                      {users.map(this.renderPermissionItem)}
+                      <Stack tokens={{ childrenGap: 8 }}>
+                        {users.map(this.renderPermissionItem)}
+                      </Stack>
                     </Stack>
                   )}
 
                   {/* Shared Users Section - Third */}
                   {sharedUsers.length > 0 && (
-                    <Stack tokens={{ childrenGap: 8 }}>
+                    <Stack tokens={{ childrenGap: 12 }}>
                       <Text variant='medium' className='manage-access-section-header'>
                         Shared ({sharedUsers.length})
                       </Text>
-                      {sharedUsers.map(this.renderPermissionItem)}
+                      <Stack tokens={{ childrenGap: 8 }}>
+                        {sharedUsers.map(this.renderPermissionItem)}
+                      </Stack>
                     </Stack>
                   )}
 
                   {permissions.length === 0 && (
-                    <Text variant='medium' className='manage-access-no-permissions'>
-                      No permissions found
-                    </Text>
+                    <div className='manage-access-no-permissions'>
+                      <Icon
+                        iconName='People'
+                        styles={{
+                          root: { fontSize: '24px', marginBottom: '8px', color: '#a19f9d' },
+                        }}
+                      />
+                      <Text variant='medium'>No permissions found</Text>
+                      <Text variant='small' styles={{ root: { marginTop: '4px' } }}>
+                        This item doesn't have any specific permissions assigned.
+                      </Text>
+                    </div>
                   )}
                 </Stack>
               </Stack>
             </div>
-
-            {/* Fixed footer - only for non-management users or at the very end */}
-            {!canManagePermissions && this.renderPanelFooter()}
           </div>
         </Panel>
 
