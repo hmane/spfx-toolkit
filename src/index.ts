@@ -16,7 +16,7 @@ import {
   WorkflowStepper,
 } from './components';
 import { useLocalStorage, useViewport } from './hooks';
-import { BatchBuilder, PermissionHelper } from './utilities';
+import { BatchBuilder, DateUtils, PermissionHelper, StringUtils } from './utilities';
 
 // Version information
 export const TOOLKIT_VERSION = '0.0.1-alpha.0';
@@ -38,6 +38,10 @@ export { useLocalStorage, useViewport } from './hooks';
 
 // Essential utilities
 export { BatchBuilder, PermissionHelper } from './utilities';
+
+// String and Date utilities
+export { StringUtils, applyStringExtensions } from './utilities/stringUtils';
+export { DateUtils, applyDateExtensions } from './utilities/dateUtils';
 
 // ========================================
 // COMPONENT EXPORTS - Import individually for tree-shaking
@@ -164,6 +168,10 @@ export type {
   ViewportInfo,
 } from './hooks';
 
+// Utility types
+export type { StringExtensionMethod } from './utilities/stringUtils';
+export type { DateExtensionMethod } from './utilities/dateUtils';
+
 // ONLY export types from typeUtilities to avoid duplicates
 export type {
   BatchError as ToolkitBatchError,
@@ -206,6 +214,8 @@ export * as Hooks from './hooks';
 export * as BatchUtils from './utilities/batchBuilder';
 export * as ListItemUtils from './utilities/listItemHelper';
 export * as PermissionUtils from './utilities/permissionHelper';
+export * as StringExtensionUtils from './utilities/stringUtils';
+export * as DateExtensionUtils from './utilities/dateUtils';
 
 // ========================================
 // ENHANCED TYPE EXPORTS - Namespaces only
@@ -295,7 +305,7 @@ export const ToolkitUtils = {
       'ErrorBoundary',
       'spForm Components',
     ],
-    utilities: ['BatchBuilder', 'PermissionHelper', 'ListItemHelper'],
+    utilities: ['BatchBuilder', 'PermissionHelper', 'ListItemHelper', 'StringUtils', 'DateUtils'],
     hooks: [
       'useLocalStorage',
       'useViewport',
@@ -306,6 +316,10 @@ export const ToolkitUtils = {
       'useUndoToast',
       'useFormToast',
       'useErrorHandler',
+    ],
+    extensions: [
+      'String Extensions (replaceAll, getFileName, etc.)',
+      'Date Extensions (format, addDays, addBusinessDays, isToday)',
     ],
   }),
 
@@ -333,7 +347,27 @@ export const ToolkitUtils = {
     if (['ErrorBoundary'].includes(componentName)) {
       return 'Error Handling';
     }
+    if (['StringUtils', 'DateUtils'].includes(componentName)) {
+      return 'Extensions';
+    }
     return 'General';
+  },
+
+  /**
+   * Initialize all extensions at once
+   */
+  initializeExtensions: (): void => {
+    try {
+      const { applyStringExtensions } = require('./utilities/stringUtils');
+      const { applyDateExtensions } = require('./utilities/dateUtils');
+
+      applyStringExtensions();
+      applyDateExtensions();
+
+      console.log('SPFx Toolkit extensions initialized');
+    } catch (error) {
+      console.warn('Failed to initialize some extensions:', error);
+    }
   },
 } as const;
 
@@ -372,6 +406,8 @@ const SpfxToolkit = {
   // Essential utilities
   BatchBuilder: BatchBuilder,
   PermissionHelper: PermissionHelper,
+  StringUtils: StringUtils,
+  DateUtils: DateUtils,
 
   // Component collections
   PermissionComponents,
