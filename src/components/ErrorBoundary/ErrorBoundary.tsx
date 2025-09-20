@@ -1,5 +1,4 @@
 import { Icon } from '@fluentui/react/lib/Icon';
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { PrimaryButton, DefaultButton } from '@fluentui/react/lib/Button';
 import { Modal } from '@fluentui/react/lib/Modal';
 import { Text } from '@fluentui/react/lib/Text';
@@ -26,7 +25,26 @@ export interface IErrorDetails {
   userId?: string;
   sessionId?: string;
   buildVersion?: string;
+  severity: ErrorSeverity;
+  category: ErrorCategory;
+  retryAttempt: number;
+  spfxContext?: ISPFxContext;
 }
+
+export interface ISPFxContext {
+  webAbsoluteUrl?: string;
+  userId?: string;
+}
+
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type ErrorCategory =
+  | 'component'
+  | 'network'
+  | 'permission'
+  | 'data'
+  | 'performance'
+  | 'security'
+  | 'unknown';
 
 export interface IErrorBoundaryState {
   hasError: boolean;
@@ -35,36 +53,24 @@ export interface IErrorBoundaryState {
   errorId: string;
   showDetails: boolean;
   retryCount: number;
+  isRecovering: boolean;
 }
 
 export interface IErrorBoundaryProps {
   children: React.ReactNode;
-
-  // Customization options - using any to handle React version compatibility
-  fallbackComponent?: any;
+  fallbackComponent?: React.ComponentType<IErrorFallbackProps>;
   enableRetry?: boolean;
   maxRetries?: number;
   showDetailsButton?: boolean;
-  isolateErrors?: boolean;
-
-  // Logging and reporting
   onError?: (error: Error, errorInfo: IErrorInfo, errorDetails: IErrorDetails) => void;
   enableConsoleLogging?: boolean;
-  enableRemoteLogging?: boolean;
   logLevel?: 'minimal' | 'detailed' | 'verbose';
-
-  // User experience
   userFriendlyMessages?: Partial<IUserFriendlyMessages>;
-
-  // Environment detection
+  theme?: 'light' | 'dark' | 'auto';
   isDevelopment?: boolean;
   buildVersion?: string;
-
-  // Recovery options
   resetKeys?: Array<string | number>;
   resetOnPropsChange?: boolean;
-
-  // Styling
   className?: string;
   errorContainerStyle?: React.CSSProperties;
 }
@@ -75,6 +81,7 @@ export interface IUserFriendlyMessages {
   retryButtonText: string;
   detailsButtonText: string;
   closeButtonText: string;
+  recoveringText: string;
 }
 
 export interface IErrorFallbackProps {
@@ -83,271 +90,387 @@ export interface IErrorFallbackProps {
   errorDetails: IErrorDetails;
   onRetry: () => void;
   onShowDetails: () => void;
-  onClose?: () => void;
   retryCount: number;
   maxRetries: number;
   enableRetry: boolean;
   showDetailsButton: boolean;
   userFriendlyMessages: IUserFriendlyMessages;
+  theme: 'light' | 'dark';
+  isRecovering: boolean;
+}
+
+// ============================================================================
+// Error Classification Engine
+// ============================================================================
+
+class ErrorClassifier {
+  static classifyError(error: Error): { severity: ErrorSeverity; category: ErrorCategory } {
+    const message = error.message.toLowerCase();
+    const stack = error.stack?.toLowerCase() || '';
+
+    let severity: ErrorSeverity = 'medium';
+
+    if (this.isCriticalError(error, message, stack)) {
+      severity = 'critical';
+    } else if (this.isHighSeverityError(error, message, stack)) {
+      severity = 'high';
+    } else if (this.isLowSeverityError(error, message, stack)) {
+      severity = 'low';
+    }
+
+    const category = this.categorizeError(message, stack);
+
+    return { severity, category };
+  }
+
+  private static isCriticalError(error: Error, message: string, stack: string): boolean {
+    const criticalPatterns = [
+      'security violation',
+      'authentication failed',
+      'access forbidden',
+      'maximum call stack exceeded',
+      'out of memory',
+      'cannot read property of undefined',
+      'cannot read property of null',
+      'typeerror: cannot read',
+    ];
+
+    const criticalErrorTypes = ['SecurityError', 'ReferenceError', 'TypeError'];
+
+    return (
+      criticalPatterns.some(pattern => message.includes(pattern) || stack.includes(pattern)) ||
+      criticalErrorTypes.includes(error.name)
+    );
+  }
+
+  private static isHighSeverityError(error: Error, message: string, stack: string): boolean {
+    const highSeverityPatterns = [
+      'network error',
+      'failed to fetch',
+      'connection timeout',
+      'cors error',
+      'api error',
+      'service unavailable',
+      'internal server error',
+      'sharepoint error',
+      'list does not exist',
+      'access denied',
+      'permission denied',
+    ];
+
+    const highSeverityTypes = ['NetworkError', 'AbortError'];
+
+    return (
+      highSeverityPatterns.some(pattern => message.includes(pattern) || stack.includes(pattern)) ||
+      highSeverityTypes.includes(error.name)
+    );
+  }
+
+  private static isLowSeverityError(error: Error, message: string, stack: string): boolean {
+    const lowSeverityPatterns = [
+      'warning',
+      'deprecated',
+      'deprecation',
+      'rendering warning',
+      'validation warning',
+      'development warning',
+    ];
+
+    return lowSeverityPatterns.some(
+      pattern => message.includes(pattern) || stack.includes(pattern)
+    );
+  }
+
+  private static categorizeError(message: string, stack: string): ErrorCategory {
+    if (message.includes('fetch') || message.includes('network') || message.includes('cors')) {
+      return 'network';
+    }
+
+    if (
+      message.includes('permission') ||
+      message.includes('access') ||
+      message.includes('forbidden')
+    ) {
+      return 'permission';
+    }
+
+    if (message.includes('json') || message.includes('parse') || message.includes('invalid data')) {
+      return 'data';
+    }
+
+    if (
+      message.includes('timeout') ||
+      message.includes('memory') ||
+      message.includes('performance')
+    ) {
+      return 'performance';
+    }
+
+    if (message.includes('security') || message.includes('xss') || message.includes('injection')) {
+      return 'security';
+    }
+
+    if (stack.includes('react') || message.includes('component') || message.includes('render')) {
+      return 'component';
+    }
+
+    return 'unknown';
+  }
+}
+
+// ============================================================================
+// SPFx Context Extractor
+// ============================================================================
+
+class SPFxContextExtractor {
+  static extractContext(): ISPFxContext {
+    const context: ISPFxContext = {};
+
+    try {
+      const spContext = (window as any)._spPageContextInfo;
+      if (spContext) {
+        context.webAbsoluteUrl = spContext.webAbsoluteUrl;
+        context.userId = spContext.userId?.toString();
+      }
+    } catch (error) {
+      // Fail silently
+    }
+
+    return context;
+  }
 }
 
 // ============================================================================
 // Default Error Fallback Component
 // ============================================================================
 
-const DefaultErrorFallback: React.FC<IErrorFallbackProps> = ({
-  error,
-  errorDetails,
-  onRetry,
-  onShowDetails,
-  retryCount,
-  maxRetries,
-  enableRetry,
-  showDetailsButton,
-  userFriendlyMessages,
-}) => {
-  const canRetry = enableRetry && retryCount < maxRetries;
+const DefaultErrorFallback: React.FC<IErrorFallbackProps> = React.memo(
+  ({
+    error,
+    errorDetails,
+    onRetry,
+    onShowDetails,
+    retryCount,
+    maxRetries,
+    enableRetry,
+    showDetailsButton,
+    userFriendlyMessages,
+    theme,
+    isRecovering,
+  }) => {
+    const canRetry = enableRetry && retryCount < maxRetries;
 
-  return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        borderLeft: '4px solid #dc2626',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        maxWidth: '700px',
-        margin: '16px auto',
-        overflow: 'hidden',
-        color: '#374151',
-        fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif',
-      }}
-    >
-      <div style={{ padding: '32px' }}>
-        {/* Error Icon */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <Icon
-            iconName='ErrorBadge'
-            style={{
-              fontSize: '48px',
-              color: '#dc2626',
-              display: 'block',
-              margin: '0 auto',
-            }}
-          />
-        </div>
+    const getSeverityColor = (): string => {
+      switch (errorDetails.severity) {
+        case 'critical':
+          return '#e53e3e';
+        case 'high':
+          return '#dd6b20';
+        case 'medium':
+          return '#d69e2e';
+        case 'low':
+          return '#38a169';
+        default:
+          return '#718096';
+      }
+    };
 
-        {/* Title */}
+    const containerStyle: React.CSSProperties = {
+      fontFamily: '"Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif',
+      borderRadius: '8px',
+      position: 'relative',
+      maxWidth: '600px',
+      margin: '16px auto',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      border: '1px solid #e2e8f0',
+      background: theme === 'dark' ? '#2d3748' : '#ffffff',
+      color: theme === 'dark' ? '#f7fafc' : '#2d3748',
+    };
+
+    return (
+      <div style={containerStyle}>
+        {/* Severity indicator stripe */}
         <div
           style={{
-            textAlign: 'center',
-            fontSize: '24px',
-            fontWeight: '600',
-            color: '#111827',
-            marginBottom: '16px',
-            lineHeight: '1.3',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: getSeverityColor(),
+            borderRadius: '8px 8px 0 0',
           }}
-        >
-          {userFriendlyMessages.title}
-        </div>
+        />
 
-        {/* Description */}
-        <div
-          style={{
-            textAlign: 'center',
-            fontSize: '16px',
-            color: '#6b7280',
-            lineHeight: '1.5',
-            maxWidth: '500px',
-            margin: '0 auto 24px auto',
-          }}
-        >
-          {userFriendlyMessages.description}
-        </div>
-
-        {/* Error Information Card */}
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '16px',
-            margin: '16px 0 24px 0',
-            fontSize: '14px',
-          }}
-        >
-          <div style={{ color: '#991b1b', fontWeight: '600', marginBottom: '12px' }}>
-            Error Details:
-          </div>
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <div style={{ color: '#991b1b' }}>
-              <strong>Type:</strong> {error.name}
-            </div>
-            <div style={{ color: '#991b1b' }}>
-              <strong>Message:</strong> {error.message}
-            </div>
-            <div style={{ color: '#991b1b' }}>
-              <strong>Time:</strong> {errorDetails.timestamp.toLocaleString()}
-            </div>
-            <div style={{ color: '#991b1b' }}>
-              <strong>Session:</strong> {errorDetails.sessionId}
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            marginBottom: retryCount >= maxRetries ? '16px' : '0',
-          }}
-        >
-          {canRetry && (
-            <button
-              onClick={onRetry}
+        <div style={{ padding: '24px' }}>
+          {/* Recovery indicator */}
+          {isRecovering && (
+            <div
               style={{
-                background: '#0ea5e9',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '12px 24px',
+                marginBottom: '16px',
+                textAlign: 'center',
                 fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                minWidth: '140px',
-                height: '44px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'background-color 0.2s ease',
-                outline: 'none',
-              }}
-              onMouseEnter={e => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#0284c7';
-              }}
-              onMouseLeave={e => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#0ea5e9';
-              }}
-              onFocus={e => {
-                (e.target as HTMLButtonElement).style.outline = '2px solid #0ea5e9';
-                (e.target as HTMLButtonElement).style.outlineOffset = '2px';
-              }}
-              onBlur={e => {
-                (e.target as HTMLButtonElement).style.outline = 'none';
+                color: '#718096',
               }}
             >
-              <Icon iconName='Refresh' style={{ fontSize: '14px' }} />
-              {`${userFriendlyMessages.retryButtonText}${
-                retryCount > 0 ? ` (${retryCount}/${maxRetries})` : ''
-              }`}
-            </button>
+              {userFriendlyMessages.recoveringText}
+            </div>
           )}
 
-          {showDetailsButton && (
-            <button
-              onClick={onShowDetails}
+          {/* Header with severity badge */}
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{ marginBottom: '12px' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  background: getSeverityColor(),
+                  color: 'white',
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  marginRight: '8px',
+                }}
+              >
+                {errorDetails.severity}
+              </span>
+              <span
+                style={{
+                  display: 'inline-block',
+                  background: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                  color: theme === 'dark' ? '#f7fafc' : '#2d3748',
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {errorDetails.category}
+              </span>
+            </div>
+
+            <h3
               style={{
-                background: '#ffffff',
-                color: '#374151',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                padding: '12px 24px',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                minWidth: '140px',
-                height: '44px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-              }}
-              onMouseEnter={e => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#f9fafb';
-                (e.target as HTMLButtonElement).style.borderColor = '#9ca3af';
-              }}
-              onMouseLeave={e => {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#ffffff';
-                (e.target as HTMLButtonElement).style.borderColor = '#d1d5db';
-              }}
-              onFocus={e => {
-                (e.target as HTMLButtonElement).style.outline = '2px solid #0ea5e9';
-                (e.target as HTMLButtonElement).style.outlineOffset = '2px';
-              }}
-              onBlur={e => {
-                (e.target as HTMLButtonElement).style.outline = 'none';
+                margin: '0 0 8px 0',
+                fontSize: '20px',
+                fontWeight: '600',
               }}
             >
-              <Icon iconName='Info' style={{ fontSize: '14px' }} />
-              {userFriendlyMessages.detailsButtonText}
-            </button>
-          )}
-        </div>
+              {userFriendlyMessages.title}
+            </h3>
 
-        {/* Max Retries Warning */}
-        {retryCount >= maxRetries && (
+            <p
+              style={{
+                margin: '0 0 20px 0',
+                fontSize: '14px',
+                color: theme === 'dark' ? '#a0aec0' : '#718096',
+                lineHeight: '1.5',
+              }}
+            >
+              {userFriendlyMessages.description}
+            </p>
+          </div>
+
+          {/* Error information */}
           <div
             style={{
-              background: '#fffbeb',
-              border: '1px solid #fed7aa',
+              background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
               borderRadius: '6px',
               padding: '12px',
-              textAlign: 'center',
-              fontSize: '14px',
-              color: '#92400e',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
+              margin: '16px 0',
+              fontSize: '12px',
             }}
           >
-            <Icon iconName='Warning' style={{ fontSize: '16px', color: '#f59e0b' }} />
-            Maximum retry attempts reached. Please refresh the page or contact support if the issue
-            persists.
+            <div style={{ marginBottom: '8px', fontWeight: '600', color: getSeverityColor() }}>
+              {error.name}: {errorDetails.category} Error
+            </div>
+            <div style={{ opacity: 0.8 }}>
+              {errorDetails.timestamp.toLocaleString()} • Session:{' '}
+              {errorDetails.sessionId?.slice(-8)}
+              {errorDetails.retryAttempt > 0 && ` • Attempt: ${errorDetails.retryAttempt}`}
+            </div>
           </div>
-        )}
+
+          {/* Action buttons */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              marginBottom: retryCount >= maxRetries ? '16px' : '0',
+            }}
+          >
+            {canRetry && (
+              <button
+                onClick={onRetry}
+                disabled={isRecovering}
+                style={{
+                  background: isRecovering ? '#a0aec0' : getSeverityColor(),
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: isRecovering ? 'not-allowed' : 'pointer',
+                  minWidth: '120px',
+                  outline: 'none',
+                }}
+              >
+                {isRecovering
+                  ? 'Recovering...'
+                  : `${userFriendlyMessages.retryButtonText}${
+                      retryCount > 0 ? ` (${retryCount}/${maxRetries})` : ''
+                    }`}
+              </button>
+            )}
+
+            {showDetailsButton && (
+              <button
+                onClick={onShowDetails}
+                style={{
+                  background: 'transparent',
+                  color: theme === 'dark' ? '#f7fafc' : '#2d3748',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  minWidth: '120px',
+                  outline: 'none',
+                }}
+              >
+                {userFriendlyMessages.detailsButtonText}
+              </button>
+            )}
+          </div>
+
+          {/* Max retries warning */}
+          {retryCount >= maxRetries && (
+            <div
+              style={{
+                padding: '12px',
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: '6px',
+                textAlign: 'center',
+                fontSize: '13px',
+                color: '#d97706',
+              }}
+            >
+              Maximum retries reached. Please refresh the page if the issue persists.
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* Mobile responsive styles */}
-      <style>{`
-        @media (max-width: 768px) {
-          .error-boundary-container {
-            margin: 8px !important;
-            border-radius: 6px !important;
-            max-width: calc(100% - 16px) !important;
-          }
-
-          .error-buttons {
-            flex-direction: column !important;
-            align-items: stretch !important;
-          }
-
-          .error-button {
-            width: 100% !important;
-            margin-bottom: 8px !important;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .error-boundary-container {
-            margin: 4px !important;
-            border-radius: 4px !important;
-          }
-
-          .error-boundary-padding {
-            padding: 20px 12px !important;
-          }
-        }
-      `}</style>
-    </div>
-  );
-};
+    );
+  }
+);
 
 // ============================================================================
 // Error Details Modal
@@ -362,51 +485,100 @@ interface IErrorDetailsModalProps {
   isDevelopment: boolean;
 }
 
-const ErrorDetailsModal: React.FC<IErrorDetailsModalProps> = ({
-  isOpen,
-  onDismiss,
-  error,
-  errorInfo,
-  errorDetails,
-  isDevelopment,
-}) => {
-  const copyErrorDetails = React.useCallback(() => {
-    const details = {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      ...errorDetails,
+const ErrorDetailsModal: React.FC<IErrorDetailsModalProps> = React.memo(
+  ({ isOpen, onDismiss, error, errorInfo, errorDetails, isDevelopment }) => {
+    const copyErrorDetails = React.useCallback(() => {
+      const details = {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        ...errorDetails,
+      };
+      navigator.clipboard.writeText(JSON.stringify(details, null, 2));
+    }, [error, errorInfo, errorDetails]);
+
+    const getSeverityColor = (): string => {
+      switch (errorDetails.severity) {
+        case 'critical':
+          return '#e53e3e';
+        case 'high':
+          return '#dd6b20';
+        case 'medium':
+          return '#d69e2e';
+        case 'low':
+          return '#38a169';
+        default:
+          return '#718096';
+      }
     };
 
-    navigator.clipboard.writeText(JSON.stringify(details, null, 2));
-  }, [error, errorInfo, errorDetails]);
+    if (!isOpen) return null;
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onDismiss={onDismiss}
-      isBlocking={false}
-      containerClassName='spfx-error-details-modal'
-    >
-      <div style={{ padding: 24, minWidth: 600, maxHeight: '80vh', overflow: 'auto' }}>
-        <Stack tokens={{ childrenGap: 16 }}>
-          <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
-            <Text variant='xLarge'>Error Details</Text>
-            <DefaultButton iconProps={{ iconName: 'Cancel' }} onClick={onDismiss} />
-          </Stack>
+    return (
+      <Modal
+        isOpen={isOpen}
+        onDismiss={onDismiss}
+        isBlocking={false}
+        containerClassName='spfx-error-details-modal'
+      >
+        <div style={{ padding: 24, minWidth: 600, maxHeight: '85vh', overflow: 'auto' }}>
+          <Stack tokens={{ childrenGap: 16 }}>
+            <Stack horizontal horizontalAlign='space-between' verticalAlign='center'>
+              <Text variant='xLarge' style={{ fontWeight: 600 }}>
+                Error Details
+              </Text>
+              <DefaultButton iconProps={{ iconName: 'Cancel' }} onClick={onDismiss} />
+            </Stack>
 
-          <Stack tokens={{ childrenGap: 12 }}>
+            {/* Error Classification */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  background: '#f8f9fa',
+                  padding: 12,
+                  borderRadius: 6,
+                  border: `2px solid ${getSeverityColor()}`,
+                  textAlign: 'center',
+                }}
+              >
+                <Text variant='medium' style={{ fontWeight: 600, color: getSeverityColor() }}>
+                  {errorDetails.severity.toUpperCase()}
+                </Text>
+              </div>
+              <div
+                style={{
+                  background: '#f8f9fa',
+                  padding: 12,
+                  borderRadius: 6,
+                  border: '2px solid #718096',
+                  textAlign: 'center',
+                }}
+              >
+                <Text variant='medium' style={{ fontWeight: 600, color: '#718096' }}>
+                  {errorDetails.category.toUpperCase()}
+                </Text>
+              </div>
+            </div>
+
+            {/* Basic Information */}
             <div>
-              <Text variant='mediumPlus' styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+              <Text variant='mediumPlus' style={{ fontWeight: 600, marginBottom: 8 }}>
                 Basic Information
               </Text>
               <div
                 style={{
                   background: '#f8f9fa',
                   padding: 12,
-                  borderRadius: 4,
+                  borderRadius: 6,
                   fontFamily: 'monospace',
                   fontSize: 12,
+                  lineHeight: 1.4,
                 }}
               >
                 <strong>Error:</strong> {error.name}
@@ -415,42 +587,68 @@ const ErrorDetailsModal: React.FC<IErrorDetailsModalProps> = ({
                 <br />
                 <strong>Time:</strong> {errorDetails.timestamp.toISOString()}
                 <br />
-                <strong>URL:</strong> {errorDetails.url}
+                <strong>Session:</strong> {errorDetails.sessionId}
                 <br />
-                <strong>User Agent:</strong> {errorDetails.userAgent}
-                <br />
-                <strong>Session ID:</strong> {errorDetails.sessionId}
-                <br />
+                {errorDetails.retryAttempt > 0 && (
+                  <>
+                    <strong>Retry:</strong> {errorDetails.retryAttempt}
+                    <br />
+                  </>
+                )}
                 {errorDetails.buildVersion && (
                   <>
                     <strong>Build:</strong> {errorDetails.buildVersion}
                     <br />
                   </>
                 )}
-                {errorDetails.userId && (
-                  <>
-                    <strong>User ID:</strong> {errorDetails.userId}
-                    <br />
-                  </>
-                )}
               </div>
             </div>
 
+            {/* SPFx Context */}
+            {errorDetails.spfxContext && Object.keys(errorDetails.spfxContext).length > 0 && (
+              <div>
+                <Text variant='mediumPlus' style={{ fontWeight: 600, marginBottom: 8 }}>
+                  SharePoint Context
+                </Text>
+                <div
+                  style={{
+                    background: '#f8f9fa',
+                    padding: 12,
+                    borderRadius: 6,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  }}
+                >
+                  {Object.entries(errorDetails.spfxContext).map(
+                    ([key, value]) =>
+                      value && (
+                        <div key={key}>
+                          <strong>{key}:</strong> {value}
+                          <br />
+                        </div>
+                      )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Stack Traces (Development only) */}
             {isDevelopment && error.stack && (
               <div>
-                <Text variant='mediumPlus' styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                <Text variant='mediumPlus' style={{ fontWeight: 600, marginBottom: 8 }}>
                   Stack Trace
                 </Text>
                 <div
                   style={{
                     background: '#f8f9fa',
                     padding: 12,
-                    borderRadius: 4,
+                    borderRadius: 6,
                     fontFamily: 'monospace',
-                    fontSize: 11,
+                    fontSize: 10,
                     whiteSpace: 'pre-wrap',
                     maxHeight: 200,
                     overflow: 'auto',
+                    border: '1px solid #e2e8f0',
                   }}
                 >
                   {error.stack}
@@ -458,42 +656,20 @@ const ErrorDetailsModal: React.FC<IErrorDetailsModalProps> = ({
               </div>
             )}
 
-            {isDevelopment && errorInfo.componentStack && (
-              <div>
-                <Text variant='mediumPlus' styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
-                  Component Stack
-                </Text>
-                <div
-                  style={{
-                    background: '#f8f9fa',
-                    padding: 12,
-                    borderRadius: 4,
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    whiteSpace: 'pre-wrap',
-                    maxHeight: 200,
-                    overflow: 'auto',
-                  }}
-                >
-                  {errorInfo.componentStack}
-                </div>
-              </div>
-            )}
+            <Stack horizontal tokens={{ childrenGap: 12 }} horizontalAlign='end'>
+              <DefaultButton
+                text='Copy Details'
+                onClick={copyErrorDetails}
+                iconProps={{ iconName: 'Copy' }}
+              />
+              <PrimaryButton text='Close' onClick={onDismiss} />
+            </Stack>
           </Stack>
-
-          <Stack horizontal tokens={{ childrenGap: 12 }} horizontalAlign='end'>
-            <DefaultButton
-              text='Copy Details'
-              onClick={copyErrorDetails}
-              iconProps={{ iconName: 'Copy' }}
-            />
-            <PrimaryButton text='Close' onClick={onDismiss} />
-          </Stack>
-        </Stack>
-      </div>
-    </Modal>
-  );
-};
+        </div>
+      </Modal>
+    );
+  }
+);
 
 // ============================================================================
 // Main Error Boundary Component
@@ -506,10 +682,9 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
     enableRetry: true,
     maxRetries: 3,
     showDetailsButton: true,
-    isolateErrors: true,
     enableConsoleLogging: true,
-    enableRemoteLogging: false,
     logLevel: 'detailed',
+    theme: 'auto',
     isDevelopment: process.env.NODE_ENV === 'development',
     resetOnPropsChange: true,
     userFriendlyMessages: {
@@ -519,6 +694,7 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       retryButtonText: 'Try Again',
       detailsButtonText: 'Show Details',
       closeButtonText: 'Close',
+      recoveringText: 'Attempting to recover...',
     },
   };
 
@@ -532,6 +708,7 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       errorId: '',
       showDetails: false,
       retryCount: 0,
+      isRecovering: false,
     };
   }
 
@@ -539,11 +716,13 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
     return {
       hasError: true,
       error,
-      errorId: `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      errorId: `error_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
     };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const { severity, category } = ErrorClassifier.classifyError(error);
+
     const errorDetails: IErrorDetails = {
       errorMessage: error.message,
       stack: error.stack,
@@ -554,6 +733,10 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       sessionId: this.getSessionId(),
       userId: this.getUserId(),
       buildVersion: this.props.buildVersion,
+      severity,
+      category,
+      retryAttempt: this.state.retryCount,
+      spfxContext: SPFxContextExtractor.extractContext(),
     };
 
     this.setState({
@@ -593,14 +776,14 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
   }
 
   private logError = (error: Error, errorInfo: React.ErrorInfo, errorDetails: IErrorDetails) => {
-    const { enableConsoleLogging, enableRemoteLogging, logLevel } = this.props;
+    const { enableConsoleLogging, logLevel } = this.props;
 
     if (enableConsoleLogging) {
-      console.group(`🚨 React Error Boundary - ${errorDetails.timestamp.toISOString()}`);
-      console.error('Error:', error);
+      console.group(`🚨 Error Boundary - ${errorDetails.timestamp.toISOString()}`);
+      console.error('Error:', error.message);
+      console.error(`Severity: ${errorDetails.severity} | Category: ${errorDetails.category}`);
 
       if (logLevel === 'detailed' || logLevel === 'verbose') {
-        console.error('Error Info:', errorInfo);
         console.error('Error Details:', errorDetails);
       }
 
@@ -611,76 +794,48 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
 
       console.groupEnd();
     }
-
-    if (enableRemoteLogging) {
-      // Implement your remote logging here
-      this.sendErrorToRemoteService(error, errorInfo, errorDetails);
-    }
-  };
-
-  private sendErrorToRemoteService = async (
-    error: Error,
-    errorInfo: React.ErrorInfo,
-    errorDetails: IErrorDetails
-  ) => {
-    try {
-      // Example implementation - replace with your actual logging service
-      await fetch('/api/errors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          error: {
-            name: error.name,
-            message: error.message,
-            stack: error.stack,
-          },
-          errorInfo,
-          errorDetails,
-        }),
-      });
-    } catch (loggingError) {
-      console.error('Failed to send error to remote service:', loggingError);
-    }
   };
 
   private getSessionId = (): string => {
     let sessionId = sessionStorage.getItem('spfx-session-id');
     if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       sessionStorage.setItem('spfx-session-id', sessionId);
     }
     return sessionId;
   };
 
   private getUserId = (): string | undefined => {
-    // Try to get user ID from SharePoint context
     try {
       const spContext = (window as any)._spPageContextInfo;
-      return spContext?.userId?.toString() || spContext?.userLoginName;
+      return spContext?.userId?.toString();
     } catch {
       return undefined;
     }
   };
 
-  private handleRetry = () => {
+  private handleRetry = async () => {
     const { maxRetries = 3 } = this.props;
     const { retryCount } = this.state;
 
     if (retryCount < maxRetries) {
+      this.setState({ isRecovering: true });
+
+      const delay = Math.min(1000 * (retryCount + 1), 5000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+
       this.setState(prevState => ({
         hasError: false,
         error: null,
         errorInfo: null,
         showDetails: false,
         retryCount: prevState.retryCount + 1,
+        isRecovering: false,
       }));
 
-      // Auto-reset retry count after successful recovery
       this.resetTimeoutId = window.setTimeout(() => {
         this.setState({ retryCount: 0 });
-      }, 30000); // Reset after 30 seconds
+      }, 60000);
     }
   };
 
@@ -699,11 +854,25 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       errorInfo: null,
       showDetails: false,
       retryCount: 0,
+      isRecovering: false,
     });
   };
 
+  private getTheme = (): 'light' | 'dark' => {
+    const { theme } = this.props;
+
+    if (theme === 'auto') {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
+    }
+
+    return theme === 'dark' ? 'dark' : 'light';
+  };
+
   render() {
-    const { hasError, error, errorInfo, showDetails, retryCount } = this.state;
+    const { hasError, error, errorInfo, showDetails, retryCount, isRecovering } = this.state;
     const {
       children,
       fallbackComponent: FallbackComponent = DefaultErrorFallback,
@@ -716,7 +885,6 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       errorContainerStyle = {},
     } = this.props;
 
-    // Merge user messages with defaults
     const defaultMessages: IUserFriendlyMessages = {
       title: 'Something went wrong',
       description:
@@ -724,6 +892,7 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       retryButtonText: 'Try Again',
       detailsButtonText: 'Show Details',
       closeButtonText: 'Close',
+      recoveringText: 'Attempting to recover...',
     };
 
     const mergedMessages: IUserFriendlyMessages = {
@@ -732,6 +901,8 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
     };
 
     if (hasError && error && errorInfo) {
+      const { severity, category } = ErrorClassifier.classifyError(error);
+
       const errorDetails: IErrorDetails = {
         errorMessage: error.message,
         stack: error.stack,
@@ -742,6 +913,10 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
         sessionId: this.getSessionId(),
         userId: this.getUserId(),
         buildVersion: this.props.buildVersion,
+        severity,
+        category,
+        retryAttempt: retryCount,
+        spfxContext: SPFxContextExtractor.extractContext(),
       };
 
       return (
@@ -757,6 +932,8 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
             enableRetry={enableRetry}
             showDetailsButton={showDetailsButton}
             userFriendlyMessages={mergedMessages}
+            theme={this.getTheme()}
+            isRecovering={isRecovering}
           />
 
           {showDetailsButton && (
@@ -778,7 +955,7 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
 }
 
 // ============================================================================
-// Hook-based Error Boundary (for functional components)
+// Hook-based Error Handler
 // ============================================================================
 
 export const useErrorHandler = () => {
@@ -798,11 +975,14 @@ export const useErrorHandler = () => {
     }
   }, [error]);
 
-  return {
-    captureError,
-    resetError,
-    hasError: !!error,
-  };
+  return React.useMemo(
+    () => ({
+      captureError,
+      resetError,
+      hasError: !!error,
+    }),
+    [captureError, resetError, error]
+  );
 };
 
 // ============================================================================
@@ -813,11 +993,11 @@ export const withErrorBoundary = <P extends object>(
   WrappedComponent: React.ComponentType<P>,
   errorBoundaryProps?: Omit<IErrorBoundaryProps, 'children'>
 ) => {
-  const WithErrorBoundaryComponent = (props: P) => (
+  const WithErrorBoundaryComponent = React.memo((props: P) => (
     <ErrorBoundary {...errorBoundaryProps}>
       <WrappedComponent {...props} />
     </ErrorBoundary>
-  );
+  ));
 
   WithErrorBoundaryComponent.displayName = `withErrorBoundary(${
     WrappedComponent.displayName || WrappedComponent.name
