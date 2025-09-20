@@ -36,6 +36,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [showLeftScrollHint, setShowLeftScrollHint] = useState<boolean>(false);
   const [showRightScrollHint, setShowRightScrollHint] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Validate step IDs on mount
   useEffect(() => {
@@ -46,117 +47,92 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     }
   }, [steps]);
 
-  // ENHANCED: More robust bidirectional scroll hint detection
+  // Enhanced scroll hint detection with performance optimization
   const checkScrollHints = useCallback(() => {
     if (!showScrollHint || !stepsWrapperRef.current) return;
 
     const wrapper = stepsWrapperRef.current;
     const { scrollLeft, scrollWidth, clientWidth } = wrapper;
 
-    // Add small tolerance for rounding errors
-    const tolerance = 2;
+    // Add tolerance for rounding errors
+    const tolerance = 3;
 
     // Check if horizontal scrolling is actually possible
     const hasHorizontalScroll = scrollWidth > clientWidth + tolerance;
 
     if (!hasHorizontalScroll) {
-      // No scrolling needed, hide both hints
       setShowLeftScrollHint(false);
       setShowRightScrollHint(false);
       return;
     }
 
-    // Show left hint if user can scroll left (not at the very beginning)
+    // Show hints based on scroll position
     const canScrollLeft = scrollLeft > tolerance;
-
-    // Show right hint if user can scroll right (not at the very end)
     const canScrollRight = scrollLeft + clientWidth < scrollWidth - tolerance;
 
     setShowLeftScrollHint(canScrollLeft);
     setShowRightScrollHint(canScrollRight);
-
-    // Debug logging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Scroll Debug:', {
-        scrollLeft,
-        scrollWidth,
-        clientWidth,
-        hasHorizontalScroll,
-        canScrollLeft,
-        canScrollRight,
-      });
-    }
   }, [showScrollHint]);
 
-  // Set up scroll hint detection
+  // Set up scroll hint detection with better performance
   useEffect(() => {
     if (!showScrollHint) return;
 
     const wrapper = stepsWrapperRef.current;
     if (!wrapper) return;
 
-    // Function to check scroll after DOM changes
+    // Debounced check function
+    let timeoutId: NodeJS.Timeout;
     const checkScrollDelayed = () => {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        setTimeout(checkScrollHints, 50); // Small delay to ensure rendering is complete
-      });
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        requestAnimationFrame(checkScrollHints);
+      }, 100);
     };
 
-    // Initial check after component mounts
+    // Initial check
     checkScrollDelayed();
 
-    // Add scroll listener
+    // Event listeners
     wrapper.addEventListener('scroll', checkScrollHints, { passive: true });
+    window.addEventListener('resize', checkScrollDelayed);
 
-    // Add resize listener to window
-    const handleResize = () => {
-      checkScrollDelayed();
-    };
-    window.addEventListener('resize', handleResize);
-
-    // Use ResizeObserver if available for more precise detection
+    // ResizeObserver for better detection
     let resizeObserver: ResizeObserver | null = null;
     if (window.ResizeObserver) {
-      resizeObserver = new ResizeObserver(() => {
-        checkScrollDelayed();
-      });
+      resizeObserver = new ResizeObserver(checkScrollDelayed);
       resizeObserver.observe(wrapper);
     }
 
     return () => {
+      clearTimeout(timeoutId);
       wrapper.removeEventListener('scroll', checkScrollHints);
-      window.removeEventListener('resize', handleResize);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
+      window.removeEventListener('resize', checkScrollDelayed);
+      resizeObserver?.disconnect();
     };
   }, [checkScrollHints, showScrollHint, steps.length]);
 
+  // Check scroll hints when steps change
   useEffect(() => {
     if (!showScrollHint) return;
 
-    // Delay check to allow for DOM updates after steps change
     const timer = setTimeout(() => {
       checkScrollHints();
-    }, 100);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [steps, checkScrollHints, showScrollHint]);
 
-  // Determine which step should be selected
+  // Determine selected step with auto-selection logic
   const selectedStep = useMemo(() => {
-    // If controlled selection is provided, use it
     if (selectedStepId) {
       return getStepById(steps, selectedStepId);
     }
 
-    // If internal selection exists, use it
     if (internalSelectedStepId) {
       return getStepById(steps, internalSelectedStepId);
     }
 
-    // Auto-select the first current step or last completed step
     return findAutoSelectStep(steps);
   }, [steps, selectedStepId, internalSelectedStepId]);
 
@@ -183,7 +159,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   const styles = useMemo(
     () =>
       getStepperStyles(theme, {
-        fullWidth: false, // No longer needed with wrapper approach
+        fullWidth: false,
         stepCount: steps.length,
         minStepWidth,
         mode,
@@ -193,27 +169,39 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
 
   const stepStatistics = useMemo(() => getStepStatistics(steps), [steps]);
 
+  // Enhanced step click handler with loading state
   const handleStepClick = useCallback(
-    (step: StepData) => {
-      if (!isStepClickable(step, mode)) return;
+    async (step: StepData) => {
+      if (!isStepClickable(step, mode) || isLoading) return;
 
-      // Update internal state
-      setInternalSelectedStepId(step.id);
+      setIsLoading(true);
 
-      // Announce to screen readers
-      setAnnounceText(`Selected step: ${step.title}`);
+      try {
+        // Update internal state
+        setInternalSelectedStepId(step.id);
 
-      // Call external handler if provided
-      if (onStepClick) {
-        onStepClick(step);
+        // Enhanced announcement for screen readers
+        const statusText = step.status === 'current' ? 'currently active' : step.status;
+        setAnnounceText(`Navigated to step: ${step.title}, status: ${statusText}`);
+
+        // Call external handler if provided
+        if (onStepClick) {
+          await Promise.resolve(onStepClick(step));
+        }
+      } catch (error) {
+        console.error('Error handling step click:', error);
+        setAnnounceText(`Error navigating to step: ${step.title}`);
+      } finally {
+        setIsLoading(false);
       }
     },
-    [mode, onStepClick]
+    [mode, onStepClick, isLoading]
   );
 
+  // Enhanced keyboard navigation
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (!selectedStep) return;
+      if (!selectedStep || isLoading) return;
 
       let targetStepId: string | null = null;
 
@@ -236,6 +224,13 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           event.preventDefault();
           targetStepId = getLastClickableStepId(steps, mode);
           break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          if (isStepClickable(selectedStep, mode)) {
+            handleStepClick(selectedStep);
+          }
+          return;
       }
 
       if (targetStepId) {
@@ -245,11 +240,12 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         }
       }
     },
-    [selectedStep, steps, mode, handleStepClick]
+    [selectedStep, steps, mode, handleStepClick, isLoading]
   );
 
   const completionPercentage = useMemo(() => calculateCompletionPercentage(steps), [steps]);
 
+  // Enhanced step rendering with icons
   const renderSteps = () => {
     return steps.map((step, index) => {
       const isSelected = selectedStep?.id === step.id;
@@ -269,17 +265,18 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           minWidth={minStepWidth}
           descriptionStyles={descriptionStyles}
           mode={mode}
-          fullWidth={false} // Always false now with wrapper approach
+          fullWidth={false}
         />
       );
     });
   };
 
+  // Enhanced scroll handlers with smooth animation
   const handleScrollLeft = useCallback(() => {
-    if (!stepsWrapperRef.current) return;
+    if (!stepsWrapperRef.current || isLoading) return;
 
     const wrapper = stepsWrapperRef.current;
-    const scrollAmount = minStepWidth || 160; // Scroll by one step width
+    const scrollAmount = minStepWidth || 180;
 
     wrapper.scrollBy({
       left: -scrollAmount,
@@ -287,14 +284,14 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     });
 
     // Update scroll hints after animation
-    setTimeout(checkScrollHints, 300);
-  }, [minStepWidth, checkScrollHints]);
+    setTimeout(checkScrollHints, 400);
+  }, [minStepWidth, checkScrollHints, isLoading]);
 
   const handleScrollRight = useCallback(() => {
-    if (!stepsWrapperRef.current) return;
+    if (!stepsWrapperRef.current || isLoading) return;
 
     const wrapper = stepsWrapperRef.current;
-    const scrollAmount = minStepWidth || 160; // Scroll by one step width
+    const scrollAmount = minStepWidth || 180;
 
     wrapper.scrollBy({
       left: scrollAmount,
@@ -302,10 +299,10 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     });
 
     // Update scroll hints after animation
-    setTimeout(checkScrollHints, 300);
-  }, [minStepWidth, checkScrollHints]);
+    setTimeout(checkScrollHints, 400);
+  }, [minStepWidth, checkScrollHints, isLoading]);
 
-  // NEW: Enhanced scroll hints with click functionality
+  // Enhanced scroll hints with better accessibility
   const renderScrollHints = () => {
     if (!showScrollHint) return null;
 
@@ -313,67 +310,97 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
       <>
         {showLeftScrollHint && (
           <button
-            className={styles.scrollHintLeft}
+            className={mergeStyles(styles.scrollHintLeft, 'scroll-arrow')}
             onClick={handleScrollLeft}
+            disabled={isLoading}
             aria-label='Scroll left to see previous steps'
             type='button'
-            style={{
-              // Make it clearly clickable
-              cursor: 'pointer',
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              outline: 'none',
-            }}
             onFocus={e => {
-              e.currentTarget.style.outline = `2px solid ${theme.palette.themePrimary}`;
+              e.currentTarget.style.outline = `3px solid ${theme.palette.themePrimary}60`;
             }}
             onBlur={e => {
               e.currentTarget.style.outline = 'none';
             }}
           >
-            <Icon
-              iconName='ChevronLeft'
-              className={styles.scrollIcon}
-              style={{
-                fontSize: '16px',
-                color: theme.palette.themePrimary,
-              }}
-            />
+            <Icon iconName='ChevronLeft' className={styles.scrollIcon} aria-hidden='true' />
           </button>
         )}
         {showRightScrollHint && (
           <button
-            className={styles.scrollHintRight}
+            className={mergeStyles(styles.scrollHintRight, 'scroll-arrow scroll-arrow-right')}
             onClick={handleScrollRight}
+            disabled={isLoading}
             aria-label='Scroll right to see more steps'
             type='button'
-            style={{
-              // Make it clearly clickable
-              cursor: 'pointer',
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              outline: 'none',
-            }}
             onFocus={e => {
-              e.currentTarget.style.outline = `2px solid ${theme.palette.themePrimary}`;
+              e.currentTarget.style.outline = `3px solid ${theme.palette.themePrimary}60`;
             }}
             onBlur={e => {
               e.currentTarget.style.outline = 'none';
             }}
           >
-            <Icon
-              iconName='ChevronRight'
-              className={styles.scrollIcon}
-              style={{
-                fontSize: '16px',
-                color: theme.palette.themePrimary,
-              }}
-            />
+            <Icon iconName='ChevronRight' className={styles.scrollIcon} aria-hidden='true' />
           </button>
         )}
       </>
+    );
+  };
+
+  // Enhanced progress indicator
+  const renderProgressIndicator = () => {
+    if (mode !== 'fullSteps') return null;
+
+    return (
+      <div
+        className={styles.progressIndicator}
+        role='progressbar'
+        aria-valuenow={completionPercentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Workflow progress: ${completionPercentage}% complete`}
+      >
+        <Icon
+          iconName='ProgressRingDots'
+          style={{
+            fontSize: '20px',
+            color: theme.palette.themePrimary,
+            animation: selectedStep?.status === 'current' ? 'spin 2s linear infinite' : 'none',
+          }}
+        />
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontWeight: 600,
+              color: theme.palette.themePrimary,
+              marginBottom: '4px',
+            }}
+          >
+            {completionPercentage}% Complete
+          </div>
+          <div
+            style={{
+              fontSize: theme.fonts.small.fontSize,
+              color: theme.palette.neutralSecondary,
+            }}
+          >
+            {stepStatistics.completed} of {stepStatistics.total} steps completed
+          </div>
+        </div>
+        {selectedStep?.status === 'current' && (
+          <div
+            style={{
+              padding: '6px 12px',
+              background: theme.palette.themeLighterAlt,
+              borderRadius: '16px',
+              fontSize: theme.fonts.small.fontSize,
+              fontWeight: 600,
+              color: theme.palette.themePrimary,
+            }}
+          >
+            In Progress
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -383,11 +410,11 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     const totalSteps = steps.length;
     const currentStepIndex = selectedStep ? steps.findIndex(s => s.id === selectedStep.id) + 1 : 0;
 
-    return `Workflow stepper with ${totalSteps} steps. ${completionPercentage}% complete. ${
+    return `Interactive workflow stepper with ${totalSteps} steps. ${completionPercentage}% complete. ${
       currentStepIndex > 0
-        ? `Currently on step ${currentStepIndex}: ${selectedStep?.title}`
+        ? `Currently viewing step ${currentStepIndex} of ${totalSteps}: ${selectedStep?.title}`
         : 'No step selected'
-    }`;
+    }. Use arrow keys to navigate, Enter to select.`;
   };
 
   return (
@@ -397,42 +424,85 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
       onKeyDown={handleKeyDown}
       role='application'
       aria-label={getAriaLabel()}
+      data-testid='workflow-stepper'
     >
-      {/* Screen reader announcements */}
-      <div className={styles.srOnly} aria-live='polite' aria-atomic='true'>
+      {/* Enhanced screen reader announcements */}
+      <div className={styles.srOnly} aria-live='polite' aria-atomic='true' role='status'>
         {announceText}
       </div>
 
-      {/* WRAPPER WITH RELATIVE POSITIONING FOR ARROWS */}
-      <div className={styles.stepperContainer} style={{ position: 'relative' }}>
-        {/* SCROLLABLE CONTAINER - NO ARROWS INSIDE HERE */}
+      {/* Loading overlay for better UX */}
+      {isLoading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(2px)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '12px',
+          }}
+          aria-hidden='true'
+        >
+          <Icon
+            iconName='ProgressRingDots'
+            style={{
+              fontSize: '32px',
+              color: theme.palette.themePrimary,
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Progress indicator */}
+      {renderProgressIndicator()}
+
+      {/* Enhanced stepper container */}
+      <div
+        className={styles.stepperContainer}
+        data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
+      >
+        {/* Scrollable steps container */}
         <div
           ref={stepsWrapperRef}
           className={styles.stepsWrapper}
           role='region'
-          aria-label='Workflow progress'
+          aria-label='Workflow steps'
           data-has-content={mode === 'fullSteps' ? 'true' : 'false'}
           data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
         >
-          <div className={styles.stepsContainer} role='tablist' aria-label='Workflow steps'>
+          <div
+            className={styles.stepsContainer}
+            role='tablist'
+            aria-label='Workflow step navigation'
+            aria-orientation='horizontal'
+          >
             {renderSteps()}
           </div>
         </div>
 
-        {/* FIXED ARROWS - POSITIONED RELATIVE TO WRAPPER */}
+        {/* Enhanced scroll hints */}
         {renderScrollHints()}
       </div>
 
-      {/* Content area */}
+      {/* Enhanced content area */}
       {mode === 'fullSteps' && <ContentArea selectedStep={selectedStep} isVisible={true} />}
 
-      {/* Progress indicator for screen readers */}
-      <div className={styles.srOnly} aria-live='polite'>
-        Workflow progress: {completionPercentage}% complete.
-        {stepStatistics.completed} of {stepStatistics.total} steps completed.
-        {stepStatistics.current > 0 && ` ${stepStatistics.current} step in progress.`}
-        {stepStatistics.error > 0 && ` ${stepStatistics.error} steps have errors.`}
-        {stepStatistics.warning > 0 && ` ${stepStatistics.warning} steps need attention.`}
+      {/* Comprehensive progress indicator for screen readers */}
+      <div className={styles.srOnly} aria-live='polite' role='status'>
+        Workflow progress summary: {completionPercentage}% complete.
+        {stepStatistics.completed} steps completed, {stepStatistics.current} in progress,{' '}
+        {stepStatistics.pending} pending.
+        {stepStatistics.error > 0 &&
+          ` ${stepStatistics.error} steps have errors that need attention.`}
+        {stepStatistics.warning > 0 && ` ${stepStatistics.warning} steps have warnings.`}
         {stepStatistics.blocked > 0 && ` ${stepStatistics.blocked} steps are blocked.`}
       </div>
     </div>
