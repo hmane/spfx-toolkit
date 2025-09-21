@@ -23,6 +23,10 @@
   border-bottom: 2px solid #e9ecef;
 }
 
+.spfx-form-section-header::after {
+  width: 40px; /* Shorter accent line */
+}
+
 /* FormItem Styles - FIXED to inherit container width */
 .spfx-form-item {
   display: grid;
@@ -94,7 +98,7 @@
   }
 
   /* When container uses percentage, ensure it doesn't exceed reasonable limits */
-  .spfx-form-container[style*="%"] .form-row .spfx-form-item {
+  .spfx-form-container[style*='%'] .form-row .spfx-form-item {
     grid-template-columns: minmax(120px, min(var(--label-width), 180px)) 1fr;
   }
 }
@@ -126,6 +130,7 @@
   flex-shrink: 0;
   padding-top: 8px;
   font-weight: 500;
+  letter-spacing: 0.01em;
   color: rgba(0, 0, 0, 0.87);
   line-height: 1.4;
   font-size: 14px;
@@ -151,11 +156,17 @@
   font-weight: bold;
   margin-right: 2px;
   animation: pulse-required 2s ease-in-out infinite;
+  margin-left: 1px;
 }
 
 @keyframes pulse-required {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .spfx-form-label-info-icon {
@@ -239,9 +250,23 @@
 }
 
 @keyframes shake-error {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(2px);
+  }
 }
 
 .spfx-form-value-control-container > * {
@@ -260,21 +285,27 @@
 }
 
 /* FormDescription Styles - Enhanced */
+/* Clean FormDescription Styles - Override existing styles */
 .spfx-form-description {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.6);
-  line-height: 1.4;
-  margin-top: 4px;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 4px;
-  border-left: 3px solid #e0e0e0;
-  transition: all 0.2s ease;
+  font-size: 12px !important;
+  color: #6b7280 !important;
+  line-height: 1.4 !important;
+  margin-top: 4px !important;
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+  border-left: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: color 0.2s ease !important;
 }
 
 .spfx-form-description:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-left-color: #1976d2;
+  color: #374151 !important;
+  background: none !important;
+  border-left-color: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .spfx-form-description p {
@@ -301,40 +332,52 @@
 }
 
 .spfx-form-description strong {
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.75);
+  font-weight: 600 !important;
+  color: #374151 !important;
+  background: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
 .spfx-form-description em {
   font-style: italic;
+  color: #4b5563;
 }
 
 .spfx-form-description code {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 2px 4px;
-  border-radius: 2px;
-  font-family: 'Courier New', monospace;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
   font-size: 11px;
+  font-weight: 500;
 }
 
 .spfx-form-description a {
-  color: #1976d2;
-  text-decoration: none;
+  color: #3b82f6 !important;
+  text-decoration: none !important;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .spfx-form-description a:hover {
-  text-decoration: underline;
+  color: #1d4ed8 !important;
+  border-bottom-color: #3b82f6;
+  text-decoration: underline !important;
 }
 
-/* FormError Styles - FIXED: Proper red error styling */
+/* Clean FormError Styles - Override existing styles */
 .spfx-form-error {
-  margin-top: 6px;
-  padding: 8px 12px;
-  background: #ffeaea; /* Light red background */
-  border: 1px solid #ffcdd2; /* Light red border */
-  border-left: 4px solid #d32f2f; /* Strong red left border */
-  border-radius: 4px;
-  animation: spfx-slide-in-error 0.3s ease-out;
+  margin-top: 6px !important;
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+  border-left: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  animation: spfx-slide-in-error-clean 0.3s ease-out !important;
 }
 
 .spfx-form-error-list {
@@ -346,7 +389,7 @@
 .spfx-form-error-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 4px;
 }
 
@@ -355,36 +398,38 @@
 }
 
 .spfx-form-error-icon {
-  color: #d32f2f; /* Strong red */
-  font-size: 14px;
-  margin-top: 1px;
-  flex-shrink: 0;
-  font-weight: bold;
+  color: #ef4444 !important;
+  font-size: 14px !important;
+  margin-top: 1px !important;
+  flex-shrink: 0 !important;
+  font-weight: bold !important;
+  background: none !important;
+  border-radius: 0 !important;
+}
+
+/* Remove any added content since component handles the icon */
+.spfx-form-error-icon::before {
+  content: none !important;
 }
 
 .spfx-form-error-text {
-  font-size: 13px;
-  color: #b71c1c; /* Dark red for text */
-  line-height: 1.4;
-  word-wrap: break-word;
-  flex: 1;
-  font-weight: 500;
+  font-size: 13px !important;
+  color: #dc2626 !important;
+  line-height: 1.4 !important;
+  word-wrap: break-word !important;
+  flex: 1 !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.005em;
 }
 
-@keyframes spfx-slide-in-error {
+@keyframes spfx-slide-in-error-clean {
   from {
     opacity: 0;
-    transform: translateY(-8px);
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-    max-height: 100px;
-    padding-top: 8px;
-    padding-bottom: 8px;
   }
 }
 
@@ -437,8 +482,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Enhanced button hover effects */
@@ -462,7 +511,7 @@ button:active {
     text-align: center;
   }
 }
-  /* SPFx Form Components - Enhanced CSS with Fixed FormContainer */
+/* SPFx Form Components - Enhanced CSS with Fixed FormContainer */
 
 /* FormContainer Styles - FIXED for percentage width support */
 .spfx-form-container {
@@ -493,7 +542,7 @@ button:active {
   }
 
   /* Fix for percentage widths in form rows */
-  .spfx-form-container:has([style*="%"]) .form-row .spfx-form-item {
+  .spfx-form-container:has([style*='%']) .form-row .spfx-form-item {
     grid-template-columns: min(var(--label-width), 200px) 1fr;
   }
 
@@ -598,8 +647,13 @@ button:active {
 }
 
 @keyframes pulse-required {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .spfx-form-label-info-icon {
@@ -672,7 +726,9 @@ button:active {
 .spfx-form-value-control-container .dx-selectbox.dx-state-focused,
 .spfx-form-value-control-container .dx-numberbox.dx-state-focused,
 .spfx-form-value-control-container .dx-datebox.dx-state-focused {
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    border-color: #3b82f6;
+
 }
 
 /* Invalid state styling - Enhanced */
@@ -683,9 +739,23 @@ button:active {
 }
 
 @keyframes shake-error {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(2px);
+  }
 }
 
 .spfx-form-value-control-container > * {
@@ -943,7 +1013,7 @@ button:active {
   background: rgba(102, 126, 234, 0.05);
 }
 
-.control-checkbox input[type="checkbox"] {
+.control-checkbox input[type='checkbox'] {
   width: 16px;
   height: 16px;
   border-radius: 3px;
@@ -953,12 +1023,12 @@ button:active {
   transition: all 0.2s ease;
 }
 
-.control-checkbox input[type="checkbox"]:checked {
+.control-checkbox input[type='checkbox']:checked {
   background: #667eea;
   border-color: #667eea;
 }
 
-.control-checkbox input[type="checkbox"]:hover {
+.control-checkbox input[type='checkbox']:hover {
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
@@ -1101,8 +1171,12 @@ button:active {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Mobile Optimizations */
