@@ -17,8 +17,8 @@ import type {
   SPFxContextInput,
 } from '../types';
 import { EnvironmentDetector } from '../utils/environment';
-import { IPrincipal } from '../../../types';
 import '@pnp/sp/profiles';
+import { IPrincipal } from '../../../types';
 
 /**
  * Focused context manager with essential SharePoint properties
@@ -108,9 +108,9 @@ export class ContextManager {
       // Create base SP instance
       const sp = spfi().using(SPFx(spfxContext));
 
-      // Optional cached SP instances
-      let spCached: SPFI | undefined;
-      let spPessimistic: SPFI | undefined;
+      // Initialize cached instances (always available, fallback to base sp)
+      let spCached: SPFI = sp;
+      let spPessimistic: SPFI = sp;
 
       if (config.cache?.strategy && config.cache.strategy !== 'none') {
         const cacheModule = new CacheModule();
@@ -166,13 +166,13 @@ export class ContextManager {
 
         // Core utilities
         sp,
+        spCached,
+        spPessimistic,
         logger,
         http,
         performance,
 
-        // Optional features
-        ...(spCached && { spCached }),
-        ...(spPessimistic && { spPessimistic }),
+        // Optional features can be added here
       };
 
       this.isInitialized = true;

@@ -168,11 +168,11 @@ export class SPContext {
     return SPContext.context.sp;
   }
 
-  static get spCached(): SPFI | undefined {
+  static get spCached(): SPFI {
     return SPContext.context.spCached;
   }
 
-  static get spPessimistic(): SPFI | undefined {
+  static get spPessimistic(): SPFI {
     return SPContext.context.spPessimistic;
   }
 

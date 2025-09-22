@@ -51,8 +51,8 @@ export interface SPFxContext {
 
   // PnP SP instances with different caching strategies
   readonly sp: SPFI;
-  readonly spCached?: SPFI;
-  readonly spPessimistic?: SPFI;
+  readonly spCached: SPFI; // Always available (falls back to sp if no caching)
+  readonly spPessimistic: SPFI; // Always available (falls back to sp if no pessimistic caching)
 
   // Essential SharePoint URL properties (web-only)
   readonly webAbsoluteUrl: string;
