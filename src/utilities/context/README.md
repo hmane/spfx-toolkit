@@ -140,14 +140,14 @@ SPContext.isRightToLeft         // true for RTL languages like Arabic
 ### SharePoint Operations
 
 ```typescript
-// Standard SharePoint operations
+// Standard SharePoint operations (always fresh data)
 const items = await SPContext.sp.web.lists.getByTitle('Documents').items();
 
-// Cached operations (if caching enabled)
-const cachedItems = await SPContext.spCached?.web.lists.getByTitle('Config').items();
+// Cached operations (uses caching if enabled, otherwise same as sp)
+const cachedItems = await SPContext.spCached.web.lists.getByTitle('Config').items();
 
-// Pessimistic cached operations (if enabled)
-const configData = await SPContext.spPessimistic?.web.lists.getByTitle('Settings').items();
+// Pessimistic cached operations (uses pessimistic caching if enabled, otherwise same as sp)
+const configData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items();
 ```
 
 ### Logging
@@ -346,9 +346,9 @@ export default class Dashboard extends BaseClientSideWebPart<IProps> {
 
   private async loadDashboardData(): Promise<void> {
     try {
-      // Use cached data for configuration
-      const config = await SPContext.spCached?.web.lists
-        .getByTitle('Dashboard Config').items() || [];
+      // Use cached data for configuration (always available)
+      const config = await SPContext.spCached.web.lists
+        .getByTitle('Dashboard Config').items();
 
       // Fresh data for metrics
       const metrics = await SPContext.sp.web.lists
@@ -530,7 +530,7 @@ const tenantInfo = SPContext.getTenantInfo();
 
 ## Caching Strategies
 
-SPContext supports multiple caching strategies:
+SPContext supports multiple caching strategies. All SP instances are always available regardless of caching configuration:
 
 ```typescript
 // Memory caching (session-based)
@@ -548,10 +548,10 @@ await SPContext.initialize(this.context, {
   cache: { strategy: 'pessimistic', ttl: 1800000 } // 30 minutes
 });
 
-// Use cached instances
-const freshData = await SPContext.sp.web.lists.getByTitle('News').items();
-const cachedData = await SPContext.spCached?.web.lists.getByTitle('Config').items();
-const staticData = await SPContext.spPessimistic?.web.lists.getByTitle('Settings').items();
+// All instances are always available - smart fallback behavior:
+const freshData = await SPContext.sp.web.lists.getByTitle('News').items();           // Always fresh
+const cachedData = await SPContext.spCached.web.lists.getByTitle('Config').items();  // Cached if enabled, otherwise fresh
+const staticData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items(); // Pessimistic if enabled, otherwise fresh
 ```
 
 ## Error Handling
@@ -652,7 +652,7 @@ if (SPContext.isRightToLeft) {
 - `currentUser`, `listId`, `listTitle`, `listServerRelativeUrl`
 - `environment`, `isTeamsContext`
 - `currentUICultureName`, `currentCultureName`, `isRightToLeft`
-- `sp`, `spCached`, `spPessimistic`
+- `sp`, `spCached`, `spPessimistic` (all always available)
 - `logger`, `http`, `performance`
 
 ### Static Methods
