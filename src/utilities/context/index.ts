@@ -1,13 +1,13 @@
 /**
  * src/utilities/context/index.ts
- * Context utility main exports - clean version
+ * Context utility main exports - updated for web-focused SPContext
  */
 
 // ========================================
-// CORE CONTEXT EXPORTS (only what exists)
+// CORE CONTEXT EXPORTS
 // ========================================
 
-// Main context API - only export if these exist in your context-manager.ts
+// Main context API
 export {
   Context,
   getCurrentContext,
@@ -15,23 +15,24 @@ export {
   getLogger,
   getPageContext,
   getSp,
-  getSpfxContext
+  getSpfxContext,
+  getCurrentUser,
+  getWebAbsoluteUrl,
 } from './core/context-manager';
 
-// Quick start helpers - only if this file exists
+// Quick start helpers
 export { QuickStart } from './quick-start';
 
 // ========================================
-// LIBRARY CONTEXT - Import from separate file
+// LIBRARY CONTEXT - Main SPContext API
 // ========================================
 
-export { getSPContextSetupInstructions, SPContext, validateSPContextSetup } from './sp-context';
+export { SPContext } from './sp-context';
 
 // ========================================
-// MODULES - Uncomment only what you actually have
+// MODULES
 // ========================================
 
-// Check your modules folder and uncomment only existing files:
 export { CacheModule } from './modules/cache';
 export { SimpleHttpClient } from './modules/http';
 export { LinksModule } from './modules/links';
@@ -39,36 +40,48 @@ export { SimpleLogger } from './modules/logger';
 export { SimplePerformanceTracker } from './modules/performance';
 
 // ========================================
-// UTILITIES - Uncomment only what exists
+// UTILITIES
 // ========================================
 
-// Check your utils folder:
-// export { EnvironmentDetector } from './utils/environment';
+export { EnvironmentDetector } from './utils/environment';
 
 // ========================================
-// TYPES - Only export what exists in your types/index.ts
+// TYPES - Updated for web-focused context
 // ========================================
 
 export type {
   BuildMode,
   CacheStrategy,
   ContextConfig,
+  ContextError,
+  ContextHealthCheck,
+  ContextIssue,
+  ContextModule,
   EnvironmentName,
   HttpClient,
+  HttpResponse,
   Logger,
+  LogEntry,
   PerformanceTracker,
+  PerformanceMetric,
+  RequestOptions,
+  FunctionCallOptions,
+  FlowCallOptions,
   SPFxContext,
-  SPFxContextInput
+  SPFxContextInput,
+  LinkBuilder,
+  CacheProvider,
+  AuthProvider,
 } from './types';
 
 // ========================================
 // VERSION
 // ========================================
 
-export const VERSION = '3.0.0';
+export const VERSION = '3.1.0'; // Bumped for web-focused updates
 
 // ========================================
-// DEFAULT EXPORT - Use LibraryContext for library distribution
+// DEFAULT EXPORT - Use SPContext for library distribution
 // ========================================
 
 export { SPContext as default } from './sp-context';

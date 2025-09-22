@@ -5,7 +5,7 @@
 import type { SPFxContextInput, ContextConfig, ContextHealthCheck } from './types';
 
 /**
- * SPContext with focused SharePoint properties for authenticated org users
+ * Enhanced SPContext with comprehensive SharePoint properties
  */
 export class SPContext {
   private static contextModule: any = null;
