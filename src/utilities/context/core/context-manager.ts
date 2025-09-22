@@ -1,10 +1,10 @@
 /**
- * src/context/core/context-manager.ts
- * Simplified, modular context manager
+ * Focused context-manager.ts with essential properties only
  */
 
 import { LogLevel } from '@pnp/logging';
 import { spfi, SPFI, SPFx } from '@pnp/sp';
+import type { PageContext } from '@microsoft/sp-page-context';
 import { CacheModule } from '../modules/cache';
 import { SimpleHttpClient } from '../modules/http';
 import { SimpleLogger } from '../modules/logger';
@@ -19,7 +19,7 @@ import type {
 import { EnvironmentDetector } from '../utils/environment';
 
 /**
- * Main context manager - simplified and focused
+ * Focused context manager with essential SharePoint properties
  */
 export class ContextManager {
   private static instance: ContextManager | null = null;
@@ -37,7 +37,7 @@ export class ContextManager {
   }
 
   /**
-   * Initialize context with minimal configuration
+   * Initialize context with focused configuration
    */
   static async initialize(
     spfxContext: SPFxContextInput,
@@ -106,7 +106,7 @@ export class ContextManager {
       // Create base SP instance
       const sp = spfi().using(SPFx(spfxContext));
 
-      // Optional cached SP instance
+      // Optional cached SP instances
       let spCached: SPFI | undefined;
       let spPessimistic: SPFI | undefined;
 
@@ -126,22 +126,45 @@ export class ContextManager {
         }
       }
 
-      // Build simplified context
+      // Build focused context with essential properties only
       this.context = {
         // Core SPFx objects
         context: spfxContext,
         pageContext: spfxContext.pageContext,
 
-        // Core properties
-        siteUrl: spfxContext.pageContext.site.absoluteUrl,
-        webUrl: spfxContext.pageContext.web.absoluteUrl,
+        // Essential SharePoint URL properties (web-only)
+        webAbsoluteUrl: spfxContext.pageContext.web.absoluteUrl,
+        webServerRelativeUrl: spfxContext.pageContext.web.serverRelativeUrl,
+
+        // Web metadata
+        webTitle: this.getWebTitle(spfxContext.pageContext),
+        webId: spfxContext.pageContext.web.id?.toString(),
+
+        // List context (if available)
+        listId: spfxContext.pageContext.list?.id?.toString(),
+        listTitle: spfxContext.pageContext.list?.title,
+        listServerRelativeUrl: spfxContext.pageContext.list?.serverRelativeUrl,
+
+        // Culture and locale information
+        currentUICultureName: spfxContext.pageContext.cultureInfo.currentUICultureName,
+        currentCultureName: spfxContext.pageContext.cultureInfo.currentCultureName,
+        isRightToLeft: spfxContext.pageContext.cultureInfo.isRightToLeft,
+
+        // Simple user information (authenticated org users)
         currentUser: {
           loginName: spfxContext.pageContext.user.loginName,
           displayName: spfxContext.pageContext.user.displayName,
           email: spfxContext.pageContext.user.email,
         },
+
+        // Application information
+        applicationName: this.getApplicationName(spfxContext),
+        tenantUrl: this.getTenantUrl(spfxContext.pageContext.web.absoluteUrl),
+
+        // Environment and runtime information
         environment,
         correlationId,
+        isTeamsContext: this.isTeamsContext(spfxContext),
 
         // Core utilities
         sp,
@@ -156,11 +179,14 @@ export class ContextManager {
 
       this.isInitialized = true;
 
-      // Log initialization
-      logger.success('Context initialized', {
+      // Log initialization with focused information
+      logger.success('SPContext initialized', {
         component: config.componentName,
         environment,
         correlationId,
+        webAbsoluteUrl: this.context.webAbsoluteUrl,
+        webTitle: this.context.webTitle,
+        isTeamsContext: this.context.isTeamsContext,
         modules: Array.from(this.modules.keys()),
       });
 
@@ -180,10 +206,8 @@ export class ContextManager {
     }
 
     try {
-      const result = await module.initialize(
-        this.context as any, // Safe cast since we control the interface
-        config || {}
-      );
+      const startTime = performance.now();
+      const result = await module.initialize(this.context as any, config || {});
 
       this.modules.set(module.name, module);
 
@@ -192,10 +216,48 @@ export class ContextManager {
         Object.assign(this.context, { [module.name]: result });
       }
 
-      this.context.logger.info(`Module '${module.name}' loaded`);
+      const duration = Math.round(performance.now() - startTime);
+      this.context.logger.success(`Module '${module.name}' loaded`, { duration });
     } catch (error) {
       this.context.logger.error(`Failed to load module '${module.name}'`, error);
       throw error;
+    }
+  }
+
+  // Utility methods
+  private getApplicationName(context: SPFxContextInput): string {
+    try {
+      return (
+        (context as any).manifest?.alias || (context as any).manifest?.componentType || 'SPFxApp'
+      );
+    } catch {
+      return 'SPFxApp';
+    }
+  }
+
+  private getTenantUrl(webUrl: string): string {
+    try {
+      const url = new URL(webUrl);
+      const hostname = url.hostname;
+
+      // Extract tenant from SharePoint Online URL
+      if (hostname.includes('.sharepoint.com')) {
+        const parts = hostname.split('.');
+        return `https://${parts[0]}.sharepoint.com`;
+      }
+
+      // Fallback to base URL
+      return `${url.protocol}//${url.hostname}`;
+    } catch {
+      return webUrl;
+    }
+  }
+
+  private isTeamsContext(context: SPFxContextInput): boolean {
+    try {
+      return !!(context as any).sdks?.microsoftTeams;
+    } catch {
+      return false;
     }
   }
 
@@ -216,6 +278,20 @@ export class ContextManager {
     return `spfx-${timestamp}-${random}`;
   }
 
+  private getWebTitle(pageContext: PageContext): string {
+    try {
+      // Try different possible properties for web title
+      return (
+        (pageContext.web as any).title ||
+        (pageContext.web as any).displayName ||
+        pageContext.web.serverRelativeUrl.split('/').pop() ||
+        'Web'
+      );
+    } catch {
+      return 'Web';
+    }
+  }
+
   private getDefaultLogLevel(environment: EnvironmentName): LogLevel {
     switch (environment) {
       case 'dev':
@@ -230,7 +306,7 @@ export class ContextManager {
 }
 
 /**
- * Simplified public API
+ * Enhanced public API
  */
 export const Context = {
   initialize: ContextManager.initialize,
@@ -250,3 +326,5 @@ export const getLogger = () => Context.current().logger;
 export const getHttp = () => Context.current().http;
 export const getSpfxContext = () => Context.current().context;
 export const getPageContext = () => Context.current().pageContext;
+export const getCurrentUser = () => Context.current().currentUser;
+export const getWebAbsoluteUrl = () => Context.current().webAbsoluteUrl;

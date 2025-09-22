@@ -1,12 +1,11 @@
 /**
- * src/utilities/context/sp-context.ts
- * SPContext - Clean API for SharePoint context management
+ * Focused sp-context.ts with essential enhancements only
  */
 
-import type { SPFxContextInput, ContextConfig } from './types';
+import type { SPFxContextInput, ContextConfig, ContextHealthCheck } from './types';
 
 /**
- * SPContext - SharePoint-focused context wrapper for NPM library distribution
+ * SPContext with focused SharePoint properties for authenticated org users
  */
 export class SPContext {
   private static contextModule: any = null;
@@ -31,17 +30,17 @@ export class SPContext {
       logging: {
         level: 1, // Info
         enableConsole: true,
-        enablePerformance: false
+        enablePerformance: false,
       },
       cache: {
         strategy: 'memory',
-        ttl: 300000 // 5 minutes
+        ttl: 300000, // 5 minutes
       },
       http: {
         timeout: 30000,
         retries: 2,
-        enableAuth: true
-      }
+        enableAuth: true,
+      },
     });
   }
 
@@ -54,17 +53,17 @@ export class SPContext {
       logging: {
         level: 2, // Warning
         enableConsole: false,
-        enablePerformance: true
+        enablePerformance: true,
       },
       cache: {
         strategy: 'storage',
-        ttl: 600000 // 10 minutes
+        ttl: 600000, // 10 minutes
       },
       http: {
         timeout: 20000,
         retries: 3,
-        enableAuth: true
-      }
+        enableAuth: true,
+      },
     });
   }
 
@@ -77,24 +76,23 @@ export class SPContext {
       logging: {
         level: 0, // Verbose
         enableConsole: true,
-        enablePerformance: true
+        enablePerformance: true,
       },
       cache: {
-        strategy: 'none'
+        strategy: 'none',
       },
       http: {
         timeout: 60000,
         retries: 1,
-        enableAuth: true
-      }
+        enableAuth: true,
+      },
     });
   }
 
   /**
-   * Smart setup - detects environment automatically using existing EnvironmentDetector
+   * Smart setup - detects environment automatically
    */
   static async smart(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
-    // Use your existing EnvironmentDetector
     const { EnvironmentDetector } = await import('./utils/environment');
     const environment = EnvironmentDetector.detect(spfxContext.pageContext);
 
@@ -105,7 +103,7 @@ export class SPContext {
         return SPContext.initialize(spfxContext, {
           componentName,
           logging: { level: 1, enablePerformance: true },
-          cache: { strategy: 'memory', ttl: 300000 }
+          cache: { strategy: 'memory', ttl: 300000 },
         });
       case 'prod':
       default:
@@ -121,27 +119,24 @@ export class SPContext {
       componentName,
       logging: {
         level: 1,
-        enablePerformance: true
+        enablePerformance: true,
       },
       cache: {
         strategy: 'memory',
-        ttl: 120000 // 2 minutes
+        ttl: 120000, // 2 minutes
       },
       http: {
         timeout: 20000,
         retries: 2,
-        enableAuth: true
-      }
+        enableAuth: true,
+      },
     });
   }
 
   // ========================================
-  // ACCESS METHODS - Clean, short names
+  // CORE ACCESS METHODS
   // ========================================
 
-  /**
-   * Get current context object
-   */
   static get context(): any {
     if (!SPContext.contextModule) {
       throw new Error('SPContext not initialized. Call SPContext.initialize() first.');
@@ -149,97 +144,130 @@ export class SPContext {
     return SPContext.contextModule.getCurrentContext();
   }
 
-  /**
-   * Get SharePoint PnP instance
-   */
   static get sp(): any {
     return SPContext.context.sp;
   }
 
-  /**
-   * Get cached SharePoint PnP instance
-   */
   static get spCached(): any {
     return SPContext.context.spCached;
   }
 
-  /**
-   * Get pessimistic cached SharePoint PnP instance
-   */
   static get spPessimistic(): any {
     return SPContext.context.spPessimistic;
   }
 
-  /**
-   * Get logger instance
-   */
   static get logger(): any {
     return SPContext.context.logger;
   }
 
-  /**
-   * Get HTTP client
-   */
   static get http(): any {
     return SPContext.context.http;
   }
 
-  /**
-   * Get performance tracker
-   */
   static get performance(): any {
     return SPContext.context.performance;
   }
 
-  /**
-   * Get raw SPFx context
-   */
   static get spfxContext(): any {
     return SPContext.context.context;
   }
 
-  /**
-   * Get page context
-   */
   static get pageContext(): any {
     return SPContext.context.pageContext;
   }
 
-  /**
-   * Get current user info
-   */
+  // ========================================
+  // ESSENTIAL URL PROPERTIES (web-only)
+  // ========================================
+
+  static get webAbsoluteUrl(): string {
+    return SPContext.context.webAbsoluteUrl;
+  }
+
+  static get webServerRelativeUrl(): string {
+    return SPContext.context.webServerRelativeUrl;
+  }
+
+  // ========================================
+  // WEB METADATA
+  // ========================================
+
+  static get webTitle(): string {
+    return SPContext.context.webTitle;
+  }
+
+  static get webId(): string | undefined {
+    return SPContext.context.webId;
+  }
+
+  // ========================================
+  // LIST CONTEXT (when available)
+  // ========================================
+
+  static get listId(): string | undefined {
+    return SPContext.context.listId;
+  }
+
+  static get listTitle(): string | undefined {
+    return SPContext.context.listTitle;
+  }
+
+  static get listServerRelativeUrl(): string | undefined {
+    return SPContext.context.listServerRelativeUrl;
+  }
+
+  // ========================================
+  // CULTURE AND LOCALIZATION
+  // ========================================
+
+  static get currentUICultureName(): string {
+    return SPContext.context.currentUICultureName;
+  }
+
+  static get currentCultureName(): string {
+    return SPContext.context.currentCultureName;
+  }
+
+  static get isRightToLeft(): boolean {
+    return SPContext.context.isRightToLeft;
+  }
+
+  // ========================================
+  // USER INFORMATION (Simple)
+  // ========================================
+
   static get currentUser(): any {
     return SPContext.context.currentUser;
   }
 
-  /**
-   * Get environment info
-   */
+  // ========================================
+  // APPLICATION AND ENVIRONMENT
+  // ========================================
+
+  static get applicationName(): string {
+    return SPContext.context.applicationName;
+  }
+
+  static get tenantUrl(): string {
+    return SPContext.context.tenantUrl;
+  }
+
   static get environment(): string {
     return SPContext.context.environment;
   }
 
-  /**
-   * Get site URL
-   */
-  static get siteUrl(): string {
-    return SPContext.context.siteUrl;
+  static get correlationId(): string {
+    return SPContext.context.correlationId;
   }
 
-  /**
-   * Get web URL
-   */
-  static get webUrl(): string {
-    return SPContext.context.webUrl;
+  static get isTeamsContext(): boolean {
+    return SPContext.context.isTeamsContext;
   }
 
   // ========================================
   // UTILITY METHODS
   // ========================================
 
-  /**
-   * Check if context is ready
-   */
   static isReady(): boolean {
     try {
       return SPContext.contextModule?.Context?.isReady() ?? false;
@@ -248,9 +276,6 @@ export class SPContext {
     }
   }
 
-  /**
-   * Reset context
-   */
   static reset(): void {
     if (SPContext.contextModule) {
       SPContext.contextModule.Context.reset();
@@ -258,98 +283,220 @@ export class SPContext {
     SPContext.contextModule = null;
   }
 
-  /**
-   * Add a module to the context
-   */
   static async addModule(module: any, config?: any): Promise<void> {
     if (!SPContext.contextModule) {
       throw new Error('SPContext not initialized. Call initialize() first.');
     }
     return SPContext.contextModule.Context.addModule(module, config);
   }
-}
 
-/**
- * Get setup instructions for consuming SPFx projects
- */
-export function getSPContextSetupInstructions(): string {
-  return `
-SPContext Setup Instructions:
+  /**
+   * Get context health check - focuses on performance and configuration
+   */
+  static async getHealthCheck(): Promise<ContextHealthCheck> {
+    if (!SPContext.isReady()) {
+      return {
+        isHealthy: false,
+        issues: [
+          {
+            severity: 'critical',
+            type: 'configuration',
+            message: 'SPContext not initialized',
+            resolution: 'Call SPContext.initialize() first',
+          },
+        ],
+        recommendations: ['Initialize SPContext before using'],
+        performance: {
+          averageResponseTime: 0,
+          slowOperations: 0,
+          errorRate: 1.0,
+        },
+      };
+    }
 
-1. Install spfx-toolkit:
-   npm install spfx-toolkit
+    const issues: any[] = [];
+    const recommendations: string[] = [];
+    const performanceMetrics = SPContext.performance.getMetrics();
 
-2. Install PnP dependencies in your SPFx project:
-   npm install @pnp/sp@3.20.1 @pnp/logging@3.20.1 @pnp/queryable@3.20.1
+    // Check performance metrics
+    const slowOps = SPContext.performance.getSlowOperations(1000);
+    const failedOps = SPContext.performance.getFailedOperations();
+    const avgTime = SPContext.performance.getAverageTime();
 
-3. Create pnp-imports.ts in your SPFx project:
+    // Performance issues
+    if (slowOps.length > 0) {
+      issues.push({
+        severity: 'medium',
+        type: 'performance',
+        message: `${slowOps.length} slow operations detected (>1000ms)`,
+        details: {
+          slowestOperations: slowOps.slice(0, 3).map((op: { name: any; duration: any; timestamp: string | number | Date; }) => ({
+            name: op.name,
+            duration: op.duration,
+            timestamp: new Date(op.timestamp).toISOString(),
+          })),
+        },
+        resolution: 'Consider optimizing queries or implementing caching',
+      });
+      recommendations.push('Enable caching for frequently accessed data');
+    }
 
-   // src/pnp-imports.ts
-   import '@pnp/sp/webs';
-   import '@pnp/sp/lists';
-   import '@pnp/sp/items';
-   import '@pnp/sp/files';
-   import '@pnp/sp/folders';
-   import '@pnp/sp/site-users';
-
-4. Use in your WebPart:
-
-   // Import PnP side effects first
-   import './pnp-imports';
-   import { SPContext } from 'spfx-toolkit';
-
-   protected async onInit(): Promise<void> {
-     await SPContext.smart(this.context, 'MyWebPart');
-     return super.onInit();
-   }
-
-5. Access context utilities:
-
-   const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
-   SPContext.logger.info('Items loaded', { count: items.length });
-
-Usage Examples:
----------------
-// Smart initialization (auto-detects environment)
-await SPContext.smart(this.context, 'MyWebPart');
-
-// Manual environment setup
-await SPContext.production(this.context, 'MyWebPart');
-await SPContext.development(this.context, 'MyWebPart');
-
-// Clean property access
-const sp = SPContext.sp;
-const logger = SPContext.logger;
-const http = SPContext.http;
-const user = SPContext.currentUser;
-`;
-}
-
-/**
- * Validate SPFx environment setup
- */
-export function validateSPContextSetup(): { isValid: boolean; issues: string[] } {
-  const issues: string[] = [];
-
-  try {
-    // Check SharePoint environment
-    if (typeof window !== 'undefined') {
-      if (!(window as any)._spPageContextInfo) {
-        issues.push('Not running in SharePoint context');
+    // Error rate check
+    if (failedOps.length > 0 && performanceMetrics.length > 0) {
+      const errorRate = failedOps.length / performanceMetrics.length;
+      if (errorRate > 0.1) {
+        issues.push({
+          severity: 'high',
+          type: 'network',
+          message: `High error rate: ${Math.round(errorRate * 100)}%`,
+          details: {
+            totalOperations: performanceMetrics.length,
+            failedOperations: failedOps.length,
+            recentFailures: failedOps.slice(-3).map((op: { name: any; timestamp: string | number | Date; }) => ({
+              name: op.name,
+              timestamp: new Date(op.timestamp).toISOString(),
+            })),
+          },
+          resolution: 'Check network connectivity and API endpoints',
+        });
+        recommendations.push('Review failed operations and implement retry logic');
       }
-    } else {
-      issues.push('Not running in browser environment');
+    }
+
+    // Cache configuration check
+    if (!SPContext.context.spCached && !SPContext.context.spPessimistic) {
+      recommendations.push('Consider enabling caching for better performance');
+    }
+
+    // Very high average response time
+    if (avgTime > 2000) {
+      issues.push({
+        severity: 'medium',
+        type: 'performance',
+        message: `High average response time: ${avgTime}ms`,
+        resolution: 'Review query complexity and consider implementing caching',
+      });
+    }
+
+    // No recent activity (potential configuration issue)
+    if (performanceMetrics.length === 0) {
+      issues.push({
+        severity: 'low',
+        type: 'configuration',
+        message: 'No performance metrics recorded',
+        details: {
+          performanceTrackingEnabled: SPContext.context.performance !== undefined,
+        },
+        resolution: 'Ensure operations are being tracked through SPContext.performance.track()',
+      });
     }
 
     return {
-      isValid: issues.length === 0,
-      issues
+      isHealthy:
+        issues.filter(i => i.severity === 'critical' || i.severity === 'high').length === 0,
+      issues,
+      recommendations,
+      performance: {
+        averageResponseTime: avgTime,
+        slowOperations: slowOps.length,
+        errorRate: performanceMetrics.length > 0 ? failedOps.length / performanceMetrics.length : 0,
+      },
     };
-  } catch (error) {
-    issues.push(`Validation error: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  /**
+   * Build SharePoint API URL with proper formatting
+   */
+  static buildApiUrl(endpoint: string): string {
+    const baseUrl = SPContext.webAbsoluteUrl;
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+
+    if (!cleanEndpoint.startsWith('_api/')) {
+      return `${baseUrl}/_api/${cleanEndpoint}`;
+    }
+
+    return `${baseUrl}/${cleanEndpoint}`;
+  }
+
+  /**
+   * Get user-friendly environment display name
+   */
+  static getEnvironmentDisplayName(): string {
+    switch (SPContext.environment) {
+      case 'dev':
+        return 'Development';
+      case 'uat':
+        return 'User Acceptance Testing';
+      case 'prod':
+        return 'Production';
+      default:
+        return SPContext.environment;
+    }
+  }
+
+  /**
+   * Get formatted tenant information
+   */
+  static getTenantInfo(): {
+    name: string;
+    url: string;
+  } {
+    const tenantUrl = SPContext.tenantUrl;
+    let tenantName = 'Unknown';
+
+    try {
+      const url = new URL(tenantUrl);
+      const hostParts = url.hostname.split('.');
+      tenantName = hostParts[0];
+    } catch {
+      tenantName = 'SharePoint Online';
+    }
+
     return {
-      isValid: false,
-      issues
+      name: tenantName,
+      url: tenantUrl,
+    };
+  }
+
+  /**
+   * Create a formatted context summary for debugging
+   */
+  static getContextSummary(): {
+    basic: any;
+    urls: any;
+    user: any;
+    environment: any;
+    performance: any;
+  } {
+    return {
+      basic: {
+        webTitle: SPContext.webTitle,
+        applicationName: SPContext.applicationName,
+        correlationId: SPContext.correlationId.slice(-8),
+      },
+      urls: {
+        webAbsoluteUrl: SPContext.webAbsoluteUrl,
+        webServerRelativeUrl: SPContext.webServerRelativeUrl,
+        tenantUrl: SPContext.tenantUrl,
+      },
+      user: {
+        displayName: SPContext.currentUser.displayName,
+        loginName: SPContext.currentUser.loginName,
+        email: SPContext.currentUser.email,
+      },
+      environment: {
+        name: SPContext.environment,
+        displayName: SPContext.getEnvironmentDisplayName(),
+        isTeams: SPContext.isTeamsContext,
+        culture: SPContext.currentUICultureName,
+        isRTL: SPContext.isRightToLeft,
+      },
+      performance: {
+        averageTime: SPContext.performance.getAverageTime(),
+        totalOperations: SPContext.performance.getMetrics().length,
+        slowOperations: SPContext.performance.getSlowOperations().length,
+        failedOperations: SPContext.performance.getFailedOperations().length,
+      },
     };
   }
 }

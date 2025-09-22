@@ -1,15 +1,17 @@
 # SPContext - SharePoint Context Management
 
-**SPContext** is part of the `spfx-toolkit` package, providing enterprise-grade context management for SharePoint Framework applications.
+**SPContext** is part of the `spfx-toolkit` package, providing enterprise-grade context management for SharePoint Framework applications with comprehensive web-level properties and utilities.
 
 ## Features
 
 - **Smart Environment Detection** - Automatically detects dev/uat/production environments
 - **Multiple Cache Strategies** - Memory, storage, and pessimistic caching
 - **Azure AD Authentication** - Secure API calls to Azure Functions and Power Platform
-- **Clean Property Access** - Simple `SPContext.sp`, `SPContext.logger` syntax
-- **Performance Tracking** - Built-in metrics and monitoring
-- **TypeScript Strict** - Complete type safety
+- **Clean Property Access** - Simple `SPContext.webAbsoluteUrl`, `SPContext.logger` syntax
+- **Web-Level Focus** - Complete web information without site complexity
+- **Performance Tracking** - Built-in metrics and monitoring with health checks
+- **Culture & Localization** - Full support for multi-language environments
+- **TypeScript Strict** - Complete type safety with focused interfaces
 
 ## Installation & Setup
 
@@ -62,360 +64,377 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   }
 
   public render(): void {
-    // Clean property access
+    // Clean property access with web-focused properties
     const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
-    SPContext.logger.info('WebPart rendered', { itemCount: items.length });
+
+    SPContext.logger.info('WebPart rendered', {
+      itemCount: items.length,
+      webTitle: SPContext.webTitle,
+      webUrl: SPContext.webAbsoluteUrl,
+      isTeamsContext: SPContext.isTeamsContext
+    });
   }
 }
 ```
 
-### Environment-Specific Setup
+## Essential Property Reference
+
+### Web URLs
 
 ```typescript
-import './pnp-imports';
-import { SPContext } from 'spfx-toolkit';
+// Web URLs (focused on web-level only)
+SPContext.webAbsoluteUrl         // Web absolute URL
+SPContext.webServerRelativeUrl   // Web server-relative URL
 
-export default class MyWebPart extends BaseClientSideWebPart<IProps> {
-  protected async onInit(): Promise<void> {
-    // Detect environment based on URL patterns (not process.env)
-    const isLocalhost = window.location.hostname === 'localhost';
-    const isWorkbench = window.location.pathname.includes('workbench');
-    const isUAT = SPContext.webUrl.includes('/uat') || SPContext.webUrl.includes('/test');
-
-    if (isLocalhost || isWorkbench) {
-      await SPContext.development(this.context, 'MyWebPart');
-    } else if (isUAT) {
-      await SPContext.basic(this.context, 'MyWebPart');
-    } else {
-      await SPContext.production(this.context, 'MyWebPart');
-    }
-
-    return super.onInit();
-  }
-}
+// Tenant information
+SPContext.tenantUrl              // Tenant root URL
 ```
 
-## Clean Import Patterns
-
-Choose your preferred import style:
-
-### Option 1: SPContext Properties (Recommended)
+### Web Metadata
 
 ```typescript
-import './pnp-imports';
-import { SPContext } from 'spfx-toolkit';
+// Web information
+SPContext.webTitle               // Web title
+SPContext.webId                  // Web GUID (as string)
 
-await SPContext.smart(this.context, 'MyWebPart');
-
-// Clean property access
-const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
-SPContext.logger.info('Data loaded');
-const user = SPContext.currentUser;
+// Application context
+SPContext.applicationName        // Current SPFx application name
+SPContext.correlationId         // Unique session correlation ID
 ```
 
-### Option 2: Short Function Imports
+### List Context (when available)
 
 ```typescript
-import './pnp-imports';
-import { SPContext, sp, logger, http, context } from 'spfx-toolkit';
-
-await SPContext.smart(this.context, 'MyWebPart');
-
-// Short function access (returns instances directly)
-const items = await sp.web.lists.getByTitle('Tasks').items();
-logger.info('Data loaded');
-const currentContext = context;
+SPContext.listId                    // Current list GUID (if in list context)
+SPContext.listTitle                 // Current list title
+SPContext.listServerRelativeUrl     // Current list server-relative URL
 ```
 
-### Option 3: Traditional Getters
+### Culture and Localization
 
 ```typescript
-import './pnp-imports';
-import { QuickStart, getSp, getLogger, getHttp, getCurrentContext } from 'spfx-toolkit';
-
-await QuickStart.basic(this.context, 'MyWebPart');
-
-// Traditional getter functions
-const items = await getSp().web.lists.getByTitle('Tasks').items();
-getLogger().info('Data loaded');
-const currentContext = getCurrentContext();
+SPContext.currentUICultureName      // UI culture (e.g., 'en-US')
+SPContext.currentCultureName        // Content culture
+SPContext.isRightToLeft            // RTL language detection
 ```
 
-## Environment Detection
-
-SPContext automatically detects your environment without relying on `process.env.NODE_ENV`:
+### User Information (Authenticated Org Users)
 
 ```typescript
-// Automatic detection based on:
-// - localhost/workbench = development
-// - URL contains /dev, /uat, /test = uat
-// - Everything else = production
-
-await SPContext.smart(this.context, 'MyWebPart');
-
-console.log('Environment:', SPContext.environment); // 'development', 'uat', or 'production'
+// Simple user info for authenticated org users
+SPContext.currentUser               // Complete user object
+SPContext.currentUser.displayName  // User display name
+SPContext.currentUser.loginName    // User login name
+SPContext.currentUser.email        // User email address
 ```
 
-Manual environment setup:
+### Environment and Runtime Information
 
 ```typescript
-// Development: Verbose logging, no caching
-await SPContext.development(this.context, 'MyWebPart');
-
-// Basic: Good for UAT/testing
-await SPContext.basic(this.context, 'MyWebPart');
-
-// Production: Minimal logging, optimized caching
-await SPContext.production(this.context, 'MyWebPart');
-
-// Teams: Optimized for Teams environment
-await SPContext.teams(this.context, 'MyWebPart');
+SPContext.environment              // 'dev', 'uat', or 'prod'
+SPContext.isTeamsContext          // Running in Microsoft Teams
+SPContext.getEnvironmentDisplayName() // User-friendly environment name
 ```
 
 ## Usage Examples
 
-### SharePoint Operations
+### Web-Focused SharePoint Operations
 
 ```typescript
 import './pnp-imports';
 import { SPContext } from 'spfx-toolkit';
 
-export default class DataWebPart extends BaseClientSideWebPart<IProps> {
+export default class WebFocusedPart extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
-    await SPContext.smart(this.context, 'DataWebPart');
+    await SPContext.smart(this.context, 'WebFocusedPart');
+
+    // Log web-specific context information
+    SPContext.logger.info('Context initialized', {
+      webTitle: SPContext.webTitle,
+      webUrl: SPContext.webAbsoluteUrl,
+      webServerRelativeUrl: SPContext.webServerRelativeUrl,
+      tenantUrl: SPContext.tenantUrl,
+      correlationId: SPContext.correlationId
+    });
+
     return super.onInit();
   }
 
-  private async loadTasks(): Promise<void> {
+  private async loadTasksWithWebContext(): Promise<void> {
     try {
-      // Clean property access
+      SPContext.logger.info('Loading tasks', {
+        webTitle: SPContext.webTitle,
+        webUrl: SPContext.webServerRelativeUrl,
+        user: SPContext.currentUser.displayName,
+        culture: SPContext.currentUICultureName,
+        isTeams: SPContext.isTeamsContext
+      });
+
       const tasks = await SPContext.sp.web.lists
         .getByTitle('Tasks')
         .items.select('Title', 'Status', 'AssignedTo/Title')
         .expand('AssignedTo')();
 
-      SPContext.logger.success('Tasks loaded', {
-        count: tasks.length,
-        user: SPContext.currentUser.displayName,
-      });
+      // Build API URL helper (always uses web URL)
+      const apiUrl = SPContext.buildApiUrl('web/lists/getByTitle(\'Tasks\')/items');
 
       this.renderTasks(tasks);
+
+      SPContext.logger.success('Tasks loaded successfully', {
+        count: tasks.length,
+        webTitle: SPContext.webTitle,
+        environment: SPContext.getEnvironmentDisplayName(),
+        tenantInfo: SPContext.getTenantInfo()
+      });
+
     } catch (error) {
       SPContext.logger.error('Failed to load tasks', error, {
         operation: 'loadTasks',
-        siteUrl: SPContext.siteUrl,
+        webUrl: SPContext.webAbsoluteUrl,
+        listContext: {
+          id: SPContext.listId,
+          title: SPContext.listTitle
+        }
       });
     }
   }
 }
 ```
 
-### Caching Strategies
+### Health Monitoring and Diagnostics
 
 ```typescript
-// Configure pessimistic caching for large datasets
-await SPContext.initialize(this.context, {
-  componentName: 'Dashboard',
-  cache: { strategy: 'pessimistic', ttl: 600000 },
-});
+// Get comprehensive health check
+const healthCheck = await SPContext.getHealthCheck();
 
-// Access different cached instances
-const freshData = await SPContext.sp.web.lists.getByTitle('LiveData').items();
-const cachedData = await SPContext.spPessimistic?.web.lists.getByTitle('Config').items();
+if (!healthCheck.isHealthy) {
+  SPContext.logger.warn('Context health issues detected', {
+    issues: healthCheck.issues,
+    recommendations: healthCheck.recommendations,
+    performance: healthCheck.performance
+  });
+}
+
+// Get web-focused context summary for debugging
+const contextSummary = SPContext.getContextSummary();
+console.log('Web Context Summary:', contextSummary);
+
+// Health check returns focused performance data
+const exampleHealthCheck = {
+  isHealthy: true,
+  issues: [], // Performance, network, or configuration issues
+  recommendations: ['Enable caching for frequently accessed data'],
+  performance: {
+    averageResponseTime: 245, // milliseconds
+    slowOperations: 0,
+    errorRate: 0.0
+  }
+};
 ```
 
-### HTTP Client with Authentication
+### Multi-Language Support
 
 ```typescript
-// Azure Function with Azure AD
-const result = await SPContext.http.callFunction({
-  url: 'https://myapp.azurewebsites.net/api/process',
-  method: 'POST',
-  data: { items: [1, 2, 3] },
-  useAuth: true,
-  resourceUri: 'api://your-app-id',
+// Detect and handle RTL languages
+if (SPContext.isRightToLeft) {
+  document.body.classList.add('rtl-layout');
+}
+
+// Log culture information
+SPContext.logger.info('Localization context', {
+  uiCulture: SPContext.currentUICultureName,
+  contentCulture: SPContext.currentCultureName,
+  isRTL: SPContext.isRightToLeft,
+  webTitle: SPContext.webTitle
 });
 
-// Power Platform Flow
-const flowResult = await SPContext.http.triggerFlow({
-  url: 'https://prod-123.westus.logic.azure.com/workflows/process/triggers/manual/invoke',
-  data: { userId: SPContext.currentUser.loginName },
-  functionKey: 'your-flow-key',
-  idempotencyKey: crypto.randomUUID(),
-});
+// Format dates according to user culture
+const formatter = new Intl.DateTimeFormat(SPContext.currentUICultureName);
+const formattedDate = formatter.format(new Date());
 ```
 
-### Performance Monitoring
+### Teams Integration Detection
 
 ```typescript
-// Track operations
-const users = await SPContext.performance.track('loadUsers', async () => {
-  return SPContext.sp.web.siteUsers();
-});
+if (SPContext.isTeamsContext) {
+  // Teams-specific functionality
+  SPContext.logger.info('Running in Microsoft Teams context', {
+    webTitle: SPContext.webTitle,
+    webUrl: SPContext.webAbsoluteUrl,
+    tenantInfo: SPContext.getTenantInfo()
+  });
 
-// Monitor performance
-const slowOps = SPContext.performance.getSlowOperations(1000);
-if (slowOps.length > 0) {
-  SPContext.logger.warn('Slow operations detected', {
-    count: slowOps.length,
-    operations: slowOps.map(op => ({ name: op.name, duration: op.duration })),
+  // Apply Teams-specific styling or behavior
+  this.configureForTeams();
+} else {
+  // Standard SharePoint functionality
+  SPContext.logger.info('Running in standard SharePoint context', {
+    webTitle: SPContext.webTitle
   });
 }
 ```
 
-## Real-World Examples
-
-### Document Management with Workflow
+### Environment-Aware Configuration
 
 ```typescript
-import './pnp-imports';
-import { SPContext } from 'spfx-toolkit';
-
-export default class DocumentManager extends BaseClientSideWebPart<IProps> {
-  protected async onInit(): Promise<void> {
-    await SPContext.production(this.context, 'DocumentManager');
-    return super.onInit();
-  }
-
-  private async processDocument(file: File): Promise<void> {
-    await SPContext.performance.track('documentProcessing', async () => {
-      // 1. Upload to SharePoint
-      const uploadResult = await SPContext.sp.web
-        .getFolderByServerRelativeUrl('/Documents')
-        .files.addUsingPath(file.name, file);
-
-      SPContext.logger.success('File uploaded', {
-        fileName: file.name,
-        uploadedBy: SPContext.currentUser.displayName,
-      });
-
-      // 2. Trigger processing workflow
-      await SPContext.http.triggerFlow({
-        url: this.properties.workflowUrl,
-        data: {
-          fileUrl: uploadResult.data.ServerRelativeUrl,
-          fileName: file.name,
-          uploadedBy: SPContext.currentUser.loginName,
-          siteUrl: SPContext.siteUrl,
-        },
-        functionKey: this.properties.workflowKey,
-        idempotencyKey: `upload-${file.name}-${Date.now()}`,
-      });
-
-      SPContext.logger.success('Processing initiated', { fileName: file.name });
+// Different behavior based on environment
+switch (SPContext.environment) {
+  case 'dev':
+    this.enableDebugMode();
+    SPContext.logger.info('Development mode enabled', {
+      webUrl: SPContext.webAbsoluteUrl
     });
+    break;
+
+  case 'uat':
+    this.enableTestingFeatures();
+    break;
+
+  case 'prod':
+    this.optimizeForProduction();
+    // Use pessimistic caching in production
+    const cachedData = await SPContext.spPessimistic.web.lists
+      .getByTitle('Configuration').items();
+    break;
+}
+
+// Log environment details
+SPContext.logger.info('Environment details', {
+  environment: SPContext.getEnvironmentDisplayName(),
+  webTitle: SPContext.webTitle,
+  tenantUrl: SPContext.tenantUrl
+});
+```
+
+## Advanced Features
+
+### Context Health Monitoring
+
+```typescript
+// Periodic health checks focused on web performance
+setInterval(async () => {
+  const health = await SPContext.getHealthCheck();
+
+  if (!health.isHealthy) {
+    // Send telemetry or alerts
+    this.sendHealthAlert(health);
   }
+}, 300000); // Every 5 minutes
+```
+
+### Performance Optimization
+
+```typescript
+// Track long-running operations
+const users = await SPContext.performance.track('loadWebUsers', async () => {
+  return SPContext.sp.web.siteUsers.top(5000)();
+});
+
+// Monitor and optimize slow operations
+const slowOps = SPContext.performance.getSlowOperations(1000);
+if (slowOps.length > 0) {
+  SPContext.logger.warn('Performance optimization needed', {
+    slowOperations: slowOps,
+    webContext: {
+      title: SPContext.webTitle,
+      url: SPContext.webAbsoluteUrl
+    },
+    recommendations: [
+      'Consider implementing caching',
+      'Reduce query size',
+      'Use selective field loading'
+    ]
+  });
 }
 ```
 
-### Smart Dashboard with Auto-Environment Detection
+## Utility Methods
+
+### API URL Building
 
 ```typescript
-import './pnp-imports';
-import { SPContext } from 'spfx-toolkit';
+// Build SharePoint API URLs (always uses web URL)
+const listsUrl = SPContext.buildApiUrl('web/lists');
+// Returns: https://tenant.sharepoint.com/sites/mysite/_api/web/lists
 
-export default class SmartDashboard extends BaseClientSideWebPart<IProps> {
-  protected async onInit(): Promise<void> {
-    // Smart detection chooses optimal settings for environment
-    await SPContext.smart(this.context, 'SmartDashboard');
+const customUrl = SPContext.buildApiUrl('_api/web/currentUser');
+// Returns: https://tenant.sharepoint.com/sites/mysite/_api/web/currentUser
+```
 
-    SPContext.logger.info('Dashboard initialized', {
-      environment: SPContext.environment,
-      siteUrl: SPContext.siteUrl,
-      user: SPContext.currentUser.displayName,
-    });
+### Context Summary
 
-    return super.onInit();
-  }
-
-  private async loadDashboard(): Promise<void> {
-    try {
-      // Use pessimistic cache if available for config data
-      const config = await SPContext.performance.track('loadConfig', () =>
-        (SPContext.spPessimistic || SPContext.sp).web.lists.getByTitle('DashboardConfig').items()
-      );
-
-      // Always fresh data for metrics
-      const metrics = await SPContext.performance.track('loadMetrics', () =>
-        SPContext.sp.web.lists.getByTitle('LiveMetrics').items.top(50)()
-      );
-
-      this.renderDashboard({ config, metrics });
-
-      SPContext.logger.success('Dashboard loaded', {
-        configItems: config.length,
-        metricsItems: metrics.length,
-        environment: SPContext.environment,
-      });
-    } catch (error) {
-      SPContext.logger.error('Dashboard load failed', error, {
-        environment: SPContext.environment,
-        siteUrl: SPContext.siteUrl,
-      });
-    }
+```typescript
+// Get formatted context summary for debugging
+const summary = SPContext.getContextSummary();
+/*
+Returns:
+{
+  basic: {
+    webTitle: "My Web",
+    applicationName: "MyWebPart",
+    correlationId: "abc12345"
+  },
+  urls: {
+    webAbsoluteUrl: "https://tenant.sharepoint.com/sites/mysite",
+    webServerRelativeUrl: "/sites/mysite",
+    tenantUrl: "https://tenant.sharepoint.com"
+  },
+  user: {
+    displayName: "John Doe",
+    loginName: "john@tenant.com",
+    email: "john@tenant.com"
+  },
+  environment: {
+    name: "prod",
+    displayName: "Production",
+    isTeams: false,
+    culture: "en-US",
+    isRTL: false
+  },
+  performance: {
+    averageTime: 245,
+    totalOperations: 15,
+    slowOperations: 0,
+    failedOperations: 0
   }
 }
+*/
 ```
 
-## Property Reference
+## Property Reference Summary
 
-### SPContext Static Properties
+### Web URLs and Paths
+- `webAbsoluteUrl` - Web absolute URL
+- `webServerRelativeUrl` - Web server-relative URL
+- `tenantUrl` - Tenant root URL
+- `listServerRelativeUrl` - List server-relative URL (when available)
 
-```typescript
-// Core instances
-SPContext.sp; // Regular SharePoint instance
-SPContext.spCached; // Cached SharePoint instance
-SPContext.spPessimistic; // Pessimistic cached instance
-SPContext.logger; // Logger instance
-SPContext.http; // HTTP client
-SPContext.performance; // Performance tracker
+### Metadata
+- `webTitle`, `applicationName` - Display names
+- `webId`, `listId`, `listTitle` - Identifiers
+- `correlationId` - Session tracking
 
-// Context information
-SPContext.context; // Full context object
-SPContext.spfxContext; // Raw SPFx context
-SPContext.pageContext; // SPFx page context
-SPContext.currentUser; // Current user info
-SPContext.environment; // 'development', 'uat', 'production'
-SPContext.siteUrl; // Site collection URL
-SPContext.webUrl; // Web URL
+### User Information (Authenticated Org Users)
+- `currentUser.displayName`, `currentUser.loginName`, `currentUser.email`
 
-// Utility methods
-SPContext.isReady(); // Check if initialized
-SPContext.reset(); // Reset context
-SPContext.addModule(); // Add custom module
-```
+### Environment
+- `environment`, `isTeamsContext`
+- Culture and localization properties
+
+### Utilities
+- `sp`, `spCached`, `spPessimistic` - SharePoint instances
+- `logger`, `http`, `performance` - Utility services
+- Enhanced methods: `getHealthCheck()`, `getContextSummary()`, `buildApiUrl()`
 
 ## Best Practices
 
 1. **Use `SPContext.smart()`** for automatic environment detection
-2. **Import PnP side effects first** before using SPContext
-3. **Use property access** (`SPContext.sp`) for cleaner code
-4. **Initialize once** in onInit() method
-5. **Monitor performance** in production with SPContext.performance
-6. **Use structured logging** with SPContext.logger
+2. **Focus on web-level operations** - no site complexity
+3. **Monitor context health** in production environments
+4. **Use culture information** for proper localization
+5. **Implement environment-aware logic** for different deployment stages
+6. **Track performance** and optimize slow operations
+7. **Handle Teams context** appropriately for hybrid scenarios
+8. **Use `webAbsoluteUrl`** for all URL building needs
 
-## Troubleshooting
-
-### Environment Detection Issues
-
-```typescript
-// Check detected environment
-console.log('Detected environment:', SPContext.environment);
-
-// Manual override if needed
-await SPContext.production(this.context, 'MyWebPart'); // Force production
-```
-
-### PnP Import Issues
-
-```typescript
-// Validate setup
-import { validateSPContextSetup } from 'spfx-toolkit';
-
-const validation = validateSPContextSetup();
-if (!validation.isValid) {
-  console.warn('Setup issues:', validation.issues);
-}
-```
-
-SPContext provides a clean, modern API for SharePoint Framework development with automatic environment detection and optimized performance!
+SPContext provides a clean, web-focused API for SharePoint Framework development with comprehensive property access and built-in monitoring capabilities!

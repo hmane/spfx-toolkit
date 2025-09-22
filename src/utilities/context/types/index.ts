@@ -1,6 +1,5 @@
 /**
- * src/context/types/index.ts
- * Complete type definitions with all features
+ * Focused types/index.ts with essential SharePoint properties only
  */
 
 import type { LogLevel } from '@pnp/logging';
@@ -43,7 +42,7 @@ export interface ContextConfig {
   };
 }
 
-// Main context interface - complete with all features
+// Main context interface with focused SharePoint properties
 export interface SPFxContext {
   // Core SPFx objects - REQUIRED
   readonly context: SPFxContextInput;
@@ -51,21 +50,42 @@ export interface SPFxContext {
 
   // PnP SP instances with different caching strategies
   readonly sp: SPFI;
-  readonly spCached?: SPFI; // For memory/storage strategies
-  readonly spPessimistic?: SPFI; // For pessimistic strategy
+  readonly spCached?: SPFI;
+  readonly spPessimistic?: SPFI;
 
-  // Environment information
-  readonly environment: EnvironmentName;
-  readonly correlationId: string;
+  // Essential SharePoint URL properties (web-only)
+  readonly webAbsoluteUrl: string;
+  readonly webServerRelativeUrl: string;
 
-  // Site/Web information
-  readonly siteUrl: string;
-  readonly webUrl: string;
+  // Web metadata
+  readonly webTitle: string;
+  readonly webId?: string;
+
+  // List context (when available)
+  readonly listId?: string;
+  readonly listTitle?: string;
+  readonly listServerRelativeUrl?: string;
+
+  // Culture and localization
+  readonly currentUICultureName: string;
+  readonly currentCultureName: string;
+  readonly isRightToLeft: boolean;
+
+  // Simple user information (authenticated org users only)
   readonly currentUser: {
     loginName?: string;
     displayName?: string;
     email?: string;
   };
+
+  // Application and tenant information
+  readonly applicationName: string;
+  readonly tenantUrl: string;
+
+  // Environment and runtime information
+  readonly environment: EnvironmentName;
+  readonly correlationId: string;
+  readonly isTeamsContext: boolean;
 
   // Utility instances
   readonly logger: Logger;
@@ -76,16 +96,29 @@ export interface SPFxContext {
   readonly links?: LinkBuilder;
 }
 
-// Logger interface (simplified)
+// Logger interface
 export interface Logger {
   info(message: string, data?: any): void;
   warn(message: string, data?: any): void;
   error(message: string, error?: any, data?: any): void;
   success(message: string, data?: any): void;
   startTimer(name: string): () => number;
+
+  // Log management
+  getEntries?(): LogEntry[];
+  clear?(): void;
 }
 
-// HTTP interface (simplified)
+export interface LogEntry {
+  level: LogLevel;
+  message: string;
+  data?: any;
+  timestamp: number;
+  correlationId: string;
+  component: string;
+}
+
+// HTTP interface
 export interface HttpClient {
   get<T = any>(url: string, options?: RequestOptions): Promise<HttpResponse<T>>;
   post<T = any>(url: string, data?: any, options?: RequestOptions): Promise<HttpResponse<T>>;
@@ -123,10 +156,13 @@ export interface HttpResponse<T = any> {
   duration: number;
 }
 
-// Performance interface (simplified)
+// Performance interface
 export interface PerformanceTracker {
   track<T>(name: string, operation: () => Promise<T>): Promise<T>;
   getMetrics(): PerformanceMetric[];
+  getAverageTime(operationName?: string): number;
+  getSlowOperations(threshold?: number): PerformanceMetric[];
+  getFailedOperations(): PerformanceMetric[];
   clear(): void;
 }
 
@@ -137,7 +173,7 @@ export interface PerformanceMetric {
   timestamp: number;
 }
 
-// Link builder (optional module)
+// Link builder interface (optional module)
 export interface LinkBuilder {
   file: {
     view(path: string): string;
@@ -148,8 +184,28 @@ export interface LinkBuilder {
   listItem: {
     view(listUrl: string, itemId: number): string;
     edit(listUrl: string, itemId: number): string;
-    newItem (listUrl: string): string;
+    newItem(listUrl: string): string;
   };
+}
+
+// Context health check interface
+export interface ContextHealthCheck {
+  isHealthy: boolean;
+  issues: ContextIssue[];
+  recommendations: string[];
+  performance: {
+    averageResponseTime: number;
+    slowOperations: number;
+    errorRate: number;
+  };
+}
+
+export interface ContextIssue {
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  type: 'performance' | 'network' | 'configuration';
+  message: string;
+  details?: any;
+  resolution?: string;
 }
 
 // Error types
@@ -157,6 +213,8 @@ export interface ContextError extends Error {
   code?: string;
   context?: any;
   recoverable?: boolean;
+  timestamp?: number;
+  correlationId?: string;
 }
 
 // Module interfaces for extensibility
