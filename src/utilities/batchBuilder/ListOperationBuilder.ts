@@ -1,8 +1,4 @@
-import {
-  IBatchOperation,
-  IListItemFormUpdateValue,
-  OperationType,
-} from '../../types/batchOperationTypes';
+import { IBatchOperation, IListItemFormUpdateValue, OperationType } from '../../types';
 
 export class ListOperationBuilder {
   private operations: IBatchOperation[] = [];

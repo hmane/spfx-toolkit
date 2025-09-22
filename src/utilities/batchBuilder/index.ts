@@ -11,34 +11,21 @@ export { ListOperationBuilder } from './ListOperationBuilder';
 // ========================================
 
 // Batch execution functions
-export { executeBatch } from './executeBatch';
 export { addOperationToBatch } from './addOperationToBatch';
+export { executeBatch } from './executeBatch';
 export { splitIntoBatches } from './splitIntoBatches';
-
-// ========================================
-// TYPE EXPORTS - For better TypeScript support
-// ========================================
-
-// Re-export relevant types for convenience
-export type {
-  IBatchOperation,
-  IBatchResult,
-  IOperationResult,
-  IBatchError,
-  IBatchBuilderConfig,
-  ExecuteBatchReturn,
-  IBatchedOperationTracker,
-  OperationType,
-  IListItemFormUpdateValue
-} from '../../types/batchOperationTypes';
 
 // ========================================
 // CONVENIENCE FUNCTIONS - Ready-to-use utilities
 // ========================================
 
 import { SPFI } from '@pnp/sp';
+import {
+  IBatchBuilderConfig,
+  IBatchOperation,
+  OperationType,
+} from '../../types/batchOperationTypes';
 import { BatchBuilder } from './BatchBuilder';
-import { IBatchBuilderConfig, IBatchOperation, OperationType } from '../../types/batchOperationTypes';
 import { executeBatch } from './executeBatch';
 
 /**
@@ -67,10 +54,12 @@ export const executeBatchOperations = async (
         if (op.itemId) listBuilder.delete(op.itemId, op.eTag);
         break;
       case 'addValidateUpdateItemUsingPath':
-        if (op.formValues && op.path) listBuilder.addValidateUpdateItemUsingPath(op.formValues, op.path);
+        if (op.formValues && op.path)
+          listBuilder.addValidateUpdateItemUsingPath(op.formValues, op.path);
         break;
       case 'validateUpdateListItem':
-        if (op.itemId && op.formValues) listBuilder.validateUpdateListItem(op.itemId, op.formValues);
+        if (op.itemId && op.formValues)
+          listBuilder.validateUpdateListItem(op.itemId, op.formValues);
         break;
     }
   });
@@ -90,7 +79,11 @@ export const executeSingleBatch = (sp: SPFI, operations: IBatchOperation[]) => {
  * Utility to create multiple list builders at once
  * Useful for complex multi-list operations
  */
-export const createMultiListBuilder = (sp: SPFI, listNames: string[], config?: IBatchBuilderConfig) => {
+export const createMultiListBuilder = (
+  sp: SPFI,
+  listNames: string[],
+  config?: IBatchBuilderConfig
+) => {
   const builder = new BatchBuilder(sp, config);
   const listBuilders: Record<string, ReturnType<typeof builder.list>> = {};
 
@@ -102,7 +95,7 @@ export const createMultiListBuilder = (sp: SPFI, listNames: string[], config?: I
     builders: listBuilders,
     execute: () => builder.execute(),
     getConfig: () => builder.getConfig(),
-    updateConfig: (newConfig: Partial<IBatchBuilderConfig>) => builder.updateConfig(newConfig)
+    updateConfig: (newConfig: Partial<IBatchBuilderConfig>) => builder.updateConfig(newConfig),
   };
 };
 
@@ -113,7 +106,9 @@ export const createMultiListBuilder = (sp: SPFI, listNames: string[], config?: I
 /**
  * Validate batch operations before execution
  */
-export const validateBatchOperations = (operations: IBatchOperation[]): {
+export const validateBatchOperations = (
+  operations: IBatchOperation[]
+): {
   isValid: boolean;
   errors: string[];
 } => {
@@ -152,7 +147,7 @@ export const validateBatchOperations = (operations: IBatchOperation[]): {
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -170,7 +165,7 @@ export const analyzeBatchOperations = (operations: IBatchOperation[]) => {
     operationsByList: {} as Record<string, number>,
     hasEtagOperations: 0,
     hasFormValueOperations: 0,
-    estimatedBatches: (batchSize: number) => Math.ceil(operations.length / batchSize)
+    estimatedBatches: (batchSize: number) => Math.ceil(operations.length / batchSize),
   };
 
   operations.forEach(op => {
@@ -209,7 +204,10 @@ export const getOptimalBatchSize = (operations: IBatchOperation[]): number => {
 /**
  * Estimate execution time based on operations
  */
-export const estimateExecutionTime = (operations: IBatchOperation[], batchSize = 100): {
+export const estimateExecutionTime = (
+  operations: IBatchOperation[],
+  batchSize = 100
+): {
   estimatedSeconds: number;
   estimatedBatches: number;
   factors: string[];
@@ -240,7 +238,7 @@ export const estimateExecutionTime = (operations: IBatchOperation[], batchSize =
   return {
     estimatedSeconds: Math.ceil(estimatedBatches * timePerBatch),
     estimatedBatches,
-    factors
+    factors,
   };
 };
 

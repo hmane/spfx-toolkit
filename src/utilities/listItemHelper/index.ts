@@ -7,27 +7,11 @@ export { createSPExtractor } from './spExtractor';
 export { createSPUpdater } from './spUpdater';
 
 // ========================================
-// TYPE EXPORTS - For better TypeScript support
-// ========================================
-
-// Re-export relevant types for convenience
-export type {
-  IPrincipal,
-  SPImage,
-  SPLocation,
-  SPLookup,
-  SPTaxonomy,
-  SPUrl,
-  IListItemFormUpdateValue,
-} from '../../types';
-
-// ========================================
 // CONVENIENCE FUNCTIONS - Ready-to-use utilities
 // ========================================
 
 import { createSPExtractor } from './spExtractor';
 import { createSPUpdater } from './spUpdater';
-import type { IPrincipal, SPLookup, SPTaxonomy } from '../../types';
 
 /**
  * Extract a single field value from SharePoint item

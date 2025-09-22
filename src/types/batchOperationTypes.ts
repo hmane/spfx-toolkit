@@ -1,14 +1,11 @@
+import { IListItemFormUpdateValue } from './listItemTypes';
+
 export type OperationType =
   | 'add'
   | 'update'
   | 'delete'
   | 'addValidateUpdateItemUsingPath'
   | 'validateUpdateListItem';
-
-export interface IListItemFormUpdateValue {
-  FieldName: string;
-  FieldValue: string;
-}
 
 export interface IBatchOperation {
   listName: string;
