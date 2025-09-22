@@ -16,7 +16,20 @@ import {
   WorkflowStepper,
 } from './components';
 import { useLocalStorage, useViewport } from './hooks';
-import { BatchBuilder, DateUtils, PermissionHelper, StringUtils } from './utilities';
+import {
+  BatchBuilder,
+  DateUtils,
+  PermissionHelper,
+  StringUtils,
+  Context,
+  QuickStart,
+  getCurrentContext,
+  getSp,
+  getLogger,
+  getHttp,
+  CacheModule,
+  LinksModule,
+} from './utilities';
 
 // Version information
 export const TOOLKIT_VERSION = '0.0.1-alpha.0';
@@ -42,6 +55,55 @@ export { BatchBuilder, PermissionHelper } from './utilities';
 // String and Date utilities
 export { StringUtils, applyStringExtensions } from './utilities/stringUtils';
 export { DateUtils, applyDateExtensions } from './utilities/dateUtils';
+
+// ========================================
+// CONTEXT UTILITIES - SPFx Context Management
+// ========================================
+
+// Core context exports
+export {
+  Context,
+  QuickStart,
+  getCurrentContext,
+  getSp,
+  getLogger,
+  getHttp,
+  getSpfxContext,
+  getPageContext,
+} from './utilities';
+
+// Context modules for advanced usage
+export {
+  LinksModule,
+  CacheModule,
+  MemoryCacheProvider,
+  SimpleLogger,
+  SimpleHttpClient,
+  SimplePerformanceTracker,
+} from './utilities';
+
+// Context convenience helpers
+export { ContextQuickStart, ContextHelpers } from './utilities';
+
+// Context types
+export type {
+  SPFxContext,
+  ContextConfig,
+  ContextLogger,
+  ContextHttpClient,
+  ContextPerformanceTracker,
+  LinkBuilder,
+  ContextModule,
+  CacheStrategy,
+  EnvironmentName,
+  BuildMode,
+  SPFxContextInput,
+  RequestOptions,
+  FunctionCallOptions,
+  FlowCallOptions,
+  HttpResponse as ContextHttpResponse,
+  PerformanceMetric,
+} from './utilities';
 
 // ========================================
 // COMPONENT EXPORTS - Import individually for tree-shaking
@@ -116,8 +178,11 @@ export {
   validateRequiredFields,
 } from './utilities/listItemHelper';
 
+// Context environment utilities
+export { EnvironmentDetector } from './utilities';
+
 // ========================================
-// TYPE EXPORTS - Individual for better tree-shaking (NO DUPLICATES)
+// TYPE EXPORTS - Individual for better tree-shaking
 // ========================================
 
 // Component types
@@ -176,14 +241,11 @@ export type { DateExtensionMethod } from './utilities/dateUtils';
 export type {
   BatchError as ToolkitBatchError,
   BatchExecutionResult as ToolkitBatchExecutionResult,
-  // Batch types (from typeUtilities)
   BatchOperation as ToolkitBatchOperation,
   BatchResult as ToolkitBatchResult,
   ItemPermissions as ToolkitItemPermissions,
   OperationResult as ToolkitOperationResult,
-  // Permission types (from typeUtilities)
   PermissionResult as ToolkitPermissionResult,
-  // SharePoint field types (from typeUtilities)
   Principal as ToolkitPrincipal,
   SharePointImage as ToolkitSharePointImage,
   SharePointLookup as ToolkitSharePointLookup,
@@ -210,25 +272,26 @@ export * as ManageAccessComponents from './components/ManageAccess';
 // All hooks organized
 export * as Hooks from './hooks';
 
-// All utilities organized
+// All utilities organized (including context)
 export * as BatchUtils from './utilities/batchBuilder';
 export * as ListItemUtils from './utilities/listItemHelper';
 export * as PermissionUtils from './utilities/permissionHelper';
 export * as StringExtensionUtils from './utilities/stringUtils';
 export * as DateExtensionUtils from './utilities/dateUtils';
+export * as ContextUtils from './utilities/context';
 
 // ========================================
 // ENHANCED TYPE EXPORTS - Namespaces only
 // ========================================
 
-// Namespace exports for organized imports (these contain aliased types)
+// Namespace exports for organized imports
 export type { BatchTypes, PermissionTypes, SharePointTypes } from './types';
 
 // Type guards and utilities
 export { TypeGuards } from './types';
 
 // ========================================
-// PERMISSION & SHAREPOINT COMPONENT COLLECTIONS
+// COMPONENT COLLECTIONS
 // ========================================
 
 // Permission management components
@@ -243,7 +306,6 @@ export const SharePointComponents = {
   GroupViewer,
   ManageAccessComponent,
   ManageAccessPanel,
-  // Add other SharePoint-specific components here
 } as const;
 
 // Display components
@@ -259,6 +321,14 @@ export const ManagementComponents = {
   ManageAccessPanel,
   ConflictDetector,
   WorkflowStepper,
+} as const;
+
+// Context components
+export const ContextComponents = {
+  Context,
+  QuickStart,
+  LinksModule,
+  CacheModule,
 } as const;
 
 // ========================================
@@ -283,6 +353,17 @@ export const ToolkitUtils = {
   },
 
   /**
+   * Check if context is initialized
+   */
+  isContextReady: (): boolean => {
+    try {
+      return Context.isReady();
+    } catch {
+      return false;
+    }
+  },
+
+  /**
    * Get toolkit version info
    */
   getVersionInfo: () => ({
@@ -301,11 +382,18 @@ export const ToolkitUtils = {
       'WorkflowStepper',
       'GroupViewer',
       'ManageAccessComponent',
-      'Toast/Notification System',
       'ErrorBoundary',
       'spForm Components',
     ],
-    utilities: ['BatchBuilder', 'PermissionHelper', 'ListItemHelper', 'StringUtils', 'DateUtils'],
+    utilities: [
+      'BatchBuilder',
+      'PermissionHelper',
+      'ListItemHelper',
+      'StringUtils',
+      'DateUtils',
+      'Context (SPFx Context Management)',
+      'QuickStart (Context Quick Setup)',
+    ],
     hooks: [
       'useLocalStorage',
       'useViewport',
@@ -321,14 +409,65 @@ export const ToolkitUtils = {
       'String Extensions (replaceAll, getFileName, etc.)',
       'Date Extensions (format, addDays, addBusinessDays, isToday)',
     ],
+    contextFeatures: [
+      'Multiple Cache Strategies (memory, storage, pessimistic)',
+      'Azure AD Authentication',
+      'Performance Tracking',
+      'Environment Detection',
+      'Structured Logging',
+      'Link Building',
+      'Module System',
+    ],
   }),
 
   /**
-   * Check if component is permission-related
+   * Initialize context with basic setup
    */
-  isPermissionComponent: (componentName: string): boolean => {
-    const permissionComponents = ['GroupViewer', 'ManageAccessComponent', 'ManageAccessPanel'];
-    return permissionComponents.includes(componentName);
+  initializeContext: async (spfxContext: any, componentName: string) => {
+    try {
+      return await QuickStart.basic(spfxContext, componentName);
+    } catch (error) {
+      console.error('Failed to initialize context:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Initialize all extensions at once
+   */
+  initializeExtensions: (): void => {
+    try {
+      const { applyStringExtensions } = require('./utilities/stringUtils');
+      const { applyDateExtensions } = require('./utilities/dateUtils');
+
+      applyStringExtensions();
+      applyDateExtensions();
+
+      console.log('SPFx Toolkit extensions initialized');
+    } catch (error) {
+      console.warn('Failed to initialize some extensions:', error);
+    }
+  },
+
+  /**
+   * Initialize everything (context + extensions)
+   */
+  initializeAll: async (spfxContext: any, componentName: string, contextConfig?: any) => {
+    try {
+      // Initialize extensions first
+      ToolkitUtils.initializeExtensions();
+
+      // Initialize context
+      const context = contextConfig
+        ? await Context.initialize(spfxContext, contextConfig)
+        : await QuickStart.basic(spfxContext, componentName);
+
+      console.log('SPFx Toolkit fully initialized');
+      return context;
+    } catch (error) {
+      console.error('Failed to initialize toolkit:', error);
+      throw error;
+    }
   },
 
   /**
@@ -347,27 +486,10 @@ export const ToolkitUtils = {
     if (['ErrorBoundary'].includes(componentName)) {
       return 'Error Handling';
     }
-    if (['StringUtils', 'DateUtils'].includes(componentName)) {
-      return 'Extensions';
+    if (['Context', 'QuickStart'].includes(componentName)) {
+      return 'Context Management';
     }
     return 'General';
-  },
-
-  /**
-   * Initialize all extensions at once
-   */
-  initializeExtensions: (): void => {
-    try {
-      const { applyStringExtensions } = require('./utilities/stringUtils');
-      const { applyDateExtensions } = require('./utilities/dateUtils');
-
-      applyStringExtensions();
-      applyDateExtensions();
-
-      console.log('SPFx Toolkit extensions initialized');
-    } catch (error) {
-      console.warn('Failed to initialize some extensions:', error);
-    }
   },
 } as const;
 
@@ -409,11 +531,20 @@ const SpfxToolkit = {
   StringUtils: StringUtils,
   DateUtils: DateUtils,
 
+  // Context utilities
+  Context: Context,
+  QuickStart: QuickStart,
+  getCurrentContext: getCurrentContext,
+  getSp: getSp,
+  getLogger: getLogger,
+  getHttp: getHttp,
+
   // Component collections
   PermissionComponents,
   SharePointComponents,
   DisplayComponents,
   ManagementComponents,
+  ContextComponents,
 
   // Toolkit info
   version: TOOLKIT_VERSION,
