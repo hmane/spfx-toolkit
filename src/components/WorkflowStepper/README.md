@@ -321,18 +321,6 @@ The component automatically handles mobile responsive design. For custom respons
 }
 ```
 
-## Contributing
-
-1. Follow TypeScript strict mode
-2. Include unit tests for new features
-3. Update documentation for API changes
-4. Test accessibility with screen readers
-5. Verify mobile responsive behavior
-
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Related Components
 
 - `ContentArea` - Step content display component

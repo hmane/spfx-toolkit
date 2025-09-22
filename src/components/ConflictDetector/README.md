@@ -28,22 +28,16 @@ Copy the `conflictDetector` folder to your SPFx project source directory.
 import { useConflictDetection, ConflictNotificationBar } from './conflictDetector';
 
 const MyFormComponent: React.FC = () => {
-  const {
-    hasConflict,
-    conflictInfo,
-    isChecking,
-    error,
-    checkForConflicts,
-    updateSnapshot
-  } = useConflictDetection({
-    listId: "your-list-id",
-    itemId: 123,
-    options: {
-      checkOnSave: true,
-      showNotification: true,
-      blockSave: false
-    }
-  });
+  const { hasConflict, conflictInfo, isChecking, error, checkForConflicts, updateSnapshot } =
+    useConflictDetection({
+      listId: 'your-list-id',
+      itemId: 123,
+      options: {
+        checkOnSave: true,
+        showNotification: true,
+        blockSave: false,
+      },
+    });
 
   const handleSave = async () => {
     // Check for conflicts before saving
@@ -55,7 +49,7 @@ const MyFormComponent: React.FC = () => {
 
     // Save your data
     await saveData();
-    
+
     // Update snapshot after successful save
     await updateSnapshot();
   };
@@ -69,7 +63,7 @@ const MyFormComponent: React.FC = () => {
         onRefresh={() => window.location.reload()}
         onOverwrite={handleSave}
       />
-      
+
       <form>
         {/* Your form content */}
         <button onClick={handleSave}>Save</button>
@@ -87,12 +81,12 @@ import { ConflictDetectionProvider, ConflictHandler } from './conflictDetector';
 // Wrap your application
 const App: React.FC = () => (
   <ConflictDetectionProvider
-    listId="your-list-id"
+    listId='your-list-id'
     itemId={123}
     options={{
       checkOnSave: true,
       showNotification: true,
-      notificationPosition: 'top'
+      notificationPosition: 'top',
     }}
   >
     <MyClassComponent />
@@ -105,10 +99,10 @@ class MyClassComponent extends React.Component {
 
   handleSave = async () => {
     const { checkForConflicts, updateSnapshot } = this.context;
-    
+
     await checkForConflicts();
     // Handle conflicts through UI components
-    
+
     await this.saveData();
     await updateSnapshot();
   };
@@ -121,7 +115,7 @@ class MyClassComponent extends React.Component {
           onRefresh={() => window.location.reload()}
           onOverwrite={this.handleSave}
         />
-        
+
         {/* Your form content */}
       </div>
     );
@@ -136,19 +130,19 @@ import { usePreSaveConflictCheck } from './conflictDetector';
 
 const MyComponent: React.FC = () => {
   const { checkBeforeSave, hasConflict, conflictInfo } = usePreSaveConflictCheck(
-    "list-id", 
+    'list-id',
     123,
     { blockSave: true } // Will prevent save if conflict detected
   );
 
   const handleSave = async () => {
     const { canSave, hasConflict } = await checkBeforeSave();
-    
+
     if (!canSave) {
       alert('Cannot save due to conflicts. Please refresh first.');
       return;
     }
-    
+
     // Proceed with save
     await saveData();
   };
@@ -166,17 +160,17 @@ const MyComponent: React.FC = () => {
 ```typescript
 interface ConflictDetectionOptions {
   // Detection settings
-  checkOnSave: boolean;           // Check for conflicts before save operations
-  checkInterval?: number;         // Polling interval in milliseconds (optional)
-  
+  checkOnSave: boolean; // Check for conflicts before save operations
+  checkInterval?: number; // Polling interval in milliseconds (optional)
+
   // UI behavior
-  showNotification: boolean;      // Show notification bars/dialogs
-  blockSave: boolean;            // Prevent saves when conflicts detected
-  logConflicts: boolean;         // Log conflicts to console
-  
+  showNotification: boolean; // Show notification bars/dialogs
+  blockSave: boolean; // Prevent saves when conflicts detected
+  logConflicts: boolean; // Log conflicts to console
+
   // Customization
   notificationPosition: 'top' | 'bottom' | 'inline';
-  customMessage?: string;        // Custom conflict message
+  customMessage?: string; // Custom conflict message
   onConflictDetected?: (conflict: ConflictInfo) => void;
   onConflictResolved?: () => void;
 }
@@ -214,7 +208,7 @@ Simple notification bar for conflicts:
   conflictInfo={conflictInfo}
   isChecking={isChecking}
   error={error}
-  customMessage="Custom conflict message"
+  customMessage='Custom conflict message'
   onRefresh={() => window.location.reload()}
   onOverwrite={() => proceedWithSave()}
   onDismiss={() => dismissNotification()}
@@ -229,10 +223,10 @@ Full-featured dialog for conflict resolution:
 <ConflictResolutionDialog
   isOpen={showDialog}
   conflictInfo={conflictInfo}
-  customTitle="Data Conflict Detected"
+  customTitle='Data Conflict Detected'
   showOverwriteOption={true}
   showRefreshOption={true}
-  onResolve={(action) => handleAction(action)}
+  onResolve={action => handleAction(action)}
   onDismiss={() => setShowDialog(false)}
 />
 ```
@@ -246,9 +240,9 @@ Combined notification and dialog:
   conflictInfo={conflictInfo}
   isChecking={isChecking}
   error={error}
-  showDialog={true}          // Show dialog instead of just notification
-  showNotification={true}    // Also show notification bar
-  onAction={(action) => handleConflictAction(action)}
+  showDialog={true} // Show dialog instead of just notification
+  showNotification={true} // Also show notification bar
+  onAction={action => handleConflictAction(action)}
 />
 ```
 
@@ -288,16 +282,16 @@ detector.dispose();
 ```typescript
 const detector = new ConflictDetector(listId, itemId, {
   checkOnSave: true,
-  onConflictDetected: (conflict) => {
+  onConflictDetected: conflict => {
     // Custom logic when conflict is detected
     console.log(`Conflict: ${conflict.lastModifiedBy} modified at ${conflict.lastModified}`);
-    
+
     // Could trigger custom notifications, logging, etc.
     sendToAnalytics('conflict_detected', conflict);
   },
   onConflictResolved: () => {
     console.log('Conflict resolved');
-  }
+  },
 });
 ```
 
@@ -306,25 +300,27 @@ const detector = new ConflictDetector(listId, itemId, {
 ```typescript
 // With Formik
 const formik = useFormik({
-  initialValues: { /* ... */ },
-  onSubmit: async (values) => {
+  initialValues: {
+    /* ... */
+  },
+  onSubmit: async values => {
     const { canSave } = await checkBeforeSave();
     if (!canSave) return;
-    
+
     await submitForm(values);
     await updateSnapshot();
-  }
+  },
 });
 
 // With React Hook Form
 const { handleSubmit } = useForm();
-const onSubmit = handleSubmit(async (data) => {
+const onSubmit = handleSubmit(async data => {
   const hasConflict = await checkForConflicts();
   if (hasConflict && blockSave) {
     // Handle conflict
     return;
   }
-  
+
   await saveData(data);
   await updateSnapshot();
 });
@@ -339,11 +335,11 @@ const { conflictInfo } = useConflictDetection({
   itemId,
   options: {
     checkInterval: 30000,
-    onConflictDetected: (conflict) => {
+    onConflictDetected: conflict => {
       // Show toast notification
       showToast(`Record modified by ${conflict.lastModifiedBy}`);
-    }
-  }
+    },
+  },
 });
 ```
 
@@ -352,11 +348,11 @@ const { conflictInfo } = useConflictDetection({
 ```typescript
 interface ConflictInfo {
   hasConflict: boolean;
-  originalVersion: string;      // ETag when editing started
-  currentVersion: string;       // Current ETag
-  lastModifiedBy: string;       // Who modified the record
-  lastModified: Date;          // When it was modified
-  originalModified: Date;      // When editing session started
+  originalVersion: string; // ETag when editing started
+  currentVersion: string; // Current ETag
+  lastModifiedBy: string; // Who modified the record
+  lastModified: Date; // When it was modified
+  originalModified: Date; // When editing session started
   itemId: number;
   listId: string;
 }
@@ -376,8 +372,8 @@ const { error, conflictInfo } = useConflictDetection({
   listId,
   itemId,
   options: {
-    logConflicts: true  // Enable console logging
-  }
+    logConflicts: true, // Enable console logging
+  },
 });
 
 // Check for errors
@@ -390,6 +386,7 @@ if (error) {
 ## Best Practices
 
 ### 1. Initialize Early
+
 ```typescript
 useEffect(() => {
   // Initialize when form loads
@@ -398,30 +395,33 @@ useEffect(() => {
 ```
 
 ### 2. Check Before Save
+
 ```typescript
 const handleSave = async () => {
   // Always check before saving
   const hasConflict = await checkForConflicts();
   if (hasConflict && shouldBlock) return;
-  
+
   await saveData();
   await updateSnapshot(); // Update after successful save
 };
 ```
 
 ### 3. Handle Refresh Properly
+
 ```typescript
 const handleRefresh = () => {
   // Save current form state if needed
   const formData = getCurrentFormData();
   localStorage.setItem('tempFormData', JSON.stringify(formData));
-  
+
   // Refresh page
   window.location.reload();
 };
 ```
 
 ### 4. Use Appropriate UI Patterns
+
 ```typescript
 // For critical data - use dialog
 <ConflictHandler showDialog={true} />
@@ -438,10 +438,12 @@ const options = ConflictDetectionPresets.silent;
 ### Common Issues
 
 1. **"Detector not initialized" error**
+
    - Ensure you call `initialize()` or use the hook properly
    - Check that listId and itemId are valid
 
 2. **PnPjs not configured**
+
    - Make sure PnPjs is properly set up in your SPFx solution
    - Check SharePoint context is available
 
@@ -455,8 +457,8 @@ Enable detailed logging:
 
 ```typescript
 const options = {
-  logConflicts: true,  // Enable console logging
-  checkOnSave: true
+  logConflicts: true, // Enable console logging
+  checkOnSave: true,
 };
 ```
 
@@ -466,32 +468,3 @@ const options = {
 - `@fluentui/react@^8.*` - UI components
 - `react` - React framework
 - `typescript` - Type definitions
-
-## License
-
-MIT License - Feel free to use in your SPFx projects.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Add tests for new functionality
-4. Submit a pull request
-
-## Changelog
-
-### v1.0.0
-- Initial release
-- Core conflict detection functionality
-- React hooks and context provider
-- Fluent UI v8 components
-- TypeScript support
-- Comprehensive documentation
-
-### v1.1.0 (Enhanced Features)
-- ✨ **Soft change detection** with `hasChangedSinceLastCheck()`
-- 🎛️ **Granular polling controls** - pause/resume/isActive
-- ⚡ **Optimistic updates** - use save response data to avoid extra API calls
-- 🔋 **Performance optimizations** - smart polling with Page Visibility API integration
-- 📚 **Enhanced documentation** with advanced usage examples
-- 🛠️ **Better developer experience** with more control and flexibility

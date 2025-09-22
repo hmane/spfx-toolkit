@@ -15,24 +15,13 @@
   --error-animation-duration: 0.3s;
 }
 
-/* Dark theme variables */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --error-text: #f7fafc;
-    --error-text-secondary: #a0aec0;
-    --error-bg: rgba(26, 32, 44, 0.95);
-    --error-glass-bg: rgba(26, 32, 44, 0.25);
-    --error-border: rgba(255, 255, 255, 0.1);
-    --error-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  }
-}
-
 .spfx-error-boundary.enhanced {
   display: flex;
   flex-direction: column;
   min-height: 200px;
   width: 100%;
-  font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto',
+    sans-serif;
   position: relative;
   z-index: 1000;
 }
@@ -54,7 +43,7 @@
 }
 
 /* Glass theme specific styles */
-.spfx-error-boundary.enhanced[data-theme="glass"] .error-container {
+.spfx-error-boundary.enhanced[data-theme='glass'] .error-container {
   background: var(--error-glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -80,7 +69,8 @@
 }
 
 @keyframes enhancedPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -113,22 +103,22 @@
 }
 
 /* Severity-based styling */
-.spfx-error-boundary.enhanced[data-severity="critical"] .error-container {
+.spfx-error-boundary.enhanced[data-severity='critical'] .error-container {
   border-left: 4px solid var(--error-primary);
   box-shadow: 0 8px 32px rgba(229, 62, 62, 0.2);
 }
 
-.spfx-error-boundary.enhanced[data-severity="high"] .error-container {
+.spfx-error-boundary.enhanced[data-severity='high'] .error-container {
   border-left: 4px solid var(--error-high);
   box-shadow: 0 8px 32px rgba(221, 107, 32, 0.2);
 }
 
-.spfx-error-boundary.enhanced[data-severity="medium"] .error-container {
+.spfx-error-boundary.enhanced[data-severity='medium'] .error-container {
   border-left: 4px solid var(--error-medium);
   box-shadow: 0 8px 32px rgba(214, 158, 46, 0.2);
 }
 
-.spfx-error-boundary.enhanced[data-severity="low"] .error-container {
+.spfx-error-boundary.enhanced[data-severity='low'] .error-container {
   border-left: 4px solid var(--error-low);
   box-shadow: 0 8px 32px rgba(56, 161, 105, 0.2);
 }

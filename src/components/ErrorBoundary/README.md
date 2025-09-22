@@ -28,6 +28,7 @@ const MyWebPart: React.FC = () => (
 ## Basic Usage
 
 ### Simple Error Boundary
+
 ```tsx
 <ErrorBoundary>
   <MyComponent />
@@ -35,6 +36,7 @@ const MyWebPart: React.FC = () => (
 ```
 
 ### With Custom Configuration
+
 ```tsx
 <ErrorBoundary
   enableRetry={true}
@@ -49,6 +51,7 @@ const MyWebPart: React.FC = () => (
 ```
 
 ### Using Predefined Configurations
+
 ```tsx
 import { ErrorBoundary, ERROR_BOUNDARY_CONFIGS } from 'spfx-toolkit';
 
@@ -66,6 +69,7 @@ import { ErrorBoundary, ERROR_BOUNDARY_CONFIGS } from 'spfx-toolkit';
 ## Advanced Usage
 
 ### Higher-Order Component Pattern
+
 ```tsx
 const MyComponentWithErrorBoundary = withErrorBoundary(MyComponent, {
   enableRetry: true,
@@ -75,6 +79,7 @@ const MyComponentWithErrorBoundary = withErrorBoundary(MyComponent, {
 ```
 
 ### Hook-based Error Handling
+
 ```tsx
 const MyComponent: React.FC = () => {
   const { captureError, resetError } = useErrorHandler();
@@ -92,6 +97,7 @@ const MyComponent: React.FC = () => {
 ```
 
 ### SharePoint-Specific Error Boundary
+
 ```tsx
 const SPWebPart: React.FC<{ context: WebPartContext }> = ({ context }) => (
   <ErrorBoundary
@@ -116,45 +122,50 @@ const SPWebPart: React.FC<{ context: WebPartContext }> = ({ context }) => (
 
 ## Configuration Options
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `enableRetry` | boolean | true | Enable retry functionality |
-| `maxRetries` | number | 3 | Maximum number of retry attempts |
-| `showDetailsButton` | boolean | true | Show technical details button |
-| `onError` | function | undefined | Error callback for logging |
-| `enableConsoleLogging` | boolean | true | Log errors to console |
-| `enableRemoteLogging` | boolean | false | Enable remote logging |
-| `isDevelopment` | boolean | auto-detect | Show detailed debug info |
-| `resetKeys` | array | undefined | Props that trigger reset |
-| `userFriendlyMessages` | object | default messages | Custom user messages |
+| Prop                   | Type     | Default          | Description                      |
+| ---------------------- | -------- | ---------------- | -------------------------------- |
+| `enableRetry`          | boolean  | true             | Enable retry functionality       |
+| `maxRetries`           | number   | 3                | Maximum number of retry attempts |
+| `showDetailsButton`    | boolean  | true             | Show technical details button    |
+| `onError`              | function | undefined        | Error callback for logging       |
+| `enableConsoleLogging` | boolean  | true             | Log errors to console            |
+| `enableRemoteLogging`  | boolean  | false            | Enable remote logging            |
+| `isDevelopment`        | boolean  | auto-detect      | Show detailed debug info         |
+| `resetKeys`            | array    | undefined        | Props that trigger reset         |
+| `userFriendlyMessages` | object   | default messages | Custom user messages             |
 
 ## Predefined Configurations
 
 ### MINIMAL
+
 - No retry functionality
 - No details button
 - Minimal logging
 - Perfect for non-critical components
 
 ### STANDARD
+
 - Basic retry (3 attempts)
 - Details button enabled
 - Console logging
 - Good for most components
 
 ### ENHANCED
+
 - Extended retry (5 attempts)
 - Full logging capabilities
 - Remote logging enabled
 - Best for critical components
 
 ### DEVELOPMENT
+
 - Maximum retries (10)
 - Verbose logging
 - Full debug information
 - Development environment
 
 ### PRODUCTION
+
 - Conservative retry (2 attempts)
 - No details button for users
 - Remote logging only
@@ -179,45 +190,45 @@ const CustomErrorFallback: React.FC<IErrorFallbackProps> = ({
   error,
   onRetry,
   retryCount,
-  maxRetries
+  maxRetries,
 }) => (
-  <div className="my-custom-error">
+  <div className='my-custom-error'>
     <h2>Oops! Something went wrong</h2>
     <p>{error.message}</p>
-    {retryCount < maxRetries && (
-      <button onClick={onRetry}>Try Again</button>
-    )}
+    {retryCount < maxRetries && <button onClick={onRetry}>Try Again</button>}
   </div>
 );
 
 <ErrorBoundary fallbackComponent={CustomErrorFallback}>
   <MyComponent />
-</ErrorBoundary>
+</ErrorBoundary>;
 ```
 
 ## Integration with Logging Services
 
 ### Application Insights
+
 ```tsx
 const handleError = (error, errorInfo, errorDetails) => {
   window.appInsights?.trackException({
     exception: error,
     properties: errorDetails,
     measurements: {
-      retryCount: errorDetails.retryCount
-    }
+      retryCount: errorDetails.retryCount,
+    },
   });
 };
 ```
 
 ### LogRocket
+
 ```tsx
 const handleError = (error, errorInfo, errorDetails) => {
   window.LogRocket?.captureException(error, {
     tags: {
-      section: 'error-boundary'
+      section: 'error-boundary',
     },
-    extra: errorDetails
+    extra: errorDetails,
   });
 };
 ```
@@ -225,10 +236,17 @@ const handleError = (error, errorInfo, errorDetails) => {
 ## Best Practices
 
 1. **Layer Your Error Boundaries**: Use multiple boundaries at different levels
+
    ```tsx
-   <ErrorBoundary {...ENHANCED}> {/* App level */}
-     <ErrorBoundary {...STANDARD}> {/* Feature level */}
-       <ErrorBoundary {...MINIMAL}> {/* Component level */}
+   <ErrorBoundary {...ENHANCED}>
+     {' '}
+     {/* App level */}
+     <ErrorBoundary {...STANDARD}>
+       {' '}
+       {/* Feature level */}
+       <ErrorBoundary {...MINIMAL}>
+         {' '}
+         {/* Component level */}
          <RiskyComponent />
        </ErrorBoundary>
      </ErrorBoundary>
@@ -250,27 +268,3 @@ const handleError = (error, errorInfo, errorDetails) => {
 - High contrast mode compatibility
 - Focus management after errors
 - ARIA labels and descriptions
-
-## Browser Support
-
-- Internet Explorer 11+
-- Edge (all versions)
-- Chrome 70+
-- Firefox 65+
-- Safari 12+
-
-## Styling
-
-The component includes default CSS classes for customization:
-
-```css
-.spfx-error-boundary { /* Main container */ }
-.spfx-error-boundary-container { /* Error content */ }
-.spfx-error-details-modal { /* Details modal */ }
-```
-
-Supports dark mode and high contrast themes automatically.
-
-## License
-
-MIT License

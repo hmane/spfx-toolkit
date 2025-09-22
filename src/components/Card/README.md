@@ -562,34 +562,6 @@ initializeCardSystem({
 });
 ```
 
-## 🤝 Contributing
-
-### Development Setup
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run tests: `npm test`
-4. Build: `npm run build`
-
-### Code Standards
-
-- Use TypeScript strict mode
-- Follow existing naming conventions
-- Add JSDoc comments for public APIs
-- Include unit tests for new features
-- Update documentation for API changes
-
-### Submitting Changes
-
-1. Create feature branch
-2. Make changes with tests
-3. Update documentation
-4. Submit pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
 ## 🔗 Links
 
 - [SharePoint Framework Documentation](https://docs.microsoft.com/en-us/sharepoint/dev/spfx/)
@@ -606,21 +578,3 @@ MIT License - see LICENSE file for details.
 | Firefox | 85+             | Full support  |
 | Safari  | 14+             | Full support  |
 | IE 11   | ❌              | Not supported |
-
-## 🏷️ Version History
-
-### v1.0.0 (Current)
-
-- Initial release
-- Full card functionality
-- Accordion support
-- Programmatic control
-- SharePoint theming
-- Accessibility compliance
-- Performance optimizations
-- TypeScript support
-- Production-ready codebase
-
----
-
-**Built with ❤️ for the SharePoint community**

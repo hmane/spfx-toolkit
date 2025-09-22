@@ -35,7 +35,7 @@ import {
   FormError,
   DevExtremeTextBox,
   DevExtremeSelectBox,
-  PnPPeoplePicker
+  PnPPeoplePicker,
 } from '../spForm';
 
 interface IFormData {
@@ -45,7 +45,11 @@ interface IFormData {
 }
 
 const MyForm: React.FC = () => {
-  const { control, handleSubmit, formState: { errors } } = useForm<IFormData>();
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<IFormData>();
 
   const onSubmit = (data: IFormData) => {
     console.log('Form submitted:', data);
@@ -57,35 +61,29 @@ const MyForm: React.FC = () => {
         <FormLabel isRequired>First Name</FormLabel>
         <FormValue>
           <DevExtremeTextBox
-            name="firstName"
+            name='firstName'
             control={control}
-            placeholder="Enter your first name"
+            placeholder='Enter your first name'
           />
         </FormValue>
         <FormError error={errors.firstName?.message} />
       </FormItem>
 
       <FormItem>
-        <FormLabel
-          infoText="Select your department from the list"
-        >
-          Department
-        </FormLabel>
+        <FormLabel infoText='Select your department from the list'>Department</FormLabel>
         <FormValue>
           <DevExtremeSelectBox
-            name="department"
+            name='department'
             control={control}
             items={['IT', 'HR', 'Finance', 'Marketing']}
-            placeholder="Select department"
+            placeholder='Select department'
           />
         </FormValue>
-        <FormDescription>
-          This will determine your access permissions
-        </FormDescription>
+        <FormDescription>This will determine your access permissions</FormDescription>
         <FormError error={errors.department?.message} />
       </FormItem>
 
-      <button type="submit">Submit</button>
+      <button type='submit'>Submit</button>
     </form>
   );
 };
@@ -94,21 +92,21 @@ const MyForm: React.FC = () => {
 ## Core Components
 
 ### FormItem
+
 The main container component that handles responsive layout.
 
 ```tsx
-<FormItem className="custom-class">
-  {/* Form components go here */}
-</FormItem>
+<FormItem className='custom-class'>{/* Form components go here */}</FormItem>
 ```
 
 ### FormLabel
+
 Displays field labels with optional required indicator and info tooltips.
 
 ```tsx
 <FormLabel
   isRequired={true}
-  infoText="Additional information about this field"
+  infoText='Additional information about this field'
   infoPosition={DirectionalHint.rightCenter}
 >
   Field Label
@@ -116,6 +114,7 @@ Displays field labels with optional required indicator and info tooltips.
 ```
 
 **Props:**
+
 - `isRequired?: boolean` - Shows red asterisk
 - `infoText?: string` - Simple tooltip text
 - `infoContent?: React.ReactNode` - Rich tooltip content (JSX)
@@ -123,34 +122,33 @@ Displays field labels with optional required indicator and info tooltips.
 - `className?: string` - Additional CSS classes
 
 ### FormValue
+
 Container for form controls and input elements.
 
 ```tsx
 <FormValue>
-  <DevExtremeTextBox name="fieldName" control={control} />
+  <DevExtremeTextBox name='fieldName' control={control} />
 </FormValue>
 ```
 
 ### FormDescription
+
 Optional descriptive text that appears below the form control.
 
 ```tsx
-<FormDescription>
-  This field accepts multiple formats including email and phone
-</FormDescription>
+<FormDescription>This field accepts multiple formats including email and phone</FormDescription>
 ```
 
 ### FormError
+
 Displays validation errors with optional icons.
 
 ```tsx
-<FormError
-  error={errors.fieldName?.message}
-  showIcon={true}
-/>
+<FormError error={errors.fieldName?.message} showIcon={true} />
 ```
 
 **Props:**
+
 - `error?: string | string[]` - Error message(s) to display
 - `showIcon?: boolean` - Show error icon
 - `className?: string` - Additional CSS classes
@@ -158,103 +156,107 @@ Displays validation errors with optional icons.
 ## DevExtreme Components
 
 ### DevExtremeTextBox
+
 ```tsx
 <DevExtremeTextBox
-  name="email"
+  name='email'
   control={control}
-  placeholder="Enter email address"
-  mode="email"
-  stylingMode="outlined"
+  placeholder='Enter email address'
+  mode='email'
+  stylingMode='outlined'
   maxLength={100}
-  onValueChanged={(value) => console.log(value)}
+  onValueChanged={value => console.log(value)}
 />
 ```
 
 ### DevExtremeSelectBox
+
 ```tsx
 <DevExtremeSelectBox
-  name="category"
+  name='category'
   control={control}
   dataSource={categories}
-  displayExpr="name"
-  valueExpr="id"
-  placeholder="Select category"
+  displayExpr='name'
+  valueExpr='id'
+  placeholder='Select category'
   searchEnabled={true}
 />
 ```
 
 ### DevExtremeDateBox
+
 ```tsx
 <DevExtremeDateBox
-  name="startDate"
+  name='startDate'
   control={control}
-  type="date"
-  placeholder="Select start date"
+  type='date'
+  placeholder='Select start date'
   min={new Date()}
-  displayFormat="MM/dd/yyyy"
+  displayFormat='MM/dd/yyyy'
 />
 ```
 
 ### DevExtremeNumberBox
+
 ```tsx
 <DevExtremeNumberBox
-  name="amount"
+  name='amount'
   control={control}
-  placeholder="Enter amount"
+  placeholder='Enter amount'
   min={0}
   max={10000}
-  format="currency"
+  format='currency'
   showSpinButtons={true}
 />
 ```
 
 ### DevExtremeTagBox
+
 ```tsx
 <DevExtremeTagBox
-  name="skills"
+  name='skills'
   control={control}
   dataSource={skillsList}
-  displayExpr="name"
-  valueExpr="id"
-  placeholder="Select skills"
+  displayExpr='name'
+  valueExpr='id'
+  placeholder='Select skills'
   searchEnabled={true}
   acceptCustomValue={true}
 />
 ```
 
 ### DevExtremeAutocomplete
+
 ```tsx
 <DevExtremeAutocomplete
-  name="city"
+  name='city'
   control={control}
   dataSource={cities}
-  placeholder="Type city name"
+  placeholder='Type city name'
   minSearchLength={2}
   searchTimeout={300}
 />
 ```
 
 ### DevExtremeCheckBox
+
 ```tsx
-<DevExtremeCheckBox
-  name="agree"
-  control={control}
-  text="I agree to the terms and conditions"
-/>
+<DevExtremeCheckBox name='agree' control={control} text='I agree to the terms and conditions' />
 ```
 
 ## PnP Components
 
 ### PnPPeoplePicker
+
 ```tsx
 <PnPPeoplePicker
-  name="assignees"
+  name='assignees'
   control={control}
   context={this.props.context}
-  placeholder="Select people"
+  placeholder='Select people'
   personSelectionLimit={5}
   required={true}
-  groupName="My Site Users"
+  groupName='My Site Users'
 />
 ```
 
@@ -263,6 +265,7 @@ Displays validation errors with optional icons.
 The form automatically adapts to different screen sizes:
 
 **Desktop (768px+):**
+
 ```
 [Label      ] [Form Control                    ]
               [Description text                ]
@@ -270,6 +273,7 @@ The form automatically adapts to different screen sizes:
 ```
 
 **Mobile (<768px):**
+
 ```
 [Label                          ]
 [Form Control                   ]
@@ -280,12 +284,13 @@ The form automatically adapts to different screen sizes:
 ## Advanced Usage
 
 ### Side-by-Side Fields
+
 ```tsx
-<div className="form-row">
+<div className='form-row'>
   <FormItem>
     <FormLabel isRequired>First Name</FormLabel>
     <FormValue>
-      <DevExtremeTextBox name="firstName" control={control} />
+      <DevExtremeTextBox name='firstName' control={control} />
     </FormValue>
     <FormError error={errors.firstName?.message} />
   </FormItem>
@@ -293,7 +298,7 @@ The form automatically adapts to different screen sizes:
   <FormItem>
     <FormLabel isRequired>Last Name</FormLabel>
     <FormValue>
-      <DevExtremeTextBox name="lastName" control={control} />
+      <DevExtremeTextBox name='lastName' control={control} />
     </FormValue>
     <FormError error={errors.lastName?.message} />
   </FormItem>
@@ -301,6 +306,7 @@ The form automatically adapts to different screen sizes:
 ```
 
 ### Rich Info Tooltips
+
 ```tsx
 <FormLabel
   isRequired={true}
@@ -321,19 +327,15 @@ The form automatically adapts to different screen sizes:
 ```
 
 ### Custom Components
+
 ```tsx
 <FormItem>
   <FormLabel>Custom Control</FormLabel>
   <FormValue>
     <Controller
-      name="customField"
+      name='customField'
       control={control}
-      render={({ field }) => (
-        <MyCustomComponent
-          value={field.value}
-          onChange={field.onChange}
-        />
-      )}
+      render={({ field }) => <MyCustomComponent value={field.value} onChange={field.onChange} />}
     />
   </FormValue>
   <FormError error={errors.customField?.message} />
@@ -341,23 +343,20 @@ The form automatically adapts to different screen sizes:
 ```
 
 ### Fields Without Labels
+
 ```tsx
 <FormItem>
   <FormValue>
-    <MyDataTable
-      data={tableData}
-      onSelectionChange={handleSelection}
-    />
+    <MyDataTable data={tableData} onSelectionChange={handleSelection} />
   </FormValue>
-  <FormDescription>
-    Select multiple rows to perform bulk actions
-  </FormDescription>
+  <FormDescription>Select multiple rows to perform bulk actions</FormDescription>
 </FormItem>
 ```
 
 ## CSS Customization
 
 ### Custom Form Styles
+
 ```scss
 // Override default spacing
 .my-form {
@@ -380,6 +379,7 @@ The form automatically adapts to different screen sizes:
 ```
 
 ### DevExtreme Theme Integration
+
 The components automatically inherit your DevExtreme theme. Load your theme CSS globally:
 
 ```tsx
@@ -390,6 +390,7 @@ import 'devextreme/dist/css/dx.light.css'; // or your chosen theme
 ## Validation Integration
 
 ### React Hook Form Validation
+
 ```tsx
 const { control, formState: { errors } } = useForm<IFormData>({
   mode: 'onChange',
@@ -453,7 +454,7 @@ import type {
   IFormItemProps,
   IFormLabelProps,
   IDevExtremeTextBoxProps,
-  IPnPPeoplePickerProps
+  IPnPPeoplePickerProps,
 } from '../spForm';
 ```
 
@@ -467,6 +468,7 @@ import type {
 ## Migration Guide
 
 ### From Standard HTML Forms
+
 ```tsx
 // Before
 <div className="form-group">
@@ -486,6 +488,7 @@ import type {
 ```
 
 ### From Office UI Fabric Controls
+
 ```tsx
 // Before
 <TextField
@@ -504,25 +507,3 @@ import type {
   <FormError error={errors.email?.message} />
 </FormItem>
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Changelog
-
-### v1.0.0
-- Initial release with core form components
-- DevExtreme integration
-- PnP Controls support
-- Responsive design
-- TypeScript support
-- React Hook Form integration

@@ -345,14 +345,3 @@ test('renders group name correctly', async () => {
   expect(getByText('Test Group')).toBeInTheDocument();
 });
 ```
-
-## 📝 Contributing
-
-1. Follow TypeScript strict mode
-2. Add unit tests for new features
-3. Update README for API changes
-4. Test across different SPFx scenarios
-
----
-
-**Perfect for any SPFx application requiring group display functionality!** 🎉

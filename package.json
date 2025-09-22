@@ -1,8 +1,7 @@
 {
   "name": "spfx-toolkit",
-  "version": "0.0.1-alpha.0",
+  "version": "1.0.0-alpha.0",
   "description": "Reusable components, hooks, and utilities for SharePoint Framework (SPFx) >= 1.21.1",
-  "license": "MIT",
   "private": false,
   "homepage": "",
   "repository": {
@@ -36,8 +35,7 @@
   },
   "files": [
     "lib/",
-    "README.md",
-    "LICENSE"
+    "README.md"
   ],
   "sideEffects": [
     "**/*.css",

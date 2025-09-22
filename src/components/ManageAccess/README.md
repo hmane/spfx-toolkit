@@ -31,39 +31,40 @@ import { ManageAccessComponent } from './components/ManageAccess';
 <ManageAccessComponent
   spContext={this.context}
   itemId={123}
-  listId="your-list-guid"
-  permissionTypes="both"
+  listId='your-list-guid'
+  permissionTypes='both'
   onPermissionChanged={this.handlePermissionChange}
-/>
+/>;
 ```
 
 ## 📋 Props Interface
 
 ```typescript
 interface IManageAccessComponentProps {
-  spContext: SPFxContext;                    // Required: SPFx context
-  itemId: number;                            // Required: SharePoint item ID
-  listId: string;                            // Required: SharePoint list/library GUID
+  spContext: SPFxContext; // Required: SPFx context
+  itemId: number; // Required: SharePoint item ID
+  listId: string; // Required: SharePoint list/library GUID
   permissionTypes: 'view' | 'edit' | 'both'; // Required: What permissions can be granted
-  onPermissionChanged: (                     // Required: Permission change handler
+  onPermissionChanged: (
+    // Required: Permission change handler
     operation: 'add' | 'remove',
     principals: IPermissionPrincipal[]
   ) => Promise<boolean>;
 
   // Optional props
-  siteUrl?: string;                          // SharePoint site URL
-  maxAvatars?: number;                       // Max avatars to show (default: 5)
-  protectedPrincipals?: string[];            // User/group IDs that cannot be removed
-  onError?: (error: string) => void;         // Error handler
+  siteUrl?: string; // SharePoint site URL
+  maxAvatars?: number; // Max avatars to show (default: 5)
+  protectedPrincipals?: string[]; // User/group IDs that cannot be removed
+  onError?: (error: string) => void; // Error handler
 }
 ```
 
 ## 🎯 Permission Types
 
-| Value | Behavior | Use Case |
-|-------|----------|----------|
-| `'view'` | No dropdown, grants View only | Read-only documents, reports |
-| `'edit'` | No dropdown, grants Edit only | Collaborative editing |
+| Value    | Behavior                      | Use Case                      |
+| -------- | ----------------------------- | ----------------------------- |
+| `'view'` | No dropdown, grants View only | Read-only documents, reports  |
+| `'edit'` | No dropdown, grants Edit only | Collaborative editing         |
 | `'both'` | Shows dropdown with View/Edit | Flexible permission scenarios |
 
 ## 🔧 Azure Function Integration
@@ -71,6 +72,7 @@ interface IManageAccessComponentProps {
 The component requires an Azure Function to handle permission changes with elevated privileges:
 
 ### **Permission Change Handler**
+
 ```typescript
 const handlePermissionChange = async (
   operation: 'add' | 'remove',
@@ -81,15 +83,15 @@ const handlePermissionChange = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-functions-key': 'your-function-key'
+        'x-functions-key': 'your-function-key',
       },
       body: JSON.stringify({
         operation,
         principals,
         itemId: 123,
         listId: 'your-list-guid',
-        siteUrl: this.context.pageContext.web.absoluteUrl
-      })
+        siteUrl: this.context.pageContext.web.absoluteUrl,
+      }),
     });
 
     if (!response.ok) {
@@ -98,7 +100,6 @@ const handlePermissionChange = async (
 
     const result = await response.json();
     return result.success;
-
   } catch (error) {
     console.error('Permission change failed:', error);
     return false;
@@ -107,6 +108,7 @@ const handlePermissionChange = async (
 ```
 
 ### **Azure Function Request Format**
+
 ```typescript
 interface IPermissionRequest {
   operation: 'add' | 'remove';
@@ -131,21 +133,22 @@ interface IPermissionPrincipal {
 ## 📱 Usage Examples
 
 ### **Document Library Integration**
+
 ```typescript
 import { ManageAccessComponent } from './components/ManageAccess';
 
 export default class DocumentWebPart extends React.Component {
   public render(): React.ReactElement {
     return (
-      <div className="document-permissions">
+      <div className='document-permissions'>
         <h3>Document Access</h3>
         <ManageAccessComponent
           spContext={this.props.context}
           itemId={this.props.documentId}
           listId={this.props.libraryId}
-          permissionTypes="both"
+          permissionTypes='both'
           maxAvatars={8}
-          protectedPrincipals={["1", "2"]} // System accounts
+          protectedPrincipals={['1', '2']} // System accounts
           onPermissionChanged={this.handlePermissionChange}
           onError={this.handleError}
         />
@@ -184,14 +187,15 @@ export default class DocumentWebPart extends React.Component {
 ```
 
 ### **List Item Permissions**
+
 ```typescript
 // In a list form or display
-<div className="item-permissions">
+<div className='item-permissions'>
   <ManageAccessComponent
     spContext={this.context}
     itemId={this.props.itemId}
-    listId="tasks-list-guid"
-    permissionTypes="edit" // Only allow edit permissions
+    listId='tasks-list-guid'
+    permissionTypes='edit' // Only allow edit permissions
     maxAvatars={6}
     onPermissionChanged={this.updateTaskPermissions}
   />
@@ -199,51 +203,56 @@ export default class DocumentWebPart extends React.Component {
 ```
 
 ### **Read-Only View**
+
 ```typescript
 // For users who can see but not manage permissions
 <ManageAccessComponent
   spContext={this.context}
   itemId={documentId}
   listId={libraryId}
-  permissionTypes="view"
+  permissionTypes='view'
   onPermissionChanged={async () => false} // Always return false = no changes allowed
 />
 ```
 
 ### **Protected Principals Example**
+
 ```typescript
 const protectedUsers = [
-  "1", // System Account
-  "2", // SharePoint App
+  '1', // System Account
+  '2', // SharePoint App
   currentUser.Id.toString(), // Current user
-  "15" // Site Collection Admin
+  '15', // Site Collection Admin
 ];
 
 <ManageAccessComponent
   spContext={this.context}
   itemId={itemId}
   listId={listId}
-  permissionTypes="both"
+  permissionTypes='both'
   protectedPrincipals={protectedUsers}
   onPermissionChanged={this.handlePermissionChange}
-/>
+/>;
 ```
 
 ## 🎨 UI Components & Behavior
 
 ### **Avatar Display**
+
 - **First Avatar**: Permission indicator (eye for view, pencil for edit)
 - **User Avatars**: LivePersona with rich hover cards
 - **Group Avatars**: GroupViewer with member tooltips
 - **Overflow**: "+X more" circular indicator
 
 ### **Manage Access Panel**
+
 - **Grant Access Section**: People picker + permission dropdown
 - **Current Permissions**: Groups first, then users
 - **Remove Actions**: Hover to reveal delete button
 - **Activity Feed**: Optional activity tracking (button in header)
 
 ### **User Experience Flow**
+
 1. **View Access**: Click "See all access" or avatar overflow
 2. **Grant Access**: Enter names → Select permission → Grant
 3. **Remove Access**: Hover → Delete → Confirm
@@ -252,17 +261,18 @@ const protectedUsers = [
 ## 🔧 Advanced Configuration
 
 ### **Custom Error Handling**
+
 ```typescript
 const handleError = (error: string): void => {
   // Log to Application Insights
   appInsights.trackException({
     exception: new Error(error),
-    properties: { component: 'ManageAccess' }
+    properties: { component: 'ManageAccess' },
   });
 
   // Show user-friendly message
   if (error.includes('403')) {
-    setErrorMessage('You don\'t have permission to manage access');
+    setErrorMessage("You don't have permission to manage access");
   } else if (error.includes('404')) {
     setErrorMessage('Item or list not found');
   } else {
@@ -272,6 +282,7 @@ const handleError = (error: string): void => {
 ```
 
 ### **Custom Permission Validation**
+
 ```typescript
 const validatePermissions = async (
   operation: 'add' | 'remove',
@@ -301,6 +312,7 @@ const validatePermissions = async (
 ```
 
 ### **Integration with Notifications**
+
 ```typescript
 import { ToastContainer, toast } from 'react-toastify';
 
@@ -318,14 +330,14 @@ const handlePermissionChange = async (
         render: `Successfully ${operation === 'add' ? 'granted' : 'removed'} access`,
         type: 'success',
         isLoading: false,
-        autoClose: 3000
+        autoClose: 3000,
       });
     } else {
       toast.update(loadingToast, {
         render: 'Permission update failed',
         type: 'error',
         isLoading: false,
-        autoClose: 5000
+        autoClose: 5000,
       });
     }
 
@@ -335,7 +347,7 @@ const handlePermissionChange = async (
       render: error.message,
       type: 'error',
       isLoading: false,
-      autoClose: 5000
+      autoClose: 5000,
     });
     return false;
   }
@@ -345,25 +357,29 @@ const handlePermissionChange = async (
 ## ⚡ Performance & Optimization
 
 ### **No Caching Strategy**
+
 Unlike GroupViewer, ManageAccess doesn't cache permission data because:
+
 - **Permissions change frequently**
 - **Security-sensitive data** requires fresh reads
 - **Real-time accuracy** is critical
 
 ### **Optimized Loading**
+
 ```typescript
 // Efficient permission loading
-const roleAssignments = await sp.web.lists.getById(listId)
+const roleAssignments = await sp.web.lists
+  .getById(listId)
   .items.getById(itemId)
-  .roleAssignments
-  .expand('RoleDefinitionBindings', 'Member')();
+  .roleAssignments.expand('RoleDefinitionBindings', 'Member')();
 ```
 
 ### **Smart User Validation**
+
 ```typescript
 // EnsureUser with duplicate checking
 const validatedUsers = await Promise.all(
-  users.map(async (user) => {
+  users.map(async user => {
     const ensuredUser = await sp.web.ensureUser(user.email);
     const hasExisting = permissions.some(p => p.id === ensuredUser.data.Id.toString());
     return hasExisting ? null : ensuredUser;
@@ -376,15 +392,17 @@ const validatedUsers = await Promise.all(
 ### **Common Issues**
 
 **1. "Insufficient permissions" Error**
+
 ```typescript
 // Check current user permissions
 const userPerms = await permissionHelper.getCurrentUserPermissions();
-const canManage = userPerms.permissionLevels.some(p =>
-  p.includes('Edit') || p.includes('Full Control')
+const canManage = userPerms.permissionLevels.some(
+  p => p.includes('Edit') || p.includes('Full Control')
 );
 ```
 
 **2. Azure Function Timeout**
+
 ```typescript
 // Add retry logic
 const callAzureFunctionWithRetry = async (data: any, retries = 3): Promise<boolean> => {
@@ -393,7 +411,7 @@ const callAzureFunctionWithRetry = async (data: any, retries = 3): Promise<boole
       const response = await fetch(functionUrl, {
         method: 'POST',
         body: JSON.stringify(data),
-        timeout: 30000 // 30 second timeout
+        timeout: 30000, // 30 second timeout
       });
       if (response.ok) return true;
     } catch (error) {
@@ -406,6 +424,7 @@ const callAzureFunctionWithRetry = async (data: any, retries = 3): Promise<boole
 ```
 
 **3. People Picker Issues**
+
 ```typescript
 // Context casting for PeoplePicker compatibility
 <PeoplePicker
@@ -426,23 +445,26 @@ const callAzureFunctionWithRetry = async (data: any, retries = 3): Promise<boole
 ## 🔒 Security Best Practices
 
 ### **Permission Validation**
+
 - Always validate on both client and server side
 - Check user permissions before showing manage options
 - Implement protected principals to prevent lockout
 
 ### **Audit Logging**
+
 ```typescript
 const logPermissionChange = (operation: string, principals: IPermissionPrincipal[]): void => {
   appInsights.trackEvent('PermissionChanged', {
     operation,
     principalCount: principals.length.toString(),
     itemId: itemId.toString(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 ```
 
 ### **Error Handling**
+
 - Never expose internal error details to users
 - Log detailed errors for debugging
 - Provide helpful user guidance
@@ -457,7 +479,7 @@ describe('ManageAccessComponent', () => {
     itemId: 123,
     listId: 'test-list',
     permissionTypes: 'both' as const,
-    onPermissionChanged: jest.fn()
+    onPermissionChanged: jest.fn(),
   };
 
   it('renders permission avatars', async () => {
@@ -488,12 +510,14 @@ describe('ManageAccessComponent', () => {
 ## 📝 Migration Guide
 
 ### **From Custom Permission Components**
+
 1. Replace permission checking logic with ManageAccess
 2. Update Azure Function to match expected interface
 3. Replace custom UI with ManageAccess component
 4. Update styling to use provided CSS classes
 
 ### **From SharePoint OOB**
+
 1. Implement Azure Function for elevated operations
 2. Replace sharing links with ManageAccess component
 3. Train users on new interface (very similar to OOB)
