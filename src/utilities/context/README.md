@@ -30,21 +30,94 @@ Install PnP dependencies in your SPFx project:
 npm install @pnp/sp@3.20.1 @pnp/logging@3.20.1 @pnp/queryable@3.20.1
 ```
 
-### 3. Create PnP Imports File
+### 3. Optional: Import Additional PnP Modules
 
-Create `src/pnp-imports.ts` to import PnP side effects:
+SPContext automatically imports core PnP modules (`webs`, `site-users`, `profiles`). For additional functionality, import from the `pnpImports` folder:
 
+#### Granular Imports (Pick what you need)
 ```typescript
-// src/pnp-imports.ts
-import '@pnp/sp/webs';
-import '@pnp/sp/lists';
-import '@pnp/sp/items';
-import '@pnp/sp/files';
-import '@pnp/sp/folders';
-import '@pnp/sp/site-users';
-import '@pnp/sp/content-types';
-import '@pnp/sp/fields';
-import '@pnp/sp/profiles';
+// Import specific functionality - these are side effects that enhance SPContext.sp
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';      // lists, items, batching, views
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files';      // files, folders, attachments
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search';     // search API
+import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy';   // managed metadata
+import 'spfx-toolkit/lib/utilities/context/pnpImports/security';   // permissions, sharing
+
+import { SPContext } from 'spfx-toolkit';
+
+export default class MyWebPart extends BaseClientSideWebPart<IProps> {
+  protected async onInit(): Promise<void> {
+    await SPContext.smart(this.context, 'MyWebPart');
+    return super.onInit();
+  }
+
+  private async example(): Promise<void> {
+    // These methods are now available thanks to the imports above:
+    const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
+    const file = await SPContext.sp.web.getFileByServerRelativeUrl('/doc.docx');
+    const results = await SPContext.sp.search('ContentType:Document');
+  }
+}
+```
+
+**Note:** These imports are side effects that enhance the `SPContext.sp` object with additional methods. No additional exports or setup required - just import and the methods become available!
+
+#### Available Import Modules
+
+| Module | Import Path | Includes | Use Case |
+|--------|-------------|----------|----------|
+| Core | `spfx-toolkit/lib/utilities/context/pnpImports/core` | webs, site-users, profiles | Auto-imported |
+| Lists | `spfx-toolkit/lib/utilities/context/pnpImports/lists` | lists, items, batching, views | List operations |
+| Files | `spfx-toolkit/lib/utilities/context/pnpImports/files` | files, folders, attachments | File management |
+| Content | `spfx-toolkit/lib/utilities/context/pnpImports/content` | content-types, fields, column-defaults | Content structure |
+| Search | `spfx-toolkit/lib/utilities/context/pnpImports/search` | search | Search functionality |
+| Taxonomy | `spfx-toolkit/lib/utilities/context/pnpImports/taxonomy` | taxonomy | Managed metadata |
+| Security | `spfx-toolkit/lib/utilities/context/pnpImports/security` | security, sharing | Permissions |
+| Features | `spfx-toolkit/lib/utilities/context/pnpImports/features` | features, navigation, regional-settings | Site features |
+| Pages | `spfx-toolkit/lib/utilities/context/pnpImports/pages` | clientside-pages, comments | Modern pages |
+| Social | `spfx-toolkit/lib/utilities/context/pnpImports/social` | comments, likes, favorites | Social features |
+| Apps | `spfx-toolkit/lib/utilities/context/pnpImports/apps` | appcatalog | App management |
+| Hub Sites | `spfx-toolkit/lib/utilities/context/pnpImports/hubsites` | hubsites | Hub site operations |
+
+#### Examples by Use Case
+
+**Basic List Operations:**
+```typescript
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
+import { SPContext } from 'spfx-toolkit';
+
+// Now you can use: lists, items, batching, views
+const batch = SPContext.sp.web.createBatch();
+batch.query(SPContext.sp.web.lists.getByTitle('Tasks').items);
+await batch.execute();
+```
+
+**File Management:**
+```typescript
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
+import { SPContext } from 'spfx-toolkit';
+
+// Now you can use: files, folders, attachments
+const file = await SPContext.sp.web.getFileByServerRelativeUrl('/Documents/test.docx');
+```
+
+**Search Operations:**
+```typescript
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
+import { SPContext } from 'spfx-toolkit';
+
+// Now you can use: search API
+const results = await SPContext.sp.search('ContentType:Document');
+```
+
+**Multiple Modules:**
+```typescript
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
+import { SPContext } from 'spfx-toolkit';
+
+// Use all imported functionality
 ```
 
 ## Quick Start
@@ -52,8 +125,8 @@ import '@pnp/sp/profiles';
 ### Basic Setup
 
 ```typescript
-// Import PnP side effects first
-import './pnp-imports';
+// Import the PnP modules you need
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
 import { SPContext } from 'spfx-toolkit';
 
 export default class MyWebPart extends BaseClientSideWebPart<IProps> {
@@ -68,13 +141,15 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   }
 
   private async loadData(): Promise<void> {
-    // Clean, simple API access
-    const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
+    // Clean, simple API access with batching support
+    const batch = SPContext.sp.web.createBatch();
+    batch.query(SPContext.sp.web.lists.getByTitle('Tasks').items);
+    const results = await batch.execute();
 
     SPContext.logger.info('Data loaded', {
-      count: items.length,
+      count: results[0].length,
       webTitle: SPContext.webTitle,
-      user: SPContext.currentUser.displayName
+      user: SPContext.currentUser.title
     });
   }
 }
@@ -262,7 +337,7 @@ await SPContext.initialize(this.context, {
 ### Document Library Manager
 
 ```typescript
-import './pnp-imports';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
 import { SPContext } from 'spfx-toolkit';
 
 export default class DocumentManager extends BaseClientSideWebPart<IProps> {
@@ -317,7 +392,7 @@ export default class DocumentManager extends BaseClientSideWebPart<IProps> {
 ### Multi-Language Dashboard
 
 ```typescript
-import './pnp-imports';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
 import { SPContext } from 'spfx-toolkit';
 
 export default class Dashboard extends BaseClientSideWebPart<IProps> {
@@ -375,7 +450,6 @@ export default class Dashboard extends BaseClientSideWebPart<IProps> {
 ### Teams Integration
 
 ```typescript
-import './pnp-imports';
 import { SPContext } from 'spfx-toolkit';
 
 export default class TeamsIntegration extends BaseClientSideWebPart<IProps> {
