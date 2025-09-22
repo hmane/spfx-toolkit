@@ -17,6 +17,8 @@ import type {
   SPFxContextInput,
 } from '../types';
 import { EnvironmentDetector } from '../utils/environment';
+import { IPrincipal } from '../../../types';
+import '@pnp/sp/profiles';
 
 /**
  * Focused context manager with essential SharePoint properties
@@ -151,11 +153,7 @@ export class ContextManager {
         isRightToLeft: spfxContext.pageContext.cultureInfo.isRightToLeft,
 
         // Simple user information (authenticated org users)
-        currentUser: {
-          loginName: spfxContext.pageContext.user.loginName,
-          displayName: spfxContext.pageContext.user.displayName,
-          email: spfxContext.pageContext.user.email,
-        },
+        currentUser: await this.fetchUserProfile(sp, spfxContext.pageContext),
 
         // Application information
         applicationName: this.getApplicationName(spfxContext),
@@ -292,6 +290,86 @@ export class ContextManager {
     }
   }
 
+  private async fetchUserProfile(sp: SPFI, pageContext: PageContext): Promise<IPrincipal> {
+    const basicUser = pageContext.user;
+
+    try {
+      // Fetch current user details from SharePoint
+      const currentUser = await sp.web.currentUser.select(
+        'Id',
+        'Title',
+        'Email',
+        'LoginName',
+        'UserPrincipalName'
+      )();
+
+      // Try to fetch user profile properties for additional info
+      let department: string | undefined;
+      let jobTitle: string | undefined;
+      let sip: string | undefined;
+      let picture: string | undefined;
+
+      try {
+        const userProfile = await sp.profiles.myProperties.select(
+          'AccountName',
+          'UserProfileProperties'
+        )();
+
+        // Extract properties from user profile
+        const properties = userProfile.UserProfileProperties || [];
+        department = this.findProfileProperty(properties, 'Department');
+        jobTitle =
+          this.findProfileProperty(properties, 'Title') ||
+          this.findProfileProperty(properties, 'JobTitle');
+        sip =
+          this.findProfileProperty(properties, 'SIP') ||
+          this.findProfileProperty(properties, 'WorkPhone');
+
+        // Get user photo URL
+        try {
+          picture = await sp.profiles.getUserProfilePropertyFor(
+            currentUser.LoginName,
+            'PictureURL'
+          );
+        } catch {
+          // Photo might not be available
+        }
+      } catch (profileError) {
+        // User profile service might not be available or accessible
+        console.warn('Could not fetch user profile properties:', profileError);
+      }
+
+      return {
+        id: currentUser.Id?.toString() || basicUser.loginName || '',
+        email: currentUser.Email || basicUser.email,
+        title: currentUser.Title || basicUser.displayName,
+        value: currentUser.LoginName || basicUser.loginName,
+        loginName: currentUser.LoginName || basicUser.loginName,
+        department,
+        jobTitle,
+        sip,
+        picture,
+      };
+    } catch (error) {
+      // Fallback to basic user info if API calls fail
+      console.warn('Could not fetch complete user profile, using basic info:', error);
+
+      return {
+        id: basicUser.loginName || '',
+        email: basicUser.email,
+        title: basicUser.displayName,
+        value: basicUser.loginName,
+        loginName: basicUser.loginName,
+        // Additional properties will be undefined
+      };
+    }
+  }
+
+  private findProfileProperty(properties: any[], key: string): string | undefined {
+    const prop = properties.find((p: any) => p.Key?.toLowerCase() === key.toLowerCase());
+    return prop?.Value || undefined;
+  }
+
   private getDefaultLogLevel(environment: EnvironmentName): LogLevel {
     switch (environment) {
       case 'dev':
@@ -318,13 +396,3 @@ export const Context = {
   addModule: (module: ContextModule, config?: any) =>
     ContextManager.getInstance().addModule(module, config),
 };
-
-// Convenience exports
-export const getCurrentContext = (): SPFxContext => Context.current();
-export const getSp = (): SPFI => Context.current().sp;
-export const getLogger = () => Context.current().logger;
-export const getHttp = () => Context.current().http;
-export const getSpfxContext = () => Context.current().context;
-export const getPageContext = () => Context.current().pageContext;
-export const getCurrentUser = () => Context.current().currentUser;
-export const getWebAbsoluteUrl = () => Context.current().webAbsoluteUrl;

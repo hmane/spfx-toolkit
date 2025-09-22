@@ -8,17 +8,7 @@
 // ========================================
 
 // Main context API
-export {
-  Context,
-  getCurrentContext,
-  getHttp,
-  getLogger,
-  getPageContext,
-  getSp,
-  getSpfxContext,
-  getCurrentUser,
-  getWebAbsoluteUrl,
-} from './core/context-manager';
+export { Context } from './core/context-manager';
 
 // Quick start helpers
 export { QuickStart } from './quick-start';
