@@ -2,10 +2,11 @@
  * Focused types/index.ts with essential SharePoint properties only
  */
 
-import type { LogLevel } from '@pnp/logging';
-import type { SPFI } from '@pnp/sp';
 import type { BaseComponentContext } from '@microsoft/sp-component-base';
 import type { PageContext } from '@microsoft/sp-page-context';
+import type { LogLevel } from '@pnp/logging';
+import type { SPFI } from '@pnp/sp';
+import { IPrincipal } from '../../../types';
 
 // Environment types
 export type EnvironmentName = 'dev' | 'uat' | 'prod';
@@ -72,11 +73,7 @@ export interface SPFxContext {
   readonly isRightToLeft: boolean;
 
   // Simple user information (authenticated org users only)
-  readonly currentUser: {
-    loginName?: string;
-    displayName?: string;
-    email?: string;
-  };
+  readonly currentUser: IPrincipal;
 
   // Application and tenant information
   readonly applicationName: string;

@@ -2,7 +2,18 @@
  * Focused sp-context.ts with essential enhancements only
  */
 
-import type { SPFxContextInput, ContextConfig, ContextHealthCheck } from './types';
+import type { SPFI } from '@pnp/sp';
+import type { PageContext } from '@microsoft/sp-page-context';
+import type {
+  SPFxContextInput,
+  ContextConfig,
+  ContextHealthCheck,
+  SPFxContext,
+  Logger,
+  HttpClient,
+  PerformanceTracker,
+} from './types';
+import { IPrincipal } from '../../types';
 
 /**
  * Enhanced SPContext with comprehensive SharePoint properties
@@ -13,7 +24,10 @@ export class SPContext {
   /**
    * Initialize the context with lazy loading
    */
-  static async initialize(spfxContext: SPFxContextInput, config: ContextConfig = {}): Promise<any> {
+  static async initialize(
+    spfxContext: SPFxContextInput,
+    config: ContextConfig = {}
+  ): Promise<SPFxContext> {
     if (!SPContext.contextModule) {
       SPContext.contextModule = await import('./core/context-manager');
     }
@@ -24,7 +38,7 @@ export class SPContext {
   /**
    * Basic setup - good for most scenarios
    */
-  static async basic(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
+  static async basic(spfxContext: SPFxContextInput, componentName: string): Promise<SPFxContext> {
     return SPContext.initialize(spfxContext, {
       componentName,
       logging: {
@@ -47,7 +61,10 @@ export class SPContext {
   /**
    * Production setup - optimized for performance and minimal logging
    */
-  static async production(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
+  static async production(
+    spfxContext: SPFxContextInput,
+    componentName: string
+  ): Promise<SPFxContext> {
     return SPContext.initialize(spfxContext, {
       componentName,
       logging: {
@@ -70,7 +87,10 @@ export class SPContext {
   /**
    * Development setup - verbose logging, no caching
    */
-  static async development(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
+  static async development(
+    spfxContext: SPFxContextInput,
+    componentName: string
+  ): Promise<SPFxContext> {
     return SPContext.initialize(spfxContext, {
       componentName,
       logging: {
@@ -92,7 +112,7 @@ export class SPContext {
   /**
    * Smart setup - detects environment automatically
    */
-  static async smart(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
+  static async smart(spfxContext: SPFxContextInput, componentName: string): Promise<SPFxContext> {
     const { EnvironmentDetector } = await import('./utils/environment');
     const environment = EnvironmentDetector.detect(spfxContext.pageContext);
 
@@ -114,7 +134,7 @@ export class SPContext {
   /**
    * Teams-optimized setup
    */
-  static async teams(spfxContext: SPFxContextInput, componentName: string): Promise<any> {
+  static async teams(spfxContext: SPFxContextInput, componentName: string): Promise<SPFxContext> {
     return SPContext.initialize(spfxContext, {
       componentName,
       logging: {
@@ -137,42 +157,42 @@ export class SPContext {
   // CORE ACCESS METHODS
   // ========================================
 
-  static get context(): any {
+  static get context(): SPFxContext {
     if (!SPContext.contextModule) {
       throw new Error('SPContext not initialized. Call SPContext.initialize() first.');
     }
     return SPContext.contextModule.getCurrentContext();
   }
 
-  static get sp(): any {
+  static get sp(): SPFI {
     return SPContext.context.sp;
   }
 
-  static get spCached(): any {
+  static get spCached(): SPFI | undefined {
     return SPContext.context.spCached;
   }
 
-  static get spPessimistic(): any {
+  static get spPessimistic(): SPFI | undefined {
     return SPContext.context.spPessimistic;
   }
 
-  static get logger(): any {
+  static get logger(): Logger {
     return SPContext.context.logger;
   }
 
-  static get http(): any {
+  static get http(): HttpClient {
     return SPContext.context.http;
   }
 
-  static get performance(): any {
+  static get performance(): PerformanceTracker {
     return SPContext.context.performance;
   }
 
-  static get spfxContext(): any {
+  static get spfxContext(): SPFxContextInput {
     return SPContext.context.context;
   }
 
-  static get pageContext(): any {
+  static get pageContext(): PageContext {
     return SPContext.context.pageContext;
   }
 
@@ -236,7 +256,7 @@ export class SPContext {
   // USER INFORMATION (Simple)
   // ========================================
 
-  static get currentUser(): any {
+  static get currentUser(): IPrincipal {
     return SPContext.context.currentUser;
   }
 
@@ -330,7 +350,7 @@ export class SPContext {
         type: 'performance',
         message: `${slowOps.length} slow operations detected (>1000ms)`,
         details: {
-          slowestOperations: slowOps.slice(0, 3).map((op: { name: any; duration: any; timestamp: string | number | Date; }) => ({
+          slowestOperations: slowOps.slice(0, 3).map(op => ({
             name: op.name,
             duration: op.duration,
             timestamp: new Date(op.timestamp).toISOString(),
@@ -352,7 +372,7 @@ export class SPContext {
           details: {
             totalOperations: performanceMetrics.length,
             failedOperations: failedOps.length,
-            recentFailures: failedOps.slice(-3).map((op: { name: any; timestamp: string | number | Date; }) => ({
+            recentFailures: failedOps.slice(-3).map(op => ({
               name: op.name,
               timestamp: new Date(op.timestamp).toISOString(),
             })),
@@ -462,11 +482,34 @@ export class SPContext {
    * Create a formatted context summary for debugging
    */
   static getContextSummary(): {
-    basic: any;
-    urls: any;
-    user: any;
-    environment: any;
-    performance: any;
+    basic: {
+      webTitle: string;
+      applicationName: string;
+      correlationId: string;
+    };
+    urls: {
+      webAbsoluteUrl: string;
+      webServerRelativeUrl: string;
+      tenantUrl: string;
+    };
+    user: {
+      title?: string;
+      loginName?: string;
+      email?: string;
+    };
+    environment: {
+      name: string;
+      displayName: string;
+      isTeams: boolean;
+      culture: string;
+      isRTL: boolean;
+    };
+    performance: {
+      averageTime: number;
+      totalOperations: number;
+      slowOperations: number;
+      failedOperations: number;
+    };
   } {
     return {
       basic: {
@@ -480,7 +523,7 @@ export class SPContext {
         tenantUrl: SPContext.tenantUrl,
       },
       user: {
-        displayName: SPContext.currentUser.displayName,
+        title: SPContext.currentUser.title,
         loginName: SPContext.currentUser.loginName,
         email: SPContext.currentUser.email,
       },
