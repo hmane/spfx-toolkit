@@ -1,14 +1,32 @@
 # List Item Helper Utility
 
-A powerful SharePoint list item manipulation utility for SPFx applications that simplifies extracting and updating SharePoint field values with automatic type detection and proper formatting.
+A powerful SharePoint list item manipulation utility for SPFx applications that simplifies extracting and updating SharePoint field values with automatic type detection, change detection, and proper formatting.
 
 ## Overview
 
-The List Item Helper provides two main factory functions:
-- **`createSPExtractor`** - Extract and transform values from SharePoint list items
-- **`createSPUpdater`** - Build field updates for SharePoint operations
+The List Item Helper provides two main factory functions optimized for SharePoint's `renderListData` API:
+- **`createSPExtractor`** - Extract and transform values from SharePoint list items with enhanced type handling
+- **`createSPUpdater`** - Build field updates for SharePoint operations with automatic change detection
 
-Plus a collection of convenience functions for common operations.
+Plus a comprehensive collection of convenience functions for common operations.
+
+## Dependencies & Compatibility
+
+### Primary Dependency
+This utility is **optimized for SharePoint's `renderListData` API** which is typically used with CAML queries. It handles the native object structures returned by `renderListData` without requiring additional transformations.
+
+### Additional Dependencies
+```json
+{
+  "@microsoft/sp-lodash-subset": "^1.x.x"
+}
+```
+
+### Compatibility
+- **Primary**: SharePoint `renderListData` API responses
+- **Secondary**: PnP.js REST API responses (with `.results` wrapper handling)
+- **SharePoint Versions**: SharePoint Online, SharePoint 2019+
+- **SPFx Versions**: 1.11+
 
 ## Installation
 
@@ -17,32 +35,76 @@ import {
   createSPExtractor,
   createSPUpdater,
   extractField,
-  quickUpdate
-} from 'spfx-toolkit/utils';
+  quickUpdate,
+  createUpdatesFromItem,
+  compareItems
+} from 'spfx-toolkit/lib/utilities/listItemHelper';
 ```
 
 ## Quick Start
 
-### Extracting Field Values
+### Using with renderListData (CAML Queries)
 
 ```typescript
-import { createSPExtractor } from 'spfx-toolkit/utils';
+import { createSPExtractor } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-// Sample SharePoint list item
-const listItem = {
+// Sample SharePoint renderListData response item
+const renderListDataItem = {
   ID: 42,
   Title: "Project Alpha",
   DueDate: "2024-12-31T00:00:00Z",
-  AssignedTo: { ID: 123, Title: "John Doe", EMail: "john@company.com" },
-  ProjectCategory: { ID: 5, Title: "Development" },
-  Tags: { results: [
-    { Label: "Critical", TermGuid: "abc-123" },
-    { Label: "Frontend", TermGuid: "def-456" }
-  ]}
+
+  // User field - renderListData format (lowercase properties)
+  AssignedTo: {
+    id: "123",
+    email: "john@company.com",
+    title: "John Doe",
+    value: "i:0#.f|membership|john@company.com",
+    loginName: "i:0#.f|membership|john@company.com"
+  },
+
+  // Lookup field - renderListData format
+  ProjectCategory: {
+    id: 5,
+    title: "Development"
+  },
+
+  // Multi-user field - direct array (no .results wrapper)
+  TeamMembers: [
+    {
+      id: "123",
+      email: "john@company.com",
+      title: "John Doe",
+      value: "i:0#.f|membership|john@company.com"
+    },
+    {
+      id: "456",
+      email: "jane@company.com",
+      title: "Jane Smith",
+      value: "i:0#.f|membership|jane@company.com"
+    }
+  ],
+
+  // Taxonomy field - renderListData format (lowercase properties)
+  Tags: [
+    {
+      label: "Critical",
+      termId: "abc-123",
+      wssId: 10
+    },
+    {
+      label: "Frontend",
+      termId: "def-456",
+      wssId: 11
+    }
+  ],
+
+  IsActive: true,
+  Budget: 50000
 };
 
-// Create extractor
-const extractor = createSPExtractor(listItem);
+// Create extractor - optimized for renderListData format
+const extractor = createSPExtractor(renderListDataItem);
 
 // Extract different field types
 const id = extractor.number('ID');                    // 42
@@ -50,62 +112,182 @@ const title = extractor.string('Title');              // "Project Alpha"
 const dueDate = extractor.date('DueDate');            // Date object
 const assignedUser = extractor.user('AssignedTo');    // IPrincipal object
 const category = extractor.lookup('ProjectCategory'); // SPLookup object
+const teamMembers = extractor.userMulti('TeamMembers'); // IPrincipal[]
 const tags = extractor.taxonomyMulti('Tags');         // SPTaxonomy[]
+const isActive = extractor.boolean('IsActive');       // true
+const budget = extractor.currency('Budget');          // 50000
 ```
 
-### Updating Field Values
+### Real-world renderListData Usage
 
 ```typescript
-import { createSPUpdater } from 'spfx-toolkit/utils';
+// Using renderListData with CAML query
+async function getProjectsWithCAML(): Promise<any[]> {
+  const camlQuery = `
+    <View>
+      <Query>
+        <Where>
+          <Eq>
+            <FieldRef Name='Status' />
+            <Value Type='Choice'>Active</Value>
+          </Eq>
+        </Where>
+      </Query>
+      <ViewFields>
+        <FieldRef Name='ID' />
+        <FieldRef Name='Title' />
+        <FieldRef Name='AssignedTo' />
+        <FieldRef Name='TeamMembers' />
+        <FieldRef Name='Category' />
+        <FieldRef Name='Tags' />
+        <FieldRef Name='DueDate' />
+        <FieldRef Name='Budget' />
+      </ViewFields>
+    </View>
+  `;
 
-// Create updater
+  const renderListDataParams = {
+    ViewXml: camlQuery,
+    RenderOptions: 2, // Include field values
+  };
+
+  // Call SharePoint renderListData API
+  const response = await this.context.spHttpClient.post(
+    `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('Projects')/renderListData`,
+    SPHttpClient.configurations.v1,
+    {
+      headers: {
+        'Accept': 'application/json;odata=verbose',
+        'Content-Type': 'application/json;odata=verbose'
+      },
+      body: JSON.stringify(renderListDataParams)
+    }
+  );
+
+  const data = await response.json();
+  const items = data.ListData.Row; // renderListData format
+
+  // Process items with List Item Helper
+  return items.map(item => {
+    const extractor = createSPExtractor(item);
+
+    return {
+      id: extractor.number('ID'),
+      title: extractor.string('Title'),
+      assignedTo: extractor.user('AssignedTo'),         // Handles renderListData user format
+      teamMembers: extractor.userMulti('TeamMembers'), // Handles direct arrays
+      category: extractor.lookup('Category'),           // Handles renderListData lookup format
+      tags: extractor.taxonomyMulti('Tags'),           // Handles direct taxonomy arrays
+      dueDate: extractor.date('DueDate'),
+      budget: extractor.currency('Budget')
+    };
+  });
+}
+```
+
+### Updating with Change Detection
+
+```typescript
+import { createSPUpdater } from 'spfx-toolkit/lib/utilities/listItemHelper';
+
+// Original item from renderListData
+const originalItem = {
+  ID: 42,
+  Title: "Project Alpha",
+  Description: "Original description",
+  AssignedTo: { id: "123", title: "John Doe", email: "john@company.com" },
+  Priority: "Medium",
+  IsActive: true
+};
+
+// New values to update
+const newValues = {
+  Title: "Project Alpha",           // Same - won't update
+  Description: "Updated description", // Changed - will update
+  AssignedTo: { id: "456", title: "Jane Smith", email: "jane@company.com" }, // Changed - will update
+  Priority: "Medium",              // Same - won't update
+  IsActive: false                  // Changed - will update
+};
+
+// Create updater with change detection
 const updater = createSPUpdater();
 
-// Chain field updates
-const updates = updater
-  .set('Title', 'Updated Project Title')
-  .set('DueDate', new Date('2024-12-31'))
-  .set('AssignedToId', 123)
-  .set('ProjectCategoryId', 5)
-  .set('IsActive', true)
-  .getUpdates();
+Object.entries(newValues).forEach(([field, value]) => {
+  updater.set(field, value, originalItem[field]);
+});
 
-// Use with PnP.js
-await sp.web.lists.getByTitle("Projects").items.getById(42).update(updates);
+// Check what changed
+console.log('Has changes:', updater.hasChanges()); // true
+console.log('Changed fields:', updater.getChangedFields()); // ['Description', 'AssignedTo', 'IsActive']
+
+// Get only the changed fields for update (optimized for performance)
+const updates = updater.getUpdates();
+console.log(updates);
+// Result: {
+//   Description: "Updated description",
+//   AssignedToId: 456,
+//   IsActive: false
+// }
+
+// Apply updates
+await this.context.spHttpClient.post(
+  `${this.context.pageContext.web.absoluteUrl}/_api/web/lists/getbytitle('Projects')/items(42)`,
+  SPHttpClient.configurations.v1,
+  {
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'MERGE'
+    },
+    body: JSON.stringify(updates)
+  }
+);
 ```
 
 ## API Reference
 
 ### createSPExtractor(item)
 
-Creates an extractor instance for a SharePoint list item.
+Creates an extractor instance optimized for renderListData item structures.
+
+#### renderListData Field Format Handling
+
+| Field Type | renderListData Format | Extractor Method | Output Format |
+|------------|----------------------|------------------|---------------|
+| **User** | `{id: "123", email: "john@...", title: "John", value: "login"}` | `user(fieldName)` | `IPrincipal` |
+| **User Multi** | `[{id: "123", email: "..."}, {id: "456", email: "..."}]` | `userMulti(fieldName)` | `IPrincipal[]` |
+| **Lookup** | `{id: 5, title: "Category Name"}` | `lookup(fieldName)` | `SPLookup` |
+| **Lookup Multi** | `[{id: 5, title: "Item1"}, {id: 6, title: "Item2"}]` | `lookupMulti(fieldName)` | `SPLookup[]` |
+| **Taxonomy** | `{label: "Tag", termId: "abc-123", wssId: 10}` | `taxonomy(fieldName)` | `SPTaxonomy` |
+| **Taxonomy Multi** | `[{label: "Tag1", termId: "abc"}, {label: "Tag2", termId: "def"}]` | `taxonomyMulti(fieldName)` | `SPTaxonomy[]` |
 
 #### Basic Field Types
 
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `string(fieldName, defaultValue?)` | Extract text field | `string` |
-| `number(fieldName, defaultValue?)` | Extract number field | `number` |
-| `boolean(fieldName, defaultValue?)` | Extract yes/no field | `boolean` |
-| `date(fieldName, defaultValue?)` | Extract date/time field | `Date \| undefined` |
-| `choice(fieldName, defaultValue?)` | Extract choice field | `string` |
-| `currency(fieldName, defaultValue?)` | Extract currency field | `number` |
+| Method | Description | Returns | renderListData Optimizations |
+|--------|-------------|---------|------------------------------|
+| `string(fieldName, defaultValue?)` | Extract text field | `string` | Handles choice objects, multiple property variations |
+| `number(fieldName, defaultValue?)` | Extract number field | `number` | Removes currency symbols, handles formatted numbers |
+| `boolean(fieldName, defaultValue?)` | Extract yes/no field | `boolean` | Handles various boolean representations |
+| `date(fieldName, defaultValue?)` | Extract date/time field | `Date \| undefined` | Handles ISO strings, date objects |
+| `choice(fieldName, defaultValue?)` | Extract choice field | `string` | Handles both string and object formats |
+| `currency(fieldName, defaultValue?)` | Extract currency field | `number` | Removes currency symbols, handles objects |
 
 #### Complex Field Types
 
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `user(fieldName)` | Extract person/group field | `IPrincipal \| undefined` |
-| `userMulti(fieldName)` | Extract multi-person field | `IPrincipal[]` |
-| `lookup(fieldName)` | Extract lookup field | `SPLookup \| undefined` |
-| `lookupMulti(fieldName)` | Extract multi-lookup field | `SPLookup[]` |
-| `taxonomy(fieldName)` | Extract managed metadata | `SPTaxonomy \| undefined` |
-| `taxonomyMulti(fieldName)` | Extract multi-metadata field | `SPTaxonomy[]` |
-| `multiChoice(fieldName)` | Extract multi-choice field | `string[]` |
-| `url(fieldName)` | Extract hyperlink field | `SPUrl \| undefined` |
-| `location(fieldName)` | Extract location field | `SPLocation \| undefined` |
-| `image(fieldName)` | Extract image field | `SPImage \| undefined` |
-| `json(fieldName)` | Extract JSON field | `any` |
+| Method | Description | Returns | Notes |
+|--------|-------------|---------|-------|
+| `user(fieldName)` | Extract person/group field | `IPrincipal \| undefined` | Optimized for renderListData lowercase properties |
+| `userMulti(fieldName)` | Extract multi-person field | `IPrincipal[]` | Handles direct arrays (no .results wrapper) |
+| `lookup(fieldName)` | Extract lookup field | `SPLookup \| undefined` | Handles renderListData id/title format |
+| `lookupMulti(fieldName)` | Extract multi-lookup field | `SPLookup[]` | Handles direct arrays |
+| `taxonomy(fieldName)` | Extract managed metadata | `SPTaxonomy \| undefined` | Optimized for renderListData format |
+| `taxonomyMulti(fieldName)` | Extract multi-metadata field | `SPTaxonomy[]` | Handles direct arrays of taxonomy objects |
+| `multiChoice(fieldName)` | Extract multi-choice field | `string[]` | Handles arrays and semicolon-delimited strings |
+| `url(fieldName)` | Extract hyperlink field | `SPUrl \| undefined` | Handles both string URLs and objects |
+| `location(fieldName)` | Extract location field | `SPLocation \| undefined` | Handles nested and flat coordinate formats |
+| `image(fieldName)` | Extract image field | `SPImage \| undefined` | Handles various image object formats |
+| `json(fieldName)` | Extract JSON field | `any` | Auto-parsing with fallback |
 
 #### Utility Methods
 
@@ -114,33 +296,50 @@ Creates an extractor instance for a SharePoint list item.
 | `hasField(fieldName)` | Check if field exists | `boolean` |
 | `hasFields(...fieldNames)` | Check if all fields exist | `boolean` |
 | `missingFields(...fieldNames)` | Get missing field names | `string[]` |
+| `getFieldValue(fieldName, expectedType?)` | Auto-extract by type | `any` |
 | `raw` | Access raw item data | `any` |
 
 ### createSPUpdater()
 
-Creates an updater instance for building SharePoint field updates.
+Creates an updater instance for building SharePoint field updates with automatic change detection using `@microsoft/sp-lodash-subset.isEqual`.
 
-#### Methods
+#### Core Methods
 
 | Method | Description | Returns |
 |--------|-------------|---------|
-| `set(fieldName, value)` | Set field value (chainable) | `this` |
-| `getUpdates()` | Get updates for PnP.js | `Record<string, any>` |
-| `getValidateUpdates()` | Get updates for validate methods | `IListItemFormUpdateValue[]` |
+| `set(fieldName, value, originalValue?)` | Set field value with change detection | `this` |
+| `getUpdates(includeUnchanged?)` | Get updates for SharePoint REST API | `Record<string, any>` |
+| `getValidateUpdates(includeUnchanged?)` | Get updates for validateUpdateListItem | `IListItemFormUpdateValue[]` |
+
+#### Change Detection Methods
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `hasChanges()` | Check if any fields changed | `boolean` |
+| `getChangedFields()` | Get list of changed field names | `string[]` |
+| `getUnchangedFields()` | Get list of unchanged field names | `string[]` |
+| `getChangeSummary()` | Get detailed change analysis | `ChangesSummary` |
+| `hasFieldChanged(fieldName)` | Check if specific field changed | `boolean` |
+
+#### Performance Methods
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `count(includeUnchanged?)` | Get count of updates | `number` |
 | `clear()` | Clear all updates | `this` |
-| `count()` | Get number of updates | `number` |
-| `hasField(fieldName)` | Check if field is set | `boolean` |
+| `getFieldValue(fieldName)` | Get current field value | `any` |
+| `getFieldOriginalValue(fieldName)` | Get original field value | `any` |
 
 ## Type Definitions
 
-### IPrincipal
+### IPrincipal (renderListData optimized)
 ```typescript
 interface IPrincipal {
-  id: string;
-  email?: string;
-  title?: string;
-  value?: string;        // login name
-  loginName?: string;
+  id: string;           // renderListData: "123"
+  email?: string;       // renderListData: "john@company.com"
+  title?: string;       // renderListData: "John Doe"
+  value?: string;       // renderListData: login name
+  loginName?: string;   // renderListData: login name
   department?: string;
   jobTitle?: string;
   sip?: string;
@@ -148,20 +347,20 @@ interface IPrincipal {
 }
 ```
 
-### SPLookup
+### SPLookup (renderListData optimized)
 ```typescript
 interface SPLookup {
-  id?: number;
-  title?: string;
+  id?: number;          // renderListData: 5
+  title?: string;       // renderListData: "Category Name"
 }
 ```
 
-### SPTaxonomy
+### SPTaxonomy (renderListData optimized)
 ```typescript
 interface SPTaxonomy {
-  label?: string;
-  termId?: string;
-  wssId?: number;
+  label?: string;       // renderListData: "Tag Name"
+  termId?: string;      // renderListData: "abc-123-def"
+  wssId?: number;       // renderListData: 10
 }
 ```
 
@@ -201,333 +400,250 @@ interface SPImage {
 Extract a single field with type specification:
 
 ```typescript
-import { extractField } from 'spfx-toolkit/utils';
+import { extractField } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
 const title = extractField(item, 'Title', 'string', 'Default Title');
 const dueDate = extractField(item, 'DueDate', 'date');
 const assignedUser = extractField(item, 'AssignedTo', 'user');
 ```
 
-**Supported Types:** `'string'`, `'number'`, `'boolean'`, `'date'`, `'user'`, `'lookup'`, `'taxonomy'`, `'choice'`, `'url'`, `'json'`
-
-### extractFields()
-Extract multiple fields with configuration:
+### createUpdatesFromItem()
+One-liner to create updates with change detection:
 
 ```typescript
-import { extractFields } from 'spfx-toolkit/utils';
+import { createUpdatesFromItem } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-const fields = extractFields(item, {
-  title: { type: 'string', defaultValue: 'Untitled' },
-  dueDate: { type: 'date' },
-  assignedUser: { type: 'user' },
-  priority: { type: 'choice', defaultValue: 'Medium' }
-});
+const updates = createUpdatesFromItem(originalItem, newValues);
+// Only includes changed fields
 ```
 
-### transformItem()
-Transform SharePoint item to clean object:
+### compareItems()
+Compare two items and get detailed differences:
 
 ```typescript
-import { transformItem } from 'spfx-toolkit/utils';
+import { compareItems } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-const cleanItem = transformItem(item, {
-  id: { sourceField: 'ID', type: 'number' },
-  title: { sourceField: 'Title', type: 'string' },
-  created: { sourceField: 'Created', type: 'date' },
-  assignedTo: { sourceField: 'AssignedTo', type: 'user' }
-});
+const comparison = compareItems(originalItem, newItem);
+console.log('Changes:', comparison.changes);
+console.log('Changed fields:', comparison.changedFields);
 ```
 
-### quickUpdate() & quickValidateUpdate()
-Quick single-field updates:
+### shouldPerformUpdate()
+Check if an update is worth performing:
 
 ```typescript
-import { quickUpdate, quickValidateUpdate } from 'spfx-toolkit/utils';
+import { shouldPerformUpdate } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-// For regular updates
-const updates = quickUpdate('Title', 'New Title');
-
-// For validate updates
-const validateUpdates = quickValidateUpdate('Title', 'New Title');
-```
-
-## Validation Utilities
-
-### validateRequiredFields()
-Check for required fields:
-
-```typescript
-import { validateRequiredFields } from 'spfx-toolkit/utils';
-
-const validation = validateRequiredFields(item, ['Title', 'DueDate', 'AssignedTo']);
-if (!validation.isValid) {
-  console.log('Missing fields:', validation.missingFields);
+const shouldUpdate = shouldPerformUpdate(originalItem, newValues);
+if (shouldUpdate.shouldUpdate) {
+  // Proceed with update
+  console.log('Reason:', shouldUpdate.reason);
+  console.log('Changed fields:', shouldUpdate.changedFields);
 }
 ```
 
-### validateFieldValues()
-Check for empty field values:
+### optimizeBatchUpdates()
+Optimize batch operations by filtering out unchanged items:
 
 ```typescript
-import { validateFieldValues } from 'spfx-toolkit/utils';
+import { optimizeBatchUpdates } from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-const validation = validateFieldValues(item, ['Title', 'Description']);
-if (!validation.isValid) {
-  console.log('Empty fields:', validation.emptyFields);
+const batchItems = [
+  { originalItem: item1, newValues: newValues1 },
+  { originalItem: item2, newValues: newValues2 },
+  // ...
+];
+
+const optimized = optimizeBatchUpdates(batchItems);
+console.log(`Optimized: ${optimized.summary.toUpdate} of ${optimized.summary.total} items need updates`);
+
+// Process only items that actually changed
+for (const item of optimized.itemsToUpdate) {
+  await updateItem(item.updates);
 }
 ```
 
-### detectFieldType()
-Auto-detect SharePoint field type from value:
+## Real-world Examples
 
-```typescript
-import { detectFieldType } from 'spfx-toolkit/utils';
-
-const type1 = detectFieldType("Hello World");           // "text"
-const type2 = detectFieldType(42);                      // "number"
-const type3 = detectFieldType(new Date());              // "datetime"
-const type4 = detectFieldType({ id: 1, title: "Item" }); // "lookup"
-const type5 = detectFieldType({ email: "user@domain.com" }); // "user"
-```
-
-## Migration Utilities
-
-### migrateFields()
-Convert field structures for migrations:
-
-```typescript
-import { migrateFields } from 'spfx-toolkit/utils';
-
-const migratedItems = migrateFields(items, {
-  'OldFieldName': 'NewFieldName',
-  'CategoryId': {
-    newField: 'Category',
-    transform: (value) => ({ id: value, title: getCategoryTitle(value) })
-  }
-});
-```
-
-## Common Field Mappings
-
-Pre-defined mappings for standard SharePoint lists:
-
-```typescript
-import { COMMON_FIELD_MAPPINGS, transformItem } from 'spfx-toolkit/utils';
-
-// Basic list item mapping
-const basicItem = transformItem(item, COMMON_FIELD_MAPPINGS.BASIC_ITEM);
-// Result: { id, title, created, modified, author, editor }
-
-// Document library mapping
-const document = transformItem(item, COMMON_FIELD_MAPPINGS.DOCUMENT_LIBRARY);
-// Result: { id, name, title, size, created, modified }
-```
-
-## Advanced Examples
-
-### Working with Complex Fields
-
-```typescript
-// Extract complex field combinations
-const extractor = createSPExtractor(listItem);
-
-// Handle user fields
-const singleUser = extractor.user('AssignedTo');
-const multipleUsers = extractor.userMulti('TeamMembers');
-
-// Handle lookup fields
-const parentProject = extractor.lookup('ParentProject');
-const relatedItems = extractor.lookupMulti('RelatedItems');
-
-// Handle taxonomy fields
-const primaryCategory = extractor.taxonomy('PrimaryCategory');
-const allTags = extractor.taxonomyMulti('Tags');
-
-// Handle choice fields
-const status = extractor.choice('Status');
-const selectedOptions = extractor.multiChoice('Options');
-```
-
-### Building Complex Updates
-
-```typescript
-// Build comprehensive update object
-const updater = createSPUpdater()
-  .set('Title', 'Updated Project')
-  .set('Description', 'New description')
-  .set('DueDate', new Date('2024-12-31'))
-  .set('AssignedToId', 123)
-  .set('Priority', 'High')
-  .set('IsActive', true)
-  .set('Tags', [
-    { label: 'Important', termId: 'guid-1' },
-    { label: 'Frontend', termId: 'guid-2' }
-  ])
-  .set('RelatedItemsId', [1, 2, 3]);
-
-// Get updates for different PnP.js methods
-const regularUpdates = updater.getUpdates();
-const validateUpdates = updater.getValidateUpdates();
-```
-
-### Real-world SPFx Component Example
+### Complete SPFx Component Example
 
 ```typescript
 import * as React from 'react';
-import { createSPExtractor, createSPUpdater } from 'spfx-toolkit/utils';
+import {
+  createSPExtractor,
+  createSPUpdater,
+  shouldPerformUpdate
+} from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-export const ProjectCard: React.FC<{ item: any }> = ({ item }) => {
+export const ProjectEditForm: React.FC<{
+  item: any;
+  onSave: (updates: any) => Promise<void>;
+}> = ({ item, onSave }) => {
+
+  // Extract current values using renderListData optimized extractor
   const extractor = createSPExtractor(item);
+  const [formData, setFormData] = React.useState({
+    Title: extractor.string('Title', ''),
+    Description: extractor.string('Description', ''),
+    DueDate: extractor.date('DueDate'),
+    AssignedTo: extractor.user('AssignedTo'),
+    Priority: extractor.choice('Priority', 'Medium'),
+    IsActive: extractor.boolean('IsActive', true)
+  });
 
-  // Extract all needed fields
-  const project = {
-    id: extractor.number('ID'),
-    title: extractor.string('Title', 'Untitled Project'),
-    description: extractor.string('Description', 'No description'),
-    dueDate: extractor.date('DueDate'),
-    assignedTo: extractor.user('AssignedTo'),
-    status: extractor.choice('Status', 'Not Started'),
-    priority: extractor.choice('Priority', 'Medium'),
-    tags: extractor.taxonomyMulti('Tags'),
-    isActive: extractor.boolean('IsActive', true)
+  const handleSave = async () => {
+    // Check if there are actual changes
+    const shouldUpdate = shouldPerformUpdate(item, formData);
+
+    if (!shouldUpdate.shouldUpdate) {
+      alert('No changes to save');
+      return;
+    }
+
+    // Create optimized updates (only changed fields)
+    const updater = createSPUpdater();
+    Object.entries(formData).forEach(([field, value]) => {
+      updater.set(field, value, item[field]);
+    });
+
+    const updates = updater.getUpdates();
+    console.log(`Saving ${shouldUpdate.changedFields.length} changed fields:`, shouldUpdate.changedFields);
+
+    await onSave(updates);
   };
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    const updates = createSPUpdater()
-      .set('Status', newStatus)
-      .set('Modified', new Date())
-      .getUpdates();
-
-    // Update using PnP.js
-    await sp.web.lists.getByTitle("Projects")
-      .items.getById(project.id)
-      .update(updates);
-  };
-
+  // Form JSX implementation...
   return (
-    <div className="project-card">
-      <h3>{project.title}</h3>
-      <p>{project.description}</p>
-
-      {project.dueDate && (
-        <div>Due: {project.dueDate.toLocaleDateString()}</div>
-      )}
-
-      {project.assignedTo && (
-        <div>Assigned to: {project.assignedTo.title}</div>
-      )}
-
-      <div>Status: {project.status}</div>
-      <div>Priority: {project.priority}</div>
-
-      {project.tags.length > 0 && (
-        <div>
-          Tags: {project.tags.map(tag => tag.label).join(', ')}
-        </div>
-      )}
-
-      <button onClick={() => handleStatusUpdate('Completed')}>
-        Mark Complete
+    <div>
+      {/* Form fields */}
+      <button onClick={handleSave}>
+        Save Changes ({Object.keys(formData).length} fields)
       </button>
     </div>
   );
 };
 ```
 
-## Best Practices
+### Batch Processing with renderListData
 
-### 1. Use Type-Safe Extraction
 ```typescript
-// Good: Specify types and defaults
-const title = extractor.string('Title', 'Untitled');
-const dueDate = extractor.date('DueDate');
+import {
+  optimizeBatchUpdates,
+  createUpdatesFromItem
+} from 'spfx-toolkit/lib/utilities/listItemHelper';
 
-// Avoid: Relying on raw access
-const title = item.Title || 'Untitled'; // Loses type safety
-```
+async function batchUpdateProjects(updates: Array<{id: number, newValues: any}>) {
+  // Get original items using renderListData
+  const camlQuery = `
+    <View>
+      <Query>
+        <Where>
+          <In>
+            <FieldRef Name='ID' />
+            <Values>
+              ${updates.map(u => `<Value Type='Number'>${u.id}</Value>`).join('')}
+            </Values>
+          </In>
+        </Where>
+      </Query>
+    </View>
+  `;
 
-### 2. Validate Required Fields
-```typescript
-// Always validate critical fields
-const validation = validateRequiredFields(item, ['Title', 'AssignedTo']);
-if (!validation.isValid) {
-  throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+  const originalItems = await getRenderListData('Projects', camlQuery);
+
+  // Prepare batch with change detection
+  const batchData = updates.map(update => ({
+    id: update.id,
+    originalItem: originalItems.find(item => item.ID === update.id),
+    newValues: update.newValues
+  }));
+
+  // Optimize - only process items with actual changes
+  const optimized = optimizeBatchUpdates(batchData);
+
+  console.log(`Processing ${optimized.summary.toUpdate} of ${optimized.summary.total} items`);
+  console.log(`Skipping ${optimized.summary.skipped} items with no changes`);
+
+  // Process only items that changed
+  const promises = optimized.itemsToUpdate.map(async (item) => {
+    return updateSharePointItem('Projects', item.id, item.updates);
+  });
+
+  await Promise.all(promises);
+
+  return {
+    processed: optimized.summary.toUpdate,
+    skipped: optimized.summary.skipped,
+    totalChanges: optimized.summary.totalChangedFields
+  };
 }
 ```
 
-### 3. Handle Multi-Value Fields Properly
-```typescript
-// Handle PnP.js results array format
-const users = extractor.userMulti('TeamMembers'); // Automatically handles .results
-const tags = extractor.taxonomyMulti('Categories'); // Automatically handles .results
-```
+## Performance Benefits
 
-### 4. Use Convenience Functions for Simple Operations
-```typescript
-// For single field extraction
-const title = extractField(item, 'Title', 'string', 'Default');
+### Change Detection Optimization
+- **Reduces API calls**: Only updates fields that actually changed
+- **Improves performance**: Skips unnecessary SharePoint operations
+- **Better user experience**: Faster save operations
+- **Audit trail**: Know exactly what changed
 
-// For quick updates
-const updates = quickUpdate('Status', 'Completed');
-```
-
-### 5. Chain Updates for Better Performance
-```typescript
-// Good: Chain multiple updates
-const updates = createSPUpdater()
-  .set('Field1', value1)
-  .set('Field2', value2)
-  .set('Field3', value3)
-  .getUpdates();
-
-// Avoid: Multiple updater instances
-const updates1 = quickUpdate('Field1', value1);
-const updates2 = quickUpdate('Field2', value2);
-```
-
-## Error Handling
-
-The utility handles common SharePoint field scenarios:
-
-- **Missing fields**: Returns undefined or default values
-- **Null values**: Properly handled with defaults
-- **PnP.js results arrays**: Automatically unwrapped
-- **Type mismatches**: Graceful fallbacks
-- **Invalid dates**: Returns undefined instead of invalid Date objects
-
-## Performance Tips
-
-1. **Reuse extractors** for multiple field operations on the same item
-2. **Use convenience functions** for one-off operations
-3. **Validate once** at the beginning of your operations
-4. **Chain updates** instead of creating multiple updater instances
-5. **Use transform functions** for bulk data processing
+### renderListData Advantages
+- **Faster queries**: renderListData is optimized for performance
+- **Native format**: No additional transformations needed
+- **CAML power**: Full CAML query capabilities
+- **Reduced payload**: Only requested fields are returned
 
 ## Troubleshooting
 
-### Common Issues
+### Common renderListData Issues
 
-**Q: Getting undefined for a field that exists?**
-A: Check the exact field internal name. Use `extractor.raw` to inspect the actual item structure.
+**Q: Getting undefined for fields that exist in SharePoint?**
+A: Ensure the field is included in your CAML ViewFields:
+```xml
+<ViewFields>
+  <FieldRef Name='YourFieldName' />
+</ViewFields>
+```
 
-**Q: User/Lookup updates not working?**
-A: Make sure to use the `Id` suffix for lookup/user fields (e.g., `AssignedToId` not `AssignedTo`).
+**Q: User fields returning empty objects?**
+A: renderListData returns user objects directly. Check that your field internal name is correct and the user field has a value.
 
-**Q: Taxonomy fields not updating?**
-A: Ensure you're providing the correct `termId` in the taxonomy object.
+**Q: Taxonomy fields not extracting properly?**
+A: renderListData returns taxonomy as objects with lowercase properties (`label`, `termId`). The extractor handles this automatically.
 
 **Q: Multi-value fields returning empty arrays?**
-A: Check if the field uses `.results` array format from PnP.js queries.
+A: renderListData returns arrays directly (no `.results` wrapper). Ensure your CAML query includes the field and it has values.
 
 ### Debug Mode
 
 ```typescript
-// Inspect raw item structure
+// Inspect raw renderListData structure
 const extractor = createSPExtractor(item);
-console.log('Raw item:', extractor.raw);
+console.log('Raw renderListData item:', extractor.raw);
 
-// Check for missing fields
+// Check for missing fields in your CAML query
 const missing = extractor.missingFields('Field1', 'Field2', 'Field3');
-console.log('Missing fields:', missing);
+console.log('Missing fields (add to CAML ViewFields):', missing);
+
+// Debug field changes
+import { debugFieldChanges } from 'spfx-toolkit/lib/utilities/listItemHelper';
+const debug = debugFieldChanges(originalItem, newValues);
+console.log(debug.summary);
+console.table(debug.details);
 ```
 
+## Migration from PnP.js
+
+If migrating from PnP.js to renderListData, the List Item Helper handles both formats seamlessly:
+
+```typescript
+// Works with both PnP.js format:
+// { TeamMembers: { results: [...] } }
+
+// And renderListData format:
+// { TeamMembers: [...] }
+
+const teamMembers = extractor.userMulti('TeamMembers'); // Same API, different input formats
+```
+
+The extractor automatically detects and handles both formats, making migration painless.
