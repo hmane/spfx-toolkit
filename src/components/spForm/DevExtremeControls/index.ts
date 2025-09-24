@@ -1,4 +1,5 @@
 export { default as DevExtremeTextBox } from './DevExtremeTextBox';
+export { default as DevExtremeTextArea } from './DevExtremeTextArea';
 export { default as DevExtremeSelectBox } from './DevExtremeSelectBox';
 export { default as DevExtremeDateBox } from './DevExtremeDateBox';
 export { default as DevExtremeNumberBox } from './DevExtremeNumberBox';
@@ -8,6 +9,7 @@ export { default as DevExtremeCheckBox } from './DevExtremeCheckBox';
 
 // Re-export types for convenience
 export type { IDevExtremeTextBoxProps } from './DevExtremeTextBox';
+export type { IDevExtremeTextAreaProps } from './DevExtremeTextArea';
 export type { IDevExtremeSelectBoxProps } from './DevExtremeSelectBox';
 export type { IDevExtremeDateBoxProps } from './DevExtremeDateBox';
 export type { IDevExtremeNumberBoxProps } from './DevExtremeNumberBox';

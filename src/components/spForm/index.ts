@@ -12,8 +12,13 @@ export { default as FormValue } from './FormValue/FormValue';
 // DevExtreme controls
 export {
   DevExtremeAutocomplete,
-  DevExtremeCheckBox, DevExtremeDateBox,
-  DevExtremeNumberBox, DevExtremeSelectBox, DevExtremeTagBox, DevExtremeTextBox
+  DevExtremeCheckBox,
+  DevExtremeDateBox,
+  DevExtremeNumberBox,
+  DevExtremeSelectBox,
+  DevExtremeTagBox,
+  DevExtremeTextBox,
+  DevExtremeTextArea,
 } from './DevExtremeControls';
 
 // PnP Controls
@@ -29,8 +34,13 @@ export type { IFormValueProps } from './FormValue/FormValue';
 
 export type {
   IDevExtremeAutocompleteProps,
-  IDevExtremeCheckBoxProps, IDevExtremeDateBoxProps,
-  IDevExtremeNumberBoxProps, IDevExtremeSelectBoxProps, IDevExtremeTagBoxProps, IDevExtremeTextBoxProps
+  IDevExtremeCheckBoxProps,
+  IDevExtremeDateBoxProps,
+  IDevExtremeNumberBoxProps,
+  IDevExtremeSelectBoxProps,
+  IDevExtremeTagBoxProps,
+  IDevExtremeTextBoxProps,
+  IDevExtremeTextAreaProps,
 } from './DevExtremeControls';
 
 export type { IPnPPeoplePickerProps } from './PnPControls';
