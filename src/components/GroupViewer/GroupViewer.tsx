@@ -14,6 +14,8 @@ import { Caching } from '@pnp/queryable';
 import '@pnp/sp/site-groups';
 import '@pnp/sp/site-users';
 import '@pnp/sp/webs';
+import '@pnp/sp/site-groups/web';
+import '@pnp/sp/site-users/web';
 import { IGroupViewerProps, IGroupMember, IGroupInfo, GroupViewerDefaultSettings } from './types';
 import './GroupViewer.css';
 
@@ -34,12 +36,61 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const [groupInfo, setGroupInfo] = React.useState<IGroupInfo | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [loadTimeout, setLoadTimeout] = React.useState<NodeJS.Timeout | null>(null);
+
+  // Refs and lightweight cache to avoid repeated network calls
+  const loadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const loadingRef = React.useRef(false);
+  const cacheRef = React.useRef<Map<string, { info: IGroupInfo; members: IGroupMember[]; ts: number }>>(new Map());
+  const isMountedRef = React.useRef(true);
+  const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+  // Minimal, consistent logging helper
+  const log = (...args: any[]): void => console.log('[GroupViewer]', ...args);
+  const logErr = (...args: any[]): void => console.error('[GroupViewer]', ...args);
 
   // Initialize PnP.js with SPFx context
   const sp = React.useMemo(() => {
     return spfi().using(SPFx(spContext));
   }, [spContext]);
+
+  // Special SharePoint groups that should not show member details
+  const specialGroups = React.useMemo(
+    () => [
+      'Everyone except external users',
+      'Everyone',
+      'All Users',
+      'Authenticated Users',
+      'NT Authority\\Authenticated Users',
+    ],
+    []
+  );
+
+  // More precise check for special SharePoint groups
+  const isSpecialGroup = React.useCallback(
+    (groupTitle: string): boolean => {
+      const normalizedTitle = groupTitle.toLowerCase().trim();
+
+      // Check for exact matches first
+      const exactMatch = specialGroups.some(
+        specialGroup => normalizedTitle === specialGroup.toLowerCase()
+      );
+
+      if (exactMatch) {
+        return true;
+      }
+
+      // Only check for specific patterns that are definitely system groups
+      const isSystemGroup =
+        normalizedTitle === 'everyone except external users' ||
+        normalizedTitle === 'everyone' ||
+        normalizedTitle === 'all users' ||
+        normalizedTitle === 'authenticated users' ||
+        normalizedTitle.startsWith('nt authority\\');
+
+      return isSystemGroup;
+    },
+    [specialGroups]
+  );
 
   // Enhanced system account detection - Less aggressive filtering
   const isSystemAccount = React.useCallback((user: any): boolean => {
@@ -61,12 +112,15 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
       // Claims-based system identities - more specific
       'c:0(.s|true',
-      'c:0-.f|rolemanager|spo-grid',
+      'c:0-.f|rolemanager|spo-grid', // RoleManager pattern
       'c:0!.s|windows',
 
       // SharePoint service accounts - specific
       'sharepoint\\system',
       'app@local',
+
+      // Special/virtual org-wide groups we never want to display as members
+      'Everyone except external users'
     ];
 
     const title = (user.Title || '').toLowerCase().trim();
@@ -93,18 +147,6 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       (loginName.includes('app@') && loginName.endsWith('.local'));
 
     const result = isSystemPattern || isSystemByCharacteristics;
-
-    // Debug logging for troubleshooting
-    if (result) {
-      console.log(
-        `GroupViewer: Filtered system account - Title: "${user.Title}", LoginName: "${user.LoginName}"`
-      );
-    } else {
-      console.log(
-        `GroupViewer: Keeping user - Title: "${user.Title}", LoginName: "${user.LoginName}", Email: "${user.Email}"`
-      );
-    }
-
     return result;
   }, []);
 
@@ -120,22 +162,39 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   // Cleanup timeout on unmount
   React.useEffect(() => {
     return () => {
-      if (loadTimeout) {
-        clearTimeout(loadTimeout);
+      isMountedRef.current = false;
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
       }
     };
-  }, [loadTimeout]);
+  }, []);
 
-  // Load group data with enhanced caching
+  // ENHANCED: Load group data with special group handling
   const loadGroupData = async (): Promise<void> => {
-    if (members.length > 0) return; // Already loaded
-
     setIsLoading(true);
     setError(null);
 
     try {
       let group;
-      const cacheKey = `group_${groupId || groupName.replace(/\s+/g, '_')}`;
+      const cacheKey = `group_${groupId ?? groupName}`.toLowerCase();
+
+      // Serve from cache if fresh and avoid duplicate inflight loads
+      const cached = cacheRef.current.get(cacheKey);
+      if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+        log('Cache hit', { cacheKey });
+        if (isMountedRef.current) {
+          setGroupInfo(cached.info);
+          setMembers(cached.members);
+          setIsLoading(false);
+        }
+        return;
+      }
+      if (loadingRef.current) {
+        log('Load skipped: already loading');
+        return;
+      }
+      loadingRef.current = true;
 
       if (groupId) {
         group = sp.web.siteGroups.getById(groupId);
@@ -143,114 +202,124 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         group = sp.web.siteGroups.getByName(groupName);
       }
 
-      // Load group info and members in parallel with caching
-      const [groupData, usersResponse] = await Promise.all([
-        group.select('Id', 'Title', 'Description', 'LoginName').using(
-          Caching({
-            store: 'session',
-            keyFactory: () => `${cacheKey}_info`,
-            expireFunc: () => new Date(Date.now() + 15 * 60 * 1000),
-          })
-        )(),
+      log('Loading group info', { by: groupId ? 'id' : 'name', groupId, groupName });
 
-        group.users.using(
-          Caching({
-            store: 'session',
-            keyFactory: () => `${cacheKey}_members`,
-            expireFunc: () => new Date(Date.now() + 5 * 60 * 1000),
-          })
-        )(),
-      ]);
+      // Load group info first
+      const groupData = await group.select('Id', 'Title', 'Description', 'LoginName').using(
+        Caching({
+          store: 'session',
+          keyFactory: () => `${cacheKey}_info`,
+          expireFunc: () => new Date(Date.now() + 15 * 60 * 1000),
+        })
+      )();
 
-      const usersData = Array.isArray(usersResponse) ? usersResponse : [];
       const currentGroupName = groupData.Title || groupName;
 
-      console.log(
-        `GroupViewer: Processing group "${currentGroupName}" with ${usersData.length} raw members`
-      );
+      log(`Loaded group info for "${currentGroupName}" (ID: ${groupData.Id})`);
 
-      // Filter out system accounts and self-references with detailed logging
-      const filteredMembers = usersData.filter((user: any, index: number) => {
+      // Check if this is a special group that shouldn't show member details
+      const isSpecial = isSpecialGroup(currentGroupName);
+      if (isSpecial) {
+        log(`Special group detected: "${currentGroupName}" – skipping member enumeration`);
+        setGroupInfo(groupData as IGroupInfo);
+        setMembers([]); // Don't show members for special groups
+        setIsLoading(false);
+        loadingRef.current = false;
+        return;
+      }
+
+      log(`Loading members for group "${currentGroupName}" (ID: ${groupData.Id})`);
+
+      let usersData: any[] = [];
+      try {
+        const targetGroup = groupData.Id
+          ? sp.web.siteGroups.getById(groupData.Id)
+          : sp.web.siteGroups.getByName(currentGroupName);
+
+        usersData = await targetGroup.users
+          .select('Id','Title','Email','LoginName','PrincipalType')
+          .top(5000)();
+
+        if (!Array.isArray(usersData)) {
+          log('Unexpected users response shape; coercing to empty array');
+          usersData = [];
+        }
+      } catch (membersError) {
+        logErr('Failed to load group members via PnP', membersError);
+        throw membersError;
+      }
+
+      if (usersData.length === 0) {
+        setGroupInfo(groupData as IGroupInfo);
+        setMembers([]);
+        setIsLoading(false);
+        loadingRef.current = false;
+        return;
+      }
+
+      log(`Loaded ${usersData.length} raw members for "${currentGroupName}"`);
+
+      // Filter out system accounts and self-references
+      const filteredMembers = usersData.filter((user: any) => {
         try {
-          console.log(`GroupViewer: Checking user ${index + 1}:`, {
-            Title: user.Title,
-            LoginName: user.LoginName,
-            Email: user.Email,
-            PrincipalType: user.PrincipalType,
-          });
-
           const isSystem = isSystemAccount(user);
           const isSelfReference = isCurrentGroup(user, currentGroupName);
           const shouldKeep = !isSystem && !isSelfReference;
-
-          console.log(
-            `GroupViewer: User "${user.Title}" - System: ${isSystem}, SelfRef: ${isSelfReference}, Keep: ${shouldKeep}`
-          );
-
           return shouldKeep;
-        } catch (filterError) {
-          console.warn('GroupViewer: Error filtering user:', user, filterError);
+        } catch (_filterError) {
           return false;
         }
       });
 
-      console.log(
-        `GroupViewer: Final results - Kept ${filteredMembers.length} out of ${usersData.length} members`
-      );
-      console.log(
-        'GroupViewer: Kept members:',
-        filteredMembers.map(u => u.Title)
-      );
+      // Only keep displayable principals (Users and SharePoint Groups) and drop special virtual groups
+      const sanitizedMembers = filteredMembers.filter(u => {
+        const pt = Number(u?.PrincipalType);
+        const title = (u?.Title || '').toString();
+        const isDisplayableType = pt === 1 || pt === 8; // 1=User, 8=SharePoint Group
+        const isEveryone = isSpecialGroup(title) || (u?.LoginName || '').toLowerCase().startsWith('c:0-.f|rolemanager|spo-grid-all-users');
+        return isDisplayableType && !isEveryone;
+      });
 
-      // Fallback: if no members after filtering but we have raw data, show a less filtered version
-      let finalMembers = filteredMembers;
-      if (filteredMembers.length === 0 && usersData.length > 0) {
-        console.log('GroupViewer: No members after filtering, trying less aggressive filtering...');
+      log(`Kept ${sanitizedMembers.length}/${usersData.length} members after filtering`);
 
-        // Less aggressive filtering - only filter out obvious system accounts
-        finalMembers = usersData.filter((user: any) => {
-          const title = (user.Title || '').toLowerCase();
-          const loginName = (user.LoginName || '').toLowerCase();
+      // Cache the result
+      const info = groupData as IGroupInfo;
+      cacheRef.current.set(cacheKey, { info, members: sanitizedMembers as IGroupMember[], ts: Date.now() });
 
-          // Only filter out very obvious system accounts
-          const isObviousSystem =
-            title === 'system account' ||
-            title === 'sharepoint app' ||
-            loginName.includes('sharepoint\\system') ||
-            loginName.includes('app@sharepoint');
-
-          const isSelfReference = isCurrentGroup(user, currentGroupName);
-
-          return !isObviousSystem && !isSelfReference;
-        });
-
-        console.log(`GroupViewer: Less aggressive filtering kept ${finalMembers.length} members`);
+      // Safe state updates
+      if (isMountedRef.current) {
+        setGroupInfo(info);
+        setMembers(sanitizedMembers as IGroupMember[]);
       }
-
-      setGroupInfo(groupData as IGroupInfo);
-      setMembers(finalMembers as IGroupMember[]);
     } catch (err) {
-      console.error('Error loading group data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load group data');
+      logErr('Failed to load group data', err);
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to load group data');
+      }
     } finally {
-      setIsLoading(false);
+      loadingRef.current = false;
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   // Tooltip event handlers
-  const onTooltipShow = (): void => {
-    const timeout = setTimeout(() => {
+  const onTooltipShow = React.useCallback((): void => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    loadTimeoutRef.current = setTimeout(() => {
       loadGroupData();
     }, 300);
-    setLoadTimeout(timeout);
-  };
+  }, []);
 
-  const onTooltipHide = (): void => {
-    if (loadTimeout) {
-      clearTimeout(loadTimeout);
-      setLoadTimeout(null);
+  const onTooltipHide = React.useCallback((): void => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
     }
-  };
+  }, []);
 
   // Click handler
   const handleClick = (): void => {
@@ -259,7 +328,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     }
   };
 
-  // Enhanced tooltip content renderer
+  // ENHANCED: Tooltip content renderer with special group handling
   const renderTooltipContent = (): React.ReactElement => {
     if (isLoading) {
       return (
@@ -271,7 +340,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                 Loading {groupName}
               </Text>
               <Text variant='small' style={{ color: '#605e5c' }}>
-                Fetching group members...
+                Fetching group information...
               </Text>
             </Stack>
           </Stack>
@@ -297,23 +366,143 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       );
     }
 
-    if (members.length === 0) {
+    // Special handling for special groups
+    const currentGroupName = groupInfo?.Title || groupName;
+    if (isSpecialGroup(currentGroupName)) {
       return (
-        <div className='group-viewer-tooltip empty'>
-          <Stack tokens={{ childrenGap: 12 }}>
-            <Text variant='medium' className='group-viewer-member-name'>
-              {groupInfo?.Title || groupName}
-            </Text>
-            <Text variant='small' className='group-viewer-member-type'>
-              This group has no visible members or you may not have permission to view them
-            </Text>
-          </Stack>
+        <div className='group-viewer-tooltip special-group'>
+          {/* Header for special groups */}
+          <div className='group-viewer-tooltip-header'>
+            <div className='group-viewer-title'>
+              <Icon
+                iconName={iconName}
+                styles={{
+                  root: {
+                    fontSize: 20,
+                    color: '#0078d4',
+                    flexShrink: 0,
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                }}
+              />
+              <span style={{ flex: 1, minWidth: 0 }}>{currentGroupName}</span>
+            </div>
+            <div className='group-viewer-subtitle'>Special SharePoint Group</div>
+            {groupInfo?.Description && (
+              <div className='group-viewer-description'>{groupInfo.Description}</div>
+            )}
+          </div>
+
+          {/* Content for special groups */}
+          <div style={{ padding: '16px 20px' }}>
+            <Stack tokens={{ childrenGap: 12 }}>
+              <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
+                <Icon
+                  iconName='People'
+                  style={{
+                    fontSize: 24,
+                    color: '#0078d4',
+                    opacity: 0.7,
+                  }}
+                />
+                <Stack style={{ flex: 1 }}>
+                  <Text variant='medium' style={{ fontWeight: 500, color: '#323130' }}>
+                    {currentGroupName.includes('Everyone')
+                      ? 'All Organization Users'
+                      : 'Dynamic Membership'}
+                  </Text>
+                  <Text variant='small' style={{ color: '#605e5c', lineHeight: 1.3 }}>
+                    This is a special SharePoint group with automatic membership. Individual members
+                    are not displayed for performance reasons.
+                  </Text>
+                </Stack>
+              </Stack>
+
+              {currentGroupName.toLowerCase().includes('everyone') && (
+                <div
+                  style={{
+                    background: '#f8f9fa',
+                    padding: '12px',
+                    borderRadius: '6px',
+                    border: '1px solid #e9ecef',
+                    marginTop: '8px',
+                  }}
+                >
+                  <Text variant='small' style={{ color: '#495057', fontStyle: 'italic' }}>
+                    💡 This group automatically includes all authenticated users in your
+                    organization.
+                  </Text>
+                </div>
+              )}
+            </Stack>
+          </div>
         </div>
       );
     }
 
     const users = members.filter(m => m.PrincipalType === 1);
     const nestedGroups = members.filter(m => m.PrincipalType === 8);
+
+    // Regular group handling - Better empty group messaging
+    if (users.length === 0 && nestedGroups.length === 0) {
+      return (
+        <div className='group-viewer-tooltip empty'>
+          {/* Header for empty groups */}
+          <div className='group-viewer-tooltip-header'>
+            <div className='group-viewer-title'>
+              <Icon
+                iconName={iconName}
+                styles={{
+                  root: {
+                    fontSize: 20,
+                    color: '#0078d4',
+                    flexShrink: 0,
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                }}
+              />
+              <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
+            </div>
+            <div className='group-viewer-subtitle'>SharePoint Group</div>
+            {groupInfo?.Description && (
+              <div className='group-viewer-description'>{groupInfo.Description}</div>
+            )}
+          </div>
+
+          {/* Content for empty groups */}
+          <div style={{ padding: '16px 20px' }}>
+            <Stack tokens={{ childrenGap: 12 }}>
+              <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
+                <Icon
+                  iconName='Info'
+                  style={{
+                    fontSize: 20,
+                    color: '#605e5c',
+                    opacity: 0.7,
+                  }}
+                />
+                <Stack style={{ flex: 1 }}>
+                  <Text variant='medium' style={{ fontWeight: 500, color: '#323130' }}>
+                    No Members Found
+                  </Text>
+                  <Text variant='small' style={{ color: '#605e5c', lineHeight: 1.3 }}>
+                    This group currently has no members, or you may not have permission to view the
+                    membership.
+                  </Text>
+                </Stack>
+              </Stack>
+            </Stack>
+          </div>
+        </div>
+      );
+    }
+
 
     return (
       <div className='group-viewer-tooltip'>
@@ -337,7 +526,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
             <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
           </div>
           <div className='group-viewer-subtitle'>
-            {members.length} {members.length === 1 ? 'member' : 'members'}
+            {users.length + nestedGroups.length} {(users.length + nestedGroups.length) === 1 ? 'member' : 'members'}
           </div>
           {groupInfo?.Description && (
             <div className='group-viewer-description'>{groupInfo.Description}</div>
@@ -347,7 +536,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         {/* Content */}
         <div style={{ padding: '16px 20px' }}>
           <Stack tokens={{ childrenGap: 16 }}>
-            {/* Users Section - Remove redundant header */}
+            {/* Users Section */}
             {users.length > 0 && (
               <Stack tokens={{ childrenGap: 8 }}>
                 {users.map(user => (
@@ -372,7 +561,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
               </Stack>
             )}
 
-            {/* Nested Groups Section - Only show header if there are nested groups */}
+            {/* Nested Groups Section */}
             {nestedGroups.length > 0 && (
               <Stack tokens={{ childrenGap: 12 }}>
                 {users.length > 0 && (
@@ -419,9 +608,9 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
   // Enhanced display content renderer with proper icon centering
   const renderDisplayContent = (): React.ReactElement => {
-    // Make icon size proportional to container size (40-50% of container size)
-    const iconSize = Math.max(12, Math.round(size * 0.45));
-    const fontSize = Math.max(12, size * 0.35);
+    // Memoize expensive size computations
+    const iconSize = React.useMemo(() => Math.max(12, Math.round(size * 0.45)), [size]);
+    const fontSize = React.useMemo(() => Math.max(12, size * 0.35), [size]);
 
     switch (displayMode) {
       case 'icon':
@@ -496,7 +685,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   };
 
   // Enhanced container styles
-  const containerStyle: React.CSSProperties = {
+  const containerStyle: React.CSSProperties = React.useMemo(() => ({
     display: 'inline-flex',
     alignItems: 'center',
     cursor: onClick ? 'pointer' : 'default',
@@ -509,7 +698,16 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       height: size,
       justifyContent: 'center',
     }),
-  };
+  }), [onClick, size, displayMode]);
+
+  // Stable tooltip toggle handler
+  const onTooltipToggle = React.useCallback((visible: boolean) => {
+    if (visible) {
+      onTooltipShow();
+    } else {
+      onTooltipHide();
+    }
+  }, [onTooltipShow, onTooltipHide]);
 
   // Main render with enhanced tooltip
   return (
@@ -517,13 +715,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       content={renderTooltipContent()}
       directionalHint={DirectionalHint.bottomCenter}
       delay={0}
-      onTooltipToggle={visible => {
-        if (visible) {
-          onTooltipShow();
-        } else {
-          onTooltipHide();
-        }
-      }}
+      onTooltipToggle={onTooltipToggle}
       styles={{
         root: {
           display: 'inline-block',

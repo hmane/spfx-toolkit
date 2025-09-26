@@ -22,7 +22,7 @@
   transform: scale(1.05);
 }
 
-/* LivePersona Styles */
+/* ENHANCED: LivePersona Styles with better integration */
 .manage-access-live-persona {
   width: 32px;
   height: 32px;
@@ -35,22 +35,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* NEW: For overlay positioning */
+  background: #f3f2f1; /* NEW: Fallback background */
 }
 
 .manage-access-live-persona:hover {
   transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /* NEW: Enhanced hover shadow */
 }
 
+/* ENHANCED: LivePersona coin styling */
 .manage-access-live-persona .ms-Persona-coin {
   width: 32px !important;
   height: 32px !important;
   border-radius: 50% !important;
+  overflow: hidden !important;
+  border: none !important; /* NEW: Remove default border */
 }
 
 .manage-access-live-persona .ms-Persona-image {
   width: 32px !important;
   height: 32px !important;
   border-radius: 50% !important;
+  object-fit: cover !important; /* NEW: Ensure proper image scaling */
 }
 
 .manage-access-live-persona .ms-Persona-initials {
@@ -59,6 +66,35 @@
   border-radius: 50% !important;
   font-size: 12px !important;
   line-height: 32px !important;
+  font-weight: 600 !important;
+  background-color: #0078d4 !important; /* NEW: Consistent background */
+  color: #ffffff !important; /* NEW: Ensure text is visible */
+}
+
+/* NEW: LivePersona loading state */
+.manage-access-live-persona .ms-Spinner {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* NEW: LivePersona error state fallback */
+.manage-access-live-persona-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.manage-access-live-persona-fallback:hover {
+  transform: scale(1.05);
 }
 
 /* Permission Indicator Styles */
@@ -174,7 +210,7 @@
   font-size: 16px;
 }
 
-/* Permission Item Styles - Compact Single Line Layout */
+/* ENHANCED: Permission Item Styles - Better LivePersona integration */
 .manage-access-permission-item {
   padding: 12px 16px;
   border: 1px solid #e1dfdd;
@@ -199,7 +235,7 @@
   transform: translateY(0);
 }
 
-/* Permission Avatar */
+/* ENHANCED: Permission Avatar with better LivePersona support */
 .manage-access-permission-persona {
   flex-shrink: 0;
   width: 32px;
@@ -207,6 +243,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative; /* NEW: For overlay positioning */
+}
+
+/* NEW: Persona overlay container for panel */
+.manage-access-permission-persona .ms-Persona-coin {
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* NEW: Hide persona text in panel view */
+.manage-access-permission-persona .ms-Persona-details {
+  display: none !important;
+}
+
+/* NEW: LivePersona overlay positioning */
+.manage-access-permission-persona [data-automation-id="persona-overlay"] {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
 }
 
 /* Permission Info - Flexible center area */
@@ -306,27 +365,31 @@
   opacity: 1;
 }
 
-/* Sharing Link Avatar Styles */
+/* ENHANCED: Sharing Link Avatar Styles */
 .manage-access-sharing-link-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #0078d4;
+  background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   cursor: pointer;
   transition: transform 0.2s ease, background-color 0.2s ease;
+  border: 2px solid #ffffff; /* NEW: Consistent with LivePersona */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* NEW: Consistent shadow */
 }
 
 .manage-access-sharing-link-avatar:hover {
   transform: scale(1.05);
-  background-color: #106ebe;
+  background: linear-gradient(135deg, #106ebe 0%, #005a9e 100%); /* NEW: Darker on hover */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /* NEW: Enhanced hover shadow */
 }
 
 .manage-access-sharing-link-avatar i {
   font-size: 14px;
+  font-weight: 600; /* NEW: Slightly bolder icon */
 }
 
 /* No Permissions Styles */
@@ -349,7 +412,18 @@
 .manage-access-permission-indicator:focus,
 .manage-access-remaining:focus,
 .manage-access-link:focus,
-.manage-access-remove-button:focus {
+.manage-access-remove-button:focus,
+.manage-access-live-persona:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.manage-access-permission-indicator:focus-visible,
+.manage-access-remaining:focus-visible,
+.manage-access-link:focus-visible,
+.manage-access-remove-button:focus-visible,
+.manage-access-live-persona:focus-visible {
   outline: 2px solid #0078d4;
   outline-offset: 2px;
 }
@@ -408,6 +482,22 @@
   }
 }
 
+/* NEW: LivePersona specific animations */
+@keyframes personaLoad {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.manage-access-live-persona .ms-Persona-coin {
+  animation: personaLoad 0.3s ease-out;
+}
+
 /* RESPONSIVE STYLES */
 
 /* Mobile Styles (≤768px) */
@@ -430,17 +520,32 @@
     padding: 10px 12px;
     gap: 10px;
     min-height: 44px;
-    align-items: flex-start; /* Change to flex-start for multiline support */
+    align-items: flex-start;
   }
 
   .manage-access-permission-persona {
     width: 28px;
     height: 28px;
-    margin-top: 2px; /* Slight top alignment adjustment */
+    margin-top: 2px;
+  }
+
+  /* Mobile LivePersona adjustments */
+  .manage-access-live-persona {
+    width: 28px;
+    height: 28px;
+  }
+
+  .manage-access-live-persona .ms-Persona-coin,
+  .manage-access-live-persona .ms-Persona-image,
+  .manage-access-live-persona .ms-Persona-initials {
+    width: 28px !important;
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 11px !important;
   }
 
   .manage-access-permission-info {
-    align-items: flex-start; /* Allow text to flow naturally */
+    align-items: flex-start;
   }
 
   .manage-access-permission-text {
@@ -450,7 +555,7 @@
   /* Allow names to wrap on mobile */
   .manage-access-permission-name {
     font-size: 13px;
-    white-space: normal; /* Allow wrapping */
+    white-space: normal;
     word-wrap: break-word;
     overflow: visible;
     text-overflow: initial;
@@ -459,7 +564,7 @@
 
   .manage-access-permission-email {
     font-size: 10px;
-    white-space: normal; /* Allow wrapping */
+    white-space: normal;
     word-wrap: break-word;
     overflow: visible;
     text-overflow: initial;
@@ -467,7 +572,7 @@
 
   .manage-access-permission-details {
     font-size: 9px;
-    white-space: normal; /* Allow wrapping */
+    white-space: normal;
     word-wrap: break-word;
     overflow: visible;
     text-overflow: initial;
@@ -487,8 +592,8 @@
 
   .manage-access-permission-actions {
     gap: 8px;
-    align-items: flex-start; /* Align to top for multiline layout */
-    margin-top: 2px; /* Slight adjustment for alignment */
+    align-items: flex-start;
+    margin-top: 2px;
   }
 
   .manage-access-section-header {
@@ -601,6 +706,20 @@
     height: 30px;
   }
 
+  .manage-access-live-persona {
+    width: 30px;
+    height: 30px;
+  }
+
+  .manage-access-live-persona .ms-Persona-coin,
+  .manage-access-live-persona .ms-Persona-image,
+  .manage-access-live-persona .ms-Persona-initials {
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 11px !important;
+  }
+
   .manage-access-permission-level {
     min-width: 55px;
   }
@@ -616,6 +735,20 @@
   .manage-access-permission-persona {
     width: 36px;
     height: 36px;
+  }
+
+  .manage-access-live-persona {
+    width: 36px;
+    height: 36px;
+  }
+
+  .manage-access-live-persona .ms-Persona-coin,
+  .manage-access-live-persona .ms-Persona-image,
+  .manage-access-live-persona .ms-Persona-initials {
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    font-size: 13px !important;
   }
 
   .manage-access-permission-name {
@@ -645,5 +778,62 @@
 
   .manage-access-remove-button {
     opacity: 1;
+  }
+
+  .manage-access-live-persona {
+    border: 2px solid #000000;
+  }
+
+  .manage-access-sharing-link-avatar {
+    border: 2px solid #000000;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .manage-access-live-persona,
+  .manage-access-permission-item,
+  .manage-access-sharing-link-avatar {
+    transition: none;
+    animation: none;
+  }
+
+  .manage-access-live-persona:hover,
+  .manage-access-permission-item:hover,
+  .manage-access-sharing-link-avatar:hover {
+    transform: none;
+  }
+
+  @keyframes fadeInUp {
+    from, to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes personaLoad {
+    from, to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/* Print Styles */
+@media print {
+  .manage-access-panel {
+    display: none;
+  }
+
+  .manage-access-component {
+    color: #000000 !important;
+    background: transparent !important;
+  }
+
+  .manage-access-live-persona,
+  .manage-access-sharing-link-avatar {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
   }
 }

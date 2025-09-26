@@ -22,11 +22,10 @@ import {
   TooltipHost,
   Spinner,
   SpinnerSize,
-  IPersonaProps,
 } from '@fluentui/react';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
-import { IPermissionPrincipal, PermissionLevelOptions, SPFxContext } from './types';
+import { IPermissionPrincipal, PermissionLevelOptions, SPFxContext, PersonaUtils } from './types';
 import { GroupViewer } from '../GroupViewer';
 
 export interface IManageAccessPanelProps {
@@ -116,16 +115,7 @@ export class ManageAccessPanel extends React.Component<
   };
 
   private getInitials = (displayName: string): string => {
-    if (!displayName) return '?';
-
-    const words = displayName.split(' ').filter(word => word.length > 0);
-    if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase();
-    }
-    return words
-      .map(word => word.charAt(0).toUpperCase())
-      .join('')
-      .substring(0, 2);
+    return PersonaUtils.getInitials(displayName);
   };
 
   private getPersonaColor = (displayName: string): PersonaInitialsColor => {
@@ -235,13 +225,14 @@ export class ManageAccessPanel extends React.Component<
     );
   };
 
+  // FIXED: Enhanced permission item rendering with proper LivePersona integration
   private renderPermissionItem = (permission: IPermissionPrincipal): React.ReactElement => {
     const { canManagePermissions } = this.props;
     const canRemove = canManagePermissions && permission.canBeRemoved;
 
     return (
       <div key={permission.id} className='manage-access-permission-item'>
-        {/* Avatar - Left Side */}
+        {/* FIXED: Avatar with proper LivePersona integration */}
         <div className='manage-access-permission-persona'>
           {permission.isSharingLink ? (
             // Sharing link icon
@@ -266,39 +257,8 @@ export class ManageAccessPanel extends React.Component<
               size={32}
             />
           ) : (
-            // User persona with proper initials and LivePersona overlay
-            <div style={{ position: 'relative' }}>
-              <Persona
-                size={PersonaSize.size32}
-                text={permission.displayName}
-                initialsColor={this.getPersonaColor(permission.displayName)}
-                imageInitials={this.getInitials(permission.displayName)}
-                showInitialsUntilImageLoads={true}
-                styles={{
-                  root: {
-                    cursor: 'pointer',
-                  },
-                }}
-              />
-              {/* Overlay LivePersona for hover functionality */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '32px',
-                  height: '32px',
-                  opacity: 0,
-                  pointerEvents: 'all',
-                }}
-              >
-                <LivePersona
-                  upn={permission.email || permission.displayName}
-                  disableHover={false}
-                  serviceScope={this.props.spContext.serviceScope}
-                />
-              </div>
-            </div>
+            // FIXED: Enhanced user persona with LivePersona integration
+            this.renderUserPersona(permission)
           )}
         </div>
 
@@ -340,6 +300,88 @@ export class ManageAccessPanel extends React.Component<
         </div>
       </div>
     );
+  };
+
+  // FIXED: New method for rendering user persona with LivePersona
+  private renderUserPersona = (permission: IPermissionPrincipal): React.ReactElement => {
+    const upnForPersona = PersonaUtils.normalizeUpn(permission);
+    const canUsePersona = PersonaUtils.canUsePersona(permission);
+
+    console.log(
+      `Rendering persona for ${permission.displayName}: UPN=${upnForPersona}, CanUse=${canUsePersona}`
+    );
+
+    if (canUsePersona) {
+      return (
+        <div style={{ position: 'relative', width: '32px', height: '32px' }}>
+          {/* Base Persona for consistent styling */}
+          <Persona
+            size={PersonaSize.size32}
+            text={permission.displayName}
+            secondaryText={permission.email}
+            initialsColor={this.getPersonaColor(permission.displayName)}
+            imageInitials={this.getInitials(permission.displayName)}
+            showInitialsUntilImageLoads={true}
+            styles={{
+              root: {
+                cursor: 'pointer',
+              },
+              primaryText: {
+                display: 'none', // Hide text in panel view
+              },
+              secondaryText: {
+                display: 'none', // Hide secondary text in panel view
+              },
+            }}
+          />
+
+          {/* LivePersona overlay for hover functionality */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              pointerEvents: 'all',
+            }}
+          >
+            <LivePersona
+              upn={upnForPersona}
+              disableHover={false}
+              serviceScope={this.props.spContext.serviceScope}
+            />
+          </div>
+        </div>
+      );
+    } else {
+      // Fallback for users without valid UPN
+      console.log(`Using fallback persona for ${permission.displayName}`);
+
+      return (
+        <Persona
+          size={PersonaSize.size32}
+          text={permission.displayName}
+          secondaryText={permission.email || 'External User'}
+          initialsColor={this.getPersonaColor(permission.displayName)}
+          imageInitials={this.getInitials(permission.displayName)}
+          showInitialsUntilImageLoads={true}
+          styles={{
+            root: {
+              cursor: 'pointer',
+            },
+            primaryText: {
+              display: 'none', // Hide text in panel view
+            },
+            secondaryText: {
+              display: 'none', // Hide secondary text in panel view
+            },
+          }}
+        />
+      );
+    }
   };
 
   private renderRemoveDialog = (): React.ReactElement => {
@@ -520,7 +562,7 @@ export class ManageAccessPanel extends React.Component<
                         />
                       )}
 
-                      {/* Simplified button layout - No redundant Done button */}
+                      {/* Simplified button layout */}
                       <div className='manage-access-grant-buttons'>
                         <PrimaryButton
                           text={isGrantingAccess ? 'Granting...' : 'Grant access'}

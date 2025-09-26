@@ -1,25 +1,26 @@
-import * as React from 'react';
-import { Spinner, SpinnerSize, Icon, Link, TooltipHost, Stack, Text } from '@fluentui/react';
-import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
+import { Icon, Link, Spinner, SpinnerSize, Stack, Text, TooltipHost } from '@fluentui/react';
 import { spfi, SPFx } from '@pnp/sp';
-import '@pnp/sp/webs';
-import '@pnp/sp/lists';
 import '@pnp/sp/items';
+import '@pnp/sp/lists';
 import '@pnp/sp/security';
-import '@pnp/sp/site-users';
-import '@pnp/sp/site-groups';
 import '@pnp/sp/sharing';
+import '@pnp/sp/site-groups';
+import '@pnp/sp/site-users';
+import '@pnp/sp/webs';
+import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
+import * as React from 'react';
 import { createPermissionHelper } from '../../utilities/permissionHelper';
+import { GroupViewer } from '../GroupViewer';
+import './ManageAccessComponent.css';
+import { ManageAccessPanel } from './ManageAccessPanel';
 import {
+  DefaultProps,
   IManageAccessComponentProps,
   IManageAccessComponentState,
   IPermissionPrincipal,
-  DefaultProps,
-  SPFxContext,
+  ISPSharingInfo,
+  PersonaUtils
 } from './types';
-import { ManageAccessPanel } from './ManageAccessPanel';
-import { GroupViewer } from '../GroupViewer';
-import './ManageAccessComponent.css';
 
 export class ManageAccessComponent extends React.Component<
   IManageAccessComponentProps,
@@ -58,7 +59,7 @@ export class ManageAccessComponent extends React.Component<
     }
   }
 
-  // Enhanced permission loading with proper filtering and expansion
+  // FIXED: Enhanced permission loading with proper sharing link detection
   private loadPermissions = async (): Promise<void> => {
     try {
       this.setState({ isLoading: true });
@@ -83,19 +84,21 @@ export class ManageAccessComponent extends React.Component<
     }
   };
 
-  // Enhanced permission retrieval with FIXED Limited Access handling
+  // FIXED: Enhanced permission retrieval with correct sharing link permission detection
   private getEnhancedItemPermissions = async (): Promise<IPermissionPrincipal[]> => {
     try {
       const item = this.sp.web.lists.getById(this.props.listId).items.getById(this.props.itemId);
 
-      // Get role assignments
-      const roleAssignments = await item.roleAssignments.expand(
-        'RoleDefinitionBindings',
-        'Member'
-      )();
+      // Get both role assignments and sharing information in parallel
+      const [roleAssignments, sharingInfo] = await Promise.all([
+        item.roleAssignments.expand('RoleDefinitionBindings', 'Member')(),
+        this.getSharingInformation(),
+      ]);
 
       const permissions: IPermissionPrincipal[] = [];
       const processedUsers = new Set<string>(); // Track processed users to avoid duplicates
+
+      console.log('ManageAccess: Retrieved sharing info:', sharingInfo);
 
       // Process role assignments
       for (const assignment of roleAssignments) {
@@ -112,18 +115,25 @@ export class ManageAccessComponent extends React.Component<
         const isLimitedAccess = this.isLimitedAccessGroup(member, roleDefinitions);
         const isSharingLink = this.isSharingLinkPrincipal(member);
 
-        // FIXED: Handle Limited Access groups - extract the actual shared users with PARENT permission level
+        console.log(
+          `Processing member: ${member.Title}, Limited Access: ${isLimitedAccess}, Sharing Link: ${isSharingLink}`
+        );
+
+        // FIXED: Handle Limited Access groups - extract the actual shared users with CORRECT permission level
         if (isLimitedAccess && member.PrincipalType === 8) {
           try {
-            // First, get the parent item's permission to determine what permission level these shared users should have
-            const parentPermissionLevel = await this.getActualSharedUserPermission(member.Id);
+            // Get the ACTUAL permission level from sharing information
+            const actualPermissionLevel = this.getActualSharingPermissionLevel(member, sharingInfo);
+            console.log(
+              `Limited Access Group ${member.Title} actual permission: ${actualPermissionLevel}`
+            );
 
             const sharedUsers = await this.extractSharedUsersFromLimitedAccessGroup(
               member.Id,
-              parentPermissionLevel // Use the actual permission level from parent item
+              actualPermissionLevel
             );
 
-            // Add unique shared users with correct permission level
+            // Add unique shared users with CORRECT permission level
             for (const user of sharedUsers) {
               const userKey = `${user.email || user.loginName || user.id}`;
               if (!processedUsers.has(userKey)) {
@@ -153,6 +163,10 @@ export class ManageAccessComponent extends React.Component<
           isGroup: member.PrincipalType === 8,
           principalType: member.PrincipalType,
           canBeRemoved,
+          // Enhanced properties for LivePersona
+          userPrincipalName: member.UserPrincipalName,
+          normalizedEmail: member.Email ? member.Email.toLowerCase().trim() : undefined,
+          isValidForPersona: !!(member.Email || member.UserPrincipalName),
         };
 
         // For regular groups, don't expand members (keep groups as groups)
@@ -168,6 +182,7 @@ export class ManageAccessComponent extends React.Component<
         }
       }
 
+      console.log(`ManageAccess: Final results - Kept ${permissions.length} principals`);
       return permissions;
     } catch (error) {
       console.error('Error getting enhanced item permissions:', error);
@@ -175,62 +190,61 @@ export class ManageAccessComponent extends React.Component<
     }
   };
 
-  // FIXED: Get the actual permission level for shared users by checking parent item or sharing info
-  private getActualSharedUserPermission = async (
-    limitedAccessGroupId: number
-  ): Promise<'view' | 'edit'> => {
+  // FIXED: Get actual sharing permission level from sharing information
+  private getActualSharingPermissionLevel = (
+    limitedAccessGroup: any,
+    sharingInfo: ISPSharingInfo | null
+  ): 'view' | 'edit' => {
     try {
-      // Method 1: Try to get sharing information to determine permission level
-      const sharingInfo = await this.getSharingInfo();
-      if (sharingInfo && sharingInfo.sharingLinks) {
-        // Look for sharing links that might correspond to this group
-        const editLink = sharingInfo.sharingLinks.find(
-          (link: any) => link.linkKind === 2 || link.description?.toLowerCase().includes('edit')
-        );
-        if (editLink) {
+      if (!sharingInfo || !sharingInfo.sharingLinks) {
+        console.warn('No sharing info available, defaulting to view');
+        return 'view';
+      }
+
+      console.log('Analyzing sharing links for permission level:', sharingInfo.sharingLinks);
+
+      // Look through sharing links to determine the actual permission level
+      for (const link of sharingInfo.sharingLinks) {
+        // Check if this is an edit link
+        if (
+          link.isEditLink ||
+          link.roleValue === 'role:1073741827' || // Edit role
+          link.description?.toLowerCase().includes('edit') ||
+          (link.roleValue && link.roleValue.includes('edit'))
+        ) {
+          console.log('Found edit sharing link:', link);
           return 'edit';
         }
       }
 
-      // Method 2: Check the group's role assignments at the item level more carefully
-      const item = this.sp.web.lists.getById(this.props.listId).items.getById(this.props.itemId);
+      // Check for organization-wide edit links
+      const hasOrgEditLink = sharingInfo.sharingLinks.some(
+        link =>
+          link.scope === 'organization' && (link.isEditLink || link.roleValue === 'role:1073741827')
+      );
 
-      const allRoleAssignments = await item.roleAssignments.expand(
-        'RoleDefinitionBindings',
-        'Member'
-      )();
-
-      // Look for any non-limited access role assignments that might be related
-      for (const assignment of allRoleAssignments) {
-        const member = assignment.Member;
-        const roleDefinitions = assignment.RoleDefinitionBindings;
-
-        // Check if this assignment is for the same group but with actual permissions
-        if (member.Id === limitedAccessGroupId) {
-          const actualPermission = this.getPermissionLevelFromRoles(roleDefinitions, true);
-          if (actualPermission) {
-            return actualPermission;
-          }
-        }
+      if (hasOrgEditLink) {
+        console.log('Found organization edit link');
+        return 'edit';
       }
 
-      // Method 3: Default to 'view' for safety, but this should be rare
-      console.warn(
-        `Could not determine actual permission level for Limited Access group ${limitedAccessGroupId}, defaulting to 'view'`
-      );
+      // Default to view if no edit permissions found
+      console.log('No edit sharing links found, defaulting to view');
       return 'view';
     } catch (error) {
-      console.warn('Error getting actual shared user permission, defaulting to view:', error);
+      console.warn('Error determining sharing permission level, defaulting to view:', error);
       return 'view';
     }
   };
 
-  // Get sharing information for better permission detection
-  private getSharingInfo = async (): Promise<any> => {
+  // FIXED: Get sharing information with better error handling
+  private getSharingInformation = async (): Promise<ISPSharingInfo | null> => {
     try {
       const item = this.sp.web.lists.getById(this.props.listId).items.getById(this.props.itemId);
+      const sharingInfo = await item.getSharingInformation();
 
-      return await item.getSharingInformation();
+      console.log('Raw sharing information:', sharingInfo);
+      return sharingInfo;
     } catch (error) {
       console.warn('Could not get sharing information:', error);
       return null;
@@ -240,14 +254,14 @@ export class ManageAccessComponent extends React.Component<
   // FIXED: Extract actual shared users from Limited Access groups with CORRECT permissions
   private extractSharedUsersFromLimitedAccessGroup = async (
     groupId: number,
-    actualPermissionLevel: 'view' | 'edit' // Use the actual permission level determined from parent
+    actualPermissionLevel: 'view' | 'edit'
   ): Promise<IPermissionPrincipal[]> => {
     try {
       const group = this.sp.web.siteGroups.getById(groupId);
       const users = await group.users();
 
       console.log(
-        `Limited Access Group ${groupId} actual permission level: ${actualPermissionLevel}`
+        `Extracting users from Limited Access Group ${groupId} with permission: ${actualPermissionLevel}`
       );
 
       const sharedUsers: IPermissionPrincipal[] = [];
@@ -259,20 +273,26 @@ export class ManageAccessComponent extends React.Component<
           continue;
         }
 
-        // These are real users shared via sharing links - use the ACTUAL permission level
-        sharedUsers.push({
+        // FIXED: Use the ACTUAL permission level determined from sharing info
+        const principal: IPermissionPrincipal = {
           id: user.Id.toString(),
           displayName: user.Title,
           email: user.Email || '',
           loginName: user.LoginName,
-          permissionLevel: actualPermissionLevel, // FIXED: Use actual permission level
+          permissionLevel: actualPermissionLevel, // FIXED: Use correct permission level
           isGroup: false,
           principalType: user.PrincipalType,
           canBeRemoved: true,
           isSharingLink: true,
           sharingLinkType: 'specific',
           inheritedFrom: 'Shared link',
-        });
+          // Enhanced properties for LivePersona
+          userPrincipalName: user.UserPrincipalName,
+          normalizedEmail: user.Email ? user.Email.toLowerCase().trim() : undefined,
+          isValidForPersona: !!(user.Email || user.UserPrincipalName),
+        };
+
+        sharedUsers.push(principal);
       }
 
       console.log(
@@ -312,7 +332,7 @@ export class ManageAccessComponent extends React.Component<
   private isLimitedAccessGroup = (member: any, roleDefinitions: any[]): boolean => {
     // Check for Limited Access role definition
     const hasLimitedAccess = roleDefinitions.some(
-      role => role.Name.toLowerCase().includes('limited access') || role.Id === 1073741825 // Standard Limited Access role ID
+      role => role.Name.toLowerCase().includes('limited access') || role.Id === 1073741825
     );
 
     return hasLimitedAccess;
@@ -334,8 +354,19 @@ export class ManageAccessComponent extends React.Component<
   private filterAndProcessPermissions = async (
     permissions: IPermissionPrincipal[]
   ): Promise<IPermissionPrincipal[]> => {
+    // FIXED: Enhanced processing with LivePersona preparation
+    const processedPermissions = permissions.map(permission => {
+      if (!permission.isGroup && !permission.isValidForPersona) {
+        // Try to make user valid for LivePersona
+        const normalizedUpn = PersonaUtils.normalizeUpn(permission);
+        permission.normalizedEmail = normalizedUpn;
+        permission.isValidForPersona = PersonaUtils.canUsePersona(permission);
+      }
+      return permission;
+    });
+
     // Sort: Groups first, then users, then sharing links
-    return permissions.sort((a, b) => {
+    return processedPermissions.sort((a, b) => {
       // Groups first
       if (a.isGroup && !b.isGroup) return -1;
       if (!a.isGroup && b.isGroup) return 1;
@@ -377,17 +408,9 @@ export class ManageAccessComponent extends React.Component<
     return hasEditPermission;
   };
 
-  // ENHANCED: Get permission level from role definitions with option to ignore Limited Access
-  private getPermissionLevelFromRoles = (
-    roleDefinitions: any[],
-    ignoreLimitedAccess: boolean = false
-  ): 'view' | 'edit' => {
-    // Filter out Limited Access if requested
-    const relevantRoles = ignoreLimitedAccess
-      ? roleDefinitions.filter(role => !role.Name.toLowerCase().includes('limited access'))
-      : roleDefinitions;
-
-    const hasEdit = relevantRoles.some(
+  // Get permission level from role definitions
+  private getPermissionLevelFromRoles = (roleDefinitions: any[]): 'view' | 'edit' => {
+    const hasEdit = roleDefinitions.some(
       role => role.Name === 'Full Control' || role.Name === 'Edit' || role.Name === 'Contribute'
     );
 
@@ -511,7 +534,7 @@ export class ManageAccessComponent extends React.Component<
     );
   };
 
-  // Enhanced render for different permission types
+  // FIXED: Enhanced render for different permission types with proper LivePersona integration
   private renderPermissionAvatar = (
     permission: IPermissionPrincipal,
     index: number
@@ -549,7 +572,10 @@ export class ManageAccessComponent extends React.Component<
       );
     }
 
-    // User avatar (using LivePersona directly for better hover experience)
+    // FIXED: User avatar with proper LivePersona integration
+    const upnForPersona = PersonaUtils.normalizeUpn(permission);
+    const canUsePersona = PersonaUtils.canUsePersona(permission);
+
     return (
       <div key={`user-${index}`} className='manage-access-avatar-container'>
         <TooltipHost
@@ -558,11 +584,31 @@ export class ManageAccessComponent extends React.Component<
           } - ${permission.permissionLevel === 'edit' ? 'Can edit' : 'Can view'}`}
         >
           <div className='manage-access-live-persona'>
-            <LivePersona
-              upn={permission.email || permission.displayName}
-              disableHover={false}
-              serviceScope={this.props.spContext.serviceScope}
-            />
+            {canUsePersona ? (
+              <LivePersona
+                upn={upnForPersona}
+                disableHover={false}
+                serviceScope={this.props.spContext.serviceScope}
+              />
+            ) : (
+              // Fallback for users without valid UPN
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#0078d4',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {PersonaUtils.getInitials(permission.displayName)}
+              </div>
+            )}
           </div>
         </TooltipHost>
       </div>
