@@ -346,64 +346,6 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     );
   };
 
-  // Enhanced progress indicator
-  const renderProgressIndicator = () => {
-    if (mode !== 'fullSteps') return null;
-
-    return (
-      <div
-        className={styles.progressIndicator}
-        role='progressbar'
-        aria-valuenow={completionPercentage}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`Workflow progress: ${completionPercentage}% complete`}
-      >
-        <Icon
-          iconName='ProgressRingDots'
-          style={{
-            fontSize: '20px',
-            color: theme.palette.themePrimary,
-            animation: selectedStep?.status === 'current' ? 'spin 2s linear infinite' : 'none',
-          }}
-        />
-        <div style={{ flex: 1 }}>
-          <div
-            style={{
-              fontWeight: 600,
-              color: theme.palette.themePrimary,
-              marginBottom: '4px',
-            }}
-          >
-            {completionPercentage}% Complete
-          </div>
-          <div
-            style={{
-              fontSize: theme.fonts.small.fontSize,
-              color: theme.palette.neutralSecondary,
-            }}
-          >
-            {stepStatistics.completed} of {stepStatistics.total} steps completed
-          </div>
-        </div>
-        {selectedStep?.status === 'current' && (
-          <div
-            style={{
-              padding: '6px 12px',
-              background: theme.palette.themeLighterAlt,
-              borderRadius: '16px',
-              fontSize: theme.fonts.small.fontSize,
-              fontWeight: 600,
-              color: theme.palette.themePrimary,
-            }}
-          >
-            In Progress
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const containerClasses = mergeStyles(styles.container, className);
 
   const getAriaLabel = () => {
@@ -460,9 +402,6 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           />
         </div>
       )}
-
-      {/* Progress indicator */}
-      {renderProgressIndicator()}
 
       {/* Enhanced stepper container */}
       <div
