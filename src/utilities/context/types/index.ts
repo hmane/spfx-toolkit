@@ -1,9 +1,10 @@
 /**
- * Focused types/index.ts with essential SharePoint properties only
+ * Updated types/index.ts with correct PeoplePicker context (3 params only)
  */
 
 import type { BaseComponentContext } from '@microsoft/sp-component-base';
 import type { PageContext } from '@microsoft/sp-page-context';
+import type { SPHttpClient, MSGraphClientFactory } from '@microsoft/sp-http';
 import type { LogLevel } from '@pnp/logging';
 import type { SPFI } from '@pnp/sp';
 import { IPrincipal } from '../../../types';
@@ -41,6 +42,18 @@ export interface ContextConfig {
     strategy?: CacheStrategy;
     ttl?: number;
   };
+}
+
+// PeoplePicker context interface - CORRECTED to match PnP requirements
+export interface PeoplePickerContext {
+  /** Web absolute URL - Required */
+  absoluteUrl: string;
+
+  /** MSGraph client factory for Graph API calls - Required */
+  msGraphClientFactory: MSGraphClientFactory | null;
+
+  /** SharePoint HTTP client for REST API calls - Required */
+  spHttpClient: SPHttpClient | null;
 }
 
 // Main context interface with focused SharePoint properties
@@ -88,6 +101,9 @@ export interface SPFxContext {
   readonly logger: Logger;
   readonly http: HttpClient;
   readonly performance: PerformanceTracker;
+
+  // PeoplePicker context for modern people picker components
+  readonly peoplepickerContext: PeoplePickerContext;
 
   // Optional advanced features
   readonly links?: LinkBuilder;
@@ -199,7 +215,7 @@ export interface ContextHealthCheck {
 
 export interface ContextIssue {
   severity: 'low' | 'medium' | 'high' | 'critical';
-  type: 'performance' | 'network' | 'configuration';
+  type: 'performance' | 'network' | 'configuration' | 'security' | 'cache';
   message: string;
   details?: any;
   resolution?: string;

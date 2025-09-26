@@ -1,5 +1,5 @@
 /**
- * Focused sp-context.ts with essential enhancements only
+ * Updated sp-context.ts with fixes and PeoplePicker support
  */
 
 import type { SPFI } from '@pnp/sp';
@@ -12,6 +12,7 @@ import type {
   Logger,
   HttpClient,
   PerformanceTracker,
+  PeoplePickerContext,
 } from './types';
 import { IPrincipal } from '../../types';
 
@@ -154,14 +155,15 @@ export class SPContext {
   }
 
   // ========================================
-  // CORE ACCESS METHODS
+  // CORE ACCESS METHODS - FIXED
   // ========================================
 
   static get context(): SPFxContext {
     if (!SPContext.contextModule) {
       throw new Error('SPContext not initialized. Call SPContext.initialize() first.');
     }
-    return SPContext.contextModule.getCurrentContext();
+    // FIX: Use the correct method name that exists in context-manager
+    return SPContext.contextModule.Context.getCurrentContext();
   }
 
   static get sp(): SPFI {
@@ -282,6 +284,14 @@ export class SPContext {
 
   static get isTeamsContext(): boolean {
     return SPContext.context.isTeamsContext;
+  }
+
+  // ========================================
+  // PEOPLEPICKER CONTEXT - NEW
+  // ========================================
+
+  static get peoplepickerContext(): PeoplePickerContext {
+    return SPContext.context.peoplepickerContext;
   }
 
   // ========================================
@@ -411,6 +421,22 @@ export class SPContext {
       });
     }
 
+    // PeoplePicker context health check
+    const ppContext = SPContext.context.peoplepickerContext;
+    if (!ppContext.msGraphClientFactory || !ppContext.spHttpClient) {
+      issues.push({
+        severity: 'medium',
+        type: 'configuration',
+        message: 'PeoplePicker context may be incomplete',
+        details: {
+          hasAbsoluteUrl: !!ppContext.absoluteUrl,
+          hasMSGraphFactory: !!ppContext.msGraphClientFactory,
+          hasSPHttpClient: !!ppContext.spHttpClient,
+        },
+        resolution: 'Check service scope configuration for MSGraph and SPHttpClient',
+      });
+    }
+
     return {
       isHealthy:
         issues.filter(i => i.severity === 'critical' || i.severity === 'high').length === 0,
@@ -510,7 +536,14 @@ export class SPContext {
       slowOperations: number;
       failedOperations: number;
     };
+    peoplepicker: {
+      hasAbsoluteUrl: boolean;
+      hasMSGraphFactory: boolean;
+      hasSPHttpClient: boolean;
+    };
   } {
+    const ppContext = SPContext.peoplepickerContext;
+
     return {
       basic: {
         webTitle: SPContext.webTitle,
@@ -539,6 +572,11 @@ export class SPContext {
         totalOperations: SPContext.performance.getMetrics().length,
         slowOperations: SPContext.performance.getSlowOperations().length,
         failedOperations: SPContext.performance.getFailedOperations().length,
+      },
+      peoplepicker: {
+        hasAbsoluteUrl: !!ppContext.absoluteUrl,
+        hasMSGraphFactory: !!ppContext.msGraphClientFactory,
+        hasSPHttpClient: !!ppContext.spHttpClient,
       },
     };
   }

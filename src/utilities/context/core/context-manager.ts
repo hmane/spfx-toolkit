@@ -1,10 +1,11 @@
 /**
- * Focused context-manager.ts with essential properties only
+ * Fixed context-manager.ts with essential properties and correct PeoplePicker context
  */
 
 import { LogLevel } from '@pnp/logging';
 import { spfi, SPFI, SPFx } from '@pnp/sp';
 import type { PageContext } from '@microsoft/sp-page-context';
+import { SPHttpClient } from '@microsoft/sp-http';
 import { CacheModule } from '../modules/cache';
 import { SimpleHttpClient } from '../modules/http';
 import { SimpleLogger } from '../modules/logger';
@@ -60,6 +61,11 @@ export class ContextManager {
       throw new Error('Context not initialized. Call ContextManager.initialize() first.');
     }
     return manager.context;
+  }
+
+  // FIX: Add the missing getCurrentContext method
+  static getCurrentContext(): SPFxContext {
+    return ContextManager.current();
   }
 
   static isReady(): boolean {
@@ -128,6 +134,9 @@ export class ContextManager {
         }
       }
 
+      // Create PeoplePicker context with only required properties
+      const peoplepickerContext = this.createPeoplePickerContext(spfxContext);
+
       // Build focused context with essential properties only
       this.context = {
         // Core SPFx objects
@@ -172,6 +181,9 @@ export class ContextManager {
         http,
         performance,
 
+        // PeoplePicker context (simplified to 3 required properties only)
+        peoplepickerContext,
+
         // Optional features can be added here
       };
 
@@ -192,6 +204,36 @@ export class ContextManager {
     } catch (error) {
       console.error('Failed to initialize SPFx context:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Create PeoplePicker context with only the 3 required properties
+   * Based on: https://pnp.github.io/sp-dev-fx-controls-react/controls/PeoplePicker/
+   */
+  private createPeoplePickerContext(spfxContext: SPFxContextInput): any {
+    try {
+      return {
+        // 1. absoluteUrl - Required
+        absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
+
+        // 2. msGraphClientFactory - Required for Graph API calls
+        msGraphClientFactory: spfxContext.serviceScope.consume(
+          require('@microsoft/sp-http').MSGraphClientFactory.serviceKey
+        ),
+
+        // 3. spHttpClient - Required for SharePoint REST API calls
+        spHttpClient: spfxContext.spHttpClient as SPHttpClient,
+      };
+    } catch (error) {
+      console.warn('Could not create complete PeoplePicker context:', error);
+
+      // Fallback minimal context with just absoluteUrl
+      return {
+        absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
+        msGraphClientFactory: null,
+        spHttpClient: spfxContext.spHttpClient || null,
+      };
     }
   }
 
@@ -226,7 +268,10 @@ export class ContextManager {
   private getApplicationName(context: SPFxContextInput): string {
     try {
       return (
-        (context as any).manifest?.alias || (context as any).manifest?.componentType || 'SPFxApp'
+        (context as any).manifest?.alias ||
+        (context as any).manifest?.componentType ||
+        (context as any).manifest?.id ||
+        'SPFxApp'
       );
     } catch {
       return 'SPFxApp';
@@ -253,7 +298,11 @@ export class ContextManager {
 
   private isTeamsContext(context: SPFxContextInput): boolean {
     try {
-      return !!(context as any).sdks?.microsoftTeams;
+      return (
+        !!(context as any).sdks?.microsoftTeams ||
+        !!(context as any).microsoftTeams ||
+        window.location.ancestorOrigins?.[0]?.includes('teams.microsoft.com')
+      );
     } catch {
       return false;
     }
@@ -389,6 +438,7 @@ export class ContextManager {
 export const Context = {
   initialize: ContextManager.initialize,
   current: ContextManager.current,
+  getCurrentContext: ContextManager.getCurrentContext, // FIX: Add missing method
   isReady: ContextManager.isReady,
   reset: ContextManager.reset,
 
