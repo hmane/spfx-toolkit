@@ -10,7 +10,7 @@ export interface StepData {
   description1?: string;
   description2?: string;
   status: StepStatus;
-  content?: string | React.ReactNode;
+  content?: React.ReactNode; // Each step can have its own content
   isClickable?: boolean;
 }
 
@@ -19,7 +19,6 @@ export interface StepDescriptionStyles {
   description2?: React.CSSProperties;
 }
 
-// UPDATED: Removed fullWidth prop - no longer needed with wrapper approach
 export interface WorkflowStepperProps {
   steps: StepData[];
   mode?: StepperMode;
@@ -45,9 +44,8 @@ export interface StepColors {
   selectedBorder: string;
 }
 
-// UPDATED: Removed fullWidth from style props
 export interface StepperStyleProps {
-  fullWidth: boolean; // Keep for internal use but not exposed in main props
+  fullWidth: boolean;
   stepCount: number;
   minStepWidth?: number;
   mode: StepperMode;

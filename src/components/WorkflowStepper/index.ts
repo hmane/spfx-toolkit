@@ -12,13 +12,11 @@ export type {
   StepperMode,
   StepperStyleProps,
   StepStatus,
-  WorkflowStepperProps
+  WorkflowStepperProps,
 } from './types';
 
-// Utility exports
+// Utility exports (simplified)
 export {
-  calculateCompletionPercentage,
-  debounce,
   findAutoSelectStep,
   getFirstClickableStepId,
   getLastClickableStepId,
@@ -27,16 +25,8 @@ export {
   getStatusDescription,
   getStatusLabel,
   getStepById,
-  getStepCursor,
-  getStepIndex,
-  getStepStatistics,
-  isActionableStatus,
-  isBlockedStatus,
-  isCompletedStatus,
   isStepClickable,
-  truncateText,
-  validateStepData,
-  validateStepIds
+  validateStepIds,
 } from './utils';
 
 // Style exports

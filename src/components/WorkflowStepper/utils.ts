@@ -27,7 +27,6 @@ export const findAutoSelectStep = (steps: StepData[]): StepData | null => {
 
 /**
  * Determines if a step should be clickable based on mode and status
- * Enhanced logic: pending, blocked steps are generally not clickable unless explicitly set
  */
 export const isStepClickable = (step: StepData, mode: StepperMode): boolean => {
   // Custom clickability override always takes precedence
@@ -50,7 +49,7 @@ export const isStepClickable = (step: StepData, mode: StepperMode): boolean => {
       return true; // Clickable to view error details
     case 'pending':
     case 'blocked':
-      return false; // Not clickable by default (pending tasks logic)
+      return false; // Not clickable by default
     default:
       return true;
   }
@@ -70,13 +69,6 @@ export const validateStepIds = (steps: StepData[]): boolean => {
   const ids = steps.map(step => step.id);
   const uniqueIds = new Set(ids);
   return ids.length === uniqueIds.size;
-};
-
-/**
- * Gets the step index (0-based) for a given step ID
- */
-export const getStepIndex = (steps: StepData[], stepId: string): number => {
-  return steps.findIndex(step => step.id === stepId);
 };
 
 /**
@@ -138,16 +130,6 @@ export const getLastClickableStepId = (steps: StepData[], mode: StepperMode): st
 };
 
 /**
- * Calculates the completion percentage of the workflow
- */
-export const calculateCompletionPercentage = (steps: StepData[]): number => {
-  if (!steps || steps.length === 0) return 0;
-
-  const completedSteps = steps.filter(step => step.status === 'completed').length;
-  return Math.round((completedSteps / steps.length) * 100);
-};
-
-/**
  * Gets a human-readable status description
  */
 export const getStatusDescription = (status: StepStatus): string => {
@@ -177,125 +159,4 @@ export const getStatusLabel = (status: StepStatus): string => {
   };
 
   return statusMap[status] || 'Unknown';
-};
-
-/**
- * Gets step statistics for analytics
- */
-export const getStepStatistics = (steps: StepData[]) => {
-  const stats = {
-    total: steps.length,
-    completed: 0,
-    current: 0,
-    pending: 0,
-    warning: 0,
-    error: 0,
-    blocked: 0,
-    completionPercentage: 0,
-    currentStepIndex: -1,
-    clickableSteps: 0,
-  };
-
-  steps.forEach((step, index) => {
-    stats[step.status]++;
-    if (step.status === 'current') {
-      stats.currentStepIndex = index;
-    }
-  });
-
-  stats.completionPercentage = calculateCompletionPercentage(steps);
-  stats.clickableSteps = steps.filter(
-    step =>
-      step.status === 'completed' ||
-      step.status === 'current' ||
-      step.status === 'warning' ||
-      step.status === 'error'
-  ).length;
-
-  return stats;
-};
-
-/**
- * Determines if a status represents an actionable state
- */
-export const isActionableStatus = (status: StepStatus): boolean => {
-  return ['current', 'warning', 'error'].includes(status);
-};
-
-/**
- * Determines if a status represents a completed state
- */
-export const isCompletedStatus = (status: StepStatus): boolean => {
-  return status === 'completed';
-};
-
-/**
- * Determines if a status represents a blocked/unavailable state
- */
-export const isBlockedStatus = (status: StepStatus): boolean => {
-  return ['pending', 'blocked'].includes(status);
-};
-
-/**
- * Gets appropriate cursor style for a step based on clickability
- */
-export const getStepCursor = (step: StepData, mode: StepperMode): string => {
-  return isStepClickable(step, mode) ? 'pointer' : 'not-allowed';
-};
-
-/**
- * Truncates text to a specified length with ellipsis
- */
-export const truncateText = (text: string, maxLength: number): string => {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
-};
-
-/**
- * Debounce function for performance optimization
- */
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
-  let timeout: number | null = null;
-
-  return (...args: Parameters<T>) => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = window.setTimeout(() => func(...args), wait);
-  };
-};
-
-/**
- * Validates step data completeness
- */
-export const validateStepData = (steps: StepData[]): { isValid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-
-  if (!steps || steps.length === 0) {
-    errors.push('Steps array is empty or undefined');
-    return { isValid: false, errors };
-  }
-
-  // Check for unique IDs
-  if (!validateStepIds(steps)) {
-    errors.push('Duplicate step IDs found');
-  }
-
-  // Check for required fields
-  steps.forEach((step, index) => {
-    if (!step.id) {
-      errors.push(`Step at index ${index} is missing required 'id' field`);
-    }
-    if (!step.title) {
-      errors.push(`Step at index ${index} is missing required 'title' field`);
-    }
-    if (!step.status) {
-      errors.push(`Step at index ${index} is missing required 'status' field`);
-    }
-  });
-
-  return { isValid: errors.length === 0, errors };
 };

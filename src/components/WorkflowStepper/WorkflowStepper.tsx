@@ -5,7 +5,6 @@ import { ContentArea } from './ContentArea';
 import { StepItem } from './StepItem';
 import { StepData, WorkflowStepperProps } from './types';
 import {
-  calculateCompletionPercentage,
   findAutoSelectStep,
   getNextClickableStepId,
   getPrevClickableStepId,
@@ -14,7 +13,6 @@ import {
   getStepById,
   isStepClickable,
   validateStepIds,
-  getStepStatistics,
 } from './utils';
 import { getStepperStyles } from './WorkflowStepper.styles';
 
@@ -167,8 +165,6 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     [theme, steps.length, minStepWidth, mode]
   );
 
-  const stepStatistics = useMemo(() => getStepStatistics(steps), [steps]);
-
   // Enhanced step click handler with loading state
   const handleStepClick = useCallback(
     async (step: StepData) => {
@@ -242,8 +238,6 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     },
     [selectedStep, steps, mode, handleStepClick, isLoading]
   );
-
-  const completionPercentage = useMemo(() => calculateCompletionPercentage(steps), [steps]);
 
   // Enhanced step rendering with icons
   const renderSteps = () => {
@@ -352,7 +346,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     const totalSteps = steps.length;
     const currentStepIndex = selectedStep ? steps.findIndex(s => s.id === selectedStep.id) + 1 : 0;
 
-    return `Interactive workflow stepper with ${totalSteps} steps. ${completionPercentage}% complete. ${
+    return `Interactive workflow stepper with ${totalSteps} steps. ${
       currentStepIndex > 0
         ? `Currently viewing step ${currentStepIndex} of ${totalSteps}: ${selectedStep?.title}`
         : 'No step selected'
@@ -431,19 +425,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         {renderScrollHints()}
       </div>
 
-      {/* Enhanced content area */}
+      {/* Enhanced content area - ONLY shows step content */}
       {mode === 'fullSteps' && <ContentArea selectedStep={selectedStep} isVisible={true} />}
-
-      {/* Comprehensive progress indicator for screen readers */}
-      <div className={styles.srOnly} aria-live='polite' role='status'>
-        Workflow progress summary: {completionPercentage}% complete.
-        {stepStatistics.completed} steps completed, {stepStatistics.current} in progress,{' '}
-        {stepStatistics.pending} pending.
-        {stepStatistics.error > 0 &&
-          ` ${stepStatistics.error} steps have errors that need attention.`}
-        {stepStatistics.warning > 0 && ` ${stepStatistics.warning} steps have warnings.`}
-        {stepStatistics.blocked > 0 && ` ${stepStatistics.blocked} steps are blocked.`}
-      </div>
     </div>
   );
 };
