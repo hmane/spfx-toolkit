@@ -6,6 +6,8 @@ export { default as DevExtremeNumberBox } from './DevExtremeNumberBox';
 export { default as DevExtremeTagBox } from './DevExtremeTagBox';
 export { default as DevExtremeAutocomplete } from './DevExtremeAutocomplete';
 export { default as DevExtremeCheckBox } from './DevExtremeCheckBox';
+export { default as DevExtremeRadioGroup } from './DevExtremeRadioGroup';
+
 
 // Re-export types for convenience
 export type { IDevExtremeTextBoxProps } from './DevExtremeTextBox';
@@ -16,3 +18,4 @@ export type { IDevExtremeNumberBoxProps } from './DevExtremeNumberBox';
 export type { IDevExtremeTagBoxProps } from './DevExtremeTagBox';
 export type { IDevExtremeAutocompleteProps } from './DevExtremeAutocomplete';
 export type { IDevExtremeCheckBoxProps } from './DevExtremeCheckBox';
+export type { IDevExtremeRadioGroupProps, IRadioOption } from './DevExtremeRadioGroup';

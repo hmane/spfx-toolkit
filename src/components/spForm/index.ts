@@ -41,6 +41,13 @@ export type {
   IDevExtremeTagBoxProps,
   IDevExtremeTextBoxProps,
   IDevExtremeTextAreaProps,
+
 } from './DevExtremeControls';
 
 export type { IPnPPeoplePickerProps } from './PnPControls';
+export type { IPnPModernTaxonomyPickerProps } from './PnPControls';
+export { PnPModernTaxonomyPicker } from './PnPControls';
+
+// New DevExtreme RadioGroup control
+export { default as DevExtremeRadioGroup } from './DevExtremeControls/DevExtremeRadioGroup';
+export type { IDevExtremeRadioGroupProps, IRadioOption } from './DevExtremeControls/DevExtremeRadioGroup';
