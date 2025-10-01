@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { TagBox } from 'devextreme-react/tag-box';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -60,9 +61,9 @@ const DevExtremeTagBox = <T extends FieldValues>({
             items={items}
             value={value || []}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}

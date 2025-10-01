@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { TextBox } from 'devextreme-react/text-box';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -42,9 +43,9 @@ const DevExtremeTextBox = <T extends FieldValues>({
           <TextBox
             value={value || ''}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}

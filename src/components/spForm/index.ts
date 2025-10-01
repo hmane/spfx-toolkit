@@ -15,10 +15,12 @@ export {
   DevExtremeCheckBox,
   DevExtremeDateBox,
   DevExtremeNumberBox,
+  DevExtremeRadioGroup,
   DevExtremeSelectBox,
+  DevExtremeSwitch,
   DevExtremeTagBox,
-  DevExtremeTextBox,
   DevExtremeTextArea,
+  DevExtremeTextBox,
 } from './DevExtremeControls';
 
 // PnP Controls
@@ -37,17 +39,13 @@ export type {
   IDevExtremeCheckBoxProps,
   IDevExtremeDateBoxProps,
   IDevExtremeNumberBoxProps,
+  IDevExtremeRadioGroupProps,
   IDevExtremeSelectBoxProps,
   IDevExtremeTagBoxProps,
-  IDevExtremeTextBoxProps,
   IDevExtremeTextAreaProps,
-
+  IDevExtremeTextBoxProps,
+  IRadioOption,
 } from './DevExtremeControls';
 
-export type { IPnPPeoplePickerProps } from './PnPControls';
-export type { IPnPModernTaxonomyPickerProps } from './PnPControls';
 export { PnPModernTaxonomyPicker } from './PnPControls';
-
-// New DevExtreme RadioGroup control
-export { default as DevExtremeRadioGroup } from './DevExtremeControls/DevExtremeRadioGroup';
-export type { IDevExtremeRadioGroupProps, IRadioOption } from './DevExtremeControls/DevExtremeRadioGroup';
+export type { IPnPModernTaxonomyPickerProps, IPnPPeoplePickerProps } from './PnPControls';

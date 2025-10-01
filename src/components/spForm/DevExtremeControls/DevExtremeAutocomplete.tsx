@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { Autocomplete } from 'devextreme-react/autocomplete';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -56,9 +57,11 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
             items={items}
             value={value || ''}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                if (onValueChanged) {
+                  onValueChanged(e.value);
+                }
               }
             }}
             onFocusIn={onFocusIn}

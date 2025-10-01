@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { CheckBox } from 'devextreme-react/check-box';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -36,9 +37,11 @@ const DevExtremeCheckBox = <T extends FieldValues>({
           <CheckBox
             value={value ?? false}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                if (onValueChanged) {
+                  onValueChanged(e.value);
+                }
               }
             }}
             text={text}

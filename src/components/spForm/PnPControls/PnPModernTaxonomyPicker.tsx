@@ -1,7 +1,8 @@
+import { BaseComponentContext } from '@microsoft/sp-component-base';
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { ModernTaxonomyPicker } from '@pnp/spfx-controls-react/lib/ModernTaxonomyPicker';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
-import { BaseComponentContext } from '@microsoft/sp-component-base';
 
 export interface IPnPModernTaxonomyPickerProps<T extends FieldValues> {
   name: string;
@@ -60,9 +61,11 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
               customPanelWidth={customPanelWidth}
               initialValues={value ? (Array.isArray(value) ? value : [value]) : []}
               onChange={terms => {
-                onChange(terms);
-                if (onTermsChanged) {
-                  onTermsChanged(terms || []);
+                if (!isEqual(value, terms)) {
+                  onChange(terms);
+                  if (onTermsChanged) {
+                    onTermsChanged(terms || []);
+                  }
                 }
               }}
             />

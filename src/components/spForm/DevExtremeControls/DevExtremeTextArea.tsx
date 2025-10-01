@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { TextArea } from 'devextreme-react/text-area';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -48,9 +49,11 @@ const DevExtremeTextArea = <T extends FieldValues>({
           <TextArea
             value={value || ''}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                if (onValueChanged) {
+                  onValueChanged(e.value);
+                }
               }
             }}
             onFocusIn={onFocusIn}

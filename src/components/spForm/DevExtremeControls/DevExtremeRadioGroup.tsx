@@ -1,3 +1,4 @@
+import { isEqual } from '@microsoft/sp-lodash-subset';
 import { RadioGroup } from 'devextreme-react/radio-group';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
@@ -44,9 +45,11 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
           <RadioGroup
             value={value}
             onValueChanged={e => {
-              onChange(e.value);
-              if (onValueChanged) {
-                onValueChanged(e.value);
+              if (!isEqual(value, e.value)) {
+                onChange(e.value);
+                if (onValueChanged) {
+                  onValueChanged(e.value);
+                }
               }
             }}
             items={items}

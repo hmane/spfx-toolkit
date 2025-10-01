@@ -1,43 +1,47 @@
 import { isEqual } from '@microsoft/sp-lodash-subset';
-import { DateBox } from 'devextreme-react/date-box';
+import { Switch } from 'devextreme-react/switch';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues } from 'react-hook-form';
 
-export interface IDevExtremeDateBoxProps<T extends FieldValues> {
+export interface IDevExtremeSwitchProps<T extends FieldValues> {
   name: string;
   control: any;
-  placeholder?: string;
   disabled?: boolean;
   readOnly?: boolean;
-  type?: 'date' | 'datetime' | 'time';
-  displayFormat?: string;
-  min?: Date;
-  max?: Date;
-  showClearButton?: boolean;
-  stylingMode?: 'outlined' | 'underlined' | 'filled';
+  width?: number | string;
+  height?: number | string;
+  hint?: string;
+  rtlEnabled?: boolean;
+  activeStateEnabled?: boolean;
+  focusStateEnabled?: boolean;
+  hoverStateEnabled?: boolean;
+  tabIndex?: number;
+  accessKey?: string;
   className?: string;
-  onValueChanged?: (value: Date | null) => void;
+  onValueChanged?: (value: boolean) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
 
-const DevExtremeDateBox = <T extends FieldValues>({
+const DevExtremeSwitch = <T extends FieldValues>({
   name,
   control,
-  placeholder,
   disabled = false,
   readOnly = false,
-  type = 'date',
-  displayFormat,
-  min,
-  max,
-  showClearButton = true,
-  stylingMode = 'outlined',
+  width,
+  height,
+  hint,
+  rtlEnabled,
+  activeStateEnabled,
+  focusStateEnabled,
+  hoverStateEnabled,
+  tabIndex,
+  accessKey,
   className = '',
   onValueChanged,
   onFocusIn,
   onFocusOut,
-}: IDevExtremeDateBoxProps<T>) => {
+}: IDevExtremeSwitchProps<T>) => {
   return (
     <Controller
       name={name}
@@ -46,8 +50,8 @@ const DevExtremeDateBox = <T extends FieldValues>({
         const hasError = !!error;
 
         return (
-          <DateBox
-            value={value || undefined}
+          <Switch
+            value={value || false}
             onValueChanged={e => {
               if (!isEqual(value, e.value)) {
                 onChange(e.value);
@@ -56,22 +60,17 @@ const DevExtremeDateBox = <T extends FieldValues>({
                 }
               }
             }}
-            onFocusIn={onFocusIn}
-            onFocusOut={() => {
-              onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
-            }}
-            placeholder={placeholder}
             disabled={disabled}
             readOnly={readOnly}
-            type={type}
-            displayFormat={displayFormat}
-            min={min}
-            max={max}
-            showClearButton={showClearButton}
-            stylingMode={stylingMode}
+            width={width}
+            height={height}
+            hint={hint}
+            rtlEnabled={rtlEnabled}
+            activeStateEnabled={activeStateEnabled}
+            focusStateEnabled={focusStateEnabled}
+            hoverStateEnabled={hoverStateEnabled}
+            tabIndex={tabIndex}
+            accessKey={accessKey}
             className={`${className} ${hasError ? 'dx-invalid' : ''}`}
             isValid={!hasError}
             validationError={error as FieldError}
@@ -82,4 +81,4 @@ const DevExtremeDateBox = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeDateBox;
+export default DevExtremeSwitch;

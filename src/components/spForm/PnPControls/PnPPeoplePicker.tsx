@@ -1,9 +1,9 @@
-import * as React from 'react';
-import { PeoplePicker, IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
-import { IPersonaProps } from '@fluentui/react/lib/Persona';
 import { DirectionalHint } from '@fluentui/react';
-
+import { IPersonaProps } from '@fluentui/react/lib/Persona';
+import { isEqual } from '@microsoft/sp-lodash-subset';
+import { IPeoplePickerContext, PeoplePicker } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import * as React from 'react';
+import { Control, Controller, FieldValues, Path } from 'react-hook-form';
 export interface IPnPPeoplePickerProps<T extends FieldValues> {
   name: Path<T>;
   control: Control<T>;
@@ -78,9 +78,11 @@ const PnPPeoplePicker = <T extends FieldValues>({
             required={required}
             disabled={disabled}
             onChange={items => {
-              fieldOnChange(items);
-              if (onChange) {
-                onChange(items);
+              if (!isEqual(value, items)) {
+                fieldOnChange(items);
+                if (onChange) {
+                  onChange(items);
+                }
               }
             }}
             defaultSelectedUsers={defaultSelectedUsers}
