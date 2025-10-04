@@ -409,56 +409,55 @@ export const getStepperStyles = (theme: ITheme, props: StepperStyleProps) => {
 export const getStepColors = (theme: ITheme): Record<StepStatus, StepColors> => {
   return {
     completed: {
-      background: 'linear-gradient(135deg, #107c10 0%, #0e6b0e 100%)',
-      selectedBackground: 'linear-gradient(135deg, #0e6b0e 0%, #0c5d0c 100%)',
+      background: 'linear-gradient(135deg, #13a10e 0%, #107c10 100%)', // Brighter green
+      selectedBackground: 'linear-gradient(135deg, #0e6b0e 0%, #094509 100%)', // Much darker
       text: '#ffffff',
       selectedText: '#ffffff',
-      border: '#107c10',
-      selectedBorder: '#0e6b0e',
+      border: '#13a10e',
+      selectedBorder: '#094509',
     },
     current: {
-      background: `linear-gradient(135deg, ${theme.palette.themePrimary} 0%, ${theme.palette.themeDark} 100%)`,
-      selectedBackground: `linear-gradient(135deg, ${theme.palette.themeDark} 0%, ${theme.palette.themeDarker} 100%)`,
+      background: `linear-gradient(135deg, #0078d4 0%, #106ebe 100%)`, // Standard blue
+      selectedBackground: `linear-gradient(135deg, #004578 0%, #003050 100%)`, // Much darker blue
       text: '#ffffff',
       selectedText: '#ffffff',
-      border: theme.palette.themePrimary,
-      selectedBorder: theme.palette.themeDark,
+      border: '#0078d4',
+      selectedBorder: '#003050',
     },
     pending: {
-      background: 'linear-gradient(135deg, #e9ecef 0%, #ced4da 100%)', // DARKER GRAY
-      selectedBackground: 'linear-gradient(135deg, #ced4da 0%, #adb5bd 100%)',
-      text: '#343a40', // DARKER TEXT
-      selectedText: '#212529',
-      border: '#adb5bd',
-      selectedBorder: '#868e96',
+      background: 'linear-gradient(135deg, #f3f4f6 0%, #d1d5db 100%)', // Very light gray
+      selectedBackground: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)', // Dark gray
+      text: '#4b5563', // Dark text for light background
+      selectedText: '#ffffff', // White text for dark background
+      border: '#d1d5db',
+      selectedBorder: '#4b5563',
     },
     warning: {
-      background: 'linear-gradient(135deg, #ffb900 0%, #f29000 100%)',
-      selectedBackground: 'linear-gradient(135deg, #f29000 0%, #e67e00 100%)',
-      text: '#ffffff',
+      background: 'linear-gradient(135deg, #ffc83d 0%, #ffb900 100%)', // Brighter yellow
+      selectedBackground: 'linear-gradient(135deg, #c87a00 0%, #9e6100 100%)', // Much darker orange
+      text: '#1f1f1f', // Dark text for better readability
       selectedText: '#ffffff',
       border: '#ffb900',
-      selectedBorder: '#e67e00',
+      selectedBorder: '#9e6100',
     },
     error: {
-      background: 'linear-gradient(135deg, #d13438 0%, #b02e32 100%)',
-      selectedBackground: 'linear-gradient(135deg, #b02e32 0%, #9a2629 100%)',
+      background: 'linear-gradient(135deg, #e74856 0%, #d13438 100%)', // Brighter red
+      selectedBackground: 'linear-gradient(135deg, #8a1c1f 0%, #6b1518 100%)', // Much darker red
       text: '#ffffff',
       selectedText: '#ffffff',
-      border: '#d13438',
-      selectedBorder: '#9a2629',
+      border: '#e74856',
+      selectedBorder: '#6b1518',
     },
     blocked: {
-      background: 'linear-gradient(135deg, #ff8c00 0%, #e67e00 100%)',
-      selectedBackground: 'linear-gradient(135deg, #e67e00 0%, #cc6c00 100%)',
+      background: 'linear-gradient(135deg, #ff9500 0%, #ff8c00 100%)', // Brighter orange
+      selectedBackground: 'linear-gradient(135deg, #b35f00 0%, #8a4800 100%)', // Much darker orange
       text: '#ffffff',
       selectedText: '#ffffff',
-      border: '#ff8c00',
-      selectedBorder: '#cc6c00',
+      border: '#ff9500',
+      selectedBorder: '#8a4800',
     },
   };
 };
-
 // Step item styles - SIMPLIFIED
 export const getStepItemStyles = (
   theme: ITheme,
