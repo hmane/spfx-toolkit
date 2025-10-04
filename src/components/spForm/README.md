@@ -5,21 +5,19 @@ A comprehensive, responsive form component library for SharePoint Framework (SPF
 ## Features
 
 - **Responsive Design**: Automatically adapts from horizontal layout (desktop) to vertical layout (mobile)
-- **React Hook Form Integration**: Full TypeScript support with Controller pattern
-- **DevExtreme Support**: Pre-built wrappers for TextBox, SelectBox, DateBox, NumberBox, TagBox, Autocomplete, and CheckBox
-- **PnP Controls Support**: Integrated PeoplePicker component
+- **React Hook Form Integration**: Full TypeScript support with optimized validation
+- **Zod Validation**: Type-safe schema validation with automatic error handling
+- **DevExtreme Support**: Pre-built wrappers for 10+ form controls
+- **PnP Controls Support**: Integrated PeoplePicker and TaxonomyPicker components
 - **Fluent UI Integration**: Info tooltips and consistent styling
-- **Form Validation**: Built-in error display and validation state management
-- **Accessibility**: WCAG 2.1 AA compliant with proper focus management
-- **TypeScript**: Full type safety and IntelliSense support
+- **Performance Optimized**: React.memo on all components for minimal re-renders
+- **Flexible Layouts**: Support for horizontal labels, top labels, and label-free fields
+- **TypeScript**: Full type safety with Path-based field names
 
 ## Installation
 
 ```bash
-# Install dependencies
-npm install react-hook-form devextreme devextreme-react @fluentui/react @pnp/spfx-controls-react
-
-# Copy the spForm folder to your src directory
+npm install react-hook-form zod @hookform/resolvers devextreme devextreme-react @fluentui/react @pnp/spfx-controls-react
 ```
 
 ## Quick Start
@@ -27,76 +25,118 @@ npm install react-hook-form devextreme devextreme-react @fluentui/react @pnp/spf
 ```tsx
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
+  FormContainer,
   FormItem,
   FormLabel,
   FormValue,
-  FormDescription,
   FormError,
   DevExtremeTextBox,
   DevExtremeSelectBox,
-  PnPPeoplePicker,
 } from '../spForm';
 
-interface IFormData {
-  firstName: string;
-  department: string;
-  assignee: any[];
-}
+// Define validation schema
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').min(2, 'Must be at least 2 characters'),
+  department: z.string().min(1, 'Please select a department'),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 const MyForm: React.FC = () => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<IFormData>();
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      firstName: '',
+      department: '',
+    },
+  });
 
-  const onSubmit = (data: IFormData) => {
+  const onSubmit = (data: FormData) => {
     console.log('Form submitted:', data);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <FormItem>
-        <FormLabel isRequired>First Name</FormLabel>
-        <FormValue>
-          <DevExtremeTextBox
-            name='firstName'
-            control={control}
-            placeholder='Enter your first name'
-          />
-        </FormValue>
-        <FormError error={errors.firstName?.message} />
-      </FormItem>
+    <FormContainer labelWidth='160px'>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormItem>
+          <FormLabel isRequired>First Name</FormLabel>
+          <FormValue>
+            <DevExtremeTextBox
+              name='firstName'
+              control={form.control}
+              placeholder='Enter your first name'
+            />
+            <FormError error={form.formState.errors.firstName?.message} showIcon />
+          </FormValue>
+        </FormItem>
 
-      <FormItem>
-        <FormLabel infoText='Select your department from the list'>Department</FormLabel>
-        <FormValue>
-          <DevExtremeSelectBox
-            name='department'
-            control={control}
-            items={['IT', 'HR', 'Finance', 'Marketing']}
-            placeholder='Select department'
-          />
-        </FormValue>
-        <FormDescription>This will determine your access permissions</FormDescription>
-        <FormError error={errors.department?.message} />
-      </FormItem>
+        <FormItem>
+          <FormLabel isRequired>Department</FormLabel>
+          <FormValue>
+            <DevExtremeSelectBox
+              name='department'
+              control={form.control}
+              items={['IT', 'HR', 'Finance']}
+              placeholder='Select department'
+            />
+            <FormError error={form.formState.errors.department?.message} showIcon />
+          </FormValue>
+        </FormItem>
 
-      <button type='submit'>Submit</button>
-    </form>
+        <button type='submit'>Submit</button>
+      </form>
+    </FormContainer>
   );
 };
 ```
 
 ## Core Components
 
-### FormItem
+### FormContainer
 
-The main container component that handles responsive layout.
+Wraps your form and sets consistent label width for all child FormItems.
 
 ```tsx
-<FormItem className='custom-class'>{/* Form components go here */}</FormItem>
+<FormContainer labelWidth='180px'>{/* Form content */}</FormContainer>
+```
+
+**Props:**
+
+- `labelWidth?: string` - Width for all labels (e.g., "140px", "180px")
+- `className?: string` - Additional CSS classes
+- `style?: React.CSSProperties` - Additional styles
+
+### FormItem
+
+Main container for each form field. Handles responsive layout automatically.
+
+```tsx
+<FormItem labelPosition='left'>
+  <FormLabel>Field Label</FormLabel>
+  <FormValue>{/* Form control */}</FormValue>
+</FormItem>
+```
+
+**Props:**
+
+- `labelPosition?: 'left' | 'top'` - Label position (default: 'left')
+- `labelWidth?: string` - Override container's label width for this item
+- `className?: string` - Additional CSS classes
+- `style?: React.CSSProperties` - Additional styles
+
+**Label-free fields (for tables/custom content):**
+
+```tsx
+<FormItem>
+  <FormValue>
+    <MyDataTable data={data} />
+  </FormValue>
+</FormItem>
 ```
 
 ### FormLabel
@@ -104,13 +144,27 @@ The main container component that handles responsive layout.
 Displays field labels with optional required indicator and info tooltips.
 
 ```tsx
+<FormLabel isRequired={true} infoText='Simple tooltip text'>
+  Field Label
+</FormLabel>;
+
+{
+  /* Rich tooltip content */
+}
 <FormLabel
   isRequired={true}
-  infoText='Additional information about this field'
-  infoPosition={DirectionalHint.rightCenter}
+  infoContent={
+    <div>
+      <strong>Requirements:</strong>
+      <ul>
+        <li>Item 1</li>
+        <li>Item 2</li>
+      </ul>
+    </div>
+  }
 >
   Field Label
-</FormLabel>
+</FormLabel>;
 ```
 
 **Props:**
@@ -123,20 +177,22 @@ Displays field labels with optional required indicator and info tooltips.
 
 ### FormValue
 
-Container for form controls and input elements.
+Container for form controls and their descriptions/errors.
 
 ```tsx
 <FormValue>
   <DevExtremeTextBox name='fieldName' control={control} />
+  <FormDescription>Helper text goes here</FormDescription>
+  <FormError error={errors.fieldName?.message} showIcon />
 </FormValue>
 ```
 
 ### FormDescription
 
-Optional descriptive text that appears below the form control.
+Optional descriptive text below the form control.
 
 ```tsx
-<FormDescription>This field accepts multiple formats including email and phone</FormDescription>
+<FormDescription>This field accepts email addresses in standard format</FormDescription>
 ```
 
 ### FormError
@@ -144,42 +200,70 @@ Optional descriptive text that appears below the form control.
 Displays validation errors with optional icons.
 
 ```tsx
-<FormError error={errors.fieldName?.message} showIcon={true} />
+<FormError error={form.formState.errors.fieldName?.message} showIcon={true} />
 ```
 
 **Props:**
 
-- `error?: string | string[]` - Error message(s) to display
+- `error?: string | string[]` - Error message(s)
 - `showIcon?: boolean` - Show error icon
 - `className?: string` - Additional CSS classes
 
 ## DevExtreme Components
+
+All DevExtreme components are performance-optimized with React.memo and use proper type-safe field names.
 
 ### DevExtremeTextBox
 
 ```tsx
 <DevExtremeTextBox
   name='email'
-  control={control}
-  placeholder='Enter email address'
+  control={form.control}
+  placeholder='Enter email'
   mode='email'
-  stylingMode='outlined'
   maxLength={100}
+  stylingMode='outlined'
   onValueChanged={value => console.log(value)}
 />
 ```
 
-### DevExtremeSelectBox
+**Props:**
+
+- `name: Path<T>` - Type-safe field name
+- `control: any` - React Hook Form control
+- `mode?: 'text' | 'email' | 'password' | 'search' | 'tel' | 'url'`
+- `placeholder?: string`
+- `disabled?: boolean`
+- `readOnly?: boolean`
+- `maxLength?: number`
+- `stylingMode?: 'outlined' | 'underlined' | 'filled'`
+- `onValueChanged?: (value: string) => void`
+- `onFocusIn?: () => void`
+- `onFocusOut?: () => void`
+
+### DevExtremeTextArea
 
 ```tsx
-<DevExtremeSelectBox
-  name='category'
-  control={control}
-  dataSource={categories}
-  displayExpr='name'
-  valueExpr='id'
-  placeholder='Select category'
-  searchEnabled={true}
+<DevExtremeTextArea
+  name='description'
+  control={form.control}
+  placeholder='Enter description'
+  minHeight={100}
+  autoResizeEnabled={true}
+/>
+```
+
+### DevExtremeNumberBox
+
+```tsx
+<DevExtremeNumberBox
+  name='salary'
+  control={form.control}
+  placeholder='Enter amount'
+  format='currency'
+  min={0}
+  max={1000000}
+  showSpinButtons={true}
 />
 ```
 
@@ -188,25 +272,25 @@ Displays validation errors with optional icons.
 ```tsx
 <DevExtremeDateBox
   name='startDate'
-  control={control}
+  control={form.control}
   type='date'
-  placeholder='Select start date'
-  min={new Date()}
+  placeholder='Select date'
   displayFormat='MM/dd/yyyy'
+  min={new Date()}
 />
 ```
 
-### DevExtremeNumberBox
+### DevExtremeSelectBox
 
 ```tsx
-<DevExtremeNumberBox
-  name='amount'
-  control={control}
-  placeholder='Enter amount'
-  min={0}
-  max={10000}
-  format='currency'
-  showSpinButtons={true}
+<DevExtremeSelectBox
+  name='category'
+  control={form.control}
+  dataSource={categories}
+  displayExpr='name'
+  valueExpr='id'
+  placeholder='Select category'
+  searchEnabled={true}
 />
 ```
 
@@ -215,10 +299,8 @@ Displays validation errors with optional icons.
 ```tsx
 <DevExtremeTagBox
   name='skills'
-  control={control}
+  control={form.control}
   dataSource={skillsList}
-  displayExpr='name'
-  valueExpr='id'
   placeholder='Select skills'
   searchEnabled={true}
   acceptCustomValue={true}
@@ -230,18 +312,37 @@ Displays validation errors with optional icons.
 ```tsx
 <DevExtremeAutocomplete
   name='city'
-  control={control}
+  control={form.control}
   dataSource={cities}
   placeholder='Type city name'
   minSearchLength={2}
-  searchTimeout={300}
 />
 ```
 
 ### DevExtremeCheckBox
 
 ```tsx
-<DevExtremeCheckBox name='agree' control={control} text='I agree to the terms and conditions' />
+<DevExtremeCheckBox name='agree' control={form.control} text='I agree to the terms' />
+```
+
+### DevExtremeRadioGroup
+
+```tsx
+<DevExtremeRadioGroup
+  name='status'
+  control={form.control}
+  items={[
+    { text: 'Active', value: 'active' },
+    { text: 'Inactive', value: 'inactive' },
+  ]}
+  layout='horizontal'
+/>
+```
+
+### DevExtremeSwitch
+
+```tsx
+<DevExtremeSwitch name='enabled' control={form.control} />
 ```
 
 ## PnP Components
@@ -251,25 +352,35 @@ Displays validation errors with optional icons.
 ```tsx
 <PnPPeoplePicker
   name='assignees'
-  control={control}
+  control={form.control}
   context={this.props.context}
   placeholder='Select people'
   personSelectionLimit={5}
   required={true}
-  groupName='My Site Users'
+/>
+```
+
+### PnPModernTaxonomyPicker
+
+```tsx
+<PnPModernTaxonomyPicker
+  name='tags'
+  control={form.control}
+  context={this.props.context}
+  termSetId='your-termset-id'
+  label='Tags'
+  panelTitle='Select Tags'
+  allowMultipleSelections={true}
 />
 ```
 
 ## Responsive Behavior
 
-The form automatically adapts to different screen sizes:
-
 **Desktop (768px+):**
 
 ```
 [Label      ] [Form Control                    ]
-              [Description text                ]
-              [Error message                   ]
+              [Description/Error               ]
 ```
 
 **Mobile (<768px):**
@@ -277,8 +388,7 @@ The form automatically adapts to different screen sizes:
 ```
 [Label                          ]
 [Form Control                   ]
-[Description text               ]
-[Error message                  ]
+[Description/Error              ]
 ```
 
 ## Advanced Usage
@@ -290,220 +400,197 @@ The form automatically adapts to different screen sizes:
   <FormItem>
     <FormLabel isRequired>First Name</FormLabel>
     <FormValue>
-      <DevExtremeTextBox name='firstName' control={control} />
+      <DevExtremeTextBox name='firstName' control={form.control} />
+      <FormError error={form.formState.errors.firstName?.message} />
     </FormValue>
-    <FormError error={errors.firstName?.message} />
   </FormItem>
 
   <FormItem>
     <FormLabel isRequired>Last Name</FormLabel>
     <FormValue>
-      <DevExtremeTextBox name='lastName' control={control} />
+      <DevExtremeTextBox name='lastName' control={form.control} />
+      <FormError error={form.formState.errors.lastName?.message} />
     </FormValue>
-    <FormError error={errors.lastName?.message} />
   </FormItem>
 </div>
 ```
 
-### Rich Info Tooltips
+### Top-Positioned Labels
 
 ```tsx
-<FormLabel
-  isRequired={true}
-  infoContent={
-    <div>
-      <strong>Password Requirements:</strong>
-      <ul>
-        <li>At least 8 characters</li>
-        <li>One uppercase letter</li>
-        <li>One number</li>
-        <li>One special character</li>
-      </ul>
-    </div>
-  }
->
-  Password
-</FormLabel>
-```
-
-### Custom Components
-
-```tsx
-<FormItem>
-  <FormLabel>Custom Control</FormLabel>
+<FormItem labelPosition='top'>
+  <FormLabel>Description</FormLabel>
   <FormValue>
-    <Controller
-      name='customField'
-      control={control}
-      render={({ field }) => <MyCustomComponent value={field.value} onChange={field.onChange} />}
-    />
+    <DevExtremeTextArea name='description' control={form.control} />
   </FormValue>
-  <FormError error={errors.customField?.message} />
 </FormItem>
 ```
 
-### Fields Without Labels
+### Fields Without Labels (Custom Content)
 
 ```tsx
 <FormItem>
   <FormValue>
-    <MyDataTable data={tableData} onSelectionChange={handleSelection} />
+    <MyCustomTable data={tableData} />
   </FormValue>
-  <FormDescription>Select multiple rows to perform bulk actions</FormDescription>
 </FormItem>
 ```
 
-## CSS Customization
+### Zod Validation Patterns
 
-### Custom Form Styles
-
-```scss
-// Override default spacing
-.my-form {
-  .formItem {
-    margin-bottom: 24px;
-  }
-
-  // Custom label width on desktop
-  @media (min-width: 769px) {
-    .formLabel {
-      min-width: 180px;
-    }
-
-    .formDescription,
-    .formError {
-      margin-left: 196px; // 180px + 16px gap
-    }
-  }
-}
-```
-
-### DevExtreme Theme Integration
-
-The components automatically inherit your DevExtreme theme. Load your theme CSS globally:
+**Cross-field validation:**
 
 ```tsx
-// In your main component or web part
-import 'devextreme/dist/css/dx.light.css'; // or your chosen theme
+const formSchema = z
+  .object({
+    password: z.string().min(8),
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 ```
 
-## Validation Integration
-
-### React Hook Form Validation
+**Conditional validation:**
 
 ```tsx
-const { control, formState: { errors } } = useForm<IFormData>({
-  mode: 'onChange',
-  defaultValues: {
-    email: '',
-    age: 0
-  }
+const formSchema = z
+  .object({
+    hasAddress: z.boolean(),
+    address: z.string().optional(),
+  })
+  .refine(data => !data.hasAddress || data.address, {
+    message: 'Address is required when "Has Address" is checked',
+    path: ['address'],
+  });
+```
+
+**Transform/coerce:**
+
+```tsx
+const formSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .transform(val => val.toLowerCase().trim()),
+  age: z.coerce.number().min(18),
 });
-
-// Built-in validation
-<DevExtremeTextBox
-  name="email"
-  control={control}
-  rules={{
-    required: 'Email is required',
-    pattern: {
-      value: /^\S+@\S+$/i,
-      message: 'Invalid email format'
-    }
-  }}
-/>
-
-// Custom validation
-<DevExtremeNumberBox
-  name="age"
-  control={control}
-  rules={{
-    required: 'Age is required',
-    min: {
-      value: 18,
-      message: 'Must be at least 18 years old'
-    },
-    validate: (value) =>
-      value <= 100 || 'Age must be realistic'
-  }}
-/>
 ```
 
-## Accessibility Features
+## Validation Flow
 
-- **Keyboard Navigation**: Full keyboard support with proper focus management
-- **Screen Readers**: Proper ARIA labels and descriptions
-- **High Contrast**: Compatible with high contrast modes
-- **Focus Management**: Visible focus indicators for keyboard navigation
-- **Error Announcements**: Screen reader announcements for validation errors
-
-## Browser Support
-
-- Internet Explorer 11+
-- Edge (all versions)
-- Chrome 70+
-- Firefox 65+
-- Safari 12+
-
-## TypeScript Support
-
-All components include comprehensive TypeScript definitions:
+1. **Initial state**: No validation occurs
+2. **On submit**: All fields validate (due to `mode: 'onSubmit'`)
+3. **After submit**: Fields revalidate on change (due to `reValidateMode: 'onChange'`)
+4. **Error persistence**: Errors stay visible until value becomes valid
 
 ```tsx
-import type {
-  IFormItemProps,
-  IFormLabelProps,
-  IDevExtremeTextBoxProps,
-  IPnPPeoplePickerProps,
-} from '../spForm';
+const form = useForm<FormData>({
+  resolver: zodResolver(formSchema),
+  mode: 'onSubmit', // Validate on submit
+  reValidateMode: 'onChange', // After submit, revalidate on change
+});
 ```
 
 ## Performance Considerations
 
-- **Memoization**: Components use React.memo for optimal re-rendering
-- **Debounced Updates**: Form state changes are debounced to prevent excessive re-renders
-- **Lazy Loading**: Heavy components can be lazy-loaded
-- **Bundle Size**: Tree-shakeable imports to minimize bundle size
+- ✅ All components use `React.memo` to prevent unnecessary re-renders
+- ✅ Simple equality checks for primitives (strings, numbers, booleans)
+- ✅ Deep equality checks only for objects/arrays (Date, SelectBox values, TagBox)
+- ✅ DevExtreme controls are lazy-loaded by default
+- ✅ PnP controls can be lazy-loaded for better initial load time
 
-## Migration Guide
+## Browser Support
 
-### From Standard HTML Forms
+- Edge (all versions)
+- Chrome 70+
+- Firefox 65+
+- Safari 12+
+- **IE11 is NOT supported**
+
+## TypeScript Support
+
+Full TypeScript support with:
+
+- Type-safe field names via `Path<T>`
+- Inferred types from Zod schemas
+- Autocomplete for all props
+- Proper error types from React Hook Form
+
+## Common Patterns
+
+### Integration with Zustand Store
 
 ```tsx
-// Before
-<div className="form-group">
-  <label>Name *</label>
-  <input type="text" required />
-  <span className="error">Error message</span>
-</div>
+import { create } from 'zustand';
+import { sp } from '@pnp/sp';
 
-// After
+interface FormStore {
+  isSubmitting: boolean;
+  submitForm: (data: FormData) => Promise<void>;
+}
+
+const useFormStore = create<FormStore>(set => ({
+  isSubmitting: false,
+  submitForm: async data => {
+    set({ isSubmitting: true });
+    try {
+      await sp.web.lists.getByTitle('MyList').items.add(data);
+    } finally {
+      set({ isSubmitting: false });
+    }
+  },
+}));
+
+// In component:
+const { submitForm, isSubmitting } = useFormStore();
+const onSubmit = async (data: FormData) => {
+  await submitForm(data);
+  form.reset();
+};
+```
+
+### Custom Loading States
+
+```tsx
 <FormItem>
-  <FormLabel isRequired>Name</FormLabel>
   <FormValue>
-    <DevExtremeTextBox name="name" control={control} />
+    <div style={{ position: 'relative' }}>
+      <DevExtremeSelectBox
+        name='department'
+        control={form.control}
+        dataSource={departments}
+        disabled={isLoadingDepartments}
+      />
+      {isLoadingDepartments && (
+        <div style={{ position: 'absolute', top: '50%', right: '10px' }}>
+          <Spinner size={SpinnerSize.small} />
+        </div>
+      )}
+    </div>
   </FormValue>
-  <FormError error={errors.name?.message} />
 </FormItem>
 ```
 
-### From Office UI Fabric Controls
+## Troubleshooting
 
-```tsx
-// Before
-<TextField
-  label="Email"
-  required
-  errorMessage={errors.email}
-  onChange={(e, value) => setValue('email', value)}
-/>
+**Q: Errors disappear when I focus a field**
+A: Use `reValidateMode: 'onChange'` instead of `'onBlur'`
 
-// After
-<FormItem>
-  <FormLabel isRequired>Email</FormLabel>
-  <FormValue>
-    <DevExtremeTextBox name="email" control={control} />
-  </FormValue>
-  <FormError error={errors.email?.message} />
-</FormItem>
-```
+**Q: Field names don't autocomplete**
+A: Make sure you're using Zod schema with `z.infer<typeof formSchema>`
+
+**Q: TypeScript errors with control prop**
+A: This is expected - we use `control: any` due to React Hook Form generic limitations
+
+**Q: Form doesn't revalidate after submit**
+A: Set `reValidateMode: 'onChange'` in useForm options
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and pull requests welcome!

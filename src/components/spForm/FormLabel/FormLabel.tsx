@@ -37,10 +37,10 @@ const FormLabel: React.FC<IFormLabelProps> = ({
 
   return (
     <div className={`spfx-form-label ${className}`}>
-      <div className={`spfx-form-label-text`}>
-        <span className={`spfx-form-label-content`}>{children}</span>
-        <span className={`spfx-form-label-suffix`}>
-          {isRequired && <span className={`spfx-form-label-required`}>*</span>}
+      <div className='spfx-form-label-text'>
+        <span className='spfx-form-label-content'>{children}</span>
+        <span className='spfx-form-label-suffix'>
+          {isRequired && <span className='spfx-form-label-required'>*</span>}
           {hasInfo && (
             <TooltipHost
               content={infoDisplayContent}
@@ -51,7 +51,7 @@ const FormLabel: React.FC<IFormLabelProps> = ({
             >
               <Icon
                 iconName='Info'
-                className={`spfx-form-label-info-icon`}
+                className='spfx-form-label-info-icon'
                 aria-describedby={tooltipId}
               />
             </TooltipHost>
@@ -62,4 +62,4 @@ const FormLabel: React.FC<IFormLabelProps> = ({
   );
 };
 
-export default FormLabel;
+export default React.memo(FormLabel);

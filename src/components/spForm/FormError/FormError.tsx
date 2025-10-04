@@ -18,22 +18,22 @@ const FormError: React.FC<IFormErrorProps> = ({ error, showIcon = false, classNa
   return (
     <div className={`spfx-form-error ${className}`}>
       {hasMultipleErrors ? (
-        <ul className={`spfx-form-error-list`}>
+        <ul className='spfx-form-error-list'>
           {errors.map((err, index) => (
-            <li key={index} className={`spfx-form-error-item`}>
-              {showIcon && <Icon iconName='ErrorBadge' className={`spfx-form-error-icon`} />}
-              <span className={`spfx-form-error-text`}>{err}</span>
+            <li key={index} className='spfx-form-error-item'>
+              {showIcon && <Icon iconName='ErrorBadge' className='spfx-form-error-icon' />}
+              <span className='spfx-form-error-text'>{err}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <div className={`spfx-form-error-item`}>
-          {showIcon && <Icon iconName='ErrorBadge' className={`spfx-form-error-icon`} />}
-          <span className={`spfx-form-error-text`}>{errors[0]}</span>
+        <div className='spfx-form-error-item'>
+          {showIcon && <Icon iconName='ErrorBadge' className='spfx-form-error-icon' />}
+          <span className='spfx-form-error-text'>{errors[0]}</span>
         </div>
       )}
     </div>
   );
 };
 
-export default FormError;
+export default React.memo(FormError);

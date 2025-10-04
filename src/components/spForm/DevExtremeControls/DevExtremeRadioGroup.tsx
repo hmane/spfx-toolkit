@@ -1,7 +1,7 @@
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { RadioGroup } from 'devextreme-react/radio-group';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IRadioOption {
   text: string;
@@ -10,7 +10,7 @@ export interface IRadioOption {
 }
 
 export interface IDevExtremeRadioGroupProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   items: IRadioOption[];
   disabled?: boolean;
@@ -47,9 +47,7 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
             onValueChanged={e => {
               if (!isEqual(value, e.value)) {
                 onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
-                }
+                onValueChanged?.(e.value);
               }
             }}
             items={items}
@@ -66,4 +64,4 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeRadioGroup;
+export default React.memo(DevExtremeRadioGroup) as typeof DevExtremeRadioGroup;

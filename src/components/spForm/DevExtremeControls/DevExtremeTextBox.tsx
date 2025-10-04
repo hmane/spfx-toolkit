@@ -1,10 +1,9 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
 import { TextBox } from 'devextreme-react/text-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Control, Path } from 'react-hook-form';
 
 export interface IDevExtremeTextBoxProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   placeholder?: string;
   disabled?: boolean;
@@ -18,7 +17,7 @@ export interface IDevExtremeTextBoxProps<T extends FieldValues> {
   onFocusOut?: () => void;
 }
 
-const DevExtremeTextBox = <T extends FieldValues>({
+function DevExtremeTextBoxInner<T extends FieldValues>({
   name,
   control,
   placeholder,
@@ -31,7 +30,7 @@ const DevExtremeTextBox = <T extends FieldValues>({
   onValueChanged,
   onFocusIn,
   onFocusOut,
-}: IDevExtremeTextBoxProps<T>) => {
+}: IDevExtremeTextBoxProps<T>) {
   return (
     <Controller
       name={name}
@@ -43,7 +42,7 @@ const DevExtremeTextBox = <T extends FieldValues>({
           <TextBox
             value={value || ''}
             onValueChanged={e => {
-              if (!isEqual(value, e.value)) {
+              if (value !== e.value) {
                 onChange(e.value);
                 onValueChanged?.(e.value);
               }
@@ -51,9 +50,7 @@ const DevExtremeTextBox = <T extends FieldValues>({
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             placeholder={placeholder}
             disabled={disabled}
@@ -69,6 +66,10 @@ const DevExtremeTextBox = <T extends FieldValues>({
       }}
     />
   );
-};
+}
+
+const DevExtremeTextBox = React.memo(DevExtremeTextBoxInner) as <T extends FieldValues>(
+  props: IDevExtremeTextBoxProps<T>
+) => React.ReactElement;
 
 export default DevExtremeTextBox;

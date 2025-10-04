@@ -1,10 +1,9 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
 import { Switch } from 'devextreme-react/switch';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeSwitchProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   disabled?: boolean;
   readOnly?: boolean;
@@ -50,35 +49,37 @@ const DevExtremeSwitch = <T extends FieldValues>({
         const hasError = !!error;
 
         return (
-          <Switch
-            value={value || false}
-            onValueChanged={e => {
-              if (!isEqual(value, e.value)) {
-                onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
+          <div style={{ display: 'inline-block' }}>
+            {' '}
+            {/* ADD THIS WRAPPER */}
+            <Switch
+              value={value || false}
+              onValueChanged={e => {
+                if (value !== e.value) {
+                  onChange(e.value);
+                  onValueChanged?.(e.value);
                 }
-              }
-            }}
-            disabled={disabled}
-            readOnly={readOnly}
-            width={width}
-            height={height}
-            hint={hint}
-            rtlEnabled={rtlEnabled}
-            activeStateEnabled={activeStateEnabled}
-            focusStateEnabled={focusStateEnabled}
-            hoverStateEnabled={hoverStateEnabled}
-            tabIndex={tabIndex}
-            accessKey={accessKey}
-            className={`${className} ${hasError ? 'dx-invalid' : ''}`}
-            isValid={!hasError}
-            validationError={error as FieldError}
-          />
+              }}
+              disabled={disabled}
+              readOnly={readOnly}
+              width={width}
+              height={height}
+              hint={hint}
+              rtlEnabled={rtlEnabled}
+              activeStateEnabled={activeStateEnabled}
+              focusStateEnabled={focusStateEnabled}
+              hoverStateEnabled={hoverStateEnabled}
+              tabIndex={tabIndex}
+              accessKey={accessKey}
+              className={`${className} ${hasError ? 'dx-invalid' : ''}`}
+              isValid={!hasError}
+              validationError={error as FieldError}
+            />
+          </div>
         );
       }}
     />
   );
 };
 
-export default DevExtremeSwitch;
+export default React.memo(DevExtremeSwitch) as typeof DevExtremeSwitch;

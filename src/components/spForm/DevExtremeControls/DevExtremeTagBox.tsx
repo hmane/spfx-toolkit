@@ -1,10 +1,10 @@
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { TagBox } from 'devextreme-react/tag-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeTagBoxProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   dataSource?: any[] | any;
   items?: any[];
@@ -69,9 +69,7 @@ const DevExtremeTagBox = <T extends FieldValues>({
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             displayExpr={displayExpr}
             valueExpr={valueExpr}
@@ -95,4 +93,4 @@ const DevExtremeTagBox = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeTagBox;
+export default React.memo(DevExtremeTagBox) as typeof DevExtremeTagBox;

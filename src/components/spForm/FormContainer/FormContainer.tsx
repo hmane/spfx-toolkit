@@ -2,7 +2,7 @@ import * as React from 'react';
 
 export interface IFormContainerProps {
   children: React.ReactNode;
-  labelWidth?: string; // e.g., "180px", "200px", "15%"
+  labelWidth?: string;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -25,4 +25,4 @@ const FormContainer: React.FC<IFormContainerProps> = ({
   );
 };
 
-export default FormContainer;
+export default React.memo(FormContainer);

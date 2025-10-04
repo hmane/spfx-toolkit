@@ -220,11 +220,15 @@
 .spfx-form-value-control-container .dx-autocomplete,
 .spfx-form-value-control-container .dx-lookup,
 .spfx-form-value-control-container .dx-tagbox,
-.spfx-form-value-control-container .dx-switch,
-.spfx-form-value-control-container .dx-checkbox,
 .spfx-form-value-control-container .dx-radiogroup {
   width: 100%;
   transition: all 0.2s ease;
+}
+
+.spfx-form-value-control-container .dx-switch,
+.spfx-form-value-control-container .dx-checkbox {
+  width: auto !important;
+  display: inline-block;
 }
 
 /* Enhanced DevExtreme focus and hover states */
@@ -727,8 +731,7 @@ button:active {
 .spfx-form-value-control-container .dx-numberbox.dx-state-focused,
 .spfx-form-value-control-container .dx-datebox.dx-state-focused {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-    border-color: #3b82f6;
-
+  border-color: #3b82f6;
 }
 
 /* Invalid state styling - Enhanced */
@@ -1203,4 +1206,28 @@ button:active {
   .form-row {
     gap: 12px !important;
   }
+}
+
+/* Label position top variant */
+.spfx-form-item.spfx-form-item-label-top {
+  grid-template-columns: 1fr !important;
+  grid-template-areas:
+    'label'
+    'value' !important;
+}
+
+.spfx-form-item.spfx-form-item-label-top .spfx-form-label {
+  min-width: auto;
+  padding-top: 0;
+  margin-bottom: 8px;
+}
+
+/* No label variant (for tables/custom content) */
+.spfx-form-item.spfx-form-item-no-label {
+  grid-template-columns: 1fr !important;
+  grid-template-areas: 'value' !important;
+}
+
+.spfx-form-item.spfx-form-item-no-label .spfx-form-item-value-area {
+  width: 100%;
 }

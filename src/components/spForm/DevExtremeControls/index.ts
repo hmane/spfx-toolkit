@@ -9,7 +9,6 @@ export { default as DevExtremeCheckBox } from './DevExtremeCheckBox';
 export { default as DevExtremeRadioGroup } from './DevExtremeRadioGroup';
 export { default as DevExtremeSwitch } from './DevExtremeSwitch';
 
-// Re-export types for convenience
 export type { IDevExtremeTextBoxProps } from './DevExtremeTextBox';
 export type { IDevExtremeTextAreaProps } from './DevExtremeTextArea';
 export type { IDevExtremeSelectBoxProps } from './DevExtremeSelectBox';

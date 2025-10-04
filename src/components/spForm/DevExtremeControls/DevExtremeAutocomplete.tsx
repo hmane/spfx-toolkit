@@ -1,10 +1,9 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
 import { Autocomplete } from 'devextreme-react/autocomplete';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeAutocompleteProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   dataSource?: any[] | any;
   items?: any[];
@@ -57,19 +56,15 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
             items={items}
             value={value || ''}
             onValueChanged={e => {
-              if (!isEqual(value, e.value)) {
+              if (value !== e.value) {
                 onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
-                }
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             displayExpr={displayExpr}
             valueExpr={valueExpr}
@@ -91,4 +86,4 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeAutocomplete;
+export default React.memo(DevExtremeAutocomplete) as typeof DevExtremeAutocomplete;

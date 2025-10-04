@@ -9,4 +9,4 @@ const FormDescription: React.FC<IFormDescriptionProps> = ({ children, className 
   return <div className={`spfx-form-description ${className}`}>{children}</div>;
 };
 
-export default FormDescription;
+export default React.memo(FormDescription);

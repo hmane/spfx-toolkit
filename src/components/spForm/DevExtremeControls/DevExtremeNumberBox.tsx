@@ -1,10 +1,9 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
 import { NumberBox } from 'devextreme-react/number-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeNumberBoxProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   placeholder?: string;
   disabled?: boolean;
@@ -51,19 +50,15 @@ const DevExtremeNumberBox = <T extends FieldValues>({
           <NumberBox
             value={value ?? undefined}
             onValueChanged={e => {
-              if (!isEqual(value, e.value)) {
+              if (value !== e.value) {
                 onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
-                }
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             placeholder={placeholder}
             disabled={disabled}
@@ -85,4 +80,4 @@ const DevExtremeNumberBox = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeNumberBox;
+export default React.memo(DevExtremeNumberBox) as typeof DevExtremeNumberBox;

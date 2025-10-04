@@ -1,10 +1,10 @@
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { DateBox } from 'devextreme-react/date-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeDateBoxProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   placeholder?: string;
   disabled?: boolean;
@@ -51,17 +51,13 @@ const DevExtremeDateBox = <T extends FieldValues>({
             onValueChanged={e => {
               if (!isEqual(value, e.value)) {
                 onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
-                }
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             placeholder={placeholder}
             disabled={disabled}
@@ -82,4 +78,4 @@ const DevExtremeDateBox = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeDateBox;
+export default React.memo(DevExtremeDateBox) as typeof DevExtremeDateBox;

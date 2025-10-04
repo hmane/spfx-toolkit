@@ -3,10 +3,11 @@ import { IPersonaProps } from '@fluentui/react/lib/Persona';
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { IPeoplePickerContext, PeoplePicker } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
-import { Control, Controller, FieldValues, Path } from 'react-hook-form';
+import { Controller, FieldValues, Path } from 'react-hook-form';
+
 export interface IPnPPeoplePickerProps<T extends FieldValues> {
   name: Path<T>;
-  control: Control<T>;
+  control: any;
   context: IPeoplePickerContext;
   placeholder?: string;
   titleText?: string;
@@ -80,9 +81,7 @@ const PnPPeoplePicker = <T extends FieldValues>({
             onChange={items => {
               if (!isEqual(value, items)) {
                 fieldOnChange(items);
-                if (onChange) {
-                  onChange(items);
-                }
+                onChange?.(items);
               }
             }}
             defaultSelectedUsers={defaultSelectedUsers}
@@ -109,4 +108,4 @@ const PnPPeoplePicker = <T extends FieldValues>({
   );
 };
 
-export default PnPPeoplePicker;
+export default React.memo(PnPPeoplePicker) as typeof PnPPeoplePicker;

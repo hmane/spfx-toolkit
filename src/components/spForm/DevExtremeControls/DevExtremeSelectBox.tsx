@@ -1,10 +1,10 @@
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { SelectBox } from 'devextreme-react/select-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IDevExtremeSelectBoxProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   dataSource?: any[] | any;
   items?: any[];
@@ -55,17 +55,13 @@ const DevExtremeSelectBox = <T extends FieldValues>({
             onValueChanged={e => {
               if (!isEqual(value, e.value)) {
                 onChange(e.value);
-                if (onValueChanged) {
-                  onValueChanged(e.value);
-                }
+                onValueChanged?.(e.value);
               }
             }}
             onFocusIn={onFocusIn}
             onFocusOut={() => {
               onBlur();
-              if (onFocusOut) {
-                onFocusOut();
-              }
+              onFocusOut?.();
             }}
             displayExpr={displayExpr}
             valueExpr={valueExpr}
@@ -85,4 +81,4 @@ const DevExtremeSelectBox = <T extends FieldValues>({
   );
 };
 
-export default DevExtremeSelectBox;
+export default React.memo(DevExtremeSelectBox) as typeof DevExtremeSelectBox;

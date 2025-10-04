@@ -5,12 +5,18 @@ export interface IFormItemProps {
   className?: string;
   style?: React.CSSProperties;
   labelWidth?: string;
+  labelPosition?: 'left' | 'top';
 }
 
-const FormItem: React.FC<IFormItemProps> = ({ children, className = '', style, labelWidth }) => {
+const FormItem: React.FC<IFormItemProps> = ({
+  children,
+  className = '',
+  style,
+  labelWidth,
+  labelPosition = 'left',
+}) => {
   const childrenArray = React.Children.toArray(children);
 
-  // Find label and value components
   let label: React.ReactNode = null;
   let value: React.ReactNode = null;
 
@@ -22,8 +28,8 @@ const FormItem: React.FC<IFormItemProps> = ({ children, className = '', style, l
 
       if (isLabel) label = child;
       else if (isValue) value = child;
-      else if (!label) label = child; // fallback
-      else if (!value) value = child; // fallback
+      else if (!label) label = child;
+      else if (!value) value = child;
     }
   });
 
@@ -32,16 +38,24 @@ const FormItem: React.FC<IFormItemProps> = ({ children, className = '', style, l
     ...(labelWidth && ({ '--custom-label-width': labelWidth } as any)),
   };
 
-  const itemClassName = `spfx-form-item ${
-    labelWidth ? 'spfx-form-item-custom-label-width' : ''
-  } ${className}`;
+  const itemClassName = `spfx-form-item ${labelWidth ? 'spfx-form-item-custom-label-width' : ''} ${
+    labelPosition === 'top' ? 'spfx-form-item-label-top' : ''
+  } ${!label ? 'spfx-form-item-no-label' : ''} ${className}`;
+
+  if (!label) {
+    return (
+      <div className={itemClassName} style={itemStyle}>
+        <div className='spfx-form-item-value-area'>{value}</div>
+      </div>
+    );
+  }
 
   return (
     <div className={itemClassName} style={itemStyle}>
-      {label && <div className={`spfx-form-item-label-area`}>{label}</div>}
-      {value && <div className={`spfx-form-item-value-area`}>{value}</div>}
+      {label && <div className='spfx-form-item-label-area'>{label}</div>}
+      {value && <div className='spfx-form-item-value-area'>{value}</div>}
     </div>
   );
 };
 
-export default FormItem;
+export default React.memo(FormItem);

@@ -2,10 +2,10 @@ import { BaseComponentContext } from '@microsoft/sp-component-base';
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { ModernTaxonomyPicker } from '@pnp/spfx-controls-react/lib/ModernTaxonomyPicker';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues } from 'react-hook-form';
+import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IPnPModernTaxonomyPickerProps<T extends FieldValues> {
-  name: string;
+  name: Path<T>;
   control: any;
   context: BaseComponentContext;
   termSetId: string;
@@ -63,9 +63,7 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
               onChange={terms => {
                 if (!isEqual(value, terms)) {
                   onChange(terms);
-                  if (onTermsChanged) {
-                    onTermsChanged(terms || []);
-                  }
+                  onTermsChanged?.(terms || []);
                 }
               }}
             />
@@ -79,4 +77,4 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
   );
 };
 
-export default PnPModernTaxonomyPicker;
+export default React.memo(PnPModernTaxonomyPicker) as typeof PnPModernTaxonomyPicker;

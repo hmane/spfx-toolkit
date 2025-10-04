@@ -8,7 +8,6 @@ export interface IFormValueProps {
 const FormValue: React.FC<IFormValueProps> = ({ children, className = '' }) => {
   const childrenArray = React.Children.toArray(children);
 
-  // Separate form control from description/error
   const formControls: React.ReactNode[] = [];
   const descriptionAndError: React.ReactNode[] = [];
 
@@ -31,12 +30,12 @@ const FormValue: React.FC<IFormValueProps> = ({ children, className = '' }) => {
 
   return (
     <div className={`spfx-form-value ${className}`}>
-      <div className={`spfx-form-value-control-container`}>{formControls}</div>
+      <div className='spfx-form-value-control-container'>{formControls}</div>
       {descriptionAndError.length > 0 && (
-        <div className={`spfx-form-value-description-error-container`}>{descriptionAndError}</div>
+        <div className='spfx-form-value-description-error-container'>{descriptionAndError}</div>
       )}
     </div>
   );
 };
 
-export default FormValue;
+export default React.memo(FormValue);
