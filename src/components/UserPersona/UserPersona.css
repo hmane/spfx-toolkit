@@ -1,0 +1,255 @@
+/* UserPersona Component Styles */
+
+.user-persona-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.user-persona-container.clickable {
+  cursor: pointer;
+}
+
+.user-persona-container.clickable:hover {
+  opacity: 0.8;
+}
+
+/* Avatar wrapper */
+.user-persona-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Avatar with photo */
+.user-persona-avatar-photo {
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Persona with initials (Fluent UI Persona) */
+.user-persona-initials {
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* LivePersona overlay */
+.user-persona-live-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: all;
+}
+
+/* Text content (name and email) */
+.user-persona-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.user-persona-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #323130;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-persona-email {
+  font-size: 12px;
+  color: #605e5c;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Loading state */
+.user-persona-loading {
+  border-radius: 50%;
+  background: linear-gradient(90deg, #f3f2f1 25%, #e1dfdd 50%, #f3f2f1 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Size variants */
+.user-persona-size-24 .user-persona-avatar-photo,
+.user-persona-size-24 .user-persona-loading {
+  width: 24px;
+  height: 24px;
+}
+
+.user-persona-size-24 .user-persona-name {
+  font-size: 12px;
+}
+
+.user-persona-size-24 .user-persona-email {
+  font-size: 11px;
+}
+
+.user-persona-size-28 .user-persona-avatar-photo,
+.user-persona-size-28 .user-persona-loading {
+  width: 28px;
+  height: 28px;
+}
+
+.user-persona-size-28 .user-persona-name {
+  font-size: 13px;
+}
+
+.user-persona-size-28 .user-persona-email {
+  font-size: 11px;
+}
+
+.user-persona-size-32 .user-persona-avatar-photo,
+.user-persona-size-32 .user-persona-loading {
+  width: 32px;
+  height: 32px;
+}
+
+.user-persona-size-40 .user-persona-avatar-photo,
+.user-persona-size-40 .user-persona-loading {
+  width: 40px;
+  height: 40px;
+}
+
+.user-persona-size-40 .user-persona-name {
+  font-size: 15px;
+}
+
+.user-persona-size-40 .user-persona-email {
+  font-size: 13px;
+}
+
+.user-persona-size-48 .user-persona-avatar-photo,
+.user-persona-size-48 .user-persona-loading {
+  width: 48px;
+  height: 48px;
+}
+
+.user-persona-size-48 .user-persona-name {
+  font-size: 16px;
+}
+
+.user-persona-size-48 .user-persona-email {
+  font-size: 13px;
+}
+
+.user-persona-size-56 .user-persona-avatar-photo,
+.user-persona-size-56 .user-persona-loading {
+  width: 56px;
+  height: 56px;
+}
+
+.user-persona-size-56 .user-persona-name {
+  font-size: 18px;
+}
+
+.user-persona-size-56 .user-persona-email {
+  font-size: 14px;
+}
+
+.user-persona-size-72 .user-persona-avatar-photo,
+.user-persona-size-72 .user-persona-loading {
+  width: 72px;
+  height: 72px;
+}
+
+.user-persona-size-72 .user-persona-name {
+  font-size: 20px;
+}
+
+.user-persona-size-72 .user-persona-email {
+  font-size: 15px;
+}
+
+.user-persona-size-100 .user-persona-avatar-photo,
+.user-persona-size-100 .user-persona-loading {
+  width: 100px;
+  height: 100px;
+}
+
+.user-persona-size-100 .user-persona-name {
+  font-size: 24px;
+}
+
+.user-persona-size-100 .user-persona-email {
+  font-size: 16px;
+}
+
+/* Hover effects */
+.user-persona-container.clickable .user-persona-avatar-photo:hover,
+.user-persona-container.clickable .user-persona-initials:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Focus styles for accessibility */
+.user-persona-container:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .user-persona-avatar-photo,
+  .user-persona-initials {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .user-persona-container.clickable .user-persona-avatar-photo:hover,
+  .user-persona-container.clickable .user-persona-initials:hover {
+    transform: none;
+  }
+
+  .user-persona-loading {
+    animation: none;
+    background: #f3f2f1;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .user-persona-text {
+    gap: 1px;
+  }
+
+  .user-persona-name {
+    font-size: 13px;
+  }
+
+  .user-persona-email {
+    font-size: 11px;
+  }
+}

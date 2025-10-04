@@ -5,7 +5,7 @@ export { GroupViewer } from './GroupViewer';
 export type { IGroupInfo, IGroupMember, IGroupViewerProps } from './types';
 
 // Export constants
-export { GroupViewerDefaultSettings } from './types';
+export { GroupViewerDefaultSettings, SPPrincipalType, CACHE_CONSTANTS } from './types';
 
 // Import styles to ensure they're included
 import './GroupViewer.css';

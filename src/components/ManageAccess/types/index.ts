@@ -4,7 +4,7 @@ import { ExtensionContext } from '@microsoft/sp-extension-base';
 // Union type for SPFx contexts
 export type SPFxContext = WebPartContext | ExtensionContext;
 
-// Enhanced permission principal with additional properties for better UX and LivePersona support
+// Enhanced permission principal interface
 export interface IPermissionPrincipal {
   id: string;
   email?: string;
@@ -19,70 +19,16 @@ export interface IPermissionPrincipal {
   isLimitedAccess?: boolean;
   isSharingLink?: boolean;
   sharingLinkType?: 'anonymous' | 'organization' | 'specific';
-  actualUsers?: IPermissionPrincipal[]; // For expanded group members
-  inheritedFrom?: string; // Group name if permission is inherited
+  actualUsers?: IPermissionPrincipal[];
+  inheritedFrom?: string;
 
-  // NEW: Enhanced properties for LivePersona integration
-  userPrincipalName?: string; // Normalized UPN for LivePersona
-  normalizedEmail?: string; // Cleaned email for LivePersona
-  isValidForPersona?: boolean; // Whether this user can be displayed with LivePersona
+  // Properties for LivePersona integration
+  userPrincipalName?: string;
+  normalizedEmail?: string;
+  isValidForPersona?: boolean;
 }
 
-// NEW: Sharing link information interface with enhanced detection
-export interface ISharingLinkInfo {
-  id: string;
-  url?: string;
-  description?: string;
-  linkKind: number;
-  hasPassword?: boolean;
-  isExpired?: boolean;
-  expirationDateTime?: string;
-  scope: 'anonymous' | 'organization' | 'specificPeople';
-
-  // NEW: Enhanced permission detection
-  actualPermissionLevel?: 'view' | 'edit';
-  roleDefinitionName?: string;
-  allowsEdit?: boolean;
-  allowsView?: boolean;
-}
-
-// NEW: SharePoint sharing information response
-export interface ISPSharingInfo {
-  sharingLinks?: Array<{
-    linkKind: number;
-    url?: string;
-    description?: string;
-    scope?: string;
-    roleValue?: string;
-    allowsAnonymousAccess?: boolean;
-    isEditLink?: boolean;
-    isReviewLink?: boolean;
-    passwordProtected?: boolean;
-    expiration?: string;
-  }>;
-
-  directUrl?: string;
-  canShare?: boolean;
-  hasSharingLinks?: boolean;
-
-  // Permission level mapping
-  permissionLevels?: Array<{
-    name: string;
-    roleTypeKind: number;
-    hidden: boolean;
-  }>;
-}
-
-// Enhanced interfaces for better permission management
-export interface IEnhancedPermissionResult {
-  principals: IPermissionPrincipal[];
-  sharingLinks: ISharingLinkInfo[];
-  hasUniquePermissions: boolean;
-  totalUserCount: number;
-  totalGroupCount: number;
-  sharingLinkCount: number;
-}
-
+// SharePoint role assignment interfaces
 export interface ISPRoleAssignment {
   Member: ISPMember;
   RoleDefinitionBindings: ISPRoleDefinition[];
@@ -94,60 +40,70 @@ export interface ISPMember {
   LoginName: string;
   Email?: string;
   PrincipalType: number;
-  UserPrincipalName?: string; // NEW: For better LivePersona support
+  UserPrincipalName?: string;
 }
 
 export interface ISPRoleDefinition {
   Id: number;
   Name: string;
   Description: string;
-  RoleTypeKind?: number; // NEW: For better permission level detection
+  RoleTypeKind?: number;
 }
 
-export interface IActivityFeedItem {
-  id: string;
-  action: 'added' | 'removed' | 'modified';
-  principalName: string;
-  principalType: 'user' | 'group' | 'sharingLink';
-  permissionLevel: 'view' | 'edit';
-  modifiedBy: string;
-  modifiedDate: Date;
-  previousPermissionLevel?: 'view' | 'edit';
+// SharePoint sharing information
+export interface ISPSharingInfo {
+  permissionsInformation?: {
+    links?: {
+      results?: Array<{
+        linkDetails?: {
+          IsActive?: boolean;
+          IsEditLink?: boolean;
+          LinkKind?: number;
+          Scope?: number;
+        };
+        linkMembers?: {
+          results?: Array<{
+            id: number;
+            name: string;
+            email: string;
+            loginName: string;
+            principalType: number;
+            userPrincipalName?: string;
+            isExternal?: boolean;
+          }>;
+        };
+      }>;
+    };
+    principals?: {
+      results?: any[];
+    };
+  };
+  sharingLinks?: any[];
 }
 
+// Component props and state
 export interface IManageAccessComponentProps {
-  spContext: SPFxContext;
   itemId: number;
   listId: string;
-  permissionTypes: 'view' | 'edit' | 'both';
+  permissionTypes?: 'view' | 'edit' | 'both';
+  maxAvatars?: number;
+  protectedPrincipals?: string[];
+  enabled?: boolean; // NEW PROP
   onPermissionChanged: (
     operation: 'add' | 'remove',
     principals: IPermissionPrincipal[]
   ) => Promise<boolean>;
-  siteUrl?: string;
-  maxAvatars?: number;
-  protectedPrincipals?: string[];
   onError?: (error: string) => void;
-
-  // Enhanced options
-  showSharingLinks?: boolean; // Whether to show sharing links in the UI
-  expandGroupMembers?: boolean; // Whether to expand group members
-  filterLimitedAccess?: boolean; // Whether to filter out Limited Access groups
 }
 
 export interface IManageAccessComponentState {
   isLoading: boolean;
   showManageAccessPanel: boolean;
-  showActivityFeed: boolean;
   permissions: IPermissionPrincipal[];
   currentUserPermissions: string[];
   canManagePermissions: boolean;
   inlineMessage: string;
   showInlineMessage: boolean;
-
-  // Enhanced state
-  sharingLinks?: ISharingLinkInfo[];
-  expandedGroups?: Set<string>; // Track which groups are expanded
 }
 
 export interface IPermissionLevelOption {
@@ -173,17 +129,34 @@ export const DefaultProps = {
   maxAvatars: 5,
   protectedPrincipals: [],
   siteUrl: '',
-  showSharingLinks: true,
-  expandGroupMembers: false, // Default to false to match SharePoint OOB behavior
-  filterLimitedAccess: true,
+  enabled: true,
 };
 
-// NEW: Utility functions for LivePersona integration
-export const PersonaUtils = {
+// SharePoint role definition IDs
+export enum SPRoleType {
+  None = 0,
+  Guest = 1,
+  Reader = 2,
+  Contributor = 3,
+  WebDesigner = 4,
+  Administrator = 5,
+}
+
+export const ROLE_DEFINITION_IDS = {
+  LIMITED_ACCESS: 1073741825,
+  READ: 1073741826,
+  CONTRIBUTE: 1073741827,
+  DESIGN: 1073741828,
+  FULL_CONTROL: 1073741829,
+  EDIT: 1073741830,
+};
+
+// Utility class for persona operations (shared with GroupViewer pattern)
+export class PersonaUtils {
   /**
    * Normalize email/UPN for LivePersona compatibility
    */
-  normalizeUpn: (user: IPermissionPrincipal): string => {
+  static normalizeUpn(user: IPermissionPrincipal): string {
     // Try email first (most reliable for LivePersona)
     if (user.email && user.email.includes('@')) {
       return user.email.toLowerCase().trim();
@@ -215,20 +188,20 @@ export const PersonaUtils = {
 
     // Return displayName as final fallback
     return user.displayName || user.id || 'Unknown User';
-  },
+  }
 
   /**
    * Check if user can be displayed with LivePersona
    */
-  canUsePersona: (user: IPermissionPrincipal): boolean => {
+  static canUsePersona(user: IPermissionPrincipal): boolean {
     const normalizedUpn = PersonaUtils.normalizeUpn(user);
     return normalizedUpn.includes('@') && !normalizedUpn.includes('Unknown User');
-  },
+  }
 
   /**
    * Get fallback initials for users without LivePersona
    */
-  getInitials: (displayName: string): string => {
+  static getInitials(displayName: string): string {
     if (!displayName) return '?';
 
     const words = displayName.split(' ').filter(word => word.length > 0);
@@ -239,29 +212,5 @@ export const PersonaUtils = {
       .map(word => word.charAt(0).toUpperCase())
       .join('')
       .substring(0, 2);
-  },
-};
-
-// Utility type guards
-export const isEnhancedPermissionPrincipal = (
-  principal: IPermissionPrincipal
-): principal is Required<IPermissionPrincipal> => {
-  return principal.hasOwnProperty('isSharingLink') && principal.hasOwnProperty('isLimitedAccess');
-};
-
-// Permission filtering options
-export interface IPermissionFilterOptions {
-  showUsers: boolean;
-  showGroups: boolean;
-  showSharingLinks: boolean;
-  showInheritedPermissions: boolean;
-  hideSystemGroups: boolean;
+  }
 }
-
-export const DefaultFilterOptions: IPermissionFilterOptions = {
-  showUsers: true,
-  showGroups: true,
-  showSharingLinks: true,
-  showInheritedPermissions: false,
-  hideSystemGroups: true,
-};

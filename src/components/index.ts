@@ -5,4 +5,4 @@ export * from './GroupViewer';
 export * from './ManageAccess';
 export * from './spForm';
 export * from './WorkflowStepper';
-
+export * from './UserPersona';
