@@ -1,5 +1,4 @@
 // Error Boundary Component Exports
-import './ErrorBoundary.css';
 
 export { default as ErrorBoundary, withErrorBoundary, useErrorHandler } from './ErrorBoundary';
 
@@ -11,6 +10,9 @@ export type {
   IErrorBoundaryProps,
   IErrorFallbackProps,
   IUserFriendlyMessages,
+  ISPFxContext,
+  ErrorSeverity,
+  ErrorCategory,
 } from './ErrorBoundary';
 
 // Export constants for error levels
@@ -21,8 +23,6 @@ export const ERROR_SEVERITY = {
   CRITICAL: 'critical',
 } as const;
 
-export type ErrorSeverity = (typeof ERROR_SEVERITY)[keyof typeof ERROR_SEVERITY];
-
 // Export predefined configurations
 export const ERROR_BOUNDARY_CONFIGS = {
   // Minimal error boundary for small components
@@ -31,12 +31,14 @@ export const ERROR_BOUNDARY_CONFIGS = {
     showDetailsButton: false,
     maxRetries: 0,
     logLevel: 'minimal' as const,
+    enableConsoleLogging: true,
     userFriendlyMessages: {
       title: 'Component Error',
-      description: 'This component encountered an error.',
+      description: 'This component encountered an error and cannot be displayed.',
       retryButtonText: 'Retry',
       detailsButtonText: 'Details',
       closeButtonText: 'Close',
+      dismissButtonText: 'Dismiss',
     },
   },
 
@@ -57,9 +59,7 @@ export const ERROR_BOUNDARY_CONFIGS = {
     maxRetries: 5,
     logLevel: 'verbose' as const,
     enableConsoleLogging: true,
-    enableRemoteLogging: true,
     resetOnPropsChange: true,
-    isolateErrors: true,
   },
 
   // Development configuration with full debugging
@@ -73,14 +73,13 @@ export const ERROR_BOUNDARY_CONFIGS = {
     resetOnPropsChange: true,
   },
 
-  // Production configuration with remote logging
+  // Production configuration with minimal logging
   PRODUCTION: {
     enableRetry: true,
     showDetailsButton: false,
     maxRetries: 2,
     logLevel: 'minimal' as const,
     enableConsoleLogging: false,
-    enableRemoteLogging: true,
     isDevelopment: false,
   },
 } as const;
