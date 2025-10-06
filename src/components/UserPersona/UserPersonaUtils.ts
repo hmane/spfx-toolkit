@@ -3,33 +3,32 @@
  */
 
 import { PersonaInitialsColor } from '@fluentui/react';
-import { IPhotoCache } from './types';
+import { IProfileCache } from './types';
 
 /**
- * In-memory cache for user photos
- * Key: userIdentifier (email or loginName)
- * Value: { url, timestamp, failed }
+ * In-memory cache for user profiles
+ * Key: userIdentifier (normalized)
+ * Value: { profile, timestamp }
  */
-const photoCache = new Map<string, IPhotoCache>();
+const profileCache = new Map<string, IProfileCache>();
 
 /**
- * Cache timeout - 15 minutes
+ * Cache timeout - 1 hour
  */
-const CACHE_TIMEOUT = 15 * 60 * 1000;
+const CACHE_TIMEOUT = 60 * 60 * 1000;
 
 /**
- * Get user photo URL from cache
+ * Get user profile from cache
  */
-export function getCachedPhotoUrl(userIdentifier: string): IPhotoCache | null {
-  const cached = photoCache.get(userIdentifier.toLowerCase());
+export function getCachedProfile(userIdentifier: string): IProfileCache | null {
+  const cached = profileCache.get(userIdentifier.toLowerCase());
 
   if (!cached) {
     return null;
   }
 
-  // Check if cache is still valid
   if (Date.now() - cached.timestamp > CACHE_TIMEOUT) {
-    photoCache.delete(userIdentifier.toLowerCase());
+    profileCache.delete(userIdentifier.toLowerCase());
     return null;
   }
 
@@ -37,102 +36,34 @@ export function getCachedPhotoUrl(userIdentifier: string): IPhotoCache | null {
 }
 
 /**
- * Cache user photo URL
+ * Cache user profile
  */
-export function cachePhotoUrl(userIdentifier: string, url: string | null, failed: boolean): void {
-  photoCache.set(userIdentifier.toLowerCase(), {
-    url,
+export function cacheProfile(userIdentifier: string, profile: IProfileCache['profile']): void {
+  profileCache.set(userIdentifier.toLowerCase(), {
+    profile,
     timestamp: Date.now(),
-    failed,
   });
 }
 
 /**
- * Clear photo cache
+ * Clear profile cache
  */
-export function clearPhotoCache(): void {
-  photoCache.clear();
+export function clearProfileCache(): void {
+  profileCache.clear();
 }
 
 /**
  * Get SharePoint user photo URL
- * Based on: https://github.com/pnp/sp-dev-fx-webparts/blob/main/samples/react-my-sites/src/Utils/Utils.ts
  */
 export function getUserPhotoUrl(
   siteUrl: string,
   userIdentifier: string,
   size: 'S' | 'M' | 'L' = 'M'
 ): string {
-  // Clean the user identifier
   const cleanIdentifier = userIdentifier.toLowerCase().trim();
-
-  // Construct photo URL
-  const photoUrl = `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
+  return `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
     cleanIdentifier
   )}`;
-
-  return photoUrl;
-}
-
-/**
- * Load user photo and return URL if successful
- * Returns null if photo fails to load or is a default placeholder
- */
-export async function loadUserPhoto(
-  siteUrl: string,
-  userIdentifier: string,
-  size: 'S' | 'M' | 'L' = 'M'
-): Promise<string | null> {
-  // Check cache first
-  const cached = getCachedPhotoUrl(userIdentifier);
-  if (cached !== null) {
-    return cached.url;
-  }
-
-  const photoUrl = getUserPhotoUrl(siteUrl, userIdentifier, size);
-
-  return new Promise((resolve) => {
-    const img = new Image();
-    let timeoutId: number;
-
-    img.onload = () => {
-      clearTimeout(timeoutId);
-
-      // Check if this is a default placeholder image
-      // SharePoint default user images are typically very small (1x1, 10x10)
-      const isDefaultPlaceholder =
-        (img.width === 1 && img.height === 1) ||
-        (img.width <= 10 && img.height <= 10) ||
-        (img.naturalWidth === 1 && img.naturalHeight === 1) ||
-        (img.naturalWidth <= 10 && img.naturalHeight <= 10);
-
-      if (isDefaultPlaceholder) {
-        // This is a default image - cache as failed
-        cachePhotoUrl(userIdentifier, null, true);
-        resolve(null);
-      } else {
-        // Valid photo - cache the URL
-        cachePhotoUrl(userIdentifier, photoUrl, false);
-        resolve(photoUrl);
-      }
-    };
-
-    img.onerror = () => {
-      clearTimeout(timeoutId);
-      // Photo failed to load - cache as failed
-      cachePhotoUrl(userIdentifier, null, true);
-      resolve(null);
-    };
-
-    // Set timeout to prevent hanging
-    timeoutId = window.setTimeout(() => {
-      img.src = '';
-      cachePhotoUrl(userIdentifier, null, true);
-      resolve(null);
-    }, 5000);
-
-    img.src = photoUrl;
-  });
 }
 
 /**
@@ -179,7 +110,7 @@ export function getPersonaColor(displayName: string): PersonaInitialsColor {
 }
 
 /**
- * Normalize user identifier for photo loading
+ * Normalize user identifier for lookups
  * Handles various formats: email, i:0#.f|membership|email, UPN, etc.
  */
 export function normalizeUserIdentifier(userIdentifier: string): string {
@@ -187,12 +118,10 @@ export function normalizeUserIdentifier(userIdentifier: string): string {
     return '';
   }
 
-  // If it's already an email, return it
   if (userIdentifier.includes('@') && !userIdentifier.includes('|')) {
     return userIdentifier.toLowerCase().trim();
   }
 
-  // Handle SharePoint login formats like "i:0#.f|membership|email@domain.com"
   if (userIdentifier.includes('|')) {
     const parts = userIdentifier.split('|');
     const email = parts[parts.length - 1];
@@ -201,7 +130,6 @@ export function normalizeUserIdentifier(userIdentifier: string): string {
     }
   }
 
-  // Return as-is if we can't parse it
   return userIdentifier.toLowerCase().trim();
 }
 
@@ -219,15 +147,14 @@ export function getPhotoSize(personaSize: number): 'S' | 'M' | 'L' {
 }
 
 /**
- * Check if user identifier is valid for photo loading
+ * Check if user identifier is valid
  */
-export function isValidForPhotoLoad(userIdentifier: string): boolean {
+export function isValidUserIdentifier(userIdentifier: string): boolean {
   if (!userIdentifier || userIdentifier.trim().length === 0) {
     return false;
   }
 
   const normalized = normalizeUserIdentifier(userIdentifier);
-
-  // Must have @ symbol (email format)
   return normalized.includes('@');
 }
+

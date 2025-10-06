@@ -1,0 +1,839 @@
+/* VersionHistory Component Styles - Redesigned */
+
+/* DevExtreme Popup overrides */
+.version-history-popup .dx-overlay-content {
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.version-history-popup .dx-popup-content {
+  padding: 0;
+}
+
+/* Main container */
+.version-history {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+/* Header - Fixed */
+.version-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #edebe9;
+  background: #ffffff;
+  flex-shrink: 0;
+  min-height: 60px;
+}
+
+.version-history-header-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-history-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #323130;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-history-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.version-history-export-button,
+.version-history-close-button {
+  height: 32px;
+  border: 1px solid #d2d0ce;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  color: #323130;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  transition: all 0.1s ease;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.version-history-export-button:hover,
+.version-history-close-button:hover {
+  background: #f3f2f1;
+  border-color: #c8c6c4;
+}
+
+.version-history-export-button:active,
+.version-history-close-button:active {
+  background: #edebe9;
+}
+
+.version-history-close-button {
+  min-width: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Main content area with ScrollView */
+.version-history-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Timeline panel (left) - Fixed width */
+.version-history-timeline-panel {
+  width: 280px;
+  border-right: 1px solid #edebe9;
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Details panel (right) */
+.version-history-details-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  min-width: 0;
+}
+
+/* Loading/Error containers */
+.version-history-loading-container,
+.version-history-error-container,
+.version-history-empty-container {
+  padding: 60px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.version-history-no-selection {
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* ========================================
+   VersionTimeline Styles
+   ======================================== */
+
+.version-timeline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.version-timeline-header {
+  padding: 16px;
+  border-bottom: 1px solid #edebe9;
+  flex-shrink: 0;
+  background: #ffffff;
+}
+
+.version-timeline-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #323130;
+  margin: 0 0 4px 0;
+}
+
+.version-timeline-count {
+  font-size: 12px;
+  color: #605e5c;
+  display: block;
+}
+
+.version-timeline-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid #edebe9;
+  flex-shrink: 0;
+  background: #ffffff;
+}
+
+.version-timeline-filter-toggle {
+  padding: 12px 16px;
+  border-bottom: 1px solid #edebe9;
+  flex-shrink: 0;
+  background: #ffffff;
+}
+
+.version-timeline-filter-button {
+  width: 100%;
+}
+
+.version-timeline-filters {
+  padding: 16px;
+  border-bottom: 1px solid #edebe9;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.version-timeline-filter {
+  display: flex;
+  flex-direction: column;
+}
+
+.version-timeline-custom-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 12px;
+  border-left: 2px solid #edebe9;
+}
+
+.version-timeline-loading {
+  padding: 40px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.version-timeline-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px;
+}
+
+.version-timeline-no-results {
+  padding: 16px;
+}
+
+/* ========================================
+   VersionCard Styles - Minimal Design
+   ======================================== */
+
+.version-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  height: 60px;
+  box-sizing: border-box;
+}
+
+.version-card:hover {
+  background: #f3f2f1;
+  border-color: #e1dfdd;
+}
+
+.version-card.selected {
+  background: #ffffff;
+  border-color: #0078d4;
+  box-shadow: 0 0 0 1px #0078d4;
+}
+
+.version-card.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #0078d4;
+  border-radius: 4px 0 0 4px;
+}
+
+.version-card:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}
+
+/* Checkmark for selected card */
+.version-card-check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.version-card.selected .version-card-check {
+  opacity: 1;
+  color: #0078d4;
+  font-size: 14px;
+}
+
+/* Avatar */
+.version-card-avatar {
+  flex-shrink: 0;
+}
+
+/* Content area */
+.version-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  justify-content: center;
+}
+
+.version-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.version-card-version {
+  font-size: 13px;
+  font-weight: 600;
+  color: #323130;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-card-time {
+  font-size: 11px;
+  color: #8a8886;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.version-card-changes {
+  font-size: 11px;
+  color: #605e5c;
+}
+
+.version-card-changes.no-changes {
+  color: #a19f9d;
+  font-style: italic;
+}
+
+/* ========================================
+   VersionDetails Styles
+   ======================================== */
+
+.version-details {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Compact header - single line */
+.version-details-header {
+  padding: 12px 24px;
+  border-bottom: 1px solid #edebe9;
+  background: #fafafa;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+}
+
+.version-details-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #605e5c;
+  min-width: 0;
+}
+
+.version-details-version {
+  font-weight: 600;
+  color: #323130;
+  white-space: nowrap;
+}
+
+.version-details-separator {
+  color: #c8c6c4;
+}
+
+.version-details-user {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-details-date {
+  white-space: nowrap;
+}
+
+.version-details-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.version-details-download-button {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  border: 1px solid #d2d0ce;
+  background: #ffffff;
+  cursor: pointer;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.1s ease;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #323130;
+}
+
+.version-details-download-button:hover {
+  background: #f3f2f1;
+  border-color: #c8c6c4;
+}
+
+.version-details-download-button:active {
+  background: #edebe9;
+}
+
+.version-details-download-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Stats bar */
+.version-details-stats {
+  padding: 12px 24px;
+  border-bottom: 1px solid #edebe9;
+  background: #ffffff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 13px;
+  color: #605e5c;
+}
+
+.version-details-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.version-details-stat-icon {
+  font-size: 14px;
+  color: #605e5c;
+}
+
+/* Check-in comment banner */
+.version-details-comment {
+  padding: 12px 24px;
+  background: #fff4ce;
+  border-bottom: 1px solid #edebe9;
+  flex-shrink: 0;
+}
+
+.version-details-comment-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #323130;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.version-details-comment-text {
+  font-size: 13px;
+  color: #323130;
+  line-height: 1.4;
+}
+
+/* Changes section */
+.version-details-changes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.version-details-no-changes {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* ========================================
+   FieldChangesTable Styles
+   ======================================== */
+
+.field-changes-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.field-changes-header {
+  padding: 12px 24px;
+  border-bottom: 1px solid #edebe9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.field-changes-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #323130;
+}
+
+.field-changes-search {
+  min-width: 200px;
+}
+
+/* Table header - 3 columns */
+.field-changes-table-header {
+  display: grid;
+  grid-template-columns: 200px 1fr 40px;
+  gap: 16px;
+  padding: 10px 24px;
+  background: #fafafa;
+  border-bottom: 1px solid #edebe9;
+  font-weight: 600;
+  font-size: 12px;
+  color: #605e5c;
+  flex-shrink: 0;
+}
+
+.field-changes-header-cell {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Table body */
+.field-changes-table-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.field-changes-empty,
+.field-changes-no-results {
+  padding: 24px;
+}
+
+/* ========================================
+   FieldChangeRow Styles - 3 Column Layout
+   ======================================== */
+
+.field-change-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 40px;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid #f3f2f1;
+  transition: background 0.1s ease;
+  align-items: start;
+}
+
+.field-change-row:nth-child(even) {
+  background: #fafafa;
+}
+
+.field-change-row:hover {
+  background: #f3f2f1;
+}
+
+.field-change-cell {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+/* Field name column */
+.field-name {
+  font-weight: 500;
+}
+
+.field-name-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-change-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.field-change-icon.added {
+  color: #107c10;
+}
+
+.field-change-icon.removed {
+  color: #d13438;
+}
+
+.field-change-icon.modified {
+  color: #0078d4;
+}
+
+.field-name-text {
+  font-size: 13px;
+  color: #323130;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Combined value column with inline arrow */
+.field-values {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.field-value-previous {
+  color: #605e5c;
+  word-break: break-word;
+}
+
+.field-value-previous.empty {
+  font-style: italic;
+  color: #a19f9d;
+}
+
+.field-value-arrow {
+  color: #a19f9d;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.field-value-new {
+  color: #323130;
+  word-break: break-word;
+}
+
+.field-value-new.empty {
+  font-style: italic;
+  color: #a19f9d;
+}
+
+.field-value-new.highlight-added {
+  color: #107c10;
+  font-weight: 500;
+}
+
+.field-value-new.highlight-modified {
+  color: #0078d4;
+  font-weight: 500;
+}
+
+/* Special field types */
+.field-value-link {
+  color: #0078d4;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-value-link:hover {
+  text-decoration: underline;
+}
+
+.field-value-link-icon {
+  font-size: 11px;
+}
+
+.field-value-boolean {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-value-boolean-icon {
+  font-size: 12px;
+}
+
+.field-value-boolean-icon.true {
+  color: #107c10;
+}
+
+.field-value-boolean-icon.false {
+  color: #d13438;
+}
+
+.field-value-users {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-value-user-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Expand button */
+.field-expand {
+  justify-content: center;
+}
+
+.field-expand-icon {
+  cursor: pointer;
+  font-size: 14px;
+  color: #605e5c;
+  padding: 4px;
+  border-radius: 2px;
+  transition: background 0.1s ease;
+}
+
+.field-expand-icon:hover {
+  background: #edebe9;
+  color: #323130;
+}
+
+.field-expand-icon:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}
+
+/* Expanded state */
+.field-change-row.expanded .field-values {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.field-change-row.expanded .field-value-previous,
+.field-change-row.expanded .field-value-new {
+  max-width: 100%;
+}
+
+/* ========================================
+   Scrollbar Styling
+   ======================================== */
+
+.version-timeline-list::-webkit-scrollbar,
+.field-changes-table-body::-webkit-scrollbar,
+.dx-scrollview-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.version-timeline-list::-webkit-scrollbar-track,
+.field-changes-table-body::-webkit-scrollbar-track,
+.dx-scrollview-content::-webkit-scrollbar-track {
+  background: #f3f2f1;
+}
+
+.version-timeline-list::-webkit-scrollbar-thumb,
+.field-changes-table-body::-webkit-scrollbar-thumb,
+.dx-scrollview-content::-webkit-scrollbar-thumb {
+  background: #c8c6c4;
+  border-radius: 4px;
+}
+
+.version-timeline-list::-webkit-scrollbar-thumb:hover,
+.field-changes-table-body::-webkit-scrollbar-thumb:hover,
+.dx-scrollview-content::-webkit-scrollbar-thumb:hover {
+  background: #a19f9d;
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+
+@media (max-width: 1024px) {
+  .version-history-timeline-panel {
+    width: 260px;
+  }
+
+  .field-changes-table-header,
+  .field-change-row {
+    grid-template-columns: 180px 1fr 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .version-history-timeline-panel {
+    width: 240px;
+  }
+
+  .field-changes-table-header {
+    display: none;
+  }
+
+  .field-change-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .field-expand {
+    display: none;
+  }
+}
+
+/* ========================================
+   Accessibility
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .version-card,
+  .field-change-row,
+  .version-history-close-button,
+  .version-history-export-button,
+  .field-expand-icon {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .version-card {
+    border-width: 2px;
+  }
+
+  .version-card.selected {
+    border-width: 2px;
+  }
+}

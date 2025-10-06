@@ -1,11 +1,11 @@
 /**
  * UserPersona Component Types
- * Reusable persona component with photo loading and LivePersona integration
+ * Reusable persona component with automatic profile fetching and photo loading
  */
 
 export type UserPersonaSize = 24 | 28 | 32 | 40 | 48 | 56 | 72 | 100;
 
-export type UserPersonaDisplayMode = 'avatar' | 'name' | 'avatarAndName';
+export type UserPersonaDisplayMode = 'avatar' | 'nameOnly' | 'avatarAndName';
 
 export interface IUserPersonaProps {
   /**
@@ -14,12 +14,12 @@ export interface IUserPersonaProps {
   userIdentifier: string;
 
   /**
-   * Display name for the user
+   * Display name for the user (optional - will be fetched from profile if not provided)
    */
-  displayName: string;
+  displayName?: string;
 
   /**
-   * Email address (optional, improves photo loading)
+   * Email address (optional - will be fetched from profile if not provided)
    */
   email?: string;
 
@@ -37,7 +37,7 @@ export interface IUserPersonaProps {
 
   /**
    * Whether to show LivePersona hover card
-   * @default true
+   * @default false
    */
   showLivePersona?: boolean;
 
@@ -73,38 +73,33 @@ export interface IUserPersonaProps {
   customInitialsColor?: number;
 }
 
-export interface IUserPersonaState {
+export interface IUserProfile {
   /**
-   * Photo URL if successfully loaded
+   * Display name from user profile
    */
-  photoUrl: string | null;
+  displayName: string;
 
   /**
-   * Whether photo loading failed
+   * Email from user profile
    */
-  photoLoadFailed: boolean;
+  email: string;
 
   /**
-   * Whether photo is currently loading
+   * Login name
    */
-  isLoadingPhoto: boolean;
+  loginName: string;
 }
 
-export interface IPhotoCache {
+export interface IProfileCache {
   /**
-   * Photo URL (or null if load failed)
+   * User profile data
    */
-  url: string | null;
+  profile: IUserProfile;
 
   /**
    * Timestamp when cached
    */
   timestamp: number;
-
-  /**
-   * Whether the photo load failed
-   */
-  failed: boolean;
 }
 
 /**
@@ -113,6 +108,6 @@ export interface IPhotoCache {
 export const DefaultUserPersonaProps = {
   size: 32 as UserPersonaSize,
   displayMode: 'avatar' as UserPersonaDisplayMode,
-  showLivePersona: true,
+  showLivePersona: false,
   showSecondaryText: true,
 };

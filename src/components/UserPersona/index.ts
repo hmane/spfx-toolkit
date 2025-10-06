@@ -1,25 +1,24 @@
 /**
- * UserPersona Component - Reusable user persona with photo loading and LivePersona integration
+ * UserPersona Component - Reusable user persona with automatic profile fetching
  */
 
 export { UserPersona } from './UserPersona';
 export type {
   IUserPersonaProps,
-  IUserPersonaState,
+  IUserProfile,
+  IProfileCache,
   UserPersonaSize,
   UserPersonaDisplayMode,
-  IPhotoCache,
 } from './types';
 export { DefaultUserPersonaProps } from './types';
 export {
-  getCachedPhotoUrl,
-  cachePhotoUrl,
-  clearPhotoCache,
+  getCachedProfile,
+  cacheProfile,
+  clearProfileCache,
   getUserPhotoUrl,
-  loadUserPhoto,
   getInitials,
   getPersonaColor,
   normalizeUserIdentifier,
   getPhotoSize,
-  isValidForPhotoLoad,
+  isValidUserIdentifier,
 } from './UserPersonaUtils';

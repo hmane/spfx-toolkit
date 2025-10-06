@@ -1,23 +1,108 @@
 import { Persona, PersonaSize, TooltipHost } from '@fluentui/react';
+import { CachingPessimisticRefresh } from '@pnp/queryable';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
+import { SPComponentLoader } from '@microsoft/sp-loader';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
-import { DefaultUserPersonaProps, IUserPersonaProps, UserPersonaSize } from './types';
+import { DefaultUserPersonaProps, IUserPersonaProps, IUserProfile, UserPersonaSize } from './types';
 import './UserPersona.css';
 import {
+  cacheProfile,
+  getCachedProfile,
   getInitials,
   getPersonaColor,
-  getPhotoSize,
-  getUserPhotoUrl,
-  isValidForPhotoLoad,
+  isValidUserIdentifier,
   normalizeUserIdentifier,
 } from './UserPersonaUtils';
+
+// SharePoint default image hashes
+const DEFAULT_PERSONA_IMG_HASH = '7ad602295f8386b7615b582d87bcc294';
+const DEFAULT_IMAGE_PLACEHOLDER_HASH = '4a48f26592f4e1498d7a478a4c48609c';
+const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
+
+/**
+ * Load SP component by ID
+ */
+const loadSPComponentById = async (componentId: string): Promise<unknown> => {
+  return new Promise((resolve, reject) => {
+    SPComponentLoader.loadComponentById(componentId)
+      .then((component: any) => {
+        resolve(component);
+      })
+      .catch(error => {
+        reject(error);
+      });
+  });
+};
+
+/**
+ * Get image as base64
+ */
+const getImageBase64 = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get MD5Hash for the image url
+ */
+const getMd5HashForUrl = async (url: string): Promise<string> => {
+  const library: any = await loadSPComponentById(MD5_MODULE_ID);
+  try {
+    const md5Hash = library.Md5Hash;
+    if (md5Hash) {
+      const convertedHash: string = md5Hash(url);
+      return convertedHash;
+    }
+  } catch {
+    return url;
+  }
+  return url;
+};
+
+/**
+ * Gets user photo
+ */
+const getUserPhoto = async (
+  siteUrl: string,
+  userId: string,
+  size: 'S' | 'M' | 'L'
+): Promise<string | undefined> => {
+  try {
+    const personaImgUrl = `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
+      userId
+    )}`;
+    const base64 = await getImageBase64(personaImgUrl);
+    const hash = await getMd5HashForUrl(base64);
+
+    if (hash !== DEFAULT_PERSONA_IMG_HASH && hash !== DEFAULT_IMAGE_PLACEHOLDER_HASH) {
+      return 'data:image/png;base64,' + base64;
+    } else {
+      return undefined;
+    }
+  } catch (error) {
+    return undefined;
+  }
+};
 
 export const UserPersona: React.FC<IUserPersonaProps> = props => {
   const {
     userIdentifier,
-    displayName,
-    email,
+    displayName: providedDisplayName,
+    email: providedEmail,
     size = DefaultUserPersonaProps.size,
     displayMode = DefaultUserPersonaProps.displayMode,
     showLivePersona = DefaultUserPersonaProps.showLivePersona,
@@ -29,82 +114,85 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     customInitialsColor,
   } = props;
 
-  const [photoUrl, setPhotoUrl] = React.useState<string | null>(null);
-  const [photoLoadFailed, setPhotoLoadFailed] = React.useState(false);
-  const [isLoadingPhoto, setIsLoadingPhoto] = React.useState(false);
+  const [displayName, setDisplayName] = React.useState(providedDisplayName || '');
+  const [email, setEmail] = React.useState(providedEmail || '');
+  const [photoUrl, setPhotoUrl] = React.useState<string | undefined>(undefined);
 
   const siteUrl = SPContext.spfxContext.pageContext.web.absoluteUrl;
+  const normalizedIdentifier = normalizeUserIdentifier(userIdentifier);
 
-  // Load user photo on mount
+  // Load user profile
   React.useEffect(() => {
-    const loadPhoto = async () => {
-      const identifier = email || normalizeUserIdentifier(userIdentifier);
-
-      if (!isValidForPhotoLoad(identifier)) {
-        setPhotoLoadFailed(true);
-        setIsLoadingPhoto(false);
+    const loadUserProfile = async () => {
+      if (!isValidUserIdentifier(userIdentifier)) {
+        setDisplayName(providedDisplayName || '');
+        setEmail(providedEmail || '');
         return;
       }
 
-      setIsLoadingPhoto(true);
+      const cached = getCachedProfile(normalizedIdentifier);
+      if (cached) {
+        setDisplayName(cached.profile.displayName);
+        setEmail(cached.profile.email);
+        return;
+      }
 
       try {
-        const photoSize = getPhotoSize(size);
-        const photoUrlAttempt = getUserPhotoUrl(siteUrl, identifier, photoSize);
+        const user = await SPContext.sp
+          .using(CachingPessimisticRefresh())
+          .web.ensureUser(normalizedIdentifier);
 
-        // Load and validate the image
-        const img = new Image();
-        let timeoutId: number;
+        const profile: IUserProfile = {
+          displayName: user.data.Title || providedDisplayName || '',
+          email: user.data.Email || providedEmail || normalizedIdentifier,
+          loginName: user.data.LoginName || normalizedIdentifier,
+        };
 
-        const loadPromise = new Promise<boolean>(resolve => {
-          img.onload = () => {
-            clearTimeout(timeoutId);
-            // Only reject if it's clearly the default 1x1 transparent pixel
-            // or the generic placeholder (typically 10x10 or very small)
-            if ((img.width === 1 && img.height === 1) || (img.width <= 10 && img.height <= 10)) {
-              resolve(false);
-            } else {
-              resolve(true);
-            }
-          };
+        cacheProfile(normalizedIdentifier, profile);
+        setDisplayName(profile.displayName);
+        setEmail(profile.email);
 
-          img.onerror = () => {
-            clearTimeout(timeoutId);
-            resolve(false);
-          };
-
-          // 5 second timeout
-          timeoutId = window.setTimeout(() => {
-            img.src = '';
-            resolve(false);
-          }, 5000);
+        SPContext.logger.info('UserPersona profile loaded', {
+          userIdentifier,
+          displayName: profile.displayName,
         });
+      } catch (error) {
+        SPContext.logger.warn('UserPersona failed to load profile', {
+          error,
+          userIdentifier,
+        });
+        setDisplayName(providedDisplayName || '');
+        setEmail(providedEmail || normalizedIdentifier);
+      }
+    };
 
-        img.src = photoUrlAttempt;
-        const isValidPhoto = await loadPromise;
+    loadUserProfile();
+  }, [userIdentifier, providedDisplayName, providedEmail, normalizedIdentifier]);
 
-        if (isValidPhoto) {
-          setPhotoUrl(photoUrlAttempt);
-          setPhotoLoadFailed(false);
-        } else {
-          setPhotoUrl(null);
-          setPhotoLoadFailed(true);
-        }
+  // Load and validate user photo
+  React.useEffect(() => {
+    const loadPhoto = async () => {
+      if (!isValidUserIdentifier(normalizedIdentifier)) {
+        setPhotoUrl(undefined);
+        return;
+      }
+
+      const photoSize = size <= 32 ? 'S' : size <= 48 ? 'M' : 'L';
+
+      try {
+        const photo = await getUserPhoto(siteUrl, normalizedIdentifier, photoSize);
+        setPhotoUrl(photo);
       } catch (error) {
         SPContext.logger.warn('UserPersona failed to load photo', {
           error,
           userIdentifier,
-          displayName,
         });
-        setPhotoUrl(null);
-        setPhotoLoadFailed(true);
-      } finally {
-        setIsLoadingPhoto(false);
+        setPhotoUrl(undefined);
       }
     };
 
     loadPhoto();
-  }, [userIdentifier, email, size, siteUrl, displayName]);
+  }, [normalizedIdentifier, size, siteUrl, userIdentifier]);
 
   const handleClick = React.useCallback(() => {
     if (onClick) {
@@ -126,81 +214,55 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     return sizeMap[personaSize];
   };
 
-  const renderAvatar = () => {
+  const renderContent = () => {
     const initialsToShow = customInitials || getInitials(displayName);
     const colorToUse = customInitialsColor ?? getPersonaColor(displayName);
-    const upnForLivePersona = email || normalizeUserIdentifier(userIdentifier);
 
-    // Loading state
-    if (isLoadingPhoto) {
-      return (
-        <div
-          className={`user-persona-loading user-persona-size-${size}`}
-          style={{ width: size, height: size }}
-        />
-      );
+    if (displayMode === 'nameOnly') {
+      return <div className='user-persona-name'>{displayName}</div>;
     }
 
-    // Photo loaded successfully
-    if (photoUrl && !photoLoadFailed) {
-      return (
+    const personaElement = (
+      <Persona
+        size={getFluentPersonaSize(size)}
+        text={displayName}
+        secondaryText={showSecondaryText && email ? email : undefined}
+        imageUrl={photoUrl}
+        imageInitials={initialsToShow}
+        initialsColor={colorToUse}
+        hidePersonaDetails={displayMode === 'avatar'}
+        coinSize={size}
+      />
+    );
+
+    if (displayMode === 'avatar') {
+      const avatar = (
         <div className='user-persona-avatar-wrapper' style={{ width: size, height: size }}>
-          <img
-            src={photoUrl}
-            alt={displayName}
-            className='user-persona-avatar-photo'
-            style={{ width: size, height: size }}
-          />
-          {showLivePersona && isValidForPhotoLoad(upnForLivePersona) && (
-            <div className='user-persona-live-overlay'>
-              <LivePersona
-                upn={upnForLivePersona}
-                disableHover={false}
-                serviceScope={SPContext.spfxContext.serviceScope}
-              />
-            </div>
+          {showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
+            <LivePersona
+              upn={normalizedIdentifier}
+              template={personaElement}
+              serviceScope={SPContext.spfxContext.serviceScope}
+            />
+          ) : (
+            personaElement
           )}
         </div>
       );
-    }
 
-    // Photo failed or not available - show initials
-    return (
-      <div className='user-persona-avatar-wrapper' style={{ width: size, height: size }}>
-        <Persona
-          size={getFluentPersonaSize(size)}
-          text=''
-          imageInitials={initialsToShow}
-          initialsColor={colorToUse}
-          className='user-persona-initials'
-          styles={{
-            root: { width: size, height: size },
-            primaryText: { display: 'none' },
-          }}
-        />
-        {showLivePersona && isValidForPhotoLoad(upnForLivePersona) && (
-          <div className='user-persona-live-overlay'>
-            <LivePersona
-              upn={upnForLivePersona}
-              disableHover={false}
-              serviceScope={SPContext.spfxContext.serviceScope}
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderText = () => {
-    if (displayMode === 'avatar') {
-      return null;
+      return avatar;
     }
 
     return (
       <div className='user-persona-text'>
-        <div className='user-persona-name'>{displayName}</div>
-        {showSecondaryText && email && displayMode === 'avatarAndName' && (
-          <div className='user-persona-email'>{email}</div>
+        {showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
+          <LivePersona
+            upn={normalizedIdentifier}
+            template={personaElement}
+            serviceScope={SPContext.spfxContext.serviceScope}
+          />
+        ) : (
+          personaElement
         )}
       </div>
     );
@@ -234,8 +296,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
           : undefined
       }
     >
-      {renderAvatar()}
-      {renderText()}
+      {renderContent()}
     </div>
   );
 
