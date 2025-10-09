@@ -1,25 +1,15 @@
-import {
-  DefaultButton,
-  Dialog,
-  DialogFooter,
-  DialogType,
-  Dropdown,
-  IDropdownOption,
-  Icon,
-  IconButton,
-  MessageBar,
-  MessageBarType,
-  Panel,
-  PanelType,
-  PersonaInitialsColor,
-  PrimaryButton,
-  Separator,
-  Spinner,
-  SpinnerSize,
-  Stack,
-  Text,
-  TooltipHost
-} from '@fluentui/react';
+import { DefaultButton, IconButton, PrimaryButton } from '@fluentui/react/lib/Button';
+import { Dialog, DialogFooter, DialogType } from '@fluentui/react/lib/Dialog';
+import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Panel, PanelType } from '@fluentui/react/lib/Panel';
+import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
+import { Separator } from '@fluentui/react/lib/Separator';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { Text } from '@fluentui/react/lib/Text';
+import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';

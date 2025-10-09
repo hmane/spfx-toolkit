@@ -1,7 +1,8 @@
-import { Persona, PersonaSize, TooltipHost } from '@fluentui/react';
+import { Persona, PersonaSize } from '@fluentui/react/lib/Persona';
+import { TooltipHost } from '@fluentui/react/lib/Tooltip';
+import { SPComponentLoader } from '@microsoft/sp-loader';
 import { CachingPessimisticRefresh } from '@pnp/queryable';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
-import { SPComponentLoader } from '@microsoft/sp-loader';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
 import { DefaultUserPersonaProps, IUserPersonaProps, IUserProfile, UserPersonaSize } from './types';
@@ -286,10 +287,11 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      onKeyPress={
+      onKeyDown={
         onClick
           ? e => {
               if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault(); // Prevent default space scrolling
                 handleClick();
               }
             }

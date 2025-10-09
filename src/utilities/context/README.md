@@ -14,7 +14,19 @@ SPContext simplifies SharePoint Framework development by providing:
 - **Azure AD Integration** - Secure API calls to Azure Functions and Power Platform
 - **TypeScript First** - Complete type safety with IntelliSense
 
-## Installation
+## Installation & Tree-Shaking
+
+### 🎯 CRITICAL: Use Tree-Shakable Imports
+
+**Always use specific imports to minimize bundle size.** The main package import can add 200-500KB+ to your bundle.
+
+```typescript
+// ✅ EXCELLENT: Tree-shakable imports (saves 200-500KB+)
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// ❌ AVOID: Main package import (imports entire toolkit)
+import { SPContext } from 'spfx-toolkit';
+```
 
 ### 1. Install the Package
 
@@ -30,20 +42,22 @@ Install PnP dependencies in your SPFx project:
 npm install @pnp/sp@3.20.1 @pnp/logging@3.20.1 @pnp/queryable@3.20.1
 ```
 
-### 3. Optional: Import Additional PnP Modules
+### 3. Tree-Shakable PnP Module Imports
 
-SPContext automatically imports core PnP modules (`webs`, `site-users`, `profiles`). For additional functionality, import from the `pnpImports` folder:
+SPContext automatically imports core PnP modules (`webs`, `site-users`, `profiles`). For additional functionality, import specific modules to keep bundle size minimal:
 
-#### Granular Imports (Pick what you need)
+#### 🚀 Tree-Shakable PnP Imports (Recommended)
+
 ```typescript
-// Import specific functionality - these are side effects that enhance SPContext.sp
-import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';      // lists, items, batching, views
-import 'spfx-toolkit/lib/utilities/context/pnpImports/files';      // files, folders, attachments
-import 'spfx-toolkit/lib/utilities/context/pnpImports/search';     // search API
-import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy';   // managed metadata
-import 'spfx-toolkit/lib/utilities/context/pnpImports/security';   // permissions, sharing
+// Import only the PnP functionality you need - these are side effects that enhance SPContext.sp
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists'; // lists, items, batching, views
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files'; // files, folders, attachments
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search'; // search API
+import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy'; // managed metadata
+import 'spfx-toolkit/lib/utilities/context/pnpImports/security'; // permissions, sharing
 
-import { SPContext } from 'spfx-toolkit';
+// Tree-shakable SPContext import
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -52,7 +66,7 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   }
 
   private async example(): Promise<void> {
-    // These methods are now available thanks to the imports above:
+    // These methods are now available thanks to the specific imports above:
     const items = await SPContext.sp.web.lists.getByTitle('Tasks').items();
     const file = await SPContext.sp.web.getFileByServerRelativeUrl('/doc.docx');
     const results = await SPContext.sp.search('ContentType:Document');
@@ -60,32 +74,45 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
 }
 ```
 
+#### 📊 Bundle Size Impact
+
+| Import Method                                          | Bundle Size Impact | When to Use                        |
+| ------------------------------------------------------ | ------------------ | ---------------------------------- |
+| `spfx-toolkit/lib/utilities/context`                   | **+15-25KB**       | ✅ Always use this                 |
+| `spfx-toolkit/lib/utilities/context/pnpImports/lists`  | **+20-30KB**       | When you need list operations      |
+| `spfx-toolkit/lib/utilities/context/pnpImports/files`  | **+15-25KB**       | When you need file operations      |
+| `spfx-toolkit/lib/utilities/context/pnpImports/search` | **+10-15KB**       | When you need search functionality |
+| `spfx-toolkit` (main package)                          | **+200-500KB**     | ❌ Never use - imports everything  |
+
 **Note:** These imports are side effects that enhance the `SPContext.sp` object with additional methods. No additional exports or setup required - just import and the methods become available!
 
-#### Available Import Modules
+#### Available Import Modules (Tree-Shakable)
 
-| Module | Import Path | Includes | Use Case |
-|--------|-------------|----------|----------|
-| Core | `spfx-toolkit/lib/utilities/context/pnpImports/core` | webs, site-users, profiles | Auto-imported |
-| Lists | `spfx-toolkit/lib/utilities/context/pnpImports/lists` | lists, items, batching, views | List operations |
-| Files | `spfx-toolkit/lib/utilities/context/pnpImports/files` | files, folders, attachments | File management |
-| Content | `spfx-toolkit/lib/utilities/context/pnpImports/content` | content-types, fields, column-defaults | Content structure |
-| Search | `spfx-toolkit/lib/utilities/context/pnpImports/search` | search | Search functionality |
-| Taxonomy | `spfx-toolkit/lib/utilities/context/pnpImports/taxonomy` | taxonomy | Managed metadata |
-| Security | `spfx-toolkit/lib/utilities/context/pnpImports/security` | security, sharing | Permissions |
-| Features | `spfx-toolkit/lib/utilities/context/pnpImports/features` | features, navigation, regional-settings | Site features |
-| Pages | `spfx-toolkit/lib/utilities/context/pnpImports/pages` | clientside-pages, comments | Modern pages |
-| Social | `spfx-toolkit/lib/utilities/context/pnpImports/social` | comments, likes, favorites | Social features |
-| Apps | `spfx-toolkit/lib/utilities/context/pnpImports/apps` | appcatalog | App management |
-| Hub Sites | `spfx-toolkit/lib/utilities/context/pnpImports/hubsites` | hubsites | Hub site operations |
+| Module    | Import Path                                              | Bundle Impact | Includes                                | Use Case             |
+| --------- | -------------------------------------------------------- | ------------- | --------------------------------------- | -------------------- |
+| Core      | `spfx-toolkit/lib/utilities/context/pnpImports/core`     | Auto-imported | webs, site-users, profiles              | Base functionality   |
+| Lists     | `spfx-toolkit/lib/utilities/context/pnpImports/lists`    | **+20-30KB**  | lists, items, batching, views           | List operations      |
+| Files     | `spfx-toolkit/lib/utilities/context/pnpImports/files`    | **+15-25KB**  | files, folders, attachments             | File management      |
+| Content   | `spfx-toolkit/lib/utilities/context/pnpImports/content`  | **+10-15KB**  | content-types, fields, column-defaults  | Content structure    |
+| Search    | `spfx-toolkit/lib/utilities/context/pnpImports/search`   | **+10-15KB**  | search                                  | Search functionality |
+| Taxonomy  | `spfx-toolkit/lib/utilities/context/pnpImports/taxonomy` | **+25-35KB**  | taxonomy                                | Managed metadata     |
+| Security  | `spfx-toolkit/lib/utilities/context/pnpImports/security` | **+15-20KB**  | security, sharing                       | Permissions          |
+| Features  | `spfx-toolkit/lib/utilities/context/pnpImports/features` | **+10-15KB**  | features, navigation, regional-settings | Site features        |
+| Pages     | `spfx-toolkit/lib/utilities/context/pnpImports/pages`    | **+20-30KB**  | clientside-pages, comments              | Modern pages         |
+| Social    | `spfx-toolkit/lib/utilities/context/pnpImports/social`   | **+10-15KB**  | comments, likes, favorites              | Social features      |
+| Apps      | `spfx-toolkit/lib/utilities/context/pnpImports/apps`     | **+10-15KB**  | appcatalog                              | App management       |
+| Hub Sites | `spfx-toolkit/lib/utilities/context/pnpImports/hubsites` | **+5-10KB**   | hubsites                                | Hub site operations  |
 
-#### Examples by Use Case
+#### ✅ Tree-Shaking Examples by Use Case
 
-**Basic List Operations:**
+**Basic List Operations (Minimal Bundle Impact):**
+
 ```typescript
+// Only import what you need for lists
 import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
-import { SPContext } from 'spfx-toolkit';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
+// Bundle impact: ~20-30KB additional
 // Now you can use: lists, items, batching, views
 const batch = SPContext.sp.web.createBatch();
 batch.query(SPContext.sp.web.lists.getByTitle('Tasks').items);
@@ -93,41 +120,61 @@ await batch.execute();
 ```
 
 **File Management:**
-```typescript
-import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
-import { SPContext } from 'spfx-toolkit';
 
+```typescript
+// Only import file operations
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// Bundle impact: ~15-25KB additional
 // Now you can use: files, folders, attachments
 const file = await SPContext.sp.web.getFileByServerRelativeUrl('/Documents/test.docx');
 ```
 
 **Search Operations:**
-```typescript
-import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
-import { SPContext } from 'spfx-toolkit';
 
+```typescript
+// Only import search functionality
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// Bundle impact: ~10-15KB additional
 // Now you can use: search API
 const results = await SPContext.sp.search('ContentType:Document');
 ```
 
-**Multiple Modules:**
+**Multiple Modules (Choose Only What You Need):**
+
 ```typescript
-import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
-import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
-import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
+// Import only the specific modules your component uses
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists'; // +20-30KB
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files'; // +15-25KB
+import 'spfx-toolkit/lib/utilities/context/pnpImports/search'; // +10-15KB
+import { SPContext } from 'spfx-toolkit/lib/utilities/context'; // +15-25KB
+
+// Total impact: ~60-95KB (vs 200-500KB+ for full package import)
+```
+
+#### ❌ What NOT to Do (Bundle Bloat)
+
+```typescript
+// ❌ NEVER: Imports entire toolkit (200-500KB+)
 import { SPContext } from 'spfx-toolkit';
 
-// Use all imported functionality
+// ❌ AVOID: Importing modules you don't use
+import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy'; // +25-35KB
+import 'spfx-toolkit/lib/utilities/context/pnpImports/social'; // +10-15KB
+// ... when you only need basic list operations
 ```
 
 ## Quick Start
 
-### Basic Setup
+### Tree-Shakable Setup (Recommended)
 
 ```typescript
-// Import the PnP modules you need
+// Import only the PnP modules you need
 import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
-import { SPContext } from 'spfx-toolkit';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -149,7 +196,7 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
     SPContext.logger.info('Data loaded', {
       count: results[0].length,
       webTitle: SPContext.webTitle,
-      user: SPContext.currentUser.title
+      user: SPContext.currentUser.title,
     });
   }
 }
@@ -161,30 +208,30 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
 
 ```typescript
 // Web URLs and paths
-SPContext.webAbsoluteUrl         // https://tenant.sharepoint.com/sites/mysite
-SPContext.webServerRelativeUrl   // /sites/mysite
-SPContext.tenantUrl              // https://tenant.sharepoint.com
+SPContext.webAbsoluteUrl; // https://tenant.sharepoint.com/sites/mysite
+SPContext.webServerRelativeUrl; // /sites/mysite
+SPContext.tenantUrl; // https://tenant.sharepoint.com
 
 // Web metadata
-SPContext.webTitle               // "My SharePoint Site"
-SPContext.webId                  // Web GUID as string
-SPContext.applicationName        // Your SPFx component name
-SPContext.correlationId          // Unique session identifier
+SPContext.webTitle; // "My SharePoint Site"
+SPContext.webId; // Web GUID as string
+SPContext.applicationName; // Your SPFx component name
+SPContext.correlationId; // Unique session identifier
 ```
 
 ### User Information
 
 ```typescript
 // Complete user profile (fetched during initialization)
-SPContext.currentUser.id          // SharePoint user ID
-SPContext.currentUser.title       // Display name
-SPContext.currentUser.email       // Email address
-SPContext.currentUser.loginName   // Login name
-SPContext.currentUser.value       // Same as loginName
-SPContext.currentUser.department  // User's department (if available)
-SPContext.currentUser.jobTitle    // Job title (if available)
-SPContext.currentUser.sip         // SIP/phone (if available)
-SPContext.currentUser.picture     // Profile picture URL (if available)
+SPContext.currentUser.id; // SharePoint user ID
+SPContext.currentUser.title; // Display name
+SPContext.currentUser.email; // Email address
+SPContext.currentUser.loginName; // Login name
+SPContext.currentUser.value; // Same as loginName
+SPContext.currentUser.department; // User's department (if available)
+SPContext.currentUser.jobTitle; // Job title (if available)
+SPContext.currentUser.sip; // SIP/phone (if available)
+SPContext.currentUser.picture; // Profile picture URL (if available)
 ```
 
 ### List Context
@@ -192,22 +239,22 @@ SPContext.currentUser.picture     // Profile picture URL (if available)
 When your component is in a list context, these properties are available:
 
 ```typescript
-SPContext.listId                 // List GUID as string
-SPContext.listTitle              // "Tasks"
-SPContext.listServerRelativeUrl  // "/sites/mysite/Lists/Tasks"
+SPContext.listId; // List GUID as string
+SPContext.listTitle; // "Tasks"
+SPContext.listServerRelativeUrl; // "/sites/mysite/Lists/Tasks"
 ```
 
 ### Environment & Culture
 
 ```typescript
 // Environment detection
-SPContext.environment            // 'dev', 'uat', or 'prod'
-SPContext.isTeamsContext         // true if running in Microsoft Teams
+SPContext.environment; // 'dev', 'uat', or 'prod'
+SPContext.isTeamsContext; // true if running in Microsoft Teams
 
 // Localization
-SPContext.currentUICultureName   // "en-US"
-SPContext.currentCultureName     // "en-US"
-SPContext.isRightToLeft         // true for RTL languages like Arabic
+SPContext.currentUICultureName; // "en-US"
+SPContext.currentCultureName; // "en-US"
+SPContext.isRightToLeft; // true for RTL languages like Arabic
 ```
 
 ## Core Services
@@ -231,7 +278,7 @@ const configData = await SPContext.spPessimistic.web.lists.getByTitle('Settings'
 // Structured logging with context
 SPContext.logger.info('Operation started', {
   operation: 'loadUsers',
-  webTitle: SPContext.webTitle
+  webTitle: SPContext.webTitle,
 });
 
 SPContext.logger.success('Operation completed', { count: 25 });
@@ -268,7 +315,7 @@ const result = await SPContext.http.callFunction({
   method: 'POST',
   data: { items: [1, 2, 3] },
   useAuth: true,
-  resourceUri: 'api://your-app-id'
+  resourceUri: 'api://your-app-id',
 });
 
 // Power Platform Flow triggers
@@ -276,7 +323,7 @@ const flowResult = await SPContext.http.triggerFlow({
   url: 'https://prod-123.westus.logic.azure.com/workflows/...',
   data: { userId: SPContext.currentUser.loginName },
   functionKey: 'your-flow-key',
-  idempotencyKey: crypto.randomUUID()
+  idempotencyKey: crypto.randomUUID(),
 });
 
 // Standard HTTP calls
@@ -318,17 +365,17 @@ await SPContext.initialize(this.context, {
   logging: {
     level: LogLevel.Info,
     enableConsole: true,
-    enablePerformance: true
+    enablePerformance: true,
   },
   cache: {
     strategy: 'memory',
-    ttl: 300000 // 5 minutes
+    ttl: 300000, // 5 minutes
   },
   http: {
     timeout: 30000,
     retries: 2,
-    enableAuth: true
-  }
+    enableAuth: true,
+  },
 });
 ```
 
@@ -337,8 +384,9 @@ await SPContext.initialize(this.context, {
 ### Document Library Manager
 
 ```typescript
+// Tree-shakable imports for file operations
 import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
-import { SPContext } from 'spfx-toolkit';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class DocumentManager extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -359,7 +407,7 @@ export default class DocumentManager extends BaseClientSideWebPart<IProps> {
           fileName: file.name,
           fileSize: file.size,
           uploadedBy: SPContext.currentUser.displayName,
-          webTitle: SPContext.webTitle
+          webTitle: SPContext.webTitle,
         });
 
         // Trigger processing workflow
@@ -369,10 +417,10 @@ export default class DocumentManager extends BaseClientSideWebPart<IProps> {
             fileUrl: result.data.ServerRelativeUrl,
             fileName: file.name,
             webUrl: SPContext.webAbsoluteUrl,
-            uploadedBy: SPContext.currentUser.loginName
+            uploadedBy: SPContext.currentUser.loginName,
           },
           functionKey: this.properties.flowKey,
-          idempotencyKey: `upload-${file.name}-${Date.now()}`
+          idempotencyKey: `upload-${file.name}-${Date.now()}`,
         });
       });
     } catch (error) {
@@ -380,8 +428,8 @@ export default class DocumentManager extends BaseClientSideWebPart<IProps> {
         fileName: file.name,
         webContext: {
           url: SPContext.webAbsoluteUrl,
-          title: SPContext.webTitle
-        }
+          title: SPContext.webTitle,
+        },
       });
       throw error;
     }
@@ -392,8 +440,9 @@ export default class DocumentManager extends BaseClientSideWebPart<IProps> {
 ### Multi-Language Dashboard
 
 ```typescript
+// Tree-shakable imports for list operations
 import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
-import { SPContext } from 'spfx-toolkit';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class Dashboard extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -415,19 +464,17 @@ export default class Dashboard extends BaseClientSideWebPart<IProps> {
     SPContext.logger.info('Dashboard localization configured', {
       culture: SPContext.currentUICultureName,
       isRTL: SPContext.isRightToLeft,
-      webTitle: SPContext.webTitle
+      webTitle: SPContext.webTitle,
     });
   }
 
   private async loadDashboardData(): Promise<void> {
     try {
       // Use cached data for configuration (always available)
-      const config = await SPContext.spCached.web.lists
-        .getByTitle('Dashboard Config').items();
+      const config = await SPContext.spCached.web.lists.getByTitle('Dashboard Config').items();
 
       // Fresh data for metrics
-      const metrics = await SPContext.sp.web.lists
-        .getByTitle('Metrics').items.top(50)();
+      const metrics = await SPContext.sp.web.lists.getByTitle('Metrics').items.top(50)();
 
       // Format dates according to user culture
       const formatter = new Intl.DateTimeFormat(SPContext.currentUICultureName);
@@ -436,10 +483,9 @@ export default class Dashboard extends BaseClientSideWebPart<IProps> {
         config,
         metrics: metrics.map(m => ({
           ...m,
-          formattedDate: formatter.format(new Date(m.Created))
-        }))
+          formattedDate: formatter.format(new Date(m.Created)),
+        })),
       });
-
     } catch (error) {
       SPContext.logger.error('Dashboard load failed', error);
     }
@@ -450,7 +496,8 @@ export default class Dashboard extends BaseClientSideWebPart<IProps> {
 ### Teams Integration
 
 ```typescript
-import { SPContext } from 'spfx-toolkit';
+// Core functionality only - no additional PnP imports needed
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class TeamsIntegration extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -469,7 +516,7 @@ export default class TeamsIntegration extends BaseClientSideWebPart<IProps> {
       // Teams-specific configuration
       SPContext.logger.info('Configuring for Microsoft Teams', {
         webTitle: SPContext.webTitle,
-        environment: SPContext.environment
+        environment: SPContext.environment,
       });
 
       this.domElement.classList.add('teams-context');
@@ -477,7 +524,7 @@ export default class TeamsIntegration extends BaseClientSideWebPart<IProps> {
     } else {
       // Standard SharePoint configuration
       SPContext.logger.info('Configuring for SharePoint', {
-        webTitle: SPContext.webTitle
+        webTitle: SPContext.webTitle,
       });
 
       this.applySharePointTheme();
@@ -570,7 +617,7 @@ console.log('Context Summary:', summary);
 const listsUrl = SPContext.buildApiUrl('web/lists');
 // Result: https://tenant.sharepoint.com/sites/mysite/_api/web/lists
 
-const itemsUrl = SPContext.buildApiUrl('web/lists/getByTitle(\'Tasks\')/items');
+const itemsUrl = SPContext.buildApiUrl("web/lists/getByTitle('Tasks')/items");
 // Result: https://tenant.sharepoint.com/sites/mysite/_api/web/lists/getByTitle('Tasks')/items
 ```
 
@@ -609,22 +656,22 @@ SPContext supports multiple caching strategies. All SP instances are always avai
 ```typescript
 // Memory caching (session-based)
 await SPContext.initialize(this.context, {
-  cache: { strategy: 'memory', ttl: 300000 } // 5 minutes
+  cache: { strategy: 'memory', ttl: 300000 }, // 5 minutes
 });
 
 // Storage caching (persistent)
 await SPContext.initialize(this.context, {
-  cache: { strategy: 'storage', ttl: 600000 } // 10 minutes
+  cache: { strategy: 'storage', ttl: 600000 }, // 10 minutes
 });
 
 // Pessimistic caching (for rarely changing data)
 await SPContext.initialize(this.context, {
-  cache: { strategy: 'pessimistic', ttl: 1800000 } // 30 minutes
+  cache: { strategy: 'pessimistic', ttl: 1800000 }, // 30 minutes
 });
 
 // All instances are always available - smart fallback behavior:
-const freshData = await SPContext.sp.web.lists.getByTitle('News').items();           // Always fresh
-const cachedData = await SPContext.spCached.web.lists.getByTitle('Config').items();  // Cached if enabled, otherwise fresh
+const freshData = await SPContext.sp.web.lists.getByTitle('News').items(); // Always fresh
+const cachedData = await SPContext.spCached.web.lists.getByTitle('Config').items(); // Cached if enabled, otherwise fresh
 const staticData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items(); // Pessimistic if enabled, otherwise fresh
 ```
 
@@ -640,10 +687,10 @@ try {
     user: SPContext.currentUser.loginName,
     web: {
       title: SPContext.webTitle,
-      url: SPContext.webAbsoluteUrl
+      url: SPContext.webAbsoluteUrl,
     },
     environment: SPContext.environment,
-    correlationId: SPContext.correlationId
+    correlationId: SPContext.correlationId,
   });
 
   // Environment-specific error handling
@@ -657,7 +704,42 @@ try {
 
 ## Best Practices
 
-### 1. Initialize Once
+### 1. Always Use Tree-Shakable Imports
+
+```typescript
+// ✅ EXCELLENT: Minimal bundle impact
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// ✅ GOOD: Import only needed PnP modules
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
+
+// ❌ NEVER: Imports entire toolkit
+import { SPContext } from 'spfx-toolkit';
+```
+
+### 2. Import Only What You Need
+
+```typescript
+// ✅ Good - Only import modules your component uses
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists'; // For list operations
+import 'spfx-toolkit/lib/utilities/context/pnpImports/files'; // For file operations
+
+// ❌ Bad - Importing unused modules
+import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy'; // Not needed for basic operations
+```
+
+### 3. Monitor Bundle Size Impact
+
+Use SPFx bundle analysis to track your imports:
+
+```bash
+# In your SPFx project
+gulp bundle --ship --analyze-bundle
+```
+
+Check the webpack-bundle-analyzer output to ensure your imports are optimized.
+
+### 4. Initialize Once
 
 ```typescript
 // ✅ Good - Initialize in onInit()
@@ -669,7 +751,7 @@ protected async onInit(): Promise<void> {
 // ❌ Bad - Don't initialize multiple times
 ```
 
-### 2. Use Smart Initialization
+### 5. Use Smart Initialization
 
 ```typescript
 // ✅ Good - Let SPContext detect environment
@@ -678,7 +760,7 @@ await SPContext.smart(this.context, 'MyComponent');
 // ❌ Unnecessary - Manual environment detection
 ```
 
-### 3. Leverage Performance Tracking
+### 6. Leverage Performance Tracking
 
 ```typescript
 // ✅ Good - Track important operations
@@ -690,7 +772,7 @@ const users = await SPContext.performance.track('loadUsers', async () => {
 const health = await SPContext.getHealthCheck();
 ```
 
-### 4. Use Structured Logging
+### 7. Use Structured Logging
 
 ```typescript
 // ✅ Good - Rich, structured logs
@@ -698,14 +780,14 @@ SPContext.logger.info('Operation completed', {
   operation: 'data-sync',
   itemCount: items.length,
   webTitle: SPContext.webTitle,
-  duration: 1250
+  duration: 1250,
 });
 
 // ❌ Basic - Simple string logs
 console.log('Operation completed');
 ```
 
-### 5. Handle Different Contexts
+### 8. Handle Different Contexts
 
 ```typescript
 // ✅ Good - Context-aware behavior
@@ -718,9 +800,18 @@ if (SPContext.isRightToLeft) {
 }
 ```
 
+### 9. Bundle Size Optimization Checklist
+
+- [ ] Use `spfx-toolkit/lib/utilities/context` instead of `spfx-toolkit`
+- [ ] Import only needed PnP modules (`lists`, `files`, etc.)
+- [ ] Run `gulp bundle --ship --analyze-bundle` to verify bundle size
+- [ ] Remove unused imports
+- [ ] Consider lazy loading for rarely used features
+
 ## API Reference
 
 ### Static Properties
+
 - `webAbsoluteUrl`, `webServerRelativeUrl`, `tenantUrl`
 - `webTitle`, `webId`, `applicationName`, `correlationId`
 - `currentUser`, `listId`, `listTitle`, `listServerRelativeUrl`
@@ -730,6 +821,7 @@ if (SPContext.isRightToLeft) {
 - `logger`, `http`, `performance`
 
 ### Static Methods
+
 - `smart()`, `production()`, `development()`, `basic()`, `teams()`
 - `initialize()`, `isReady()`, `reset()`, `addModule()`
 - `getHealthCheck()`, `getContextSummary()`

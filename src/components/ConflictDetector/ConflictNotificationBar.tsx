@@ -1,12 +1,8 @@
-import {
-  MessageBar,
-  MessageBarButton,
-  MessageBarType,
-  Spinner,
-  SpinnerSize,
-  Stack,
-  Text,
-} from '@fluentui/react';
+import { MessageBarButton } from '@fluentui/react/lib/Button';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { ConflictInfo, ConflictResolutionAction } from './types';

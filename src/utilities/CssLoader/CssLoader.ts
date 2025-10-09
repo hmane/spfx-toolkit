@@ -1,5 +1,4 @@
 import { SPComponentLoader } from '@microsoft/sp-loader';
-import { SPFI } from '@pnp/sp';
 
 /**
  * Simple utility for loading CSS files from SharePoint document libraries
@@ -9,13 +8,13 @@ export class CssLoader {
 
   /**
    * Load multiple CSS files from SharePoint document library
-   * @param sp - PnP SP instance
+   * @param webAbsoluteUrl - Web absolute URL (e.g., 'https://tenant.sharepoint.com/sites/mysite')
    * @param libraryName - Document library name (e.g., 'Style Library')
    * @param cssFiles - Array of CSS file names with relative paths
    * @param options - Loading options
    */
   public static loadCssFiles(
-    sp: SPFI,
+    webAbsoluteUrl: string,
     libraryName: string,
     cssFiles: string[],
     options: { cache?: boolean } = {}
@@ -31,9 +30,9 @@ export class CssLoader {
       }
 
       try {
-        // Use SP instance to get web URL
-        const webUrl = sp.web.toUrl();
-        const fileUrl = `${webUrl}/${libraryName}/${cssFile}`;
+        // Ensure webAbsoluteUrl doesn't end with a slash
+        const cleanWebUrl = webAbsoluteUrl.replace(/\/$/, '');
+        const fileUrl = `${cleanWebUrl}/${libraryName}/${cssFile}`;
 
         // Load CSS synchronously
         SPComponentLoader.loadCss(fileUrl);
@@ -50,17 +49,17 @@ export class CssLoader {
 
   /**
    * Load single CSS file from SharePoint document library
-   * @param sp - PnP SP instance
+   * @param webAbsoluteUrl - Web absolute URL (e.g., 'https://tenant.sharepoint.com/sites/mysite')
    * @param libraryName - Document library name
    * @param cssFile - CSS file name with relative path
    * @param options - Loading options
    */
   public static loadCssFile(
-    sp: SPFI,
+    webAbsoluteUrl: string,
     libraryName: string,
     cssFile: string,
     options: { cache?: boolean } = {}
   ): void {
-    this.loadCssFiles(sp, libraryName, [cssFile], options);
+    this.loadCssFiles(webAbsoluteUrl, libraryName, [cssFile], options);
   }
 }

@@ -1,6 +1,6 @@
+import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useMemo } from 'react';
-import { useTheme } from '@fluentui/react';
 import { ContentAreaProps } from './types';
 import { getStepperStyles } from './WorkflowStepper.styles';
 

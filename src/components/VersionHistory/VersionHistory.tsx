@@ -1,4 +1,7 @@
-import { Icon, MessageBar, MessageBarType, Spinner, SpinnerSize, Text } from '@fluentui/react';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Text } from '@fluentui/react/lib/Text';
 import '@pnp/sp/content-types';
 import '@pnp/sp/fields';
 import { Popup } from 'devextreme-react/popup';

@@ -1,15 +1,17 @@
+import { Icon } from '@fluentui/react/lib/Icon';
+import { mergeStyles } from '@fluentui/react/lib/Styling';
+import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { mergeStyles, useTheme, Icon } from '@fluentui/react';
 import { ContentArea } from './ContentArea';
 import { StepItem } from './StepItem';
 import { StepData, WorkflowStepperProps } from './types';
 import {
   findAutoSelectStep,
-  getNextClickableStepId,
-  getPrevClickableStepId,
   getFirstClickableStepId,
   getLastClickableStepId,
+  getNextClickableStepId,
+  getPrevClickableStepId,
   getStepById,
   isStepClickable,
   validateStepIds,

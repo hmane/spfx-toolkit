@@ -11,26 +11,27 @@ A fluent API utility for batching SharePoint list operations using PnP.js v3+. T
 - **Configurable Batching**: Customizable batch sizes and execution modes
 - **TypeScript Support**: Full type definitions included
 
+## Prerequisites
+
+This utility is part of the SPFx Toolkit and requires SPContext to be initialized. SPContext provides the configured PnP.js instance with proper authentication and caching.
+
 ## Installation
 
 ```bash
-npm install @pnp/sp
+npm install spfx-toolkit
 ```
 
 ## Quick Start
 
 ```typescript
-import { spfi } from '@pnp/sp';
-import '@pnp/sp/webs';
-import '@pnp/sp/lists';
-import '@pnp/sp/items';
-import '@pnp/sp/batching';
-import { createBatchBuilder } from './BatchBuilder';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { createBatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
 
-const sp = spfi('https://yourtenant.sharepoint.com/sites/yoursite').using(/* your config */);
+// Initialize SPContext in your web part's onInit()
+await SPContext.smart(this.context, 'MyWebPart');
 
-// Simple batch operations
-const result = await createBatchBuilder(sp)
+// Simple batch operations using SPContext
+const result = await createBatchBuilder(SPContext.sp)
   .list('MyList')
   .add({ Title: 'Item 1', Description: 'Test item' })
   .add({ Title: 'Item 2', Description: 'Another test' })
@@ -54,14 +55,18 @@ interface IBatchBuilderConfig {
 ### Creating a BatchBuilder
 
 ```typescript
-// With default configuration
-const batchBuilder = createBatchBuilder(sp);
+// Using SPContext (recommended - automatically configured)
+const batchBuilder = createBatchBuilder(SPContext.sp);
 
 // With custom configuration
-const batchBuilder = createBatchBuilder(sp, {
+const batchBuilder = createBatchBuilder(SPContext.sp, {
   batchSize: 50,
   enableConcurrency: true,
 });
+
+// For different caching strategies
+const batchBuilder = createBatchBuilder(SPContext.spCached); // Memory cached
+const batchBuilder = createBatchBuilder(SPContext.spPessimistic); // Always fresh
 ```
 
 ### List Operations
@@ -108,7 +113,7 @@ batchBuilder
 ### Cross-List Operations
 
 ```typescript
-const result = await createBatchBuilder(sp)
+const result = await createBatchBuilder(SPContext.sp)
   .list('Projects')
   .add({ Title: 'Project A', Status: 'New' })
   .update(1, { Status: 'In Progress' })
@@ -172,6 +177,63 @@ interface IOperationResult {
 }
 ```
 
+## SPContext Integration
+
+The BatchBuilder is designed to work seamlessly with SPContext, which provides:
+
+- **Automatic Authentication**: No need to configure authentication manually
+- **Environment Detection**: Automatically adapts to dev/prod/Teams environments
+- **Multiple PnP Instances**: Choose the right caching strategy for your needs
+- **Built-in Logging**: Integrates with SPContext.logger for consistent logging
+- **Performance Tracking**: Automatically tracks batch operation performance
+
+### SPContext Instance Options
+
+```typescript
+// Default instance with standard caching
+createBatchBuilder(SPContext.sp);
+
+// Memory-cached instance for frequently accessed data
+createBatchBuilder(SPContext.spCached);
+
+// No-cache instance for always-fresh data
+createBatchBuilder(SPContext.spPessimistic);
+```
+
+### Web Part Integration Pattern
+
+```typescript
+import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { createBatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+
+export default class MyWebPart extends BaseClientSideWebPart<IProps> {
+  protected async onInit(): Promise<void> {
+    await super.onInit();
+
+    // Initialize SPContext once
+    await SPContext.smart(this.context, 'MyWebPart');
+  }
+
+  public async performBatchOperations(): Promise<void> {
+    try {
+      const result = await createBatchBuilder(SPContext.sp)
+        .list('MyList')
+        .add({ Title: 'New Item' })
+        .execute();
+
+      if (result.success) {
+        SPContext.logger.success('Batch operations completed', {
+          operations: result.totalOperations,
+        });
+      }
+    } catch (error) {
+      SPContext.logger.error('Batch operations failed', error);
+    }
+  }
+}
+```
+
 ## Configuration Options
 
 ### Batch Size
@@ -179,7 +241,7 @@ interface IOperationResult {
 Controls how many operations are included in each batch. SharePoint has limits on batch sizes, so the default of 100 is conservative for reliability.
 
 ```typescript
-const batchBuilder = createBatchBuilder(sp, { batchSize: 50 });
+const batchBuilder = createBatchBuilder(SPContext.sp, { batchSize: 50 });
 ```
 
 ### Concurrency
@@ -188,10 +250,10 @@ Controls whether multiple batches are executed concurrently or sequentially.
 
 ```typescript
 // Sequential execution (safer, default)
-const batchBuilder = createBatchBuilder(sp, { enableConcurrency: false });
+const batchBuilder = createBatchBuilder(SPContext.sp, { enableConcurrency: false });
 
 // Concurrent execution (faster, but may hit throttling limits)
-const batchBuilder = createBatchBuilder(sp, { enableConcurrency: true });
+const batchBuilder = createBatchBuilder(SPContext.sp, { enableConcurrency: true });
 ```
 
 ## Advanced Examples
@@ -199,7 +261,13 @@ const batchBuilder = createBatchBuilder(sp, { enableConcurrency: true });
 ### Complex Multi-List Workflow
 
 ```typescript
-const result = await createBatchBuilder(sp, {
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { createBatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+
+// Initialize SPContext in your web part
+await SPContext.smart(this.context, 'OrderManagement');
+
+const result = await createBatchBuilder(SPContext.sp, {
   batchSize: 50,
   enableConcurrency: false,
 })
@@ -225,15 +293,20 @@ const result = await createBatchBuilder(sp, {
 
 if (result.success) {
   console.log('Order workflow completed successfully');
+  SPContext.logger.success('Order workflow completed', {
+    orderId: result.results[0]?.data?.Id,
+    totalOperations: result.totalOperations,
+  });
 } else {
   console.log('Some operations failed:', result.errors);
+  SPContext.logger.error('Order workflow failed', result.errors);
 }
 ```
 
 ### Dynamic Configuration
 
 ```typescript
-const batchBuilder = createBatchBuilder(sp);
+const batchBuilder = createBatchBuilder(SPContext.sp);
 
 // Update configuration based on conditions
 if (operationsCount > 200) {
@@ -269,5 +342,11 @@ console.log('Current batch size:', config.batchSize);
 
 ## Dependencies
 
-- `@pnp/sp` v3.x or higher
+- **SPContext**: Must be initialized before using BatchBuilder
+- `spfx-toolkit` package (includes all required PnP.js dependencies)
 - TypeScript 4.x or higher (recommended)
+
+## Related Documentation
+
+- **SPContext Documentation**: See SPFx Toolkit documentation for SPContext initialization and configuration
+- **SPFx Toolkit Architecture**: Understanding the overall toolkit architecture and patterns

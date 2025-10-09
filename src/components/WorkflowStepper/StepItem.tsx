@@ -1,8 +1,8 @@
+import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useCallback, useRef } from 'react';
-import { useTheme, Icon } from '@fluentui/react';
 import { StepData, StepDescriptionStyles, StepperMode } from './types';
-import { getStepperStyles, getStepItemStyles } from './WorkflowStepper.styles';
+import { getStepItemStyles, getStepperStyles } from './WorkflowStepper.styles';
 
 export interface StepItemProps {
   step: StepData;
