@@ -4,6 +4,7 @@
 
 import type { SPFI } from '@pnp/sp';
 import type { PageContext } from '@microsoft/sp-page-context';
+import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import type {
   SPFxContextInput,
   ContextConfig,
@@ -12,7 +13,6 @@ import type {
   Logger,
   HttpClient,
   PerformanceTracker,
-  PeoplePickerContext,
 } from './types';
 import { IPrincipal } from '../../types';
 
@@ -287,10 +287,10 @@ export class SPContext {
   }
 
   // ========================================
-  // PEOPLEPICKER CONTEXT - NEW
+  // PEOPLEPICKER CONTEXT - Uses IPeoplePickerContext from PnP
   // ========================================
 
-  static get peoplepickerContext(): PeoplePickerContext {
+  static get peoplepickerContext(): IPeoplePickerContext {
     return SPContext.context.peoplepickerContext;
   }
 

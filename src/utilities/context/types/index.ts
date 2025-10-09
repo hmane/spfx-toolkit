@@ -4,9 +4,9 @@
 
 import type { BaseComponentContext } from '@microsoft/sp-component-base';
 import type { PageContext } from '@microsoft/sp-page-context';
-import type { SPHttpClient, MSGraphClientFactory } from '@microsoft/sp-http';
 import type { LogLevel } from '@pnp/logging';
 import type { SPFI } from '@pnp/sp';
+import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { IPrincipal } from '../../../types';
 
 // Environment types
@@ -42,18 +42,6 @@ export interface ContextConfig {
     strategy?: CacheStrategy;
     ttl?: number;
   };
-}
-
-// PeoplePicker context interface - CORRECTED to match PnP requirements
-export interface PeoplePickerContext {
-  /** Web absolute URL - Required */
-  absoluteUrl: string;
-
-  /** MSGraph client factory for Graph API calls - Required */
-  msGraphClientFactory: MSGraphClientFactory | null;
-
-  /** SharePoint HTTP client for REST API calls - Required */
-  spHttpClient: SPHttpClient | null;
 }
 
 // Main context interface with focused SharePoint properties
@@ -102,8 +90,8 @@ export interface SPFxContext {
   readonly http: HttpClient;
   readonly performance: PerformanceTracker;
 
-  // PeoplePicker context for modern people picker components
-  readonly peoplepickerContext: PeoplePickerContext;
+  // PeoplePicker context for modern people picker components (uses PnP interface)
+  readonly peoplepickerContext: IPeoplePickerContext;
 
   // Optional advanced features
   readonly links?: LinkBuilder;

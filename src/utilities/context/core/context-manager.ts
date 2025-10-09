@@ -6,6 +6,7 @@ import { LogLevel } from '@pnp/logging';
 import { spfi, SPFI, SPFx } from '@pnp/sp';
 import type { PageContext } from '@microsoft/sp-page-context';
 import { SPHttpClient } from '@microsoft/sp-http';
+import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { CacheModule } from '../modules/cache';
 import { SimpleHttpClient } from '../modules/http';
 import { SimpleLogger } from '../modules/logger';
@@ -208,33 +209,22 @@ export class ContextManager {
   }
 
   /**
-   * Create PeoplePicker context with only the 3 required properties
+   * Create PeoplePicker context using IPeoplePickerContext from PnP
    * Based on: https://pnp.github.io/sp-dev-fx-controls-react/controls/PeoplePicker/
    */
-  private createPeoplePickerContext(spfxContext: SPFxContextInput): any {
-    try {
-      return {
-        // 1. absoluteUrl - Required
-        absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
+  private createPeoplePickerContext(spfxContext: SPFxContextInput): IPeoplePickerContext {
+    const { MSGraphClientFactory } = require('@microsoft/sp-http');
 
-        // 2. msGraphClientFactory - Required for Graph API calls
-        msGraphClientFactory: spfxContext.serviceScope.consume(
-          require('@microsoft/sp-http').MSGraphClientFactory.serviceKey
-        ),
+    return {
+      // absoluteUrl - Required
+      absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
 
-        // 3. spHttpClient - Required for SharePoint REST API calls
-        spHttpClient: spfxContext.spHttpClient as SPHttpClient,
-      };
-    } catch (error) {
-      console.warn('Could not create complete PeoplePicker context:', error);
+      // msGraphClientFactory - Required for Graph API calls
+      msGraphClientFactory: spfxContext.serviceScope.consume(MSGraphClientFactory.serviceKey),
 
-      // Fallback minimal context with just absoluteUrl
-      return {
-        absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
-        msGraphClientFactory: null,
-        spHttpClient: spfxContext.spHttpClient || null,
-      };
-    }
+      // spHttpClient - Required for SharePoint REST API calls
+      spHttpClient: spfxContext.spHttpClient as SPHttpClient,
+    } as IPeoplePickerContext;
   }
 
   /**

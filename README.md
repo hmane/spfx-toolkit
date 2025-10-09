@@ -72,16 +72,18 @@ const MyWebPart: React.FC = () => {
 | [**ManageAccess**](./src/components/ManageAccess/README.md) | SharePoint-like permission management |
 | [**ErrorBoundary**](./src/components/ErrorBoundary/README.md) | Graceful error handling with retry functionality |
 | [**Form Components**](./src/components/spForm/README.md) | Responsive forms with DevExtreme and PnP integration |
+| [**UserPersona**](./src/components/UserPersona/README.md) | Display user profiles with automatic fetching and caching |
+| [**VersionHistory**](./src/components/VersionHistory/README.md) | Document and list item version history with comparison |
 
 ### 🎣 React Hooks
 
-| Hook | Description |
-|------|-------------|
-| `useLocalStorage` | Persistent state with localStorage |
-| `useViewport` | Responsive breakpoint detection |
-| `useCardController` | Programmatic card control |
-| `useConflictDetection` | Real-time conflict monitoring |
-| `useErrorHandler` | Error boundary integration |
+| Hook | Description | Documentation |
+|------|-------------|---------------|
+| `useLocalStorage` | Persistent state with localStorage | [View Docs](./src/hooks/README.md) |
+| `useViewport` | Responsive breakpoint detection | [View Docs](./src/hooks/README.md) |
+| `useCardController` | Programmatic card control | [Card Docs](./src/components/Card/README.md) |
+| `useConflictDetection` | Real-time conflict monitoring | [Conflict Docs](./src/components/ConflictDetector/README.md) |
+| `useErrorHandler` | Error boundary integration | [Error Docs](./src/components/ErrorBoundary/README.md) |
 
 ### 🛠️ Utilities
 
@@ -91,8 +93,8 @@ const MyWebPart: React.FC = () => {
 | [**PermissionHelper**](./src/utilities/permissionHelper/README.md) | SharePoint permission and group validation |
 | [**Context Management**](./src/utilities/context/README.md) | Advanced SPFx context handling with caching |
 | [**ListItemHelper**](./src/utilities/listItemHelper/README.md) | Extract and transform SharePoint field values |
-| **StringUtils** | String manipulation extensions |
-| **DateUtils** | Date formatting and calculation utilities |
+| [**StringUtils**](./src/utilities/stringUtils/README.md) | String manipulation extensions |
+| [**DateUtils**](./src/utilities/dateUtils/README.md) | Date formatting and calculation utilities |
 
 ## 📊 Bundle Size Optimization
 

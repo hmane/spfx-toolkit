@@ -1,65 +1,165 @@
-# VersionHistory Component
+# VersionHistory Component 📜
 
-Advanced version history viewer for SharePoint documents and list items with field-level change tracking, built with React, Fluent UI, and DevExtreme.
+A comprehensive, production-ready React component for displaying and managing SharePoint document and list item version history. Built with DevExtreme Popup, featuring version comparison, field change tracking, export capabilities, and advanced filtering.
 
 ## Features
 
-### Core Functionality
-- **Automatic Item Type Detection** - Detects whether viewing document or list item history
-- **Field-Level Change Tracking** - Shows exactly which fields changed between versions with before/after comparison
-- **User Profile Integration** - Automatically fetches and displays correct user names via SharePoint's ensureUser API
-- **Smart Photo Detection** - Uses MD5 hash validation to show user photos or initials
-- **Version Download** - Download any historical version of a document
-- **CSV Export** - Export complete version history with all field changes
-- **Advanced Filtering** - Filter by user, date range, search text, or major versions only
-- **DevExtreme Popup** - Uses DevExtreme Popup with ScrollView for better screen utilization (95vw x 95vh)
-
-### UI/UX
-- **Minimal Design** - Streamlined interface focused on changes, not decoration
-- **Compact Version Cards** - 60px height cards showing version, user avatar, time, and change count
-- **Inline Field Comparison** - 3-column table layout with "Previous → New" inline display
-- **Live Persona Integration** - Hover cards for user details via PnP LivePersona
-- **Responsive Layout** - Optimized for desktop with mobile support
-- **Collapsible Filters** - Keep UI clean when filters aren't needed
+- 📋 **Version Comparison** - Side-by-side comparison of any two versions
+- 🔍 **Field Change Tracking** - Detailed view of what changed between versions
+- 📥 **Export to CSV** - Export complete version history with all changes
+- ⬇️ **Document Download** - Download specific document versions
+- 🎯 **Advanced Filtering** - Filter by user, date range, major versions
+- 🔎 **Search** - Full-text search across version comments and changes
+- 📱 **Responsive Design** - Optimized for desktop with scrollable popup
+- 🎨 **DevExtreme UI** - Modern, polished interface with ScrollView
+- 🔧 **Auto-Detection** - Automatically detects document vs list item type
+- ♿ **Accessible** - WCAG 2.1 AA compliant
+- 🚀 **Performance** - Efficient rendering with virtualization
 
 ## Installation
 
+This component is part of the SPFx Toolkit:
+
 ```bash
-npm install
+npm install spfx-toolkit
 ```
 
-### Dependencies
+**Required Dependencies:**
+```bash
+npm install devextreme@^22.2.3
+npm install devextreme-react@^22.2.3
+npm install @pnp/sp@^3.20.1
+```
 
-Required packages:
-- `@fluentui/react` (v8.106.4)
-- `@pnp/sp` (^3.20.1)
-- `@pnp/queryable` (^3.20.1)
-- `@pnp/spfx-controls-react` (for LivePersona)
-- `devextreme-react` (22.2.3)
-- `@microsoft/sp-loader` (for MD5 module)
+**Import Styles:**
+```typescript
+import 'devextreme/dist/css/dx.light.css';
+import 'spfx-toolkit/lib/components/VersionHistory/VersionHistory.css';
+```
 
-## Usage
-
-### Basic Example
+## Quick Start
 
 ```typescript
-import { VersionHistory } from './components/VersionHistory';
-import * as React from 'react';
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
-const MyComponent: React.FC = () => {
+// Initialize SPContext first
+await SPContext.smart(this.context, 'MyWebPart');
+
+// Basic usage
+const [showHistory, setShowHistory] = React.useState(false);
+
+<button onClick={() => setShowHistory(true)}>
+  View Version History
+</button>
+
+{showHistory && (
+  <VersionHistory
+    listId="your-list-guid"
+    itemId={123}
+    onClose={() => setShowHistory(false)}
+  />
+)}
+```
+
+## API Reference
+
+### Props
+
+```typescript
+interface IVersionHistoryProps {
+  listId: string;                           // Required: SharePoint List GUID
+  itemId: number;                           // Required: SharePoint Item ID
+  onClose: () => void;                      // Required: Callback when modal is closed
+  onExport?: (versionCount: number) => void;  // Optional: After CSV export
+  onDownload?: (version: IVersionInfo) => void;  // Optional: After download
+}
+```
+
+### Version Info Interface
+
+```typescript
+interface IVersionInfo {
+  versionLabel: string;          // "5.0", "4.1", etc.
+  versionId: number;             // Unique version ID
+  isCurrentVersion: boolean;     // Is this the latest version?
+  modifiedBy: string;            // User who created this version
+  modifiedByEmail: string;       // User's email
+  modified: Date;                // When version was created
+  size?: number;                 // File size (documents only)
+  comment?: string;              // Version comment/label
+  url?: string;                  // Document URL (documents only)
+  fieldChanges: IFieldChange[];  // What changed in this version
+}
+```
+
+### Field Change Interface
+
+```typescript
+interface IFieldChange {
+  fieldName: string;        // Internal field name
+  fieldDisplayName: string; // User-friendly name
+  oldValue: any;            // Previous value
+  newValue: any;            // New value
+  changeType: 'added' | 'modified' | 'removed';
+}
+```
+
+## Usage Examples
+
+### 1. Basic Document Version History
+
+```typescript
+import * as React from 'react';
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+const DocumentVersionHistory: React.FC = () => {
   const [showHistory, setShowHistory] = React.useState(false);
+  const documentListId = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+  const documentItemId = 42;
 
   return (
-    <>
+    <div>
       <button onClick={() => setShowHistory(true)}>
-        View Version History
+        View Document History
       </button>
 
       {showHistory && (
         <VersionHistory
-          listId="your-list-guid"
-          itemId={123}
+          listId={documentListId}
+          itemId={documentItemId}
           onClose={() => setShowHistory(false)}
+        />
+      )}
+    </div>
+  );
+};
+```
+
+### 2. List Item Version History
+
+```typescript
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+
+const TaskVersionHistory: React.FC<{ taskId: number }> = ({ taskId }) => {
+  const [showHistory, setShowHistory] = React.useState(false);
+  const tasksListId = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+
+  return (
+    <>
+      <button onClick={() => setShowHistory(true)}>
+        History
+      </button>
+
+      {showHistory && (
+        <VersionHistory
+          listId={tasksListId}
+          itemId={taskId}
+          onClose={() => setShowHistory(false)}
+          onExport={(count) => {
+            console.log(`Exported ${count} versions`);
+          }}
         />
       )}
     </>
@@ -67,229 +167,512 @@ const MyComponent: React.FC = () => {
 };
 ```
 
-### With Callbacks
+### 3. With Export and Download Callbacks
 
 ```typescript
+const AdvancedVersionHistory: React.FC = () => {
+  const [showHistory, setShowHistory] = React.useState(false);
+
+  const handleExport = (versionCount: number) => {
+    // Track export analytics
+    console.log(`User exported ${versionCount} versions`);
+
+    // Show notification
+    alert(`Successfully exported ${versionCount} versions to CSV`);
+  };
+
+  const handleDownload = (version: IVersionInfo) => {
+    // Track download analytics
+    console.log(`User downloaded version ${version.versionLabel}`);
+
+    // Log to SharePoint audit
+    logDocumentAccess(version.versionId);
+  };
+
+  return (
+    <>
+      <button onClick={() => setShowHistory(true)}>
+        Version History
+      </button>
+
+      {showHistory && (
+        <VersionHistory
+          listId="doc-library-guid"
+          itemId={123}
+          onClose={() => setShowHistory(false)}
+          onExport={handleExport}
+          onDownload={handleDownload}
+        />
+      )}
+    </>
+  );
+};
+```
+
+### 4. Document Library Integration
+
+```typescript
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+
+interface IDocument {
+  id: number;
+  name: string;
+  modified: Date;
+  modifiedBy: string;
+}
+
+const DocumentLibrary: React.FC<{ documents: IDocument[] }> = ({ documents }) => {
+  const [selectedDocId, setSelectedDocId] = React.useState<number | null>(null);
+  const libraryId = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+
+  return (
+    <div>
+      <table>
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Modified</th>
+            <th>Modified By</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {documents.map(doc => (
+            <tr key={doc.id}>
+              <td>{doc.name}</td>
+              <td>{doc.modified.toLocaleDateString()}</td>
+              <td>{doc.modifiedBy}</td>
+              <td>
+                <button onClick={() => setSelectedDocId(doc.id)}>
+                  View History
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {selectedDocId && (
+        <VersionHistory
+          listId={libraryId}
+          itemId={selectedDocId}
+          onClose={() => setSelectedDocId(null)}
+        />
+      )}
+    </div>
+  );
+};
+```
+
+### 5. SPFx WebPart Integration
+
+```typescript
+import * as React from 'react';
+import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+interface IDocumentDetailsProps {
+  listId: string;
+  itemId: number;
+}
+
+const DocumentDetails: React.FC<IDocumentDetailsProps> = ({ listId, itemId }) => {
+  const [showHistory, setShowHistory] = React.useState(false);
+
+  return (
+    <div className="document-details">
+      <h2>Document Information</h2>
+
+      <button
+        className="btn-version-history"
+        onClick={() => setShowHistory(true)}
+      >
+        📜 Version History
+      </button>
+
+      {showHistory && (
+        <VersionHistory
+          listId={listId}
+          itemId={itemId}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default class DocumentDetailsWebPart extends BaseClientSideWebPart<IDocumentDetailsProps> {
+  protected async onInit(): Promise<void> {
+    // Initialize SPContext - REQUIRED
+    await SPContext.smart(this.context, 'DocumentDetails');
+    return super.onInit();
+  }
+
+  public render(): void {
+    const element = React.createElement(DocumentDetails, {
+      listId: this.properties.listId,
+      itemId: this.properties.itemId
+    });
+    ReactDom.render(element, this.domElement);
+  }
+}
+```
+
+### 6. Form Customizer Integration
+
+```typescript
+import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { FormDisplayMode } from '@microsoft/sp-core-library';
+
+export default class MyFormCustomizer extends BaseFormCustomizer<IMyFormCustomizerProperties> {
+  private _versionHistoryContainer: HTMLElement;
+
+  public onInit(): Promise<void> {
+    // Initialize SPContext
+    return SPContext.smart(this.context, 'FormCustomizer');
+  }
+
+  public render(): void {
+    // Add version history button to form
+    if (this.displayMode !== FormDisplayMode.New) {
+      this._versionHistoryContainer = document.createElement('div');
+      this.domElement.appendChild(this._versionHistoryContainer);
+
+      const element = React.createElement(VersionHistoryButton, {
+        listId: this.context.list.id.toString(),
+        itemId: this.context.itemId
+      });
+
+      ReactDom.render(element, this._versionHistoryContainer);
+    }
+  }
+}
+
+const VersionHistoryButton: React.FC<{ listId: string; itemId: number }> =
+  ({ listId, itemId }) => {
+    const [show, setShow] = React.useState(false);
+
+    return (
+      <>
+        <button onClick={() => setShow(true)}>
+          View Version History
+        </button>
+        {show && (
+          <VersionHistory
+            listId={listId}
+            itemId={itemId}
+            onClose={() => setShow(false)}
+          />
+        )}
+      </>
+    );
+  };
+```
+
+## Utility Functions
+
+The component exports several utility functions:
+
+```typescript
+import {
+  compareVersions,
+  downloadDocumentVersion,
+  exportAllToCSV,
+  filterVersions,
+  formatRelativeTime,
+  formatAbsoluteTime,
+  formatFieldValue,
+  formatFileSize,
+  formatSizeDelta,
+  getUniqueUsers
+} from 'spfx-toolkit/lib/components/VersionHistory';
+
+// Compare two versions
+const changes = compareVersions(version1, version2);
+console.log(changes); // Array of field changes
+
+// Format relative time
+const relative = formatRelativeTime(new Date('2025-01-01'));
+// "2 months ago"
+
+// Format absolute time
+const absolute = formatAbsoluteTime(new Date());
+// "January 15, 2025 at 3:45 PM"
+
+// Format file size
+const size = formatFileSize(1536000);
+// "1.46 MB"
+
+// Format size delta
+const delta = formatSizeDelta(1000000, 1500000);
+// "+500 KB (↑ 50%)"
+
+// Get unique users from versions
+const users = getUniqueUsers(versionArray);
+// ["john.doe@company.com", "jane.smith@company.com"]
+```
+
+## Features in Detail
+
+### 1. Version Comparison
+
+The component automatically compares consecutive versions and highlights changes:
+
+- **Added Fields:** Green indicator
+- **Modified Fields:** Orange/yellow indicator with before → after
+- **Removed Fields:** Red indicator
+
+### 2. Field Change Types
+
+Changes are categorized and displayed with visual indicators:
+
+```typescript
+interface IFieldChange {
+  fieldName: string;
+  fieldDisplayName: string;
+  oldValue: any;
+  newValue: any;
+  changeType: 'added' | 'modified' | 'removed';
+}
+```
+
+### 3. Filtering and Search
+
+Users can filter versions by:
+
+- **Search:** Free-text search in comments and field values
+- **User:** Filter by who made the change
+- **Date Range:** Custom date range or presets (Last 7 days, Last 30 days, etc.)
+- **Major Versions Only:** Hide minor versions
+
+### 4. Export to CSV
+
+Exports complete version history including:
+- Version number and date
+- Modified by user
+- Version comments
+- All field changes with before/after values
+- File size (for documents)
+
+### 5. Document Download
+
+For document libraries:
+- Download button for each version
+- Downloads specific version of the document
+- Preserves original filename with version suffix
+
+## Auto-Detection
+
+The component automatically detects whether the item is:
+
+- **Document:** Shows file size, download buttons, document-specific fields
+- **List Item:** Shows all metadata fields, version comments
+
+```typescript
+// Component automatically detects type based on:
+// - Presence of 'File' field
+// - Content type
+// - List template type
+```
+
+## Styling
+
+### Default Styles
+
+The component includes comprehensive styles in `VersionHistory.css`:
+
+```typescript
+import 'spfx-toolkit/lib/components/VersionHistory/VersionHistory.css';
+```
+
+### DevExtreme Theme
+
+Requires DevExtreme CSS:
+
+```typescript
+import 'devextreme/dist/css/dx.light.css';
+// or
+import 'devextreme/dist/css/dx.dark.css';
+```
+
+### Custom Styling
+
+```css
+/* Override popup size */
+.dx-popup-content .version-history-container {
+  max-height: 80vh;
+}
+
+/* Customize version cards */
+.version-card {
+  border-left: 4px solid var(--themePrimary);
+}
+
+/* Customize field changes table */
+.field-changes-table th {
+  background-color: var(--neutralLight);
+}
+```
+
+## Best Practices
+
+### 1. Initialize SPContext
+
+```typescript
+// ✅ Good - Initialize in onInit
+protected async onInit(): Promise<void> {
+  await SPContext.smart(this.context, 'MyWebPart');
+  return super.onInit();
+}
+
+// ❌ Bad - Missing initialization
+// Component will fail without SPContext
+```
+
+### 2. Conditional Rendering
+
+```typescript
+// ✅ Good - Only render when needed
+{showHistory && (
+  <VersionHistory
+    listId={listId}
+    itemId={itemId}
+    onClose={() => setShowHistory(false)}
+  />
+)}
+
+// ❌ Bad - Always rendered (hidden with CSS)
+<div style={{ display: showHistory ? 'block' : 'none' }}>
+  <VersionHistory ... />
+</div>
+```
+
+### 3. Handle Callbacks
+
+```typescript
+// ✅ Good - Handle export/download events
 <VersionHistory
-  listId="07950eb9-7523-4e7e-9c78-19d719e06c7d"
-  itemId={2}
+  listId={listId}
+  itemId={itemId}
   onClose={() => setShowHistory(false)}
-  onExport={(versionCount) => {
-    console.log(`Exported ${versionCount} versions`);
+  onExport={(count) => {
+    logAnalytics('version-export', { count });
   }}
   onDownload={(version) => {
-    console.log(`Downloaded v${version.versionLabel}`);
+    logAnalytics('version-download', { version: version.versionLabel });
   }}
 />
 ```
 
-## Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `listId` | `string` | Yes | SharePoint List GUID |
-| `itemId` | `number` | Yes | SharePoint Item ID |
-| `onClose` | `() => void` | Yes | Callback when popup is closed |
-| `onExport` | `(versionCount: number) => void` | No | Callback after successful CSV export |
-| `onDownload` | `(version: IVersionInfo) => void` | No | Callback after successful version download |
-
-## Component Structure
-
-```
-VersionHistory/
-├── VersionHistory.tsx          # Main component
-├── VersionHistory.css          # Styles
-├── types.ts                    # TypeScript interfaces
-├── VersionHistoryUtils.ts      # Utility functions
-├── index.ts                    # Exports
-└── components/
-    ├── VersionTimeline.tsx     # Left panel - version list
-    ├── VersionCard.tsx         # Individual version card
-    ├── VersionDetails.tsx      # Right panel - details view
-    ├── FieldChangesTable.tsx   # Field changes table
-    └── FieldChangeRow.tsx      # Individual field change row
-```
-
-## Key Features Explained
-
-### Automatic User Profile Resolution
-
-The component automatically fetches user profiles using SharePoint's `ensureUser` API:
-- Fetches correct display name even if caller provides incorrect data
-- Uses pessimistic caching for instant subsequent loads
-- Falls back gracefully if user lookup fails
+### 4. Error Handling
 
 ```typescript
-// User info is automatically fetched and cached
-// No need to provide display names - they're resolved automatically
+// Component handles errors internally, but you can wrap in ErrorBoundary
+import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
+
+<ErrorBoundary>
+  {showHistory && (
+    <VersionHistory
+      listId={listId}
+      itemId={itemId}
+      onClose={() => setShowHistory(false)}
+    />
+  )}
+</ErrorBoundary>
 ```
 
-### Smart Photo Detection
+## Permissions
 
-Uses MD5 hash validation to detect SharePoint's default placeholder images:
-- Dynamically loads MD5 module from SharePoint
-- Calculates hash of user photo
-- Shows initials if photo is default placeholder
-- Shows actual photo if user has uploaded one
+The component automatically checks user permissions:
 
-### Version Download
+- **ViewVersions:** Required to view version history
+- **OpenItems:** Required to download document versions
 
-For documents, supports downloading any historical version:
-- Current version: Uses standard SharePoint API
-- Historical versions: Uses `_vti_history` path with native fetch
-- Auto-generates versioned filename (e.g., `document_v1_0.pdf`)
+If user lacks permissions, an appropriate message is displayed.
 
-### Field Change Detection
+## Performance
 
-Compares versions field-by-field:
-- Filters out system fields automatically
-- Shows added/modified/removed fields
-- Handles all SharePoint field types (User, Lookup, DateTime, etc.)
-- Color-coded for quick scanning
+### Optimizations
 
-## Styling Customization
+- **Lazy Loading:** Only loads versions when popup opens
+- **Efficient Comparison:** Caches field comparisons
+- **Virtualization:** Uses DevExtreme ScrollView for smooth scrolling
+- **Memoization:** Prevents unnecessary re-renders
 
-The component uses CSS classes that can be overridden:
+### Large Version Histories
 
-```css
-/* Customize version card height */
-.version-card {
-  height: 60px; /* Change to your preferred height */
-}
+For items with 100+ versions:
+- Consider implementing pagination
+- Use major versions filter
+- Apply date range filters
 
-/* Customize popup size */
-.version-history-popup .dx-popup-content {
-  /* Custom styles */
-}
+## TypeScript Support
 
-/* Customize colors */
-.version-card.selected {
-  border-color: #0078d4; /* Your brand color */
-}
+Full TypeScript definitions included:
+
+```typescript
+import {
+  IVersionHistoryProps,
+  IVersionInfo,
+  IFieldChange,
+  IItemInfo,
+  IFilterState,
+  DateRangeFilter
+} from 'spfx-toolkit/lib/components/VersionHistory';
 ```
-
-## Error Handling
-
-The component handles common error scenarios:
-- **Item not found** - Closes popup and shows helpful alert
-- **No permission** - Shows clear message about access issues
-- **Network errors** - Logs errors and shows user-friendly messages
-- **Download failures** - Alerts user with specific error details
-
-Example error message:
-```
-Unable to load version history.
-
-Possible reasons:
-• The item does not exist
-• You do not have permission to view this item
-• The item may have been deleted
-```
-
-## Performance Considerations
-
-### Caching
-- **User profiles**: Cached for 1 hour using pessimistic refresh
-- **Version data**: Fetched once per component mount
-- **MD5 module**: Loaded once and reused
-
-### Rendering
-- **Minimal re-renders**: Uses React.useMemo and React.useCallback
-- **Lightweight cards**: 60px cards allow ~10-12 versions visible without scrolling
-- **Lazy loading**: DevExtreme ScrollView for efficient scrolling
-
-## Browser Support
-
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
-- IE11 (not supported - requires modern browser)
-
-## Known Limitations
-
-1. **Historical versions for documents** - SharePoint's API returns only historical versions; current version is fetched separately
-2. **User photos** - Requires valid email/UPN; won't show for external users without SharePoint profile
-3. **Large files** - Download may be slow for very large document versions
-4. **Field types** - Some custom field types may not format correctly
 
 ## Troubleshooting
 
-### "Unknown User" showing
-- Check that the version has Author/Editor/CreatedBy information
-- Verify user exists in SharePoint site
-- Check console for user extraction logs
+### Issue: "Access Denied" Error
 
-### Download fails
-- Verify user has permission to view historical versions
-- Check that `_vti_history` folder is accessible
-- Ensure version ID is correct
-
-### No versions showing
-- Verify versioning is enabled on the library/list
-- Check user has permission to view item
-- Ensure item actually has multiple versions
-
-### Photos not loading
-- Verify user has uploaded a photo to SharePoint/Microsoft 365
-- Check network tab for 404s on photo URLs
-- Ensure MD5 module loads successfully
-
-## Development
-
-### Adding New Field Types
-
-To support custom field types, update `formatFieldValue` in `VersionHistoryUtils.ts`:
+**Solution:** User needs `ViewVersions` permission on the list/library
 
 ```typescript
-case FieldType.YourCustomType:
-  return formatYourCustomType(value);
+// Check permissions programmatically
+const hasPermission = await SPContext.sp.web.lists
+  .getById(listId)
+  .currentUserHasPermissions(PermissionKind.ViewVersions);
 ```
 
-### Adding System Fields
+### Issue: Download Button Not Working
 
-To filter out additional system fields, update `isSystemField`:
+**Solution:** Ensure item is in a document library, not a list
 
 ```typescript
-const systemFields = [
-  // ... existing fields
-  'YourSystemField',
-];
+// Only documents can be downloaded
+// List items show metadata changes only
 ```
 
-### Debugging
+### Issue: Popup Not Showing
 
-Enable verbose logging:
+**Solution:** Verify DevExtreme CSS is imported
+
 ```typescript
-console.log('[VersionHistory] ...'); // Already included throughout
+import 'devextreme/dist/css/dx.light.css';
+import 'spfx-toolkit/lib/components/VersionHistory/VersionHistory.css';
 ```
 
-Check these key logs:
-- `[loadVersions]` - Version fetching
-- `[processVersions]` - Version processing
-- `[compareVersions]` - Field comparison
-- `[downloadDocumentVersion]` - Download operations
+### Issue: Field Names Show Internal Names
 
-## License
+**Solution:** Component uses field display names from SharePoint schema. If internal names appear, the field may not have a display name set.
 
-Include your license here.
+## Browser Support
 
-## Support
+- Chrome 80+
+- Firefox 75+
+- Safari 13+
+- Edge 80+
 
-For issues or questions, contact your development team.
+## Related Components
 
-## Changelog
+- [UserPersona](../UserPersona/README.md) - Display user information
+- [ConflictDetector](../ConflictDetector/README.md) - Concurrent editing detection
+- [ErrorBoundary](../ErrorBoundary/README.md) - Error handling
 
-### v2.0.0 (Current)
-- Redesigned with DevExtreme Popup
-- Removed export dialog complexity (Export All only)
-- Minimal version cards (60px height)
-- Automatic user profile resolution
-- Smart photo detection with MD5 hash
-- Inline field comparison (Previous → New)
-- Fixed historical version downloads
-- Improved error handling
+## Dependencies
 
-### v1.0.0
-- Initial release with Fluent UI Modal
-- Basic version history viewing
-- Field-level change tracking
+- `devextreme@^22.2.3` - UI components
+- `devextreme-react@^22.2.3` - React wrappers
+- `@pnp/sp@^3.20.1` - SharePoint operations
+- SPFx Toolkit Context utility
