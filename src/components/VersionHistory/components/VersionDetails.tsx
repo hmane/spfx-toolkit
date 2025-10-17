@@ -1,4 +1,6 @@
-import { Icon, MessageBar, MessageBarType, Text } from '@fluentui/react';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { UserPersona } from '../../UserPersona';
 import { IVersionDetailsProps } from '../types';

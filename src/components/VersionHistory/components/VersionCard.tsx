@@ -1,4 +1,4 @@
-import { Icon } from '@fluentui/react';
+import { Icon } from '@fluentui/react/lib/Icon';
 import * as React from 'react';
 import { UserPersona } from '../../UserPersona';
 import { IVersionCardProps } from '../types';

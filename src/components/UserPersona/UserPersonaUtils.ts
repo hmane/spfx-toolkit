@@ -2,7 +2,7 @@
  * Utility functions for UserPersona component
  */
 
-import { PersonaInitialsColor } from '@fluentui/react';
+import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
 import { IProfileCache } from './types';
 
 /**

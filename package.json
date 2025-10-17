@@ -21,6 +21,11 @@
       "import": "./lib/components/index.js",
       "require": "./lib/components/index.js"
     },
+    "./components/lazy": {
+      "types": "./lib/components/lazy/index.d.ts",
+      "import": "./lib/components/lazy/index.js",
+      "require": "./lib/components/lazy/index.js"
+    },
     "./hooks": {
       "types": "./lib/hooks/index.d.ts",
       "import": "./lib/hooks/index.js",
@@ -39,7 +44,9 @@
   ],
   "sideEffects": [
     "**/*.css",
-    "**/*.scss"
+    "**/*.scss",
+    "**/CssLoader.js",
+    "**/context/sp-context.js"
   ],
   "engines": {
     "node": ">=18 <23"

@@ -1,18 +1,11 @@
-import {
-  DefaultButton,
-  Dialog,
-  DialogFooter,
-  DialogType,
-  Icon,
-  MessageBar,
-  MessageBarType,
-  PrimaryButton,
-  Separator,
-  Spinner,
-  SpinnerSize,
-  Stack,
-  Text,
-} from '@fluentui/react';
+import { DefaultButton, PrimaryButton } from '@fluentui/react/lib/Button';
+import { Dialog, DialogFooter, DialogType } from '@fluentui/react/lib/Dialog';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Separator } from '@fluentui/react/lib/Separator';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConflictInfo, ConflictResolutionAction } from './types';

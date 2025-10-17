@@ -1,4 +1,6 @@
-import { Icon, Text, TooltipHost } from '@fluentui/react';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { Text } from '@fluentui/react/lib/Text';
+import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import * as React from 'react';
 import { UserPersona } from '../../UserPersona';
 import { FieldType, IFieldChangeRowProps } from '../types';

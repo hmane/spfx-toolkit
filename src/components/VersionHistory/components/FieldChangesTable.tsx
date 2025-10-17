@@ -1,4 +1,6 @@
-import { MessageBar, MessageBarType, SearchBox, Text } from '@fluentui/react';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { SearchBox } from '@fluentui/react/lib/SearchBox';
+import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { IFieldChangesTableProps } from '../types';
 import { FieldChangeRow } from './FieldChangeRow';

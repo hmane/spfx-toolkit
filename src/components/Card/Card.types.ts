@@ -1,4 +1,4 @@
-import { ITooltipHostProps } from '@fluentui/react';
+import { ITooltipHostProps } from '@fluentui/react/lib/Tooltip';
 import { CSSProperties, MouseEvent, ReactNode } from 'react';
 
 // ==================== Basic Types ====================

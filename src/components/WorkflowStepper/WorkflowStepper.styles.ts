@@ -1,4 +1,5 @@
-import { ITheme, keyframes, mergeStyles } from '@fluentui/react';
+import { ITheme } from '@fluentui/react/lib/Styling';
+import { keyframes, mergeStyles } from '@fluentui/react/lib/Styling';
 import { StepStatus, StepperStyleProps, StepColors, StepperMode } from './types';
 
 // Animation keyframes

@@ -1,16 +1,11 @@
-import {
-  Checkbox,
-  DatePicker,
-  DefaultButton,
-  Dropdown,
-  IDropdownOption,
-  MessageBar,
-  MessageBarType,
-  SearchBox,
-  Spinner,
-  SpinnerSize,
-  Text,
-} from '@fluentui/react';
+import { Checkbox } from '@fluentui/react/lib/Checkbox';
+import { DatePicker } from '@fluentui/react/lib/DatePicker';
+import { DefaultButton } from '@fluentui/react/lib/Button';
+import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { SearchBox } from '@fluentui/react/lib/SearchBox';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { DateRangeFilter, IVersionTimelineProps } from '../types';
 import { getUniqueUsers } from '../VersionHistoryUtils';

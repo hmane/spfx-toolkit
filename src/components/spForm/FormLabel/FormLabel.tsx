@@ -1,8 +1,8 @@
-import { DirectionalHint } from '@fluentui/react';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { ITooltipHostStyles, TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { getId } from '@fluentui/react/lib/Utilities';
 import * as React from 'react';
+import { DirectionalHint } from '../../../types/fluentui-types';
 
 export interface IFormLabelProps {
   children: React.ReactNode;

@@ -1,9 +1,9 @@
-import { DirectionalHint } from '@fluentui/react';
 import { IPersonaProps } from '@fluentui/react/lib/Persona';
 import { isEqual } from '@microsoft/sp-lodash-subset';
 import { IPeoplePickerContext, PeoplePicker } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
 import { Controller, FieldValues, Path } from 'react-hook-form';
+import { DirectionalHint } from '../../../types/fluentui-types';
 
 export interface IPnPPeoplePickerProps<T extends FieldValues> {
   name: Path<T>;

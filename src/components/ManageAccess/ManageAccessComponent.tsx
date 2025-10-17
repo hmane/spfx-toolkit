@@ -1,13 +1,10 @@
-import {
-  Icon,
-  Link,
-  PersonaInitialsColor,
-  Spinner,
-  SpinnerSize,
-  Stack,
-  Text,
-  TooltipHost,
-} from '@fluentui/react';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { Link } from '@fluentui/react/lib/Link';
+import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { Text } from '@fluentui/react/lib/Text';
+import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
 import { createPermissionHelper } from '../../utilities/permissionHelper';

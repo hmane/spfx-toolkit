@@ -1,4 +1,3 @@
-import { DirectionalHint } from '@fluentui/react/lib/Callout';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { Persona, PersonaInitialsColor, PersonaSize } from '@fluentui/react/lib/Persona';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
@@ -7,6 +6,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import * as React from 'react';
+import { DirectionalHint } from '../../types/fluentui-types';
 import { SPContext } from '../../utilities/context';
 import { UserPersona } from '../UserPersona';
 import './GroupViewer.css';
