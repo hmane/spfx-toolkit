@@ -510,7 +510,10 @@ export function filterVersions(
   }
 
   if (filterState.filterByUser) {
-    filtered = filtered.filter(version => version.modifiedBy === filterState.filterByUser);
+    const filterUser = filterState.filterByUser.toLowerCase();
+    filtered = filtered.filter(
+      version => (version.modifiedBy || '').toLowerCase() === filterUser
+    );
   }
 
   if (filterState.filterDateRange !== 'all') {

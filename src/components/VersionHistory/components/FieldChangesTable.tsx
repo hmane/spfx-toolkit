@@ -42,24 +42,20 @@ export const FieldChangesTable: React.FC<IFieldChangesTableProps> = props => {
     );
   }
 
+  const showSearch = changes.length > 5;
+
   return (
     <div className='field-changes-table'>
-      {/* Header with search */}
-      <div className='field-changes-header'>
-        <div className='field-changes-title'>
-          {changes.length} field{changes.length !== 1 ? 's' : ''} changed
+      {showSearch && (
+        <div className='field-changes-search'>
+          <SearchBox
+            placeholder='Search changes...'
+            value={searchQuery}
+            onChange={(_, newValue) => handleSearchChange(newValue)}
+            onClear={handleClearSearch}
+          />
         </div>
-        {changes.length > 5 && (
-          <div className='field-changes-search'>
-            <SearchBox
-              placeholder='Search changes...'
-              value={searchQuery}
-              onChange={(_, newValue) => handleSearchChange(newValue)}
-              onClear={handleClearSearch}
-            />
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Table header row */}
       <div className='field-changes-table-header'>

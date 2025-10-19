@@ -26,6 +26,12 @@ export interface IVersionHistoryProps {
    * Optional callback after successful download
    */
   onDownload?: (version: IVersionInfo) => void;
+
+  /**
+   * Enable copy link quick actions
+   * @default false
+   */
+  allowCopyLink?: boolean;
 }
 
 /**
@@ -96,6 +102,29 @@ export interface IVersionHistoryState {
    * Whether filters panel is expanded
    */
   filtersExpanded: boolean;
+
+  /**
+   * Custom date range start
+   */
+  customDateStart: Date | null;
+
+  /**
+   * Custom date range end
+   */
+  customDateEnd: Date | null;
+
+  /**
+   * Persisted key for local storage
+   */
+  persistenceKey: string | null;
+
+  /**
+   * Optional toast/status message
+   */
+  statusMessage?: {
+    type: 'info' | 'success' | 'warning' | 'error';
+    text: string;
+  } | null;
 }
 
 /**
@@ -288,6 +317,12 @@ export interface IVersionTimelineProps {
   itemType: 'document' | 'list';
   filtersExpanded: boolean;
   onToggleFilters: () => void;
+  currentUserLogin?: string;
+  onClearFilters: () => void;
+  onDownloadVersion?: (version: IVersionInfo) => void | Promise<void>;
+  onCopyVersionLink?: (version: IVersionInfo) => void;
+  showMajorFilter: boolean;
+  showCopyActions: boolean;
 }
 
 /**
@@ -297,6 +332,11 @@ export interface IVersionCardProps {
   version: IVersionInfo;
   isSelected: boolean;
   onClick: () => void;
+  onDownloadVersion?: (version: IVersionInfo) => void | Promise<void>;
+  onCopyLink?: (version: IVersionInfo) => void;
+  showMajorBadge: boolean;
+  showCopyActions: boolean;
+  itemType: 'document' | 'list';
 }
 
 /**
@@ -306,8 +346,10 @@ export interface IVersionDetailsProps {
   version: IVersionInfo;
   itemInfo: IItemInfo;
   itemType: 'document' | 'list';
-  onDownload: () => void;
+  onDownload: () => void | Promise<void>;
   isDownloading: boolean;
+  onCopyLink: (version: IVersionInfo) => void;
+  allowCopyLink: boolean;
 }
 
 /**

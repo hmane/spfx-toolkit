@@ -2,6 +2,7 @@ import { Checkbox } from '@fluentui/react/lib/Checkbox';
 import { DatePicker } from '@fluentui/react/lib/DatePicker';
 import { DefaultButton } from '@fluentui/react/lib/Button';
 import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
+import { Icon } from '@fluentui/react/lib/Icon';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { SearchBox } from '@fluentui/react/lib/SearchBox';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
@@ -21,6 +22,12 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     onFilterChange,
     filtersExpanded,
     onToggleFilters,
+    currentUserLogin,
+    onClearFilters,
+    onDownloadVersion,
+    onCopyVersionLink,
+    showMajorFilter,
+    showCopyActions,
   } = props;
 
   const handleSearchChange = React.useCallback(
@@ -74,6 +81,85 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     return [{ key: '', text: 'All users' }, ...users];
   }, [versions]);
 
+  const normalizedCurrentUser = React.useMemo(
+    () => (currentUserLogin ? currentUserLogin.toLowerCase() : null),
+    [currentUserLogin]
+  );
+
+  const currentUserOptionKey = React.useMemo(() => {
+    if (!normalizedCurrentUser) return null;
+    const match = userOptions.find(
+      option => typeof option.key === 'string' && option.key.toLowerCase() === normalizedCurrentUser
+    );
+    return (match?.key as string) || null;
+  }, [normalizedCurrentUser, userOptions]);
+
+  const isMineActive =
+    !!currentUserOptionKey &&
+    (filterState.filterByUser || '').toLowerCase() === currentUserOptionKey.toLowerCase();
+
+  const isRecentActive = filterState.filterDateRange === 'month';
+
+  const quickFilters = React.useMemo(() => {
+    const chips: Array<{
+      key: string;
+      label: string;
+      active: boolean;
+      disabled?: boolean;
+      description?: string;
+      onClick: () => void;
+    }> = [];
+
+    if (showMajorFilter) {
+      chips.push({
+        key: 'major',
+        label: 'Major versions',
+        active: filterState.showMajorOnly,
+        description: 'Show only major versions',
+        onClick: () => onFilterChange({ showMajorOnly: !filterState.showMajorOnly }),
+      });
+    }
+
+    chips.push({
+      key: 'mine',
+      label: 'My edits',
+      active: isMineActive,
+      disabled: !currentUserOptionKey,
+      description: 'Show versions you modified',
+      onClick: () => {
+        if (!currentUserOptionKey) {
+          return;
+        }
+        onFilterChange({
+          filterByUser: isMineActive ? null : currentUserOptionKey,
+        });
+      },
+    });
+
+    chips.push({
+      key: 'recent',
+      label: 'Last 30 days',
+      active: isRecentActive,
+      description: 'Show versions modified in the last 30 days',
+      onClick: () =>
+        onFilterChange({
+          filterDateRange: isRecentActive ? 'all' : 'month',
+          customDateStart: null,
+          customDateEnd: null,
+        }),
+    });
+
+    return chips;
+  }, [
+    filterState.showMajorOnly,
+    filterState.filterDateRange,
+    isMineActive,
+    isRecentActive,
+    currentUserOptionKey,
+    onFilterChange,
+    showMajorFilter,
+  ]);
+
   const dateRangeOptions: IDropdownOption[] = [
     { key: 'all', text: 'All time' },
     { key: 'today', text: 'Today' },
@@ -83,6 +169,58 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     { key: 'year', text: 'Last year' },
     { key: 'custom', text: 'Custom range' },
   ];
+
+  const activeFilterLabels = React.useMemo(() => {
+    const labels: string[] = [];
+
+    if (filterState.searchQuery) {
+      labels.push(`Search: "${filterState.searchQuery}"`);
+    }
+
+    if (filterState.filterByUser) {
+      const match = userOptions.find(option => option.key === filterState.filterByUser);
+      labels.push(`Modified by ${match?.text || filterState.filterByUser}`);
+    }
+
+    switch (filterState.filterDateRange) {
+      case 'today':
+        labels.push('Today');
+        break;
+      case 'week':
+        labels.push('Last 7 days');
+        break;
+      case 'month':
+        labels.push('Last 30 days');
+        break;
+      case 'quarter':
+        labels.push('Last 90 days');
+        break;
+      case 'year':
+        labels.push('Last year');
+        break;
+      case 'custom':
+        if (filterState.customDateStart || filterState.customDateEnd) {
+          const start = filterState.customDateStart
+            ? filterState.customDateStart.toLocaleDateString()
+            : '...';
+          const end = filterState.customDateEnd
+            ? filterState.customDateEnd.toLocaleDateString()
+            : '...';
+          labels.push(`Custom range ${start} - ${end}`);
+        } else {
+          labels.push('Custom range');
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (filterState.showMajorOnly && showMajorFilter) {
+      labels.push('Major versions');
+    }
+
+    return labels;
+  }, [filterState, userOptions, showMajorFilter]);
 
   return (
     <div className='version-timeline'>
@@ -94,6 +232,27 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
         </Text>
       </div>
 
+      {/* Quick filters */}
+      {quickFilters.length > 0 && (
+        <div className='version-timeline-quick-filters'>
+          {quickFilters.map(filter => (
+            <button
+              key={filter.key}
+              className={`version-timeline-chip ${filter.active ? 'active' : ''} ${
+                filter.disabled ? 'disabled' : ''
+              }`}
+              type='button'
+              onClick={filter.onClick}
+              disabled={filter.disabled || isLoading}
+              aria-pressed={filter.active}
+              title={filter.description}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search */}
       <div className='version-timeline-search'>
         <SearchBox
@@ -104,6 +263,24 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
           disabled={isLoading}
         />
       </div>
+
+      {/* Active filter summary */}
+      {activeFilterLabels.length > 0 && (
+        <div className='version-timeline-active-summary'>
+          <Icon iconName='Filter' className='version-timeline-active-icon' />
+          <span className='version-timeline-active-text'>
+            Filtering by {activeFilterLabels.join(' | ')}
+          </span>
+          <button
+            className='version-timeline-clear-button'
+            type='button'
+            onClick={onClearFilters}
+            disabled={isLoading}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Filter toggle */}
       <div className='version-timeline-filter-toggle'>
@@ -168,14 +345,16 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
           )}
 
           {/* Major versions only */}
-          <div className='version-timeline-filter'>
-            <Checkbox
-              label='Show major versions only'
-              checked={filterState.showMajorOnly}
-              onChange={handleMajorOnlyChange}
-              disabled={isLoading}
-            />
-          </div>
+          {showMajorFilter && (
+            <div className='version-timeline-filter'>
+              <Checkbox
+                label='Show major versions only'
+                checked={filterState.showMajorOnly}
+                onChange={handleMajorOnlyChange}
+                disabled={isLoading}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -195,6 +374,11 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
               version={version}
               isSelected={selectedVersion?.versionLabel === version.versionLabel}
               onClick={() => onSelectVersion(version)}
+              onDownloadVersion={onDownloadVersion}
+              onCopyLink={showCopyActions ? onCopyVersionLink : undefined}
+              showMajorBadge={showMajorFilter}
+              showCopyActions={showCopyActions}
+              itemType={props.itemType}
             />
           ))}
         </div>

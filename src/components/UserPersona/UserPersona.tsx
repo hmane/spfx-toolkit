@@ -17,8 +17,14 @@ import {
 } from './UserPersonaUtils';
 
 // SharePoint default image hashes
-const DEFAULT_PERSONA_IMG_HASH = '7ad602295f8386b7615b582d87bcc294';
-const DEFAULT_IMAGE_PLACEHOLDER_HASH = '4a48f26592f4e1498d7a478a4c48609c';
+const DEFAULT_PERSONA_IMG_HASHES = new Set([
+  '7ad602295f8386b7615b582d87bcc294',
+  '4a48f26592f4e1498d7a478a4c48609c',
+  '6de6a017bc934f55835ac9b721d04b8b',
+  'f8cb5c6ed63e440b90d962f8c4b2377b',
+  '9a06a83c57864b16a5eef56e83dd5c67',
+  'dc9713f1e28b6ec4d4acba8a50c45caa',
+]);
 const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
 
 /**
@@ -39,9 +45,12 @@ const loadSPComponentById = async (componentId: string): Promise<unknown> => {
 /**
  * Get image as base64
  */
-const getImageBase64 = async (url: string): Promise<string> => {
+const getImageBase64 = async (url: string): Promise<string | undefined> => {
   try {
     const response = await fetch(url);
+    if (!response.ok) {
+      return undefined;
+    }
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -53,7 +62,7 @@ const getImageBase64 = async (url: string): Promise<string> => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    throw error;
+    return undefined;
   }
 };
 
@@ -87,13 +96,17 @@ const getUserPhoto = async (
       userId
     )}`;
     const base64 = await getImageBase64(personaImgUrl);
-    const hash = await getMd5HashForUrl(base64);
-
-    if (hash !== DEFAULT_PERSONA_IMG_HASH && hash !== DEFAULT_IMAGE_PLACEHOLDER_HASH) {
-      return 'data:image/png;base64,' + base64;
-    } else {
+    if (!base64) {
       return undefined;
     }
+
+    const hash = await getMd5HashForUrl(base64);
+
+    if (DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64)) {
+      return undefined;
+    }
+
+    return `data:image/png;base64,${base64}`;
   } catch (error) {
     return undefined;
   }
@@ -121,6 +134,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
 
   const siteUrl = SPContext.spfxContext.pageContext.web.absoluteUrl;
   const normalizedIdentifier = normalizeUserIdentifier(userIdentifier);
+  const [isDefaultPhoto, setIsDefaultPhoto] = React.useState(true);
 
   // Load user profile
   React.useEffect(() => {
@@ -182,12 +196,14 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
 
       try {
         const photo = await getUserPhoto(siteUrl, normalizedIdentifier, photoSize);
+        setIsDefaultPhoto(!photo);
         setPhotoUrl(photo);
       } catch (error) {
         SPContext.logger.warn('UserPersona failed to load photo', {
           error,
           userIdentifier,
         });
+        setIsDefaultPhoto(true);
         setPhotoUrl(undefined);
       }
     };
@@ -229,7 +245,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         text={displayName}
         secondaryText={showSecondaryText && email ? email : undefined}
         imageUrl={photoUrl}
-        imageInitials={initialsToShow}
+        imageInitials={isDefaultPhoto ? initialsToShow : undefined}
         initialsColor={colorToUse}
         hidePersonaDetails={displayMode === 'avatar'}
         coinSize={size}

@@ -6,16 +6,9 @@ import { MaximizedViewProps } from '../Card.types';
 import { DEFAULT_ICONS, Z_INDEX } from '../utils/constants';
 
 /**
- * FIXED Enhanced maximized view props
- */
-export interface FixedMaximizedViewProps extends MaximizedViewProps {
-  showCloseButton?: boolean; // FIXED: Control close button visibility
-}
-
-/**
  * FIXED Enhanced maximized view component - removed duplicate restore button
  */
-export const MaximizedView: React.FC<FixedMaximizedViewProps> = ({
+export const MaximizedView: React.FC<MaximizedViewProps> = ({
   cardId,
   children,
   onRestore,
@@ -25,7 +18,6 @@ export const MaximizedView: React.FC<FixedMaximizedViewProps> = ({
   closeOnBackdropClick = true,
   closeOnEscape = true,
   restoreIcon = DEFAULT_ICONS.RESTORE,
-  showCloseButton = true, // FIXED: Only show one close button
 }) => {
   const backdropRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -76,16 +68,6 @@ export const MaximizedView: React.FC<FixedMaximizedViewProps> = ({
       }
     },
     [closeOnBackdropClick, onRestore]
-  );
-
-  // Handle close button click
-  const handleCloseClick = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      onRestore();
-    },
-    [onRestore]
   );
 
   // Set up event listeners
@@ -144,27 +126,6 @@ export const MaximizedView: React.FC<FixedMaximizedViewProps> = ({
   };
 
   // FIXED: Close button styles - only show when enabled
-  const closeButtonStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: Z_INDEX.MAXIMIZED_CARD + 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid var(--neutralLight, #edebe9)',
-    borderRadius: '50%',
-    width: 40,
-    height: 40,
-    minWidth: 40,
-    padding: 0,
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-    cursor: 'pointer',
-    transition: 'all 200ms ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-
   const maximizedContent = (
     <div
       ref={backdropRef}
@@ -184,37 +145,6 @@ export const MaximizedView: React.FC<FixedMaximizedViewProps> = ({
         onClick={e => e.stopPropagation()} // Prevent backdrop click when clicking content
       >
         {/* FIXED: Close Button - Only show when enabled */}
-        {showCloseButton && (
-          <IconButton
-            iconProps={{ iconName: restoreIcon }}
-            title='Restore card to normal size'
-            onClick={handleCloseClick}
-            style={closeButtonStyle}
-            styles={{
-              root: {
-                selectors: {
-                  ':hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 1)',
-                    transform: 'scale(1.05)',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                  },
-                  ':active': {
-                    transform: 'scale(0.95)',
-                  },
-                  ':focus': {
-                    outline: '2px solid var(--themePrimary, #0078d4)',
-                    outlineOffset: '2px',
-                  },
-                },
-              },
-              icon: {
-                fontSize: '16px',
-                color: 'var(--neutralPrimary, #323130)',
-              },
-            }}
-          />
-        )}
-
         {/* Card Content - Enhanced for maximized view */}
         <div
           className='spfx-card-maximized-body'
@@ -431,7 +361,8 @@ const injectMaximizedAnimations = () => {
     /* Enhanced maximized content styles */
     .spfx-card-maximized-content,
     .spfx-card-custom-maximized-content {
-      animation: maximizeIn 300ms ease-out;
+      transform: scale(1);
+      opacity: 1;
     }
 
     .spfx-card-maximized-content:focus {

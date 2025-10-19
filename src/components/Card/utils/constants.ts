@@ -42,7 +42,7 @@ export const DEFAULT_ICONS = {
   ERROR: 'ErrorBadge',
   SUCCESS: 'CheckMark',
   WARNING: 'Warning',
-  INFO: 'Info'
+  INFO: 'Info',
 } as const;
 
 // ==================== Size Configurations ====================

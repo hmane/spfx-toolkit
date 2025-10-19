@@ -355,6 +355,43 @@ export const Header = memo<EnhancedHeaderProps>(
       buttonStyles,
     ]);
 
+    const renderRestoreButton = useMemo(() => {
+      if (!allowMaximize || hideMaximizeButton || !isMaximized) return null;
+
+      const restoreIcon = DEFAULT_ICONS.RESTORE;
+      const restoreLabel = accessibility.restoreButtonLabel || 'Restore';
+
+      const button = (
+        <IconButton
+          className='spfx-header-maximize-btn'
+          iconProps={{ iconName: restoreIcon }}
+          onClick={handleMaximizeClick}
+          disabled={disabled}
+          ariaLabel={restoreLabel}
+          styles={buttonStyles}
+        />
+      );
+
+      if (showTooltips) {
+        return (
+          <TooltipHost content={restoreLabel} id={getId()}>
+            {button}
+          </TooltipHost>
+        );
+      }
+
+      return button;
+    }, [
+      allowMaximize,
+      hideMaximizeButton,
+      isMaximized,
+      accessibility,
+      handleMaximizeClick,
+      disabled,
+      showTooltips,
+      buttonStyles,
+    ]);
+
     const renderExpandButton = useMemo(() => {
       if (!allowExpand || hideExpandButton || isMaximized) return null;
 
@@ -467,13 +504,11 @@ export const Header = memo<EnhancedHeaderProps>(
 
         {renderHeaderContent()}
 
-        {!isMaximized && (
-          <div className='spfx-header-buttons'>
-            {renderActionButtons}
-            {renderMaximizeButton}
-            {renderExpandButton}
-          </div>
-        )}
+        <div className='spfx-header-buttons'>
+          {renderActionButtons}
+          {isMaximized ? renderRestoreButton : renderMaximizeButton}
+          {!isMaximized && renderExpandButton}
+        </div>
       </div>
     );
   }

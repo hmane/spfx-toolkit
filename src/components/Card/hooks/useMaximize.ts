@@ -194,15 +194,21 @@ export const useMaximize = (
       element.style.height = `${rect.height}px`;
       element.style.zIndex = Z_INDEX.MAXIMIZED_CARD.toString();
       element.style.margin = '0';
-      element.style.transition = `all ${duration}ms ${
-        animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
-      }`;
+      element.style.transition = 'none';
 
       // Add maximized class
       element.classList.add('spfx-card-maximized');
 
-      // FIXED: Use requestAnimationFrame for smoother animation
+      // Force layout to ensure initial styles are applied before animating
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      element.getBoundingClientRect();
+
+      // Enable transition and animate on next frame
       requestAnimationFrame(() => {
+        element.style.transition = `all ${duration}ms ${
+          animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
+        }`;
+
         // Animate to fullscreen
         element.style.top = '0';
         element.style.left = '0';

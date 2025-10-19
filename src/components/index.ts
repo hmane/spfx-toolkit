@@ -1,5 +1,6 @@
 export * from './Card';
 export * from './ConflictDetector';
+export * from './DocumentLink';
 export * from './ErrorBoundary';
 export * from './GroupViewer';
 export * from './ManageAccess';

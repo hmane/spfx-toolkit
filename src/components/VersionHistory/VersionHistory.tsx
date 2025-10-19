@@ -24,10 +24,18 @@ import {
   exportAllToCSV,
   filterVersions,
   isSystemField,
+  formatRelativeTime,
 } from './VersionHistoryUtils';
 
 export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
-  const { listId, itemId, onClose, onExport, onDownload } = props;
+  const {
+    listId,
+    itemId,
+    onClose,
+    onExport,
+    onDownload,
+    allowCopyLink = false,
+  } = props;
 
   const [state, setState] = React.useState<IVersionHistoryState>({
     allVersions: [],
@@ -43,6 +51,10 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     filterDateRange: 'all',
     showMajorOnly: false,
     filtersExpanded: false,
+    customDateStart: null,
+    customDateEnd: null,
+    persistenceKey: null,
+    statusMessage: null,
   });
 
   const [isDownloading, setIsDownloading] = React.useState(false);
@@ -53,11 +65,359 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: state.filterByUser,
       filterDateRange: state.filterDateRange,
       showMajorOnly: state.showMajorOnly,
-      customDateStart: null,
-      customDateEnd: null,
+      customDateStart: state.customDateStart,
+      customDateEnd: state.customDateEnd,
     }),
-    [state.searchQuery, state.filterByUser, state.filterDateRange, state.showMajorOnly]
+    [
+      state.searchQuery,
+      state.filterByUser,
+      state.filterDateRange,
+      state.showMajorOnly,
+      state.customDateStart,
+      state.customDateEnd,
+    ]
   );
+
+  // Initialize persistence key and restore saved filters
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const persistenceKey = `spfx-toolkit:version-history:${listId}:${itemId}`;
+
+    try {
+      const stored = window.localStorage.getItem(persistenceKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setState(prev => ({
+          ...prev,
+          persistenceKey,
+          searchQuery: parsed.searchQuery ?? prev.searchQuery,
+          filterByUser: parsed.filterByUser ?? prev.filterByUser,
+          filterDateRange: parsed.filterDateRange ?? prev.filterDateRange,
+          showMajorOnly: parsed.showMajorOnly ?? prev.showMajorOnly,
+          customDateStart: parsed.customDateStart ? new Date(parsed.customDateStart) : null,
+          customDateEnd: parsed.customDateEnd ? new Date(parsed.customDateEnd) : null,
+          filtersExpanded: parsed.filtersExpanded ?? prev.filtersExpanded,
+          selectedVersion: prev.selectedVersion,
+        }));
+        return;
+      }
+    } catch (error) {
+      SPContext.logger?.warn('VersionHistory: failed to restore persisted filters', {
+        error,
+        listId,
+        itemId,
+      });
+    }
+
+    // Ensure persistence key is still recorded even without stored state
+    setState(prev => ({
+      ...prev,
+      persistenceKey,
+    }));
+  }, [listId, itemId]);
+
+  // Persist filters whenever they change
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !state.persistenceKey) {
+      return;
+    }
+
+    const payload = {
+      searchQuery: state.searchQuery,
+      filterByUser: state.filterByUser,
+      filterDateRange: state.filterDateRange,
+      showMajorOnly: state.showMajorOnly,
+      customDateStart: state.customDateStart ? state.customDateStart.toISOString() : null,
+      customDateEnd: state.customDateEnd ? state.customDateEnd.toISOString() : null,
+      filtersExpanded: state.filtersExpanded,
+    };
+
+    try {
+      window.localStorage.setItem(state.persistenceKey, JSON.stringify(payload));
+    } catch (error) {
+      SPContext.logger?.warn('VersionHistory: failed to persist filters', {
+        error,
+        listId,
+        itemId,
+      });
+    }
+  }, [
+    state.persistenceKey,
+    state.searchQuery,
+    state.filterByUser,
+    state.filterDateRange,
+    state.showMajorOnly,
+    state.customDateStart,
+    state.customDateEnd,
+    state.filtersExpanded,
+    listId,
+    itemId,
+  ]);
+
+  const currentUserLogin = React.useMemo(() => {
+    try {
+      const currentUser = SPContext.currentUser;
+      if (!currentUser) return undefined;
+      const identifier = (currentUser.email || currentUser.loginName || '').toLowerCase();
+      return identifier || undefined;
+    } catch {
+      return undefined;
+    }
+  }, []);
+
+  const toAbsoluteUrl = React.useCallback((url?: string | null): string => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+
+    const base =
+      SPContext.webAbsoluteUrl ||
+      (typeof window !== 'undefined' ? window.location.origin : undefined);
+
+    if (!base) {
+      return url;
+    }
+
+    try {
+      return new URL(url, base).toString();
+    } catch {
+      return `${base.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+    }
+  }, []);
+
+  const copyToClipboard = React.useCallback(
+    async (text: string, successMessage: string) => {
+      if (!text) {
+        return;
+      }
+
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else if (typeof document !== 'undefined') {
+          const tempInput = document.createElement('textarea');
+          tempInput.value = text;
+          tempInput.style.position = 'fixed';
+          tempInput.style.opacity = '0';
+          document.body.appendChild(tempInput);
+          tempInput.focus();
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+        }
+
+        setState(prev => ({
+          ...prev,
+          statusMessage: { type: 'success', text: successMessage },
+        }));
+      } catch (error) {
+        SPContext.logger?.warn('VersionHistory: copy to clipboard failed', { error });
+        setState(prev => ({
+          ...prev,
+          statusMessage: {
+            type: 'error',
+            text: 'Unable to copy link. Please try again.',
+          },
+        }));
+      }
+    },
+    []
+  );
+
+  const handleCopyItemLink = React.useCallback(() => {
+    if (!state.itemInfo) return;
+    const url = toAbsoluteUrl(state.itemInfo.itemUrl);
+    if (!url) {
+      setState(prev => ({
+        ...prev,
+        statusMessage: {
+          type: 'warning',
+          text: 'Item link is not available to copy.',
+        },
+      }));
+      return;
+    }
+
+    copyToClipboard(url, 'Item link copied to clipboard.');
+  }, [state.itemInfo, toAbsoluteUrl, copyToClipboard]);
+
+  const getVersionLink = React.useCallback(
+    (version: IVersionInfo): string | null => {
+      if (!state.itemInfo) return null;
+
+      const siteUrl =
+        SPContext.spfxContext?.pageContext?.web?.absoluteUrl || SPContext.webAbsoluteUrl || '';
+
+      if (!siteUrl) {
+        return toAbsoluteUrl(state.itemInfo.itemUrl);
+      }
+
+      if (state.itemType === 'document') {
+        if (!version.fileUrl) {
+          return toAbsoluteUrl(state.itemInfo.itemUrl);
+        }
+
+        if (version.isCurrentVersion) {
+          return toAbsoluteUrl(version.fileUrl);
+        }
+
+        const versionId = version.versionId || version.versionLabel;
+        let documentPath = state.itemInfo.itemUrl || '';
+
+        if (documentPath.startsWith('/')) {
+          const secondSlash = documentPath.indexOf('/', 1);
+          documentPath =
+            secondSlash > -1 ? documentPath.substring(secondSlash + 1) : documentPath.substring(1);
+        }
+
+        documentPath = documentPath.replace(/^\//, '');
+        return `${siteUrl.replace(/\/$/, '')}/_vti_history/${versionId}/${documentPath}`;
+      }
+
+      const listUrl = `${siteUrl.replace(
+        /\/$/,
+        ''
+      )}/_layouts/15/listform.aspx?PageType=4&ListId=${encodeURIComponent(
+        listId
+      )}&ID=${itemId}&VersionNo=${encodeURIComponent(version.versionLabel)}`;
+
+      return listUrl;
+    },
+    [state.itemInfo, state.itemType, toAbsoluteUrl, listId, itemId]
+  );
+
+  const handleCopyVersionLink = React.useCallback(
+    (version: IVersionInfo) => {
+      const link = getVersionLink(version);
+      if (!link) {
+        setState(prev => ({
+          ...prev,
+          statusMessage: {
+            type: 'warning',
+            text: `Link not available for version ${version.versionLabel}.`,
+          },
+        }));
+        return;
+      }
+      copyToClipboard(link, `Link to v${version.versionLabel} copied to clipboard.`);
+    },
+    [getVersionLink, copyToClipboard]
+  );
+
+  const headerEyebrow = state.itemType === 'document' ? 'Document version history' : 'Version history';
+
+  const headerLocation = React.useMemo(() => {
+    if (!state.itemInfo?.itemUrl) {
+      return state.itemInfo?.listTitle || '';
+    }
+
+    const trimmed = state.itemInfo.itemUrl.replace(/^\/+/, '');
+    const segments = trimmed.split('/').filter(Boolean);
+
+    if (segments.length <= 1) {
+      return '';
+    }
+
+    let pathSegments = segments.slice(0, -1);
+
+    if (pathSegments.length > 2) {
+      const first = pathSegments[0].toLowerCase();
+      if (first === 'sites' || first === 'teams') {
+        pathSegments = pathSegments.slice(2);
+      }
+    }
+
+    if (!pathSegments.length) {
+      return state.itemInfo.listTitle || '';
+    }
+
+    return pathSegments.join(' / ');
+  }, [state.itemInfo]);
+
+  const headerBreadcrumb = React.useMemo(() => {
+    const segments: string[] = [];
+    if (headerLocation) {
+      segments.push(headerLocation);
+    }
+    if (state.itemInfo?.title) {
+      segments.push(state.itemInfo.title);
+    }
+    return segments.join(' / ') || state.itemInfo?.title || 'Version history';
+  }, [headerLocation, state.itemInfo]);
+
+  const headerSummary = React.useMemo(() => {
+    if (!state.allVersions.length) {
+      return '';
+    }
+
+    const total = state.allVersions.length;
+    const majorCount = state.allVersions.filter(version => {
+      const parts = version.versionLabel.split('.');
+      return parts.length > 1 ? parts[1] === '0' : true;
+    }).length;
+
+    const contributors = new Set(
+      state.allVersions.map(version => (version.modifiedByName || '').toLowerCase())
+    ).size;
+
+    const lastUpdated = state.allVersions[0]?.modified;
+
+    const parts: string[] = [`${total} version${total === 1 ? '' : 's'}`];
+
+    if (majorCount && majorCount !== total) {
+      parts.push(`${majorCount} major`);
+    }
+
+    if (contributors) {
+      parts.push(`${contributors} contributor${contributors === 1 ? '' : 's'}`);
+    }
+
+    if (lastUpdated) {
+      parts.push(`Updated ${formatRelativeTime(lastUpdated)}`);
+    }
+
+    return parts.join(' | ');
+  }, [state.allVersions]);
+
+  const allVersionsAreMajor = React.useMemo(
+    () =>
+      state.allVersions.length > 0 &&
+      state.allVersions.every(version => {
+        const parts = version.versionLabel.split('.');
+        return parts.length > 1 ? parts[1] === '0' : true;
+      }),
+    [state.allVersions]
+  );
+
+  const showMajorFilter = !allVersionsAreMajor;
+
+  React.useEffect(() => {
+    if (!showMajorFilter && state.showMajorOnly) {
+      setState(prev => ({
+        ...prev,
+        showMajorOnly: false,
+      }));
+    }
+  }, [showMajorFilter, state.showMajorOnly]);
+
+  const statusMessageType = React.useMemo(() => {
+    if (!state.statusMessage) {
+      return MessageBarType.info;
+    }
+
+    switch (state.statusMessage.type) {
+      case 'success':
+        return MessageBarType.success;
+      case 'warning':
+        return MessageBarType.warning;
+      case 'error':
+        return MessageBarType.error;
+      default:
+        return MessageBarType.info;
+    }
+  }, [state.statusMessage]);
 
   React.useEffect(() => {
     loadVersionHistory();
@@ -73,6 +433,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     state.filterByUser,
     state.filterDateRange,
     state.showMajorOnly,
+    state.customDateStart,
+    state.customDateEnd,
   ]);
 
   const loadVersionHistory = async (): Promise<void> => {
@@ -82,11 +444,18 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       // Check permissions
       const hasPermission = await checkPermissions();
       if (!hasPermission) {
-        // Close popup and show alert
-        onClose();
-        alert(
-          'Unable to load version history. The item may not exist or you do not have permission to view it.'
-        );
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          hasPermission: false,
+          error:
+            'Unable to load version history. The item may not exist or you do not have permission to view it.',
+          statusMessage: {
+            type: 'warning',
+            text:
+              'You may not have sufficient permissions to view this version history. Contact the site owner if you believe this is incorrect.',
+          },
+        }));
         return;
       }
 
@@ -111,6 +480,14 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         hasPermission: true,
         itemType: detectedItemType,
         itemInfo,
+        statusMessage: processedVersions.length
+          ? {
+              type: 'info',
+              text: `Loaded ${processedVersions.length} version${
+                processedVersions.length === 1 ? '' : 's'
+              }.`,
+            }
+          : null,
       }));
 
       SPContext.logger.info('Version history loaded', {
@@ -122,18 +499,17 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     } catch (error) {
       SPContext.logger.error('Failed to load version history', error, { listId, itemId });
 
-      // Close popup and show alert with helpful message
-      onClose();
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(
-        `Unable to load version history.\n\n` +
-          `Possible reasons:\n` +
-          `• The item does not exist\n` +
-          `• You do not have permission to view this item\n` +
-          `• The item may have been deleted\n\n` +
-          `Error details: ${errorMessage}`
-      );
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        hasPermission: false,
+        error: 'Unable to load version history.',
+        statusMessage: {
+          type: 'error',
+          text: `We couldn't load the version history for this item. The item may have been moved, deleted, or you may not have access. (${errorMessage})`,
+        },
+      }));
     }
   };
 
@@ -528,12 +904,52 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: updates.filterByUser ?? prev.filterByUser,
       filterDateRange: updates.filterDateRange ?? prev.filterDateRange,
       showMajorOnly: updates.showMajorOnly ?? prev.showMajorOnly,
+      customDateStart:
+        updates.customDateStart !== undefined ? updates.customDateStart : prev.customDateStart,
+      customDateEnd:
+        updates.customDateEnd !== undefined ? updates.customDateEnd : prev.customDateEnd,
     }));
   }, []);
 
   const handleToggleFilters = React.useCallback(() => {
     setState(prev => ({ ...prev, filtersExpanded: !prev.filtersExpanded }));
   }, []);
+
+  const handleClearFilters = React.useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      searchQuery: '',
+      filterByUser: null,
+      filterDateRange: 'all',
+      showMajorOnly: false,
+      customDateStart: null,
+      customDateEnd: null,
+      statusMessage: {
+        type: 'info',
+        text: 'Filters cleared.',
+      },
+    }));
+  }, []);
+
+  // Auto dismiss transient status messages
+  React.useEffect(() => {
+    if (!state.statusMessage) return;
+
+    if (state.statusMessage.type === 'error' || state.statusMessage.type === 'warning') {
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    const timer = window.setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        statusMessage: null,
+      }));
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [state.statusMessage]);
 
   const handleExport = React.useCallback(async () => {
     try {
@@ -547,39 +963,78 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         versionCount: state.allVersions.length,
       });
 
+      setState(prev => ({
+        ...prev,
+        statusMessage: {
+          type: 'success',
+          text: `Exported ${state.allVersions.length} version${
+            state.allVersions.length === 1 ? '' : 's'
+          } to CSV.`,
+        },
+      }));
+
       if (onExport) {
         onExport(state.allVersions.length);
       }
     } catch (error) {
       SPContext.logger.error('Failed to export version history', error);
-      alert('Failed to export version history. Please try again.');
+      setState(prev => ({
+        ...prev,
+        statusMessage: {
+          type: 'error',
+          text: 'Failed to export version history. Please try again.',
+        },
+      }));
     }
   }, [state.itemInfo, state.allVersions, onExport]);
 
-  const handleDownload = React.useCallback(async () => {
-    if (!state.selectedVersion || !state.itemInfo) {
-      return;
-    }
-
-    setIsDownloading(true);
-
-    try {
-      await downloadDocumentVersion(state.selectedVersion, state.itemInfo);
-
-      SPContext.logger.success('Document version downloaded', {
-        version: state.selectedVersion.versionLabel,
-      });
-
-      if (onDownload) {
-        onDownload(state.selectedVersion);
+  const handleDownloadVersion = React.useCallback(
+    async (version?: IVersionInfo) => {
+      if (!state.itemInfo) {
+        return;
       }
-    } catch (error) {
-      SPContext.logger.error('Failed to download document version', error);
-      alert('Failed to download document version. Please try again.');
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [state.selectedVersion, state.itemInfo, onDownload]);
+
+      const targetVersion = version ?? state.selectedVersion;
+
+      if (!targetVersion) {
+        return;
+      }
+
+      setIsDownloading(true);
+
+      try {
+        await downloadDocumentVersion(targetVersion, state.itemInfo);
+
+        SPContext.logger.success('Document version downloaded', {
+          version: targetVersion.versionLabel,
+        });
+
+        setState(prev => ({
+          ...prev,
+          statusMessage: {
+            type: 'success',
+            text: `Downloading version ${targetVersion.versionLabel}...`,
+          },
+        }));
+
+        if (onDownload) {
+          onDownload(targetVersion);
+        }
+      } catch (error) {
+        SPContext.logger.error('Failed to download document version', error);
+        setState(prev => ({
+          ...prev,
+          statusMessage: {
+            type: 'error',
+            text: 'Failed to download document version. Please try again.',
+          },
+        }));
+      } finally {
+        setIsDownloading(false);
+      }
+    },
+    [state.itemInfo, state.selectedVersion, onDownload]
+  );
 
   const handleClose = React.useCallback(() => {
     onClose();
@@ -617,9 +1072,29 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         className='version-history-popup'
       >
         <div className='version-history-error-container'>
-          <MessageBar messageBarType={MessageBarType.error}>
+          <MessageBar messageBarType={MessageBarType.error} isMultiline={true}>
             <Text>{state.error || 'Access denied'}</Text>
+            <div className='version-history-error-actions'>
+              <button type='button' onClick={loadVersionHistory} className='version-history-secondary-button'>
+                <Icon iconName='Refresh' /> Try again
+              </button>
+              <button
+                type='button'
+                onClick={handleClose}
+                className='version-history-icon-button'
+                aria-label='Close version history'
+              >
+                <Icon iconName='Cancel' />
+              </button>
+            </div>
           </MessageBar>
+          {state.statusMessage && (
+            <div className='version-history-status'>
+              <MessageBar messageBarType={statusMessageType} isMultiline={false}>
+                {state.statusMessage.text}
+              </MessageBar>
+            </div>
+          )}
         </div>
       </Popup>
     );
@@ -662,24 +1137,53 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           {/* Header */}
           <div className='version-history-header'>
             <div className='version-history-header-content'>
-              <Text className='version-history-header-title'>
-                Version History: {state.itemInfo?.title}
-              </Text>
+              {headerEyebrow && (
+                <div className='version-history-header-eyebrow'>{headerEyebrow}</div>
+              )}
+              <div className='version-history-header-title-row'>
+                <Text className='version-history-header-title'>{headerBreadcrumb}</Text>
+              </div>
+              {headerSummary && (
+                <div className='version-history-header-summary'>{headerSummary}</div>
+              )}
             </div>
             <div className='version-history-header-actions'>
-              <button className='version-history-export-button' onClick={handleExport}>
+              {allowCopyLink && (
+                <button
+                  className='version-history-secondary-button'
+                  type='button'
+                  onClick={handleCopyItemLink}
+                >
+                  <Icon iconName='Link' />
+                  Copy link
+                </button>
+              )}
+              <button
+                className='version-history-secondary-button'
+                type='button'
+                onClick={handleExport}
+              >
                 <Icon iconName='ExcelDocument' />
-                Export All
+                Export
               </button>
               <button
-                className='version-history-close-button'
+                className='version-history-icon-button'
                 onClick={handleClose}
-                aria-label='Close'
+                aria-label='Close version history'
+                type='button'
               >
-                ✕
+                <Icon iconName='Cancel' />
               </button>
             </div>
           </div>
+
+          {state.statusMessage && (
+            <div className='version-history-status'>
+              <MessageBar messageBarType={statusMessageType} isMultiline={false}>
+                {state.statusMessage.text}
+              </MessageBar>
+            </div>
+          )}
 
           {/* Main content */}
           <div className='version-history-content'>
@@ -695,6 +1199,12 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
                 itemType={state.itemType || 'list'}
                 filtersExpanded={state.filtersExpanded}
                 onToggleFilters={handleToggleFilters}
+                currentUserLogin={currentUserLogin}
+                onClearFilters={handleClearFilters}
+                onDownloadVersion={state.itemType === 'document' ? handleDownloadVersion : undefined}
+                onCopyVersionLink={allowCopyLink ? handleCopyVersionLink : undefined}
+                showMajorFilter={showMajorFilter}
+                showCopyActions={allowCopyLink}
               />
             </div>
 
@@ -705,8 +1215,10 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
                   version={state.selectedVersion}
                   itemInfo={state.itemInfo}
                   itemType={state.itemType}
-                  onDownload={handleDownload}
+                  onDownload={() => handleDownloadVersion()}
                   isDownloading={isDownloading}
+                  onCopyLink={handleCopyVersionLink}
+                  allowCopyLink={allowCopyLink}
                 />
               ) : (
                 <div className='version-history-no-selection'>

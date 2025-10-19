@@ -333,6 +333,7 @@
 .spfx-card-maximized-content .spfx-card-header-fixed {
   flex-shrink: 0;
   border-bottom: 1px solid var(--spfx-card-neutral-light);
+  position: relative;
 }
 .spfx-card-maximized-content .spfx-card-content {
   flex: 1;
@@ -352,30 +353,7 @@
   display: block !important;
 }
 .spfx-card-maximized-content .spfx-card-close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1031;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--spfx-card-neutral-light);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  transition: all 200ms ease;
-}
-.spfx-card-maximized-content .spfx-card-close-btn:hover {
-  background: var(--spfx-card-theme-white);
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-.spfx-card-maximized-content .spfx-card-close-btn:active {
-  transform: scale(0.95);
+  display: none;
 }
 .spfx-header-action-btn,
 .spfx-header-maximize-btn,

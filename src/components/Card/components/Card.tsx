@@ -530,10 +530,8 @@ export const Card: React.FC<CardProps> = memo(
         <MaximizedView
           cardId={id}
           onRestore={() => handleToggleMaximize('user')}
-          restoreIcon={restoreIcon}
           closeOnEscape={true}
           closeOnBackdropClick={true}
-          showCloseButton={true} // FIXED: Only show the overlay close button
         >
           {cardContent}
         </MaximizedView>
