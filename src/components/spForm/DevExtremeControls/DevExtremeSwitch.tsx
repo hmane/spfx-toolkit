@@ -50,8 +50,6 @@ const DevExtremeSwitch = <T extends FieldValues>({
 
         return (
           <div style={{ display: 'inline-block' }}>
-            {' '}
-            {/* ADD THIS WRAPPER */}
             <Switch
               value={value || false}
               onValueChanged={e => {

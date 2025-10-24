@@ -1,0 +1,148 @@
+/**
+ * GroupUsersPicker Component Styles
+ */
+
+.group-users-picker {
+  position: relative;
+  width: 100%;
+}
+
+.group-users-picker-control {
+  width: 100%;
+}
+
+.group-users-picker-loading {
+  position: relative;
+  min-height: 40px;
+}
+
+.group-users-picker-error {
+  margin-top: 4px;
+}
+
+/* Item Template Styles */
+.group-users-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.group-users-picker-avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.group-users-picker-photo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.group-users-picker-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background-color: #0078d4;
+}
+
+.group-users-picker-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.group-users-picker-name {
+  font-size: 14px;
+  font-weight: 400;
+  color: #323130;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-users-picker-email {
+  font-size: 12px;
+  color: #605e5c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Persona Color Variables (matching Fluent UI) */
+:root {
+  --persona-color-0: #d13438;  /* lightBlue */
+  --persona-color-1: #0078d4;  /* blue */
+  --persona-color-2: #498205;  /* darkGreen */
+  --persona-color-3: #0b6a0b;  /* green */
+  --persona-color-4: #8764b8;  /* darkBlue */
+  --persona-color-5: #881798;  /* violet */
+  --persona-color-6: #c239b3;  /* magenta */
+  --persona-color-7: #ff8c00;  /* orange */
+  --persona-color-8: #d50f25;  /* red */
+  --persona-color-9: #00b7c3;  /* teal */
+  --persona-color-10: #03787c; /* cyan */
+  --persona-color-11: #8a8886; /* warmGray */
+  --persona-color-12: #69797e; /* coolGray */
+  --persona-color-13: #005a9e; /* lightGreen */
+  --persona-color-14: #c50f1f; /* pink */
+  --persona-color-15: #a4262c; /* rust */
+  --persona-color-16: #5c2e91; /* burgundy */
+}
+
+/* Loading State */
+.group-users-picker-control.dx-state-disabled {
+  opacity: 0.6;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .group-users-picker-item {
+    padding: 6px 0;
+  }
+
+  .group-users-picker-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .group-users-picker-photo {
+    width: 28px;
+    height: 28px;
+  }
+
+  .group-users-picker-initials {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+}
+
+/* Accessibility */
+.group-users-picker-control:focus-within {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .group-users-picker-initials {
+    border: 1px solid currentColor;
+  }
+
+  .group-users-picker-photo {
+    border: 1px solid currentColor;
+  }
+}

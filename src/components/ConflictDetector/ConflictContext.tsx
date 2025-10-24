@@ -51,10 +51,16 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
   });
   const isMountedRef = useRef(true);
 
-  const mergedOptions: ConflictDetectionOptions = {
+  // Create stable options key to avoid re-initialization
+  const optionsKey = React.useMemo(() => {
+    const opts = { ...DEFAULT_CONFLICT_OPTIONS, ...options };
+    return `${opts.checkInterval || 0}:${opts.checkOnSave}:${opts.showNotification}:${opts.blockSave}:${opts.logConflicts}`;
+  }, [options.checkInterval, options.checkOnSave, options.showNotification, options.blockSave, options.logConflicts]);
+
+  const mergedOptions: ConflictDetectionOptions = React.useMemo(() => ({
     ...DEFAULT_CONFLICT_OPTIONS,
     ...options,
-  };
+  }), [optionsKey]);
 
   // Validate required props
   useEffect(() => {
@@ -150,7 +156,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         detectorRef.current = undefined;
       }
     };
-  }, [sp, listId, itemId, enabled, JSON.stringify(mergedOptions), updateState]);
+  }, [sp, listId, itemId, enabled, optionsKey, updateState]);
 
   // Update options when they change
   useEffect(() => {
@@ -164,7 +170,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         });
       }
     }
-  }, [JSON.stringify(mergedOptions), enabled, updateState]);
+  }, [optionsKey, enabled, updateState, mergedOptions]);
 
   // Cleanup on unmount
   useEffect(() => {

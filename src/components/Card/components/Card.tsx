@@ -26,9 +26,6 @@ export const useCardContext = (): CardContextType => {
   return context;
 };
 
-/**
- * FIXED Card Component - Removed redundant variant, fixed maximize animation, header focus
- */
 export const Card: React.FC<CardProps> = memo(
   ({
     id,
@@ -38,7 +35,6 @@ export const Card: React.FC<CardProps> = memo(
     allowMaximize = false,
     maximizeIcon = DEFAULT_ICONS.MAXIMIZE,
     restoreIcon = DEFAULT_ICONS.RESTORE,
-    // REMOVED: variant prop - it was redundant and not used
     headerSize = 'regular',
     customHeaderColor,
     loading = false,
@@ -79,7 +75,6 @@ export const Card: React.FC<CardProps> = memo(
 
     const previousLoadingRef = useRef(loading);
 
-    // FIXED: Improved maximize hook with better animation handling
     const {
       isMaximized,
       isAnimating: isMaximizeAnimating,
@@ -88,11 +83,11 @@ export const Card: React.FC<CardProps> = memo(
     } = useMaximize(
       id,
       allowMaximize,
-      { ...animation, disabled: false }, // Ensure animations are enabled for maximize
+      { ...animation, disabled: false },
       () => {
         const eventData: CardEventData = {
           cardId: id,
-          isExpanded: true, // Force expanded when maximized
+          isExpanded: true,
           isMaximized: true,
           timestamp: Date.now(),
           source: 'user',
@@ -185,7 +180,6 @@ export const Card: React.FC<CardProps> = memo(
     const collapseFn = useCallback(
       (source: 'user' | 'programmatic' = 'programmatic') => {
         if (isExpanded && allowExpand && !disabled && !isMaximized) {
-          // Don't collapse when maximized
           setIsExpanded(false);
 
           const eventData: CardEventData = {
@@ -226,7 +220,7 @@ export const Card: React.FC<CardProps> = memo(
 
     const toggleFn = useCallback(
       (source: 'user' | 'programmatic' = 'programmatic') => {
-        if (isMaximized) return; // Don't toggle when maximized
+        if (isMaximized) return;
 
         if (isExpanded) {
           collapseFn(source);
@@ -237,20 +231,17 @@ export const Card: React.FC<CardProps> = memo(
       [isExpanded, isMaximized, expandFn, collapseFn]
     );
 
-    // Handle expand/collapse
     const handleToggleExpand = useCallback(
       (source: 'user' | 'programmatic' = 'user') => {
-        if (!allowExpand || disabled || isMaximized) return; // Don't toggle when maximized
+        if (!allowExpand || disabled || isMaximized) return;
         toggleFn(source);
       },
       [allowExpand, disabled, isMaximized, toggleFn]
     );
 
-    // FIXED: Maximize functions with better state management
     const maximizeFn = useCallback(
       (source: 'user' | 'programmatic' = 'programmatic') => {
         if (allowMaximize && !isMaximized && !isMaximizeAnimating) {
-          // Force expand when maximizing
           if (!isExpanded) {
             setIsExpanded(true);
             if (lazyLoad && !hasContentLoaded) {
@@ -258,7 +249,6 @@ export const Card: React.FC<CardProps> = memo(
             }
           }
 
-          // Add a small delay to ensure state is set before maximizing
           setTimeout(() => {
             void maximize();
           }, 50);
@@ -542,7 +532,7 @@ export const Card: React.FC<CardProps> = memo(
   }
 );
 
-Card.displayName = 'EnhancedSpfxCard';
+Card.displayName = 'SpfxCard';
 
 /**
  * Error boundary specifically for cards

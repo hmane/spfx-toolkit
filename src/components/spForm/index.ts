@@ -26,6 +26,10 @@ export {
 // PnP Controls
 export { PnPPeoplePicker } from './PnPControls';
 
+// Custom Components
+// Note: GroupUsersPicker is exported via './customComponents' for direct import
+// Not exported here to avoid naming conflict with base component
+
 // Re-export all types for convenience
 export type { IFormContainerProps } from './FormContainer/FormContainer';
 export type { IFormDescriptionProps } from './FormDescription/FormDescription';
@@ -49,3 +53,6 @@ export type {
 
 export { PnPModernTaxonomyPicker } from './PnPControls';
 export type { IPnPModernTaxonomyPickerProps, IPnPPeoplePickerProps } from './PnPControls';
+
+// Custom Components types
+export type { IGroupUser, IRHFGroupUsersPickerProps } from './customComponents';

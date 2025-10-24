@@ -450,7 +450,7 @@ npm run analyze
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/spfx-toolkit.git
+git clone <your-repository-url>
 cd spfx-toolkit
 npm install
 

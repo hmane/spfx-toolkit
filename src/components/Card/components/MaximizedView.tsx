@@ -5,9 +5,6 @@ import { createPortal } from 'react-dom';
 import { MaximizedViewProps } from '../Card.types';
 import { DEFAULT_ICONS, Z_INDEX } from '../utils/constants';
 
-/**
- * FIXED Enhanced maximized view component - removed duplicate restore button
- */
 export const MaximizedView: React.FC<MaximizedViewProps> = ({
   cardId,
   children,
@@ -142,10 +139,8 @@ export const MaximizedView: React.FC<MaximizedViewProps> = ({
         className='spfx-card-maximized-content'
         style={contentStyle}
         tabIndex={-1}
-        onClick={e => e.stopPropagation()} // Prevent backdrop click when clicking content
+        onClick={e => e.stopPropagation()}
       >
-        {/* FIXED: Close Button - Only show when enabled */}
-        {/* Card Content - Enhanced for maximized view */}
         <div
           className='spfx-card-maximized-body'
           style={{

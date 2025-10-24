@@ -266,7 +266,9 @@ export interface HeaderProps {
   hideExpandButton?: boolean;
   hideMaximizeButton?: boolean;
   showTooltips?: boolean;
-  variant?: 'success' | 'error' | 'warning' | 'info' | 'default'; // FIXED: Strict typing instead of string
+  variant?: 'success' | 'error' | 'warning' | 'info' | 'default';
+  allowWrap?: boolean;
+  showTooltipOnOverflow?: boolean;
 }
 
 export interface ActionButtonsProps {

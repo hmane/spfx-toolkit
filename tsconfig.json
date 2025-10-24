@@ -10,6 +10,7 @@
     "jsx": "react",
     "rootDir": "src",
     "outDir": "lib",
+    "baseUrl": "src",
 
     "declaration": true,
     "declarationMap": true,
@@ -22,20 +23,24 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
 
-    // Fix the helper issue - either import helpers OR emit them, not both
     "importHelpers": false,
     "noEmitHelpers": false,
     "downlevelIteration": true,
 
-    // For better tree-shaking
     "preserveConstEnums": false,
     "removeComments": true,
 
-    // Ensure compatibility with SPFx
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
-    "typeRoots": ["./node_modules/@types", "./src/types"]
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+
+    "paths": {
+      "@components/*": ["components/*"],
+      "@hooks/*": ["hooks/*"],
+      "@utilities/*": ["utilities/*"],
+      "@types/*": ["types/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "lib", "dist", "temp"]

@@ -23,7 +23,6 @@ export const useMaximize = (
   }>();
   const elementRef = useRef<HTMLElement>();
   const backdropRef = useRef<HTMLElement>();
-  // FIXED: Add state tracking to prevent multiple calls
   const isMaximizingRef = useRef(false);
 
   const getCardElement = useCallback((): HTMLElement | null => {
@@ -79,13 +78,22 @@ export const useMaximize = (
     }, getAnimationDuration(animation.duration || 300));
   }, [animation.duration]);
 
-  // FIXED: Improved restore function
   const restore = useCallback(async () => {
     if (!enabled || !isMaximized || isAnimating || isMaximizingRef.current) return false;
 
     const element = getCardElement();
     if (!element || !originalStyleRef.current) {
       console.warn(`[SpfxCard] Card element or original styles not found: ${cardId}`);
+      return false;
+    }
+
+    if (!(element instanceof Element)) {
+      console.warn(`[SpfxCard] Card element is not a valid DOM Element: ${cardId}`);
+      return false;
+    }
+
+    if (!element.isConnected) {
+      console.warn(`[SpfxCard] Card element is not connected to DOM: ${cardId}`);
       return false;
     }
 
@@ -154,13 +162,22 @@ export const useMaximize = (
     removeBackdrop,
   ]);
 
-  // FIXED: Improved maximize function
   const maximize = useCallback(async () => {
     if (!enabled || isMaximized || isAnimating || isMaximizingRef.current) return false;
 
     const element = getCardElement();
     if (!element) {
       console.warn(`[SpfxCard] Card element not found: ${cardId}`);
+      return false;
+    }
+
+    if (!(element instanceof Element)) {
+      console.warn(`[SpfxCard] Card element is not a valid DOM Element: ${cardId}`);
+      return false;
+    }
+
+    if (!element.isConnected) {
+      console.warn(`[SpfxCard] Card element is not connected to DOM: ${cardId}`);
       return false;
     }
 
@@ -199,8 +216,6 @@ export const useMaximize = (
       // Add maximized class
       element.classList.add('spfx-card-maximized');
 
-      // Force layout to ensure initial styles are applied before animating
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       element.getBoundingClientRect();
 
       // Enable transition and animate on next frame
@@ -258,7 +273,6 @@ export const useMaximize = (
     return isMaximized ? restore() : maximize();
   }, [isMaximized, maximize, restore]);
 
-  // Rest of the hook remains the same...
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (!isMaximized) return;
@@ -289,7 +303,6 @@ export const useMaximize = (
   useEffect(() => {
     return () => {
       if (isMaximized) {
-        // Emergency cleanup
         const element = getCardElement();
         if (element && originalStyleRef.current) {
           const original = originalStyleRef.current;

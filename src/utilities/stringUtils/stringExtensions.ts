@@ -13,6 +13,19 @@
 
 declare global {
   interface String {
+
+
+    /**     * Format string using placeholders {0}, {1}, etc.
+     * @param args - Values to replace placeholders
+     * @returns Formatted string
+     * @example
+     * ```typescript
+     * 'Hello, {0}! You have {1} new messages.'.format('Alice', 5);
+     * // Result: 'Hello, Alice! You have 5 new messages.'
+     * ```
+     */
+    format(...args: any[]): string;
+
     /**
      * Replace all occurrences of a string or regex pattern (ES5 compatible)
      * @param searchValue - String or RegExp to search for
@@ -204,6 +217,25 @@ declare global {
  * String utility functions that can be used without extending String.prototype
  */
 export const StringUtils = {
+
+  /**
+   * Format string using placeholders {0}, {1}, etc.
+   * @param str - Source string with placeholders
+   * @param args - Values to replace placeholders
+   * @returns Formatted string
+   * @example
+   * ```typescript
+   * StringUtils.format('Hello, {0}! You have {1} new messages.', 'Alice', 5);
+   * // Result: 'Hello, Alice! You have 5 new messages.'
+   * ```
+   */
+  format: (str: string, ...args: any[]): string => {
+    return str.replace(/{(\d+)}/g, (match, index) => {
+      const value = args[index];
+      return value !== undefined ? String(value) : match;
+    });
+  },
+
   /**
    * Replace all occurrences of a string or regex pattern (ES5 compatible)
    * @param str - Source string to search in
@@ -594,6 +626,14 @@ export const StringUtils = {
 export const applyStringExtensions = (): void => {
   // Check if already applied
   if ((String.prototype as any)._spfxExtensionsApplied) return;
+
+  /**
+   * Format string using placeholders {0}, {1}, etc.
+   * @see StringUtils.format for detailed documentation
+   */
+  String.prototype.format = function (...args: any[]): string {
+    return StringUtils.format(this.toString(), ...args);
+  };
 
   /**
    * Replace all occurrences of a string or regex pattern

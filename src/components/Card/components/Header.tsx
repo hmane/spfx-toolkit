@@ -8,17 +8,7 @@ import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { getId } from '@fluentui/react/lib/Utilities';
 import { DEFAULT_ICONS } from '../utils/constants';
 
-export interface EnhancedHeaderProps extends HeaderProps {
-  actions?: CardAction[];
-  hideExpandButton?: boolean;
-  hideMaximizeButton?: boolean;
-  showTooltips?: boolean;
-  variant?: 'success' | 'error' | 'warning' | 'info' | 'default';
-  allowWrap?: boolean;
-  showTooltipOnOverflow?: boolean;
-}
-
-export const Header = memo<EnhancedHeaderProps>(
+export const Header = memo<HeaderProps>(
   ({
     children,
     className = '',
@@ -65,7 +55,6 @@ export const Header = memo<EnhancedHeaderProps>(
     const effectiveSize = size || headerSize;
     const effectiveVariant = variant || contextVariant;
 
-    // FIXED: Check for text overflow
     useEffect(() => {
       if (headerContentRef.current && showTooltipOnOverflow) {
         const element = headerContentRef.current;
@@ -79,7 +68,6 @@ export const Header = memo<EnhancedHeaderProps>(
       }
     }, [showTooltipOnOverflow, children]);
 
-    // COMPLETE FIX: Track keyboard vs mouse interaction
     useEffect(() => {
       const handleGlobalKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Tab') {
@@ -148,7 +136,7 @@ export const Header = memo<EnhancedHeaderProps>(
           `size-${effectiveSize}`,
           clickable && allowExpand && !disabled && !isMaximized ? 'clickable' : '',
           loading ? 'loading' : '',
-          isKeyboardFocus ? 'keyboard-focus' : 'mouse-focus', // FIXED: Add focus method class
+          isKeyboardFocus ? 'keyboard-focus' : 'mouse-focus',
           className,
         ]
           .filter(Boolean)
@@ -160,37 +148,31 @@ export const Header = memo<EnhancedHeaderProps>(
         allowExpand,
         disabled,
         loading,
-        isKeyboardFocus, // FIXED: Include in dependencies
+        isKeyboardFocus,
         className,
         isMaximized,
       ]
     );
 
-    // COMPLETE FIX: Header click handler
     const handleHeaderClick = useCallback(
       (event: React.MouseEvent<HTMLDivElement>) => {
-        // Don't trigger if clicking on buttons
         if ((event.target as HTMLElement).closest('.spfx-header-buttons')) {
           return;
         }
 
         if (clickable && allowExpand && !disabled && !loading && !isMaximized) {
-          // COMPLETE FIX: Prevent any focus on mouse click
           event.preventDefault();
           event.stopPropagation();
 
-          // Remove focus immediately
           if (headerRef.current) {
             headerRef.current.blur();
           }
 
           onToggleExpand('user');
 
-          // Additional cleanup - remove focus after state change
           setTimeout(() => {
             if (headerRef.current) {
               headerRef.current.blur();
-              // Remove any lingering focus
               if (document.activeElement === headerRef.current) {
                 (document.activeElement as HTMLElement).blur();
               }
@@ -201,13 +183,12 @@ export const Header = memo<EnhancedHeaderProps>(
       [clickable, allowExpand, disabled, loading, onToggleExpand, isMaximized]
     );
 
-    // FIXED: Only show focus for keyboard navigation
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (clickable && allowExpand && !disabled && !loading && !isMaximized) {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            setIsKeyboardFocus(true); // Ensure keyboard focus is set
+            setIsKeyboardFocus(true);
             onToggleExpand('user');
           }
         }
@@ -215,10 +196,8 @@ export const Header = memo<EnhancedHeaderProps>(
       [clickable, allowExpand, disabled, loading, onToggleExpand, isMaximized]
     );
 
-    // COMPLETE FIX: Focus and blur handlers
     const handleFocus = useCallback(
       (event: React.FocusEvent<HTMLDivElement>) => {
-        // Only allow focus ring for keyboard navigation
         if (!isKeyboardFocus) {
           event.currentTarget.blur();
         }
@@ -227,11 +206,9 @@ export const Header = memo<EnhancedHeaderProps>(
     );
 
     const handleBlur = useCallback(() => {
-      // Clear keyboard focus state when blurring
       setIsKeyboardFocus(false);
     }, []);
 
-    // Rest of the component logic remains the same...
     const handleActionClick = useCallback(
       (action: CardAction) => (event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
@@ -441,7 +418,6 @@ export const Header = memo<EnhancedHeaderProps>(
       buttonStyles,
     ]);
 
-    // COMPLETE FIX: Accessibility props with proper focus management
     const accessibilityProps = useMemo(() => {
       if (!clickable || !allowExpand || isMaximized) {
         return {};
@@ -496,8 +472,8 @@ export const Header = memo<EnhancedHeaderProps>(
         style={headerStyle}
         onClick={handleHeaderClick}
         onKeyDown={handleKeyDown}
-        onFocus={handleFocus} // COMPLETE FIX: Add focus handler
-        onBlur={handleBlur} // COMPLETE FIX: Add blur handler
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         {...accessibilityProps}
       >
         {loading && showLoadingShimmer && <HeaderLoadingShimmer style={{ marginRight: '8px' }} />}
@@ -514,8 +490,7 @@ export const Header = memo<EnhancedHeaderProps>(
   }
 );
 
-Header.displayName = 'FixedCardHeader';
-// Keep all other header variants for compatibility
+Header.displayName = 'CardHeader';
 export const SimpleHeader = Header;
 export const IconHeader = Header;
 export const BadgeHeader = Header;

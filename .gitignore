@@ -184,3 +184,11 @@ docs/build/
 *.bak
 *.backup
 *~
+
+# Cleanup and temporary documentation
+**/CLEANUP*.md
+**/cleanup*.sh
+**/cleanup*.md
+**/ENHANCED*.md
+**/*-old.*
+**/*.backup.*
