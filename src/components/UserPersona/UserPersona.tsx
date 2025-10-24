@@ -24,6 +24,8 @@ const DEFAULT_PERSONA_IMG_HASHES = new Set([
   'f8cb5c6ed63e440b90d962f8c4b2377b',
   '9a06a83c57864b16a5eef56e83dd5c67',
   'dc9713f1e28b6ec4d4acba8a50c45caa',
+  '808be61398a910bc29b81f4920de8741',
+  'b04cfcc81483e3d264508991c989a538',
 ]);
 const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
 
@@ -99,6 +101,7 @@ const getUserPhoto = async (
     if (!base64) {
       return undefined;
     }
+    debugger;
 
     const hash = await getMd5HashForUrl(base64);
 
