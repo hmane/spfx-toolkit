@@ -58,44 +58,62 @@ export function useLocalStorage<T>(
     }
   }, []);
 
-  const [value, setValue] = React.useState<T>(() => {
+  const [value, setValue] = React.useState<T>(initialValue);
+
+  // Load initial value after mount to avoid state updates in the initializer
+  React.useEffect(() => {
     if (!isStorageAvailable) {
       setIsLoading(false);
-      return initialValue;
+      return;
     }
+
+    let isCancelled = false;
 
     try {
       const stored = window.localStorage.getItem(key);
       const result = stored ? deserialize(stored) : initialValue;
-      setIsLoading(false);
-      return result;
+      if (!isCancelled) {
+        setValue(result);
+        setError(null);
+      }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to read from localStorage');
-      setError(error);
-      onError?.(error, 'read');
-      setIsLoading(false);
-      return initialValue;
+      const storageError = err instanceof Error ? err : new Error('Failed to read from localStorage');
+      if (!isCancelled) {
+        setError(storageError);
+        onError?.(storageError, 'read');
+        setValue(initialValue);
+      }
+    } finally {
+      if (!isCancelled) {
+        setIsLoading(false);
+      }
     }
-  });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [key, deserialize, initialValue, isStorageAvailable, onError]);
 
   const updateValue = React.useCallback(
     (newValue: React.SetStateAction<T>) => {
       if (!isStorageAvailable) return;
 
       try {
-        const valueToStore =
-          typeof newValue === 'function' ? (newValue as (prev: T) => T)(value) : newValue;
-
-        setValue(valueToStore);
+        let valueToStore = initialValue;
+        setValue(prev => {
+          valueToStore =
+            typeof newValue === 'function' ? (newValue as (prev: T) => T)(prev) : newValue;
+          return valueToStore;
+        });
         window.localStorage.setItem(key, serialize(valueToStore));
         setError(null);
       } catch (err) {
-        const error = err instanceof Error ? err : new Error('Failed to write to localStorage');
-        setError(error);
-        onError?.(error, 'write');
+        const storageError = err instanceof Error ? err : new Error('Failed to write to localStorage');
+        setError(storageError);
+        onError?.(storageError, 'write');
       }
     },
-    [key, value, serialize, onError, isStorageAvailable]
+    [isStorageAvailable, key, serialize, onError, initialValue]
   );
 
   const removeValue = React.useCallback(() => {

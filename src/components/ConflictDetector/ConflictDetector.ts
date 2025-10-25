@@ -338,7 +338,7 @@ export class ConflictDetector {
    * Check if polling is currently active
    */
   public isPollingActive(): boolean {
-    return this.pollingInterval !== undefined && !this.isPollingPaused;
+    return this.pollingInterval !== null && this.pollingInterval !== undefined && !this.isPollingPaused;
   }
 
   /**
@@ -440,10 +440,20 @@ export class ConflictDetector {
    * Convert SharePoint item to ConflictInfo format
    */
   private convertItemToConflictInfo(item: SharePointListItem): ConflictInfo {
+    const etag = this.getEtag(item);
+
+    if (!etag) {
+      throw new ConflictDetectionError(
+        'SharePoint item response is missing eTag information',
+        'MISSING_ETAG_METADATA',
+        { item }
+      );
+    }
+
     return {
       hasConflict: false,
-      originalVersion: item.__metadata.etag,
-      currentVersion: item.__metadata.etag,
+      originalVersion: etag,
+      currentVersion: etag,
       lastModifiedBy: item.Editor?.Title || 'Unknown',
       lastModified: new Date(item.Modified),
       originalModified: new Date(item.Modified),
@@ -459,7 +469,7 @@ export class ConflictDetector {
     return !!(
       data &&
       data.Modified &&
-      data.__metadata?.etag &&
+      this.extractEtag(data) &&
       (data.Editor?.Title || data.Editor === undefined)
     );
   }
@@ -496,5 +506,25 @@ export class ConflictDetector {
       return error;
     }
     return 'Unknown error occurred';
+  }
+
+  private extractEtag(
+    item: Partial<SharePointListItem>
+  ): string | undefined {
+    if (!item) {
+      return undefined;
+    }
+
+    const etag =
+      (item as SharePointListItem)['odata.etag'] ??
+      (item as SharePointListItem)['@odata.etag'] ??
+      // Legacy fallback for verbose mode responses
+      (item as unknown as { __metadata?: { etag?: string } }).__metadata?.etag;
+
+    return typeof etag === 'string' ? etag : undefined;
+  }
+
+  private getEtag(item: SharePointListItem): string | undefined {
+    return this.extractEtag(item);
   }
 }

@@ -31,16 +31,13 @@ export const useConflictDetection = ({
   const isInitializedRef = useRef(false);
   const isMountedRef = useRef(true);
 
-  // Create stable options key to avoid re-initialization
-  const optionsKey = useMemo(() => {
-    const opts = { ...DEFAULT_CONFLICT_OPTIONS, ...options };
-    return `${opts.checkInterval || 0}:${opts.checkOnSave}:${opts.showNotification}:${opts.blockSave}:${opts.logConflicts}`;
-  }, [options.checkInterval, options.checkOnSave, options.showNotification, options.blockSave, options.logConflicts]);
-
-  const mergedOptions: ConflictDetectionOptions = useMemo(() => ({
-    ...DEFAULT_CONFLICT_OPTIONS,
-    ...options,
-  }), [optionsKey]);
+  const mergedOptions: ConflictDetectionOptions = useMemo(
+    () => ({
+      ...DEFAULT_CONFLICT_OPTIONS,
+      ...options,
+    }),
+    [options]
+  );
 
   // Safe state update that checks if component is still mounted
   const updateState = useCallback((updates: Partial<ConflictDetectionState>) => {
@@ -94,7 +91,7 @@ export const useConflictDetection = ({
       isInitializedRef.current = false;
       return false;
     }
-  }, [sp, listId, itemId, enabled, optionsKey, updateState, mergedOptions]);
+  }, [sp, listId, itemId, enabled, updateState, mergedOptions]);
 
   const checkForConflicts = useCallback(async (): Promise<boolean> => {
     if (!detectorRef.current || !isInitializedRef.current) {
@@ -254,7 +251,7 @@ export const useConflictDetection = ({
         });
       }
     }
-  }, [optionsKey, updateState, mergedOptions]);
+  }, [mergedOptions, updateState]);
 
   // Cleanup on unmount
   useEffect(() => {

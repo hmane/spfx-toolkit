@@ -99,8 +99,10 @@ export interface SharePointListItem {
     Title: string;
     Email: string;
   };
-  __metadata: {
-    etag: string;
+  'odata.etag'?: string;
+  '@odata.etag'?: string;
+  __metadata?: {
+    etag?: string;
   };
 }
 
@@ -229,12 +231,15 @@ export const isSharePointListItem = (obj: unknown): obj is SharePointListItem =>
     obj !== null &&
     'Id' in obj &&
     'Modified' in obj &&
-    '__metadata' in obj &&
     typeof (obj as any).Id === 'number' &&
     typeof (obj as any).Modified === 'string' &&
-    typeof (obj as any).__metadata === 'object' &&
-    (obj as any).__metadata !== undefined &&
-    'etag' in (obj as any).__metadata
+    (
+      typeof (obj as any)['odata.etag'] === 'string' ||
+      typeof (obj as any)['@odata.etag'] === 'string' ||
+      (typeof (obj as any).__metadata === 'object' &&
+        (obj as any).__metadata !== undefined &&
+        typeof (obj as any).__metadata?.etag === 'string')
+    )
   );
 };
 
