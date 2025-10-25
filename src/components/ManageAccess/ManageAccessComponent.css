@@ -119,6 +119,48 @@
   align-items: center;
 }
 
+/* People Picker Styles - Fix border to match other components */
+.manage-access-panel .ms-BasePicker {
+  border: 1px solid #8a8886 !important;
+  border-radius: 2px !important;
+  min-height: 32px !important;
+  box-sizing: border-box !important;
+}
+
+.manage-access-panel .ms-BasePicker:hover {
+  border-color: #323130 !important;
+}
+
+.manage-access-panel .ms-BasePicker.is-active,
+.manage-access-panel .ms-BasePicker:focus-within {
+  border-color: #0078d4 !important;
+  border-width: 1px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.manage-access-panel .ms-BasePicker-text {
+  border: none !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.manage-access-panel .ms-BasePicker-input {
+  height: 30px !important;
+  line-height: 30px !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.manage-access-panel .ms-BasePicker-input:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* COMPACT Permission Item Styles */
 .manage-access-permission-item {
   padding: 8px 12px;

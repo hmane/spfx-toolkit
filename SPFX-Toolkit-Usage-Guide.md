@@ -936,7 +936,325 @@ const MyChildComponent: React.FC = () => {
 | `retryButtonText` | `string` | `'Try Again'` | Retry button text |
 | `children` | `ReactNode` | Required | Protected components |
 
+### 9. DocumentLink - Rich SharePoint File Links
+
+**Bundle Impact:** Medium (~45KB + optional hover-card assets)  
+**Use Case:** Document lists, dashboards, inline file actions  
+**Peer Dependencies:** `@pnp/spfx-controls-react@^3.22.0` (FileTypeIcon support)
+
+#### Basic Usage
+
+```typescript
+import { DocumentLink } from 'spfx-toolkit/lib/components/DocumentLink';
+
+const InlineDocument = () => (
+  <DocumentLink
+    documentUrl="https://tenant.sharepoint.com/sites/site/Documents/report.pdf"
+    layout="linkWithIcon"
+  />
+);
+```
+
+#### Advanced Features
+
+```typescript
+import { DocumentLink } from 'spfx-toolkit/lib/components/DocumentLink';
+
+const RichDocumentLink: React.FC = () => (
+  <DocumentLink
+    documentId={42}
+    libraryName="Documents"
+    layout="linkWithIconAndSize"
+    sizePosition="below"
+    enableHoverCard
+    showVersionHistory
+    showDownloadInCard
+    onClick="preview"
+    previewMode="view"
+    previewTarget="modal"
+    onAfterPreview={(doc) => console.log('Previewed', doc.name)}
+    onAfterDownload={(doc) => console.log('Downloaded', doc.name)}
+    onError={(error) => SPContext.logger.error('DocumentLink error', error)}
+  />
+);
+```
+
+#### Props Reference
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `documentUrl` | `string` | - | Direct URL identifier (one of the identifiers required) |
+| `documentId` + `libraryName` | `number`, `string` | - | Use when you have numeric list item ID |
+| `documentUniqueId` | `string` | - | Use GUID identifier (alternative to URL/ID) |
+| `layout` | `'linkOnly' \| 'linkWithIcon' \| 'linkWithIconAndSize'` | `'linkWithIcon'` | Choose link layout |
+| `sizePosition` | `'inline' \| 'below'` | `'inline'` | File size placement when using size layout |
+| `enableHoverCard` | `boolean` | `false` | Display metadata hover card |
+| `showVersionHistory` | `boolean` | `false` | Show version history link (requires hover card) |
+| `onClick` | `'download' \| 'preview'` | `'preview'` | Click behavior |
+| `previewMode` | `'view' \| 'edit'` | `'view'` | SharePoint preview mode |
+| `previewTarget` | `'modal' \| 'newTab'` | `'modal'` | Where to open preview |
+| `enableCache` | `boolean` | `true` | Cache metadata between renders |
+| `onAfterDownload` / `onAfterPreview` | `(doc) => void` | - | Post-action callbacks |
+| `onError` | `(error: Error) => void` | - | Error handler |
+
+**Related APIs:** `useDocumentMetadata`, `clearDocumentCache`, `removeCachedDocument`
+
 ---
+
+### 10. GroupUsersPicker - Group-Based People Picker
+
+**Bundle Impact:** Medium (~45KB + DevExtreme SelectBox/TagBox)  
+**Use Case:** Approval workflows, audience targeting, form people fields  
+**Peer Dependencies:** `devextreme@^22.2.3`, `devextreme-react@^22.2.3`
+
+#### Basic Usage
+
+```typescript
+import * as React from 'react';
+import { GroupUsersPicker, type IGroupUser } from 'spfx-toolkit/lib/components/GroupUsersPicker';
+
+const ApproverPicker: React.FC = () => {
+  const [approvers, setApprovers] = React.useState<IGroupUser[]>([]);
+
+  return (
+    <GroupUsersPicker
+      groupName="Approvers"
+      maxUserCount={3}
+      label="Select approvers"
+      selectedUsers={approvers}
+      onChange={setApprovers}
+      ensureUser
+    />
+  );
+};
+```
+
+#### React Hook Form Integration
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { GroupUsersPicker } from 'spfx-toolkit/lib/components/spForm/customComponents/GroupUsersPicker';
+
+const GroupPickerForm: React.FC = () => {
+  const { control, handleSubmit } = useForm<{ reviewers: any[] }>({ defaultValues: { reviewers: [] } });
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <GroupUsersPicker
+        name="reviewers"
+        control={control}
+        groupName="Reviewers"
+        maxUserCount={1}
+        rules={{ required: 'Reviewer required' }}
+        placeholder="Pick a reviewer"
+      />
+      <button type="submit">Save</button>
+    </form>
+  );
+};
+```
+
+#### Props Reference
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `groupName` | `string` | Required | SharePoint group to read users from |
+| `maxUserCount` | `number` | Required | `1` renders SelectBox, `>1` renders TagBox |
+| `selectedUsers` | `IGroupUser[]` | `[]` | Controlled selection values |
+| `ensureUser` | `boolean` | `false` | Call SharePoint `ensureUser` asynchronously |
+| `useCache` | `boolean` | `false` | Use cached (spCached) or fresh (spPessimistic) lookup |
+| `label` / `placeholder` | `string` | - | Fluent label and placeholder text |
+| `required` / `disabled` | `boolean` | `false` | Validation helpers |
+| `itemRender` | `(user) => ReactNode` | - | Custom option template |
+| `onChange` | `(users: IGroupUser[]) => void` | - | Selection change handler |
+
+**Related APIs:** `useGroupUsers`, `ensureUsers`, `ensureUsersWithCallback`, `getUserPhotoIfNotDefault`
+
+---
+
+### 11. spForm System - React Hook Form Building Blocks
+
+**Bundle Impact:** High (300–500KB with DevExtreme + RHF)  
+**Use Case:** Complex business forms, wizard flows, validated edit experiences  
+**Peer Dependencies:** `react-hook-form`, `@hookform/resolvers`, `zod` (optional), `devextreme@^22.2.3`, `devextreme-react@^22.2.3`, `@pnp/spfx-controls-react` (for taxonomy/people)
+
+#### Quick Example
+
+```typescript
+import { useForm } from 'react-hook-form';
+import {
+  FormContainer,
+  FormItem,
+  FormLabel,
+  FormValue,
+  FormError,
+  DevExtremeTextBox,
+  DevExtremeSelectBox,
+} from 'spfx-toolkit/lib/components/spForm';
+
+const RequestForm: React.FC = () => {
+  const form = useForm<{ title: string; category: string }>({
+    defaultValues: { title: '', category: '' },
+    mode: 'onSubmit',
+  });
+
+  return (
+    <FormContainer labelWidth="180px">
+      <form onSubmit={form.handleSubmit(console.log)}>
+        <FormItem>
+          <FormLabel isRequired>Title</FormLabel>
+          <FormValue>
+            <DevExtremeTextBox name="title" control={form.control} placeholder="Enter title" />
+            <FormError error={form.formState.errors.title?.message} />
+          </FormValue>
+        </FormItem>
+        <FormItem>
+          <FormLabel isRequired>Category</FormLabel>
+          <FormValue>
+            <DevExtremeSelectBox
+              name="category"
+              control={form.control}
+              items={['Finance', 'HR', 'IT']}
+              placeholder="Select category"
+            />
+            <FormError error={form.formState.errors.category?.message} />
+          </FormValue>
+        </FormItem>
+        <button type="submit">Submit</button>
+      </form>
+    </FormContainer>
+  );
+};
+```
+
+#### Core Exports
+
+| Module | Key Exports | Notes |
+|--------|-------------|-------|
+| Layout | `FormContainer`, `FormItem`, `FormLabel`, `FormValue`, `FormError`, `FormDescription` | Responsive layout + consistent spacing |
+| DevExtreme Controls | `DevExtremeTextBox`, `DevExtremeSelectBox`, `DevExtremeDateBox`, `DevExtremeNumberBox`, `DevExtremeTagBox`, `DevExtremeSwitch`, `DevExtremeRadioGroup`, `DevExtremeAutocomplete`, `DevExtremeTextArea`, `DevExtremeCheckBox` | RHF-ready wrappers with value conversion |
+| PnP Controls | `PnPPeoplePicker`, `PnPModernTaxonomyPicker` | Async SharePoint pickers with RHF integration |
+| Custom Components | `GroupUsersPicker` (via `spForm/customComponents`) | Re-exports tuned for RHF |
+
+**Usage Tips**
+- Import DevExtreme styles globally: `import 'devextreme/dist/css/dx.light.css';`
+- Wrap long forms in `FormContainer` for consistent label widths.
+- Combine with Zod via `zodResolver` for schema validation.
+
+---
+
+### 12. SPField Suite - SharePoint Field Controls
+
+**Bundle Impact:** Medium–High (varies per field; relies on DevExtreme + RHF)  
+**Use Case:** List form replacements, data collection aligned with SharePoint field types
+
+#### Basic Usage
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/lib/components/spFields';
+
+const TaskEditor: React.FC = () => {
+  const { control, handleSubmit } = useForm<{ title: string; status: string; assignees: number[] }>({
+    defaultValues: { title: '', status: '', assignees: [] },
+  });
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <SPTextField name="title" label="Title" control={control} rules={{ required: 'Title required' }} />
+      <SPChoiceField
+        name="status"
+        label="Status"
+        control={control}
+        choices={['Draft', 'Review', 'Approved']}
+        allowCustomValue
+      />
+      <SPUserField
+        name="assignees"
+        label="Assignees"
+        control={control}
+        allowMultiple
+      />
+      <button type="submit">Save</button>
+    </form>
+  );
+};
+```
+
+#### Component Coverage
+
+| Component | Field Type Highlights |
+|-----------|----------------------|
+| `SPTextField` | Single/multi-line text, rich text, note history |
+| `SPChoiceField` | Choice & multi-choice, custom values, async loaders |
+| `SPUserField` | People & groups, display modes, auto `ensureUser` |
+| `SPDateField` | Date only + date/time, friendly formatting |
+| `SPNumberField` | Integers, decimals, min/max, formatting |
+| `SPBooleanField` | Checkbox or toggle switch display |
+| `SPUrlField` | URL + description pairs, link validation |
+| `SPLookupField` | Lookup + dependent lookup data sources |
+| `SPTaxonomyField` | Managed metadata (single/multi) via PnP taxonomy |
+| `SPField` | Metadata-driven smart field that renders correct control |
+
+**Notes**
+- All fields support RHF `name`, `control`, and `rules` props.
+- Combine with `SPContext.smart` to enable SharePoint-backed lookups.
+- Utility types in `spFields/types` help define strongly-typed list item models.
+
+---
+
+### 13. Lazy Components - On-Demand Heavy Features
+
+**Bundle Impact:** Wrapper only (~3–5KB) + deferred component chunk  
+**Use Case:** Reduce initial bundle size by loading heavy components on demand
+
+```typescript
+import * as React from 'react';
+import {
+  LazyVersionHistory,
+  LazyManageAccessComponent,
+  LazyManageAccessPanel,
+  LazyConflictDetector,
+  LazyWorkflowStepper,
+  preloadComponent,
+} from 'spfx-toolkit/lib/components/lazy';
+
+const VersionHistoryTrigger: React.FC = () => {
+  const [showHistory, setShowHistory] = React.useState(false);
+
+  return (
+    <>
+      <button
+        onMouseEnter={() => preloadComponent(() => import('spfx-toolkit/lib/components/VersionHistory'))}
+        onClick={() => setShowHistory(true)}
+      >
+        View Version History
+      </button>
+
+      {showHistory && (
+        <LazyVersionHistory
+          listTitle="Documents"
+          itemId={123}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
+    </>
+  );
+};
+```
+
+**Available Lazy Exports**
+- `LazyVersionHistory`
+- `LazyManageAccessComponent`
+- `LazyManageAccessPanel`
+- `LazyConflictDetector`
+- `LazyWorkflowStepper`
+
+Use `preloadComponent` or `useLazyPreload` to warm caches when users show intent. Pair with `LazyLoadErrorBoundary` for dedicated load/error UI.
+
+---
+
+## Custom Hooks
 
 ## Custom Hooks
 
@@ -1639,6 +1957,82 @@ class DateUtils {
   static getEndOfMonth(date: Date): Date;
 }
 ```
+
+---
+
+### 6. CssLoader - SharePoint Library Styles
+
+**Use Case:** Inject custom CSS from `Style Library`/`Site Assets`, theme toggles, feature-specific styling
+
+```typescript
+import { CssLoader } from 'spfx-toolkit/lib/utilities/CssLoader';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+export default class MyWebPart extends BaseClientSideWebPart<{}> {
+  protected async onInit(): Promise<void> {
+    await SPContext.smart(this.context, 'MyWebPart');
+
+    CssLoader.loadCssFiles(SPContext.webAbsoluteUrl, 'Style Library', [
+      'global/base.css',
+      'components/workflow-stepper.css',
+    ]);
+  }
+}
+```
+
+#### API Highlights
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `loadCssFile` | `(webUrl, libraryName, fileName, options?)` | Loads single CSS asset; cached by default |
+| `loadCssFiles` | `(webUrl, libraryName, files[], options?)` | Loads multiple files in order |
+
+**Tips**
+- Disable caching during theming or live previews: `{ cache: false }`
+- Organize assets by folder (`themes/dark.css`, `components/card.css`) and load conditionally
+- Call during `onInit()` to avoid layout shifts
+
+---
+
+### 7. LazyLoader Utility - Custom Lazy Components
+
+**Use Case:** Create lazy wrappers with custom fallbacks, preload heavy modules on demand
+
+```typescript
+import * as React from 'react';
+import { createLazyComponent, preloadComponent, useLazyPreload } from 'spfx-toolkit/lib/utilities/lazyLoader';
+
+const lazyAdminImport = () => import('../AdminPanel').then((m) => ({ default: m.AdminPanel }));
+
+const LazyAdminPanel = createLazyComponent(lazyAdminImport, {
+  fallback: <div style={{ padding: 24 }}>Loading admin tools…</div>,
+  errorMessage: 'Unable to load admin tools. Please refresh.',
+  minLoadingTime: 250,
+});
+
+const SettingsButton: React.FC = () => {
+  const [showPanel, setShowPanel] = React.useState(false);
+
+  useLazyPreload(lazyAdminImport, showPanel);
+
+  return (
+    <>
+      <button
+        onMouseEnter={() => preloadComponent(lazyAdminImport)}
+        onClick={() => setShowPanel(true)}
+      >
+        Admin Settings
+      </button>
+      {showPanel && <LazyAdminPanel onDismiss={() => setShowPanel(false)} />}
+    </>
+  );
+};
+```
+
+**Helper Components**
+- `LazyLoadFallback` – Consistent shimmer/loading indicator
+- `LazyLoadErrorBoundary` – Component-level error handling around lazy boundaries
+- `preloadComponent` / `useLazyPreload` – Warm caches on hover/focus or state changes
 
 ---
 
@@ -3398,6 +3792,11 @@ SPContext.reset(): void;
 | ConflictDetector | `listTitle`, `itemId`, `children` | `checkInterval`, `onConflictDetected`, `onConflictResolved` |
 | GroupViewer | `groupId` OR `groupName` | `showMembers`, `showOwner`, `showDescription`, `maxMembers` |
 | ErrorBoundary | `children` | `fallback`, `onError`, `onReset`, `showRetryButton` |
+| DocumentLink | One of: `documentUrl`, `documentUniqueId`, or (`documentId` + `libraryName`) | `layout`, `enableHoverCard`, `onClick`, `previewMode`, `previewTarget`, `enableCache` |
+| GroupUsersPicker | `groupName`, `maxUserCount` | `selectedUsers`, `ensureUser`, `useCache`, `itemRender` |
+| spForm Controls | `name`, `control` | Field-specific props (`items`, `placeholder`, `rules`, etc.) |
+| SPField Components | `name`, `control` | `label`, `rules`, field-specific options (choices, allowMultiple, formatting) |
+| Lazy Components | Same as underlying component (`VersionHistory`, `ManageAccess`, etc.) | Use `preloadComponent` / `useLazyPreload` for smoother UX |
 
 ---
 
@@ -3434,6 +3833,49 @@ import type { IConflictDetectorProps } from 'spfx-toolkit/lib/components/Conflic
 import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
 import type { IGroupViewerProps } from 'spfx-toolkit/lib/components/GroupViewer';
 
+// DocumentLink
+import { DocumentLink, useDocumentMetadata } from 'spfx-toolkit/lib/components/DocumentLink';
+import type { IDocumentLinkProps, IDocumentInfo } from 'spfx-toolkit/lib/components/DocumentLink';
+
+// GroupUsersPicker
+import { GroupUsersPicker, useGroupUsers } from 'spfx-toolkit/lib/components/GroupUsersPicker';
+import type { IGroupUsersPickerProps, IGroupUser } from 'spfx-toolkit/lib/components/GroupUsersPicker';
+
+// spForm
+import {
+  FormContainer,
+  FormItem,
+  FormLabel,
+  FormValue,
+  FormError,
+  DevExtremeTextBox,
+  PnPPeoplePicker,
+} from 'spfx-toolkit/lib/components/spForm';
+import type {
+  IFormContainerProps,
+  IFormItemProps,
+  IFormLabelProps,
+  IFormValueProps,
+  IFormErrorProps,
+  IDevExtremeTextBoxProps,
+  IPnPPeoplePickerProps,
+} from 'spfx-toolkit/lib/components/spForm';
+
+// SPField Suite
+import { SPTextField, SPChoiceField, SPField } from 'spfx-toolkit/lib/components/spFields';
+import type { ISPTextFieldProps, ISPChoiceFieldProps, ISPFieldProps } from 'spfx-toolkit/lib/components/spFields';
+
+// Lazy Components
+import {
+  LazyVersionHistory,
+  LazyManageAccessComponent,
+  LazyManageAccessPanel,
+  LazyConflictDetector,
+  LazyWorkflowStepper,
+  preloadComponent,
+  useLazyPreload,
+} from 'spfx-toolkit/lib/components/lazy';
+
 // ErrorBoundary
 import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/lib/components/ErrorBoundary';
 import type { IErrorBoundaryProps } from 'spfx-toolkit/lib/components/ErrorBoundary';
@@ -3469,6 +3911,18 @@ import { StringUtils } from 'spfx-toolkit/lib/utilities/stringUtils';
 
 // DateUtils
 import { DateUtils } from 'spfx-toolkit/lib/utilities/dateUtils';
+
+// CssLoader
+import { CssLoader } from 'spfx-toolkit/lib/utilities/CssLoader';
+
+// Lazy Loader
+import {
+  createLazyComponent,
+  LazyLoadFallback,
+  LazyLoadErrorBoundary,
+  preloadComponent,
+  useLazyPreload,
+} from 'spfx-toolkit/lib/utilities/lazyLoader';
 ```
 
 ---

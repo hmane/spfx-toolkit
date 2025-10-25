@@ -1231,3 +1231,46 @@ button:active {
 .spfx-form-item.spfx-form-item-no-label .spfx-form-item-value-area {
   width: 100%;
 }
+
+/* PnP People Picker - Fix border to match Fluent UI controls */
+.ms-BasePicker {
+  border: 1px solid #8a8886 !important;
+  border-radius: 2px !important;
+  min-height: 32px !important;
+  transition: border-color 0.15s ease-in-out !important;
+  box-sizing: border-box !important;
+}
+
+.ms-BasePicker:hover {
+  border-color: #323130 !important;
+}
+
+.ms-BasePicker.is-active,
+.ms-BasePicker:focus-within {
+  border-color: #0078d4 !important;
+  border-width: 1px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ms-BasePicker-text {
+  border: none !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.ms-BasePicker-input {
+  height: 30px !important;
+  line-height: 30px !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ms-BasePicker-input:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

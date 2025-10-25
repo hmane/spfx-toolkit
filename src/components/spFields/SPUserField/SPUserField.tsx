@@ -19,6 +19,7 @@ import { ISPUserFieldProps, SPUserFieldDisplayMode } from './SPUserField.types';
 import { ISPUserFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
+import './SPUserField.css';
 
 /**
  * SPUserField component for user and group selection

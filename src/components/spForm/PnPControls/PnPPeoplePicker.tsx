@@ -4,6 +4,7 @@ import { IPeoplePickerContext, PeoplePicker } from '@pnp/spfx-controls-react/lib
 import * as React from 'react';
 import { Controller, FieldValues, Path } from 'react-hook-form';
 import { DirectionalHint } from '../../../types/fluentui-types';
+import './PnPPeoplePicker.css';
 
 export interface IPnPPeoplePickerProps<T extends FieldValues> {
   name: Path<T>;
