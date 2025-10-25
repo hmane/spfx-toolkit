@@ -232,12 +232,28 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
   const renderFieldComponent = () => {
     switch (fieldMetadata.fieldType) {
       case SPFieldType.Text:
+        return (
+          <SPTextField
+            {...commonProps}
+            mode={SPTextFieldMode.SingleLine}
+            maxLength={fieldMetadata.metadata.maxLength}
+          />
+        );
+
       case SPFieldType.Note:
         return (
           <SPTextField
             {...commonProps}
-            mode={fieldMetadata.fieldType === SPFieldType.Note ? SPTextFieldMode.MultiLine : SPTextFieldMode.SingleLine}
+            mode={
+              fieldMetadata.metadata.richText
+                ? SPTextFieldMode.RichText
+                : SPTextFieldMode.MultiLine
+            }
             maxLength={fieldMetadata.metadata.maxLength}
+            rows={fieldMetadata.metadata.numberOfLines}
+            appendOnly={fieldMetadata.metadata.appendOnly}
+            listNameOrId={isSmartConfig(config) ? config.listNameOrId : undefined}
+            fieldInternalName={isSmartConfig(config) ? config.fieldInternalName : fieldMetadata.internalName}
           />
         );
 
@@ -387,8 +403,17 @@ function extractFieldConfig(field: any, fieldType: SPFieldType): any {
 
   switch (fieldType) {
     case SPFieldType.Text:
+      config.maxLength = field.MaxLength;
+      break;
+
     case SPFieldType.Note:
       config.maxLength = field.MaxLength;
+      config.richText = field.RichText || false;
+      config.appendOnly = field.AppendOnly || false;
+      config.richTextMode = field.RichTextMode;
+      config.numberOfLines = field.NumberOfLines || 6;
+      config.allowHyperlink = field.AllowHyperlink;
+      config.restrictedMode = field.RestrictedMode;
       break;
 
     case SPFieldType.Choice:

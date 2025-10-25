@@ -3,6 +3,7 @@
  *
  * A text field component that mirrors SharePoint's single-line and multi-line text fields.
  * Supports react-hook-form integration and DevExtreme TextBox/TextArea components.
+ * Also supports rich text mode and append-only (history) mode for Note fields.
  *
  * @packageDocumentation
  */
@@ -11,12 +12,18 @@ import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
 import TextBox from 'devextreme-react/text-box';
 import TextArea from 'devextreme-react/text-area';
-import { ISPTextFieldProps, SPTextFieldMode } from './SPTextField.types';
+import { ISPTextFieldProps, SPTextFieldMode, INoteHistoryEntry } from './SPTextField.types';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { Label } from '@fluentui/react/lib/Label';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
+import { NoteHistory } from './NoteHistory';
+
+// Lazy load RichText from PnP for better bundle size
+const RichText = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/RichText').then((m) => ({ default: m.RichText }))
+);
 
 /**
  * SPTextField component for single-line and multi-line text input
@@ -87,9 +94,19 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     maskChar = '_',
     stylingMode = 'outlined',
 
+    // Append-only props
+    appendOnly = false,
+    itemId,
+    listNameOrId,
+    fieldInternalName,
+    historyConfig,
+    useCacheForHistory = false,
+    onHistoryLoad,
+    onHistoryError,
+    onNoteAdd,
+    onCopyPrevious,
+
     // SharePoint props (for future use)
-    // listId,
-    // fieldName,
     // webUrl,
     // showFieldIcon,
     // renderDisplayMode,
@@ -99,9 +116,15 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const [internalValue, setInternalValue] = React.useState<string>(defaultValue || '');
   const [charCount, setCharCount] = React.useState<number>(0);
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
+  const [fieldValue, setFieldValue] = React.useState<string>(defaultValue || '');
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
+
+  // Determine if we should show history
+  const showHistory = appendOnly && itemId && listNameOrId && (fieldInternalName || name);
+  const isRichTextMode = mode === SPTextFieldMode.RichText;
+  const historyPosition = historyConfig?.position || 'below';
 
   React.useEffect(() => {
     setCharCount(currentValue?.length || 0);
@@ -137,6 +160,29 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       }
     };
   }, []);
+
+  /**
+   * Handle copy previous entry
+   */
+  const handleCopyPrevious = React.useCallback(
+    (entry: INoteHistoryEntry) => {
+      // Set the value to the copied entry
+      setInternalValue(entry.text);
+      setFieldValue(entry.text);
+      setCharCount(entry.text?.length || 0);
+
+      // Trigger onChange if provided
+      if (onChange) {
+        onChange(entry.text);
+      }
+
+      // Fire callback
+      if (onCopyPrevious) {
+        onCopyPrevious(entry);
+      }
+    },
+    [onChange, onCopyPrevious]
+  );
 
   // Merge validation rules
   const validationRules = React.useMemo(() => {
@@ -212,6 +258,9 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       validationError: fieldError ? { message: fieldError } : undefined,
     };
 
+    // For append-only mode with disabled, only show history (no input field)
+    const shouldShowInput = !disabled || !appendOnly;
+
     return (
       <Stack className={containerClass}>
         {label && (
@@ -226,38 +275,86 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           </Text>
         )}
 
-        {isMultiLine ? (
-          <TextArea
-            {...fieldProps}
-            height={rows * 24}
-            inputAttr={{
-              spellcheck: spellCheck,
-            }}
-            autoResizeEnabled={true}
-          />
-        ) : (
-          <TextBox
-            {...fieldProps}
-            mode={inputType === 'password' ? 'password' : 'text'}
-            inputAttr={{
-              type: inputType,
-              spellcheck: spellCheck,
-              autoComplete: autoComplete,
-            }}
-            mask={mask}
-            maskChar={maskChar}
+        {/* Show history above if configured */}
+        {showHistory && historyPosition === 'above' && (
+          <NoteHistory
+            itemId={itemId!}
+            listNameOrId={listNameOrId!}
+            fieldInternalName={fieldInternalName || name!}
+            config={historyConfig}
+            isRichText={isRichTextMode}
+            useCache={useCacheForHistory}
+            onHistoryLoad={onHistoryLoad}
+            onHistoryError={onHistoryError}
+            onCopyPrevious={handleCopyPrevious}
           />
         )}
 
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
+        {/* Input field (hidden when disabled in append-only mode) */}
+        {shouldShowInput && (
+          <>
+            {isRichTextMode ? (
+              <React.Suspense fallback={<Text>Loading rich text editor...</Text>}>
+                <RichText
+                  value={fieldValue || ''}
+                  onChange={(text: string) => {
+                    fieldOnChange(text);
+                    return text;
+                  }}
+                  isEditMode={!readOnly && !disabled}
+                  placeholder={placeholder}
+                  className={inputClassName}
+                />
+              </React.Suspense>
+            ) : isMultiLine ? (
+              <TextArea
+                {...fieldProps}
+                height={rows * 24}
+                inputAttr={{
+                  spellcheck: spellCheck,
+                }}
+                autoResizeEnabled={true}
+              />
+            ) : (
+              <TextBox
+                {...fieldProps}
+                mode={inputType === 'password' ? 'password' : 'text'}
+                inputAttr={{
+                  type: inputType,
+                  spellcheck: spellCheck,
+                  autoComplete: autoComplete,
+                }}
+                mask={mask}
+                maskChar={maskChar}
+              />
+            )}
+
+            {(fieldError || errorMessage) && (
+              <Text className={errorClass}>{fieldError || errorMessage}</Text>
+            )}
+
+            {showCharacterCount && !isRichTextMode && (
+              <Text className={charCountClass}>
+                {charCount}
+                {maxLength && ` / ${maxLength}`}
+              </Text>
+            )}
+          </>
         )}
 
-        {showCharacterCount && (
-          <Text className={charCountClass}>
-            {charCount}
-            {maxLength && ` / ${maxLength}`}
-          </Text>
+        {/* Show history below if configured (default) */}
+        {showHistory && historyPosition === 'below' && (
+          <NoteHistory
+            itemId={itemId!}
+            listNameOrId={listNameOrId!}
+            fieldInternalName={fieldInternalName || name!}
+            config={historyConfig}
+            isRichText={isRichTextMode}
+            useCache={useCacheForHistory}
+            onHistoryLoad={onHistoryLoad}
+            onHistoryError={onHistoryError}
+            onCopyPrevious={handleCopyPrevious}
+          />
         )}
       </Stack>
     );
