@@ -47,7 +47,7 @@ export interface ISPFieldBaseProps<T> {
   /**
    * React Hook Form control object
    */
-  control?: Control<any>;
+  control?: any;
 
   /**
    * Validation rules for react-hook-form

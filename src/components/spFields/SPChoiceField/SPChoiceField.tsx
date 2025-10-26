@@ -7,22 +7,21 @@
  * @packageDocumentation
  */
 
-import * as React from 'react';
-import { Controller, RegisterOptions } from 'react-hook-form';
+import { Label } from '@fluentui/react/lib/Label';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { mergeStyles } from '@fluentui/react/lib/Styling';
+import { Text } from '@fluentui/react/lib/Text';
+import { useTheme } from '@fluentui/react/lib/Theme';
+import { LoadPanel } from 'devextreme-react/load-panel';
 import { SelectBox } from 'devextreme-react/select-box';
 import { TagBox } from 'devextreme-react/tag-box';
 import TextBox from 'devextreme-react/text-box';
-import { LoadPanel } from 'devextreme-react/load-panel';
-import { Stack } from '@fluentui/react/lib/Stack';
-import { Label } from '@fluentui/react/lib/Label';
-import { Text } from '@fluentui/react/lib/Text';
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
-import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
+import * as React from 'react';
+import { Controller, RegisterOptions } from 'react-hook-form';
 import {
-  ISPChoiceFieldProps,
   DefaultSPChoiceFieldProps,
-  SPChoiceDisplayType,
+  ISPChoiceFieldProps
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 
@@ -52,7 +51,7 @@ import { useSPChoiceField } from './hooks/useSPChoiceField';
  * />
  * ```
  */
-export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
+export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   const {
     // Base props
     label,
@@ -93,7 +92,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
   } = props;
 
   const theme = useTheme();
-  const [internalValue, setInternalValue] = React.useState<string | string[]>(defaultValue || (allowMultiple ? [] : ''));
+  const [internalValue, setInternalValue] = React.useState<string | string[]>(
+    defaultValue || (allowMultiple ? [] : '')
+  );
   const [invalidValueError, setInvalidValueError] = React.useState<string | null>(null);
 
   // Use the hook to load choices and manage "Other" option
@@ -131,26 +132,34 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
     return metadata?.isMultiChoice || false;
   }, [allowMultiple, metadata]);
 
-  // Determine dropdown value (convert custom values to "Other" if needed)
-  const dropdownValue = React.useMemo(() => {
-    if (!currentValue) return isMultiChoice ? [] : undefined;
+  // Helper function to transform value for dropdown display (convert custom values to "Other" if needed)
+  const getDropdownValue = React.useCallback(
+    (val: string | string[] | undefined | null) => {
+      if (!val) return isMultiChoice ? [] : undefined;
 
-    if (Array.isArray(currentValue)) {
-      // Multi-select: replace custom values with "Other"
-      return currentValue.map(v => {
-        if (otherEnabled && isOtherValue(v)) {
+      if (Array.isArray(val)) {
+        // Multi-select: replace custom values with "Other"
+        return val.map(v => {
+          if (otherEnabled && isOtherValue(v)) {
+            return otherOptionText;
+          }
+          return v;
+        });
+      } else {
+        // Single-select: replace custom value with "Other"
+        if (otherEnabled && isOtherValue(val)) {
           return otherOptionText;
         }
-        return v;
-      });
-    } else {
-      // Single-select: replace custom value with "Other"
-      if (otherEnabled && isOtherValue(currentValue)) {
-        return otherOptionText;
+        return val;
       }
-      return currentValue;
-    }
-  }, [currentValue, otherEnabled, isOtherValue, otherOptionText, isMultiChoice]);
+    },
+    [otherEnabled, isOtherValue, otherOptionText, isMultiChoice]
+  );
+
+  // Determine dropdown value for standalone mode (convert custom values to "Other" if needed)
+  const dropdownValue = React.useMemo(() => {
+    return getDropdownValue(currentValue);
+  }, [currentValue, getDropdownValue]);
 
   // Validate value against choices
   React.useEffect(() => {
@@ -195,9 +204,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
         const selectedArray: string[] = (newValue as string[]) || [];
 
         // Check if "Other" is selected
-        const hasOther = selectedArray.some(
-          v => v.toLowerCase() === otherOptionText.toLowerCase()
-        );
+        const hasOther = selectedArray.some(v => v.toLowerCase() === otherOptionText.toLowerCase());
 
         if (hasOther && otherState.customValue) {
           // Replace "Other" with custom value
@@ -247,9 +254,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
           v => v.toLowerCase() !== otherOptionText.toLowerCase() && !isOtherValue(v)
         );
 
-        const newArray = newCustomValue
-          ? [...filteredArray, newCustomValue]
-          : filteredArray;
+        const newArray = newCustomValue ? [...filteredArray, newCustomValue] : filteredArray;
 
         setInternalValue(newArray);
         if (onChange) {
@@ -263,7 +268,16 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
         }
       }
     },
-    [metadata, staticChoices, currentValue, isMultiChoice, otherOptionText, isOtherValue, setCustomValue, onChange]
+    [
+      metadata,
+      staticChoices,
+      currentValue,
+      isMultiChoice,
+      otherOptionText,
+      isOtherValue,
+      setCustomValue,
+      onChange,
+    ]
   );
 
   // Merge validation rules
@@ -302,7 +316,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
           messageBarType={MessageBarType.error}
           isMultiline={false}
           onDismiss={retry}
-          dismissButtonAriaLabel="Retry"
+          dismissButtonAriaLabel='Retry'
         >
           {error}
         </MessageBar>
@@ -325,7 +339,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
   };
 
   // Render field content
-  const renderField = (fieldValue: string | string[], fieldOnChange: (val: string | string[]) => void, fieldError?: string) => {
+  const renderField = (
+    fieldValue: string | string[],
+    fieldOnChange: (val: string | string[]) => void,
+    fieldError?: string
+  ) => {
     return (
       <Stack className={`sp-choice-field ${containerClass} ${className || ''}`}>
         {label && (
@@ -335,22 +353,22 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
         )}
 
         {description && (
-          <Text variant="small" style={{ marginBottom: 4 }}>
+          <Text variant='small' style={{ marginBottom: 4 }}>
             {description}
           </Text>
         )}
 
         {loading && (
-          <div className="sp-choice-field-loading">
+          <div className='sp-choice-field-loading'>
             <LoadPanel
               visible={true}
-              message="Loading choices..."
+              message='Loading choices...'
               position={{ of: '.sp-choice-field-control' }}
             />
           </div>
         )}
 
-        <div className="sp-choice-field-control">
+        <div className='sp-choice-field-control'>
           {isMultiChoice ? (
             <TagBox
               key={`tagbox-${loading}-${finalChoices.length}`}
@@ -403,18 +421,23 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = (props) => {
         control={control}
         rules={validationRules}
         defaultValue={defaultValue || (isMultiChoice ? [] : '')}
-        render={({ field, fieldState }) => (
-          <>
-            {renderField(
-              dropdownValue || (isMultiChoice ? [] : ''),
-              (val) => {
-                field.onChange(val);
-                handleDropdownChange(val || (isMultiChoice ? [] : ''));
-              },
-              fieldState.error?.message
-            )}
-          </>
-        )}
+        render={({ field, fieldState }) => {
+          // Transform field.value for dropdown display (replace custom values with "Other")
+          const displayValue = getDropdownValue(field.value);
+
+          return (
+            <>
+              {renderField(
+                displayValue || (isMultiChoice ? [] : ''),
+                val => {
+                  field.onChange(val);
+                  handleDropdownChange(val || (isMultiChoice ? [] : ''));
+                },
+                fieldState.error?.message
+              )}
+            </>
+          );
+        }}
       />
     );
   }

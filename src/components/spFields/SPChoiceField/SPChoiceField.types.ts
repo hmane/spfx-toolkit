@@ -55,7 +55,10 @@ export interface StaticChoicesDataSource {
 /**
  * Union type for data source configuration
  */
-export type SPChoiceFieldDataSource = ListFieldDataSource | SiteColumnDataSource | StaticChoicesDataSource;
+export type SPChoiceFieldDataSource =
+  | ListFieldDataSource
+  | SiteColumnDataSource
+  | StaticChoicesDataSource;
 
 /**
  * Configuration for "Other" option behavior
@@ -123,7 +126,8 @@ export interface IOtherOptionConfig {
 /**
  * Props for SPChoiceField component
  */
-export interface ISPChoiceFieldProps extends Omit<ISPFieldBaseProps<string | string[]>, 'showClearButton'> {
+export interface ISPChoiceFieldProps
+  extends Omit<ISPFieldBaseProps<string | string[]>, 'showClearButton'> {
   /**
    * Show clear button in the dropdown
    * @default true

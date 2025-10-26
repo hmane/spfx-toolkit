@@ -114,7 +114,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<string>(defaultValue || '');
-  const [charCount, setCharCount] = React.useState<number>(0);
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
   const [fieldValue, setFieldValue] = React.useState<string>(defaultValue || '');
 
@@ -126,15 +125,10 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const isRichTextMode = mode === SPTextFieldMode.RichText;
   const historyPosition = historyConfig?.position || 'below';
 
-  React.useEffect(() => {
-    setCharCount(currentValue?.length || 0);
-  }, [currentValue]);
-
   // Debounced change handler
   const handleChange = React.useCallback(
     (newValue: string) => {
       setInternalValue(newValue);
-      setCharCount(newValue?.length || 0);
 
       if (onChange) {
         if (debounceDelay > 0) {
@@ -169,7 +163,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       // Set the value to the copied entry
       setInternalValue(entry.text);
       setFieldValue(entry.text);
-      setCharCount(entry.text?.length || 0);
 
       // Trigger onChange if provided
       if (onChange) {
@@ -240,10 +233,12 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   // Render field content
   const renderField = (fieldValue: string, fieldOnChange: (val: string) => void, fieldError?: string) => {
     const isMultiLine = mode === SPTextFieldMode.MultiLine;
+    const currentCharCount = fieldValue?.length || 0;
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
       value: fieldValue || '',
       onValueChanged: (e: any) => fieldOnChange(e.value),
+      valueChangeEvent: 'input', // Update on every keystroke for real-time character count
       disabled: disabled,
       readOnly: readOnly,
       placeholder: placeholder,
@@ -335,7 +330,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
             {showCharacterCount && !isRichTextMode && (
               <Text className={charCountClass}>
-                {charCount}
+                {currentCharCount}
                 {maxLength && ` / ${maxLength}`}
               </Text>
             )}

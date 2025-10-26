@@ -29,7 +29,7 @@ import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
  *
  * @example
  * ```tsx
- * // Auto mode - switches to searchable if > 100 items
+ * // Auto mode - switches to autocomplete if > 100 items
  * <SPLookupField
  *   name="category"
  *   label="Category"
@@ -40,26 +40,38 @@ import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
  *   }}
  * />
  *
- * // Force searchable mode
+ * // Force SelectBox mode (for small lists - loads all items)
+ * <SPLookupField
+ *   name="status"
+ *   label="Status"
+ *   control={control}
+ *   displayMode={SPLookupDisplayMode.SelectBox} // or use .Dropdown
+ *   dataSource={{
+ *     listNameOrId: 'StatusList'
+ *   }}
+ * />
+ *
+ * // Force Autocomplete mode (for large lists - async search)
  * <SPLookupField
  *   name="product"
  *   label="Product"
  *   control={control}
- *   displayMode={SPLookupDisplayMode.Searchable}
+ *   displayMode={SPLookupDisplayMode.Autocomplete} // or use .Searchable
  *   dataSource={{
  *     listNameOrId: 'Products',
  *     searchFields: ['Title', 'ProductCode']
  *   }}
  * />
  *
- * // Force dropdown mode (load all items)
+ * // Multi-select with SelectBox (for small lists)
  * <SPLookupField
- *   name="status"
- *   label="Status"
+ *   name="categories"
+ *   label="Categories"
  *   control={control}
- *   displayMode={SPLookupDisplayMode.Dropdown}
+ *   allowMultiple
+ *   displayMode={SPLookupDisplayMode.SelectBox}
  *   dataSource={{
- *     listNameOrId: 'StatusList'
+ *     listNameOrId: 'Categories'
  *   }}
  * />
  * ```

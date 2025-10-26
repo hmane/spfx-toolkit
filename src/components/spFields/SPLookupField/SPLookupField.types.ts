@@ -12,18 +12,40 @@ import { ISPFieldBaseProps, ISPLookupFieldValue } from '../types';
 export enum SPLookupDisplayMode {
   /**
    * Auto-detect based on item count threshold
+   * - Uses Dropdown (SelectBox) if items <= threshold
+   * - Switches to Searchable (Autocomplete) if items > threshold
    */
   Auto = 'auto',
 
   /**
-   * Force dropdown mode (SelectBox/TagBox) - loads all items
+   * Force dropdown mode (SelectBox/TagBox)
+   * - Loads ALL items upfront
+   * - Best for small lookup lists (< 100 items)
+   * - Renders as DevExtreme SelectBox/TagBox
+   * - Provides instant filtering within loaded items
    */
   Dropdown = 'dropdown',
 
   /**
-   * Force searchable mode with async loading
+   * Force searchable mode (Autocomplete)
+   * - Async loading with search-as-you-type
+   * - Best for large lookup lists (> 100 items)
+   * - Renders as PnP ListItemPicker
+   * - Loads items on-demand based on search query
    */
   Searchable = 'searchable',
+
+  /**
+   * Alias for Dropdown mode (SelectBox)
+   * Same as Dropdown - loads all items upfront
+   */
+  SelectBox = 'dropdown',
+
+  /**
+   * Alias for Searchable mode (Autocomplete)
+   * Same as Searchable - async search
+   */
+  Autocomplete = 'searchable',
 }
 
 /**
@@ -92,17 +114,39 @@ export interface ISPLookupFieldProps extends ISPFieldBaseProps<ISPLookupFieldVal
 
   /**
    * Display mode for the lookup field
-   * - auto: Auto-detect based on threshold (default)
-   * - dropdown: Force dropdown mode
-   * - searchable: Force searchable mode
+   *
+   * Options:
+   * - **Auto** (default): Automatically switches between SelectBox and Autocomplete based on item count
+   * - **SelectBox** / **Dropdown**: Loads all items upfront, renders as SelectBox/TagBox (best for < 100 items)
+   * - **Autocomplete** / **Searchable**: Async search-as-you-type (best for > 100 items)
+   *
    * @default SPLookupDisplayMode.Auto
+   *
+   * @example
+   * ```tsx
+   * // For small lookup lists (< 100 items)
+   * displayMode={SPLookupDisplayMode.SelectBox}
+   *
+   * // For large lookup lists (> 100 items)
+   * displayMode={SPLookupDisplayMode.Autocomplete}
+   * ```
    */
   displayMode?: SPLookupDisplayMode;
 
   /**
-   * Threshold for switching to searchable mode
-   * When item count exceeds this, auto switches to searchable
+   * Threshold for auto-switching from SelectBox to Autocomplete mode
+   *
+   * When `displayMode` is set to `Auto`:
+   * - If item count <= threshold: Uses SelectBox (loads all items)
+   * - If item count > threshold: Uses Autocomplete (async search)
+   *
    * @default 100
+   *
+   * @example
+   * ```tsx
+   * // Switch to autocomplete if more than 50 items
+   * searchableThreshold={50}
+   * ```
    */
   searchableThreshold?: number;
 
