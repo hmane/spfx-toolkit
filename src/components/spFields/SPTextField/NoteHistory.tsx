@@ -15,6 +15,7 @@ import { mergeStyles, mergeStyleSets } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { NoteHistoryEntry } from './NoteHistoryEntry';
 import { SPContext } from '../../../utilities/context';
+import { getListByNameOrId } from '../../../utilities/spHelper';
 
 /**
  * Props for NoteHistory component
@@ -166,8 +167,7 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
       const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
 
       // Load versions from SharePoint
-      const versions = await sp.web.lists
-        .getByTitle(listNameOrId)
+      const versions = await getListByNameOrId(sp, listNameOrId)
         .items.getById(itemId)
         .versions
         .select(

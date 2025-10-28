@@ -6,6 +6,7 @@
 import { SPFI } from '@pnp/sp';
 import { IFieldInfo } from '@pnp/sp/fields/types';
 import { SPContext } from '../../../../utilities/context';
+import { getListByNameOrId } from '../../../../utilities/spHelper';
 import {
   IChoiceFieldMetadata,
   SPChoiceFieldDataSource,
@@ -57,8 +58,7 @@ export async function loadChoiceFieldMetadata(
         field: listSource.fieldInternalName,
       });
 
-      fieldInfo = await sp.web.lists
-        .getByTitle(listSource.listNameOrId)
+      fieldInfo = await getListByNameOrId(sp, listSource.listNameOrId)
         .fields.getByInternalNameOrTitle(listSource.fieldInternalName)();
     } else {
       // siteColumn

@@ -13,7 +13,9 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { Text } from '@fluentui/react/lib/Text';
 import { useTheme } from '@fluentui/react/lib/Theme';
+import { CheckBox } from 'devextreme-react/check-box';
 import { LoadPanel } from 'devextreme-react/load-panel';
+import { RadioGroup } from 'devextreme-react/radio-group';
 import { SelectBox } from 'devextreme-react/select-box';
 import { TagBox } from 'devextreme-react/tag-box';
 import TextBox from 'devextreme-react/text-box';
@@ -21,7 +23,8 @@ import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
 import {
   DefaultSPChoiceFieldProps,
-  ISPChoiceFieldProps
+  ISPChoiceFieldProps,
+  SPChoiceDisplayType
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 
@@ -87,8 +90,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     showMultiTagOnly = DefaultSPChoiceFieldProps.showMultiTagOnly,
     sortChoices = DefaultSPChoiceFieldProps.sortChoices,
     showClearButton = DefaultSPChoiceFieldProps.showClearButton,
-    // renderItem,
-    // renderValue,
+    renderItem,
+    renderValue,
   } = props;
 
   const theme = useTheme();
@@ -344,6 +347,101 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     fieldOnChange: (val: string | string[]) => void,
     fieldError?: string
   ) => {
+    // Render radio buttons mode
+    const renderRadioButtons = () => {
+      if (isMultiChoice) {
+        // Radio buttons don't support multi-select, fall back to checkboxes
+        return renderCheckboxes();
+      }
+
+      return (
+        <RadioGroup
+          key={`radiogroup-${loading}-${finalChoices.length}`}
+          dataSource={finalChoices}
+          value={!Array.isArray(fieldValue) ? fieldValue : undefined}
+          disabled={disabled || loading || readOnly}
+          readOnly={readOnly}
+          onValueChanged={(e: any) => fieldOnChange(e.value)}
+          layout="vertical"
+        />
+      );
+    };
+
+    // Render checkboxes mode
+    const renderCheckboxes = () => {
+      const currentValues = Array.isArray(fieldValue) ? fieldValue : (fieldValue ? [fieldValue] : []);
+
+      const handleCheckboxChange = (choice: string, isChecked: boolean) => {
+        if (isMultiChoice) {
+          // Multi-select
+          const newValues = isChecked
+            ? [...currentValues, choice]
+            : currentValues.filter(v => v !== choice);
+          fieldOnChange(newValues);
+        } else {
+          // Single-select
+          fieldOnChange(isChecked ? choice : '');
+        }
+      };
+
+      return (
+        <Stack tokens={{ childrenGap: 8 }}>
+          {finalChoices.map((choice) => (
+            <CheckBox
+              key={`checkbox-${choice}`}
+              text={choice}
+              value={currentValues.includes(choice)}
+              disabled={disabled || loading || readOnly}
+              readOnly={readOnly}
+              onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
+            />
+          ))}
+        </Stack>
+      );
+    };
+
+    // Render dropdown mode
+    const renderDropdown = () => {
+      return isMultiChoice ? (
+        <TagBox
+          key={`tagbox-${loading}-${finalChoices.length}`}
+          {...commonProps}
+          value={Array.isArray(fieldValue) ? fieldValue : undefined}
+          maxDisplayedTags={maxDisplayedTags}
+          showMultiTagOnly={showMultiTagOnly}
+          onValueChanged={(e: any) => fieldOnChange(e.value)}
+          isValid={!fieldError}
+          validationError={fieldError ? { message: fieldError } : undefined}
+          itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
+          fieldRender={renderValue ? (values: string[]) => renderValue(values) : undefined}
+        />
+      ) : (
+        <SelectBox
+          key={`selectbox-${loading}-${finalChoices.length}`}
+          {...commonProps}
+          value={!Array.isArray(fieldValue) ? fieldValue : undefined}
+          onValueChanged={(e: any) => fieldOnChange(e.value)}
+          isValid={!fieldError}
+          validationError={fieldError ? { message: fieldError } : undefined}
+          itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
+          fieldRender={renderValue ? (value: string) => renderValue(value) : undefined}
+        />
+      );
+    };
+
+    // Determine which control to render
+    const renderControl = () => {
+      switch (displayType) {
+        case SPChoiceDisplayType.RadioButtons:
+          return renderRadioButtons();
+        case SPChoiceDisplayType.Checkboxes:
+          return renderCheckboxes();
+        case SPChoiceDisplayType.Dropdown:
+        default:
+          return renderDropdown();
+      }
+    };
+
     return (
       <Stack className={`sp-choice-field ${containerClass} ${className || ''}`}>
         {label && (
@@ -369,27 +467,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         )}
 
         <div className='sp-choice-field-control'>
-          {isMultiChoice ? (
-            <TagBox
-              key={`tagbox-${loading}-${finalChoices.length}`}
-              {...commonProps}
-              value={Array.isArray(fieldValue) ? fieldValue : undefined}
-              maxDisplayedTags={maxDisplayedTags}
-              showMultiTagOnly={showMultiTagOnly}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
-            />
-          ) : (
-            <SelectBox
-              key={`selectbox-${loading}-${finalChoices.length}`}
-              {...commonProps}
-              value={!Array.isArray(fieldValue) ? fieldValue : undefined}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
-            />
-          )}
+          {renderControl()}
         </div>
 
         {/* Show custom value textbox when "Other" is selected */}

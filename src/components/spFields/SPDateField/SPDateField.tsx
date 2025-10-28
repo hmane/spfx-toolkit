@@ -87,7 +87,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<Date | undefined>(defaultValue);
   const [isDOMReady, setIsDOMReady] = React.useState(false);
-  const dateBoxRef = React.useRef<any>(null);
 
   // Wait for DOM to be fully ready before showing clear button
   React.useEffect(() => {

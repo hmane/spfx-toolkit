@@ -11,6 +11,7 @@ import * as React from 'react';
 import { ISPFieldProps, IFieldMetadata, isSmartConfig } from './SPField.types';
 import { SPFieldType } from '../types';
 import { SPContext } from '../../../utilities/context';
+import { getListByNameOrId } from '../../../utilities/spHelper';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
@@ -127,8 +128,7 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
         const sp = config.useCache !== false ? SPContext.spCached : SPContext.spPessimistic;
 
         // Load field from SharePoint
-        const field = await sp.web.lists
-          .getByTitle(config.listNameOrId)
+        const field = await getListByNameOrId(sp, config.listNameOrId)
           .fields.getByInternalNameOrTitle(config.fieldInternalName)();
 
         if (!isMounted) return;

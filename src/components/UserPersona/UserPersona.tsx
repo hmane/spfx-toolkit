@@ -101,7 +101,6 @@ const getUserPhoto = async (
     if (!base64) {
       return undefined;
     }
-    debugger;
 
     const hash = await getMd5HashForUrl(base64);
 
@@ -141,17 +140,23 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
 
   // Load user profile
   React.useEffect(() => {
+    let isMounted = true;
+
     const loadUserProfile = async () => {
       if (!isValidUserIdentifier(userIdentifier)) {
-        setDisplayName(providedDisplayName || '');
-        setEmail(providedEmail || '');
+        if (isMounted) {
+          setDisplayName(providedDisplayName || '');
+          setEmail(providedEmail || '');
+        }
         return;
       }
 
       const cached = getCachedProfile(normalizedIdentifier);
       if (cached) {
-        setDisplayName(cached.profile.displayName);
-        setEmail(cached.profile.email);
+        if (isMounted) {
+          setDisplayName(cached.profile.displayName);
+          setEmail(cached.profile.email);
+        }
         return;
       }
 
@@ -159,6 +164,8 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         const user = await SPContext.sp
           .using(CachingPessimisticRefresh())
           .web.ensureUser(normalizedIdentifier);
+
+        if (!isMounted) return;
 
         const profile: IUserProfile = {
           displayName: user.data.Title || providedDisplayName || '',
@@ -175,6 +182,8 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
           displayName: profile.displayName,
         });
       } catch (error) {
+        if (!isMounted) return;
+
         SPContext.logger.warn('UserPersona failed to load profile', {
           error,
           userIdentifier,
@@ -185,13 +194,21 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     };
 
     loadUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [userIdentifier, providedDisplayName, providedEmail, normalizedIdentifier]);
 
   // Load and validate user photo
   React.useEffect(() => {
+    let isMounted = true;
+
     const loadPhoto = async () => {
       if (!isValidUserIdentifier(normalizedIdentifier)) {
-        setPhotoUrl(undefined);
+        if (isMounted) {
+          setPhotoUrl(undefined);
+        }
         return;
       }
 
@@ -199,9 +216,14 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
 
       try {
         const photo = await getUserPhoto(siteUrl, normalizedIdentifier, photoSize);
+
+        if (!isMounted) return;
+
         setIsDefaultPhoto(!photo);
         setPhotoUrl(photo);
       } catch (error) {
+        if (!isMounted) return;
+
         SPContext.logger.warn('UserPersona failed to load photo', {
           error,
           userIdentifier,
@@ -212,6 +234,10 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     };
 
     loadPhoto();
+
+    return () => {
+      isMounted = false;
+    };
   }, [normalizedIdentifier, size, siteUrl, userIdentifier]);
 
   const handleClick = React.useCallback(() => {

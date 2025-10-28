@@ -227,6 +227,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       );
     }
 
+    // Common props for both SelectBox and TagBox
     const commonProps = {
       dataSource: terms,
       displayExpr: (item: ISPTaxonomyFieldValue) => getDisplayLabel(item),
@@ -236,9 +237,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       placeholder: loading ? 'Loading terms...' : placeholder,
       showClearButton: showClearButton && !readOnly && !loading,
       stylingMode: stylingMode,
-      searchEnabled: showSearchBox,
-      searchTimeout: searchDelay,
-      minSearchLength: minSearchLength,
       onFocusIn: onFocus,
       onFocusOut: onBlur,
     };
@@ -275,6 +273,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
               maxDisplayedTags={maxDisplayedTags}
               isValid={!fieldError}
               validationError={fieldError ? { message: fieldError } : undefined}
+              searchEnabled={showSearchBox}
+              searchTimeout={searchDelay}
+              minSearchLength={minSearchLength}
             />
           ) : (
             <SelectBox
@@ -288,6 +289,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
               }}
               isValid={!fieldError}
               validationError={fieldError ? { message: fieldError } : undefined}
+              searchEnabled={showSearchBox}
             />
           )
         )}

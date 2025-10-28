@@ -234,6 +234,32 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const renderField = (fieldValue: string, fieldOnChange: (val: string) => void, fieldError?: string) => {
     const isMultiLine = mode === SPTextFieldMode.MultiLine;
     const currentCharCount = fieldValue?.length || 0;
+
+    // Build buttons array for prefix/suffix icons
+    const buttons: any[] = [];
+    if (prefixIcon && !isMultiLine) {
+      buttons.push({
+        name: 'prefix',
+        location: 'before' as 'before',
+        options: {
+          icon: prefixIcon,
+          stylingMode: 'text' as 'text',
+          disabled: true, // Make icon non-clickable by default
+        }
+      });
+    }
+    if (suffixIcon && !isMultiLine) {
+      buttons.push({
+        name: 'suffix',
+        location: 'after' as 'after',
+        options: {
+          icon: suffixIcon,
+          stylingMode: 'text' as 'text',
+          disabled: true, // Make icon non-clickable by default
+        }
+      });
+    }
+
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
       value: fieldValue || '',
@@ -251,6 +277,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       onFocusOut: onBlur,
       isValid: !fieldError,
       validationError: fieldError ? { message: fieldError } : undefined,
+      ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
     };
 
     // For append-only mode with disabled, only show history (no input field)

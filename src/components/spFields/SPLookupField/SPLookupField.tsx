@@ -11,6 +11,7 @@ import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
 import { SelectBox } from 'devextreme-react/select-box';
 import { TagBox } from 'devextreme-react/tag-box';
+import ArrayStore from 'devextreme/data/array_store';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
@@ -22,6 +23,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPLookupFieldProps, SPLookupDisplayMode } from './SPLookupField.types';
 import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
+import { getListByNameOrId } from '../../../utilities/spHelper';
 import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
 
 /**
@@ -132,6 +134,15 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
 
+  // Log component mount (simplified)
+  React.useEffect(() => {
+    SPContext.logger.info('SPLookupField: Initialized', {
+      list: dataSource.listNameOrId,
+      displayMode,
+      allowMultiple,
+    });
+  }, []); // Empty deps - only log on mount
+
   // Create stable dataSource key to avoid re-fetches on object reference changes
   const dataSourceKey = React.useMemo(() => {
     const fields = [dataSource.displayField || 'Title', ...(dataSource.additionalFields || [])].join(',');
@@ -157,6 +168,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     const determineDisplayMode = async () => {
       if (!SPContext.sp) {
         if (isMounted) {
+          SPContext.logger.warn('SPLookupField: SPContext not initialized', {
+            list: dataSource.listNameOrId,
+          });
           setError('SPContext not initialized');
           setLoading(false);
         }
@@ -166,7 +180,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       // If display mode is forced, skip count check
       if (displayMode !== SPLookupDisplayMode.Auto) {
         setActualDisplayMode(displayMode);
-        setLoading(false);
+        // Don't set loading to false here - let the second useEffect handle it after items load
         return;
       }
 
@@ -186,14 +200,14 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
         }
 
         // Get item count
-        let query = sp.web.lists.getByTitle(dataSource.listNameOrId).items;
+        let query = getListByNameOrId(sp, dataSource.listNameOrId).items;
 
         if (dataSource.filter) {
           query = query.filter(dataSource.filter);
         }
 
         // Get total count using $top=0 to avoid loading items
-        const countQuery = sp.web.lists.getByTitle(dataSource.listNameOrId).items;
+        const countQuery = getListByNameOrId(sp, dataSource.listNameOrId).items;
         const filteredCountQuery = dataSource.filter ? countQuery.filter(dataSource.filter) : countQuery;
 
         // Use getAll with top(0) and get length from response
@@ -216,7 +230,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
         SPContext.logger.info('SPLookupField: Display mode determined', {
           list: dataSource.listNameOrId,
           itemCount: count,
-          threshold: searchableThreshold,
           mode,
         });
 
@@ -236,12 +249,16 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     return () => {
       isMounted = false;
     };
-  }, [dataSourceKey, searchableThreshold, onItemCountDetermined]);
+  }, [dataSourceKey, searchableThreshold, onItemCountDetermined, displayMode]);
 
   // Load lookup items for dropdown mode
   React.useEffect(() => {
-    // Only load items if in dropdown mode
-    if (actualDisplayMode !== SPLookupDisplayMode.Dropdown) {
+    // Only load items if in dropdown mode (Dropdown/SelectBox both equal 'dropdown')
+    // Skip if in Searchable/Autocomplete mode (both equal 'searchable')
+    const modeValue = String(actualDisplayMode);
+    const needsItemLoad = modeValue === 'dropdown';
+
+    if (!needsItemLoad) {
       return;
     }
 
@@ -250,7 +267,11 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     const loadLookupItems = async () => {
       if (!SPContext.sp) {
         if (isMounted) {
+          SPContext.logger.error('SPLookupField: Cannot load items - SPContext not initialized', null, {
+            list: dataSource.listNameOrId,
+          });
           setError('SPContext not initialized');
+          setLoading(false);
         }
         return;
       }
@@ -263,7 +284,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       try {
         const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
 
-        let query = sp.web.lists.getByTitle(dataSource.listNameOrId).items
+        let query = getListByNameOrId(sp, dataSource.listNameOrId).items
           .select('Id', dataSource.displayField || 'Title', ...(dataSource.additionalFields || []))
           .top(dataSource.itemLimit || searchableThreshold);
 
@@ -287,14 +308,32 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           Title: item[dataSource.displayField || 'Title'],
         }));
 
-        setLookupItems(lookupValues);
+        // Validate that items have required properties
+        const validItems = lookupValues.filter(item => item.Id != null && item.Title != null);
+
+        if (validItems.length < lookupValues.length) {
+          SPContext.logger.warn('SPLookupField: Some items missing Id or Title', {
+            list: dataSource.listNameOrId,
+            invalidCount: lookupValues.length - validItems.length,
+          });
+        }
+
+        SPContext.logger.info('SPLookupField: Items loaded', {
+          list: dataSource.listNameOrId,
+          itemsLoaded: validItems.length,
+        });
+
+        setLookupItems(validItems);
         setError(null);
       } catch (err: any) {
         if (!isMounted) return;
 
         const errorMsg = err?.message || 'Failed to load lookup items';
         setError(errorMsg);
-        SPContext.logger.error('SPLookupField: Failed to load items', err, { dataSource });
+        SPContext.logger.error('SPLookupField: Failed to load items', err, {
+          list: dataSource.listNameOrId,
+          error: errorMsg,
+        });
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -362,6 +401,32 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
   }, [currentValue, allowMultiple]);
 
+  // Compute actual loading state - if we have items, we're not really loading anymore
+  // This handles race conditions where items are loaded but loading state hasn't updated yet
+  const isActuallyLoading = React.useMemo(() => {
+    const modeValue = String(actualDisplayMode);
+
+    // For dropdown mode: loading if loading=true AND no items yet
+    if (modeValue === 'dropdown') {
+      return loading && lookupItems.length === 0;
+    }
+
+    // For searchable mode or auto: use loading as-is
+    return loading;
+  }, [loading, lookupItems.length, actualDisplayMode]);
+
+  // Create DevExtreme ArrayStore from lookupItems
+  const lookupDataStore = React.useMemo(() => {
+    if (lookupItems.length === 0) {
+      return null;
+    }
+
+    return new ArrayStore({
+      data: lookupItems,
+      key: 'Id',
+    });
+  }, [lookupItems]);
+
   // Render field content
   const renderField = (
     fieldValue: ISPLookupFieldValue | ISPLookupFieldValue[],
@@ -380,7 +445,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
 
     // Show loading while determining mode
-    if (loading && actualDisplayMode === SPLookupDisplayMode.Auto) {
+    if (isActuallyLoading && actualDisplayMode === SPLookupDisplayMode.Auto) {
       return (
         <Stack className={containerClass}>
           {label && <Label required={required}>{label}</Label>}
@@ -390,7 +455,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
 
     // Render Searchable Mode (PnP ListItemPicker)
-    if (actualDisplayMode === SPLookupDisplayMode.Searchable) {
+    const modeValue = String(actualDisplayMode);
+    if (modeValue === 'searchable') {
       return (
         <Stack className={`sp-lookup-field sp-lookup-field-searchable ${containerClass} ${className || ''}`}>
           {label && (
@@ -455,22 +521,18 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
 
     // Render Dropdown Mode (DevExtreme SelectBox/TagBox)
+    // Common props for both SelectBox and TagBox
     const commonProps = {
-      dataSource: lookupItems,
       displayExpr: 'Title',
       valueExpr: 'Id',
-      disabled: disabled || loading,
+      disabled: disabled || isActuallyLoading,
       readOnly: readOnly,
-      placeholder: loading ? 'Loading...' : placeholder,
-      showClearButton: showClearButton && !readOnly && !loading,
+      placeholder: isActuallyLoading ? 'Loading...' : placeholder,
+      showClearButton: showClearButton && !readOnly && !isActuallyLoading,
       stylingMode: stylingMode,
-      searchEnabled: showSearchBox,
-      searchTimeout: searchDelay,
-      minSearchLength: minSearchLength,
       onFocusIn: onFocus,
       onFocusOut: onBlur,
     };
-
     return (
       <Stack className={`sp-lookup-field sp-lookup-field-dropdown ${containerClass} ${className || ''}`}>
         {label && (
@@ -485,15 +547,16 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           </Text>
         )}
 
-        {loading && (
+        {isActuallyLoading && (
           <Spinner size={SpinnerSize.small} label="Loading lookup items..." />
         )}
 
-        {!loading && lookupItems.length >= 0 && (
+        {!isActuallyLoading && lookupItems.length >= 0 && (
           allowMultiple ? (
             <TagBox
-              key={`tagbox-${loading}-${lookupItems.length}`}
+              key={`tagbox-${isActuallyLoading}-${lookupItems.length}`}
               {...commonProps}
+              dataSource={lookupDataStore}
               value={Array.isArray(displayValue) ? displayValue : []}
               onValueChanged={(e: any) => {
                 const selectedIds = e.value || [];
@@ -503,11 +566,18 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               maxDisplayedTags={maxDisplayedTags}
               isValid={!fieldError}
               validationError={fieldError ? { message: fieldError } : undefined}
+              acceptCustomValue={false}
+              showSelectionControls={true}
+              searchEnabled={showSearchBox}
+              searchTimeout={searchDelay}
+              minSearchLength={minSearchLength}
+              itemRender={itemTemplate ? (item: any) => itemTemplate(item) : undefined}
             />
           ) : (
             <SelectBox
-              key={`selectbox-${loading}-${lookupItems.length}`}
+              key={`selectbox-${isActuallyLoading}-${lookupItems.length}`}
               {...commonProps}
+              dataSource={lookupDataStore}
               value={!Array.isArray(displayValue) ? displayValue : null}
               onValueChanged={(e: any) => {
                 const selectedId = e.value;
@@ -516,6 +586,10 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               }}
               isValid={!fieldError}
               validationError={fieldError ? { message: fieldError } : undefined}
+              acceptCustomValue={false}
+              showDropDownButton={true}
+              searchEnabled={showSearchBox}
+              itemRender={itemTemplate ? (item: any) => itemTemplate(item) : undefined}
             />
           )
         )}
