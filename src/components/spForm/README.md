@@ -7,12 +7,17 @@ A comprehensive, responsive form component library for SharePoint Framework (SPF
 - **Responsive Design**: Automatically adapts from horizontal layout (desktop) to vertical layout (mobile)
 - **React Hook Form Integration**: Full TypeScript support with optimized validation
 - **Zod Validation**: Type-safe schema validation with automatic error handling
+- **FormContext System**: Centralized form state, field registry, and utilities (NEW!)
+- **Auto Error Display**: Automatically show validation errors with FormErrorSummary (NEW!)
+- **Scroll-to-Error**: Automatically scroll and focus first error field (NEW!)
+- **Zustand Integration**: Sync form state with Zustand stores for drafts/persistence (NEW!)
 - **DevExtreme Support**: Pre-built wrappers for 10+ form controls
 - **PnP Controls Support**: Integrated PeoplePicker and TaxonomyPicker components
 - **Fluent UI Integration**: Info tooltips and consistent styling
 - **Performance Optimized**: React.memo on all components for minimal re-renders
 - **Flexible Layouts**: Support for horizontal labels, top labels, and label-free fields
 - **TypeScript**: Full type safety with Path-based field names
+- **Accessibility**: WCAG 2.1 AA compliant with comprehensive ARIA support (NEW!)
 
 ## Installation
 
@@ -208,6 +213,373 @@ Displays validation errors with optional icons.
 - `error?: string | string[]` - Error message(s)
 - `showIcon?: boolean` - Show error icon
 - `className?: string` - Additional CSS classes
+- `id?: string` - ID for aria-describedby (NEW!)
+
+## FormContext System (NEW!)
+
+The FormContext system provides centralized form state management, field registry, error handling, focus management, and scroll-to-error capabilities.
+
+### FormProvider
+
+Wrap your form with FormProvider to enable advanced features:
+
+```tsx
+import { useForm } from 'react-hook-form';
+import { FormProvider } from 'spfx-toolkit/lib/components/spForm';
+
+const MyForm = () => {
+  const { control, handleSubmit } = useForm();
+
+  return (
+    <FormProvider control={control} autoShowErrors>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Form fields automatically get error handling */}
+      </form>
+    </FormProvider>
+  );
+};
+```
+
+**Props:**
+
+- `control?: Control<any>` - React Hook Form control
+- `autoShowErrors?: boolean` - Automatically show errors on all fields
+
+### Enhanced FormContainer
+
+FormContainer now accepts control and autoShowErrors props to automatically provide FormContext:
+
+```tsx
+<FormContainer control={control} autoShowErrors>
+  {/* Automatically wrapped with FormProvider */}
+</FormContainer>
+```
+
+### Enhanced FormItem
+
+FormItem now supports automatic field registration and error display:
+
+```tsx
+<FormItem fieldName="email" autoShowError>
+  <FormLabel isRequired>Email</FormLabel>
+  <FormValue>
+    <Controller
+      name="email"
+      control={control}
+      rules={{ required: 'Email is required' }}
+      render={({ field }) => <TextField {...field} />}
+    />
+  </FormValue>
+</FormItem>
+```
+
+**New Props:**
+
+- `fieldName?: string` - Automatically registers field with FormContext
+- `autoShowError?: boolean` - Automatically display validation errors
+- `section?: string` - Group field into a section
+- `fieldId?: string` - Custom field ID for aria-describedby
+
+### Enhanced FormLabel
+
+FormLabel now supports better accessibility with htmlFor and label elements:
+
+```tsx
+<FormLabel isRequired htmlFor="email">
+  Email
+</FormLabel>
+```
+
+**New Props:**
+
+- `htmlFor?: string` - Makes label element focusable and links to input
+
+### FormErrorSummary
+
+Display all form errors in a centralized panel with click-to-navigate functionality:
+
+```tsx
+import { FormErrorSummary } from 'spfx-toolkit/lib/components/spForm';
+
+<FormProvider control={control}>
+  <FormErrorSummary
+    position="top"           // 'top' | 'bottom' | 'sticky'
+    clickToScroll           // Click errors to scroll to field
+    showFieldLabels         // Show labels instead of field names
+    maxErrors={10}          // Limit number of displayed errors
+  />
+  {/* Form fields */}
+</FormProvider>
+```
+
+**Props:**
+
+- `position?: 'top' | 'bottom' | 'sticky'` - Where to display the summary
+- `maxErrors?: number` - Maximum number of errors to show
+- `showFieldLabels?: boolean` - Show field labels vs field names (default: true)
+- `clickToScroll?: boolean` - Enable click-to-scroll (default: true)
+- `className?: string` - Additional CSS classes
+- `onErrorClick?: (fieldName: string) => void` - Callback when error is clicked
+
+### useFormContext Hook
+
+Access form context utilities from any component:
+
+```tsx
+import { useFormContext } from 'spfx-toolkit/lib/components/spForm';
+
+const MyFormSection = () => {
+  const formContext = useFormContext();
+
+  const handleScrollToError = () => {
+    formContext?.scrollToFirstError({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleFocusError = () => {
+    formContext?.focusFirstError();
+  };
+
+  return (
+    <button onClick={handleScrollToError}>Go to First Error</button>
+  );
+};
+```
+
+**Available Methods:**
+
+- `getFieldError(fieldName)` - Get error message for field
+- `hasError(fieldName)` - Check if field has error
+- `getFirstErrorField()` - Get name of first field with error
+- `focusField(fieldName)` - Focus specific field
+- `focusFirstError()` - Focus first field with error
+- `scrollToField(fieldName, options?)` - Scroll to specific field
+- `scrollToFirstError(options?)` - Scroll to first error field
+- `registry` - Access field registry (get, getAll, getBySection)
+
+## Utility Hooks (NEW!)
+
+### useScrollToError
+
+Automatically scroll to the first field with an error:
+
+```tsx
+import { useScrollToError } from 'spfx-toolkit/lib/components/spForm';
+
+const MyForm = () => {
+  const { control, handleSubmit, formState } = useForm();
+
+  // Automatically scroll to first error on validation
+  useScrollToError(formState, {
+    behavior: 'smooth',
+    block: 'center',
+    focusAfterScroll: true,
+    scrollDelay: 100,
+  });
+
+  return <form>...</form>;
+};
+```
+
+**Options:**
+
+- `behavior?: 'auto' | 'smooth'` - Scroll animation
+- `block?: 'start' | 'center' | 'end' | 'nearest'` - Vertical alignment
+- `inline?: 'start' | 'center' | 'end' | 'nearest'` - Horizontal alignment
+- `focusAfterScroll?: boolean` - Focus field after scroll (default: true)
+- `scrollDelay?: number` - Delay before scrolling in ms (default: 0)
+- `enabled?: boolean` - Enable/disable scrolling (default: true)
+
+### useZustandFormSync
+
+Synchronize form state with a Zustand store for drafts/auto-save:
+
+```tsx
+import { create } from 'zustand';
+import { useZustandFormSync } from 'spfx-toolkit/lib/components/spForm';
+
+const useFormStore = create((set) => ({
+  formData: {},
+  setFormData: (data) => set({ formData: data }),
+}));
+
+const MyForm = () => {
+  const { control } = useForm();
+
+  // Auto-save form data to store with debouncing
+  useZustandFormSync(control, useFormStore, {
+    debounceMs: 500,
+    selectFields: ['title', 'description'], // Only sync specific fields
+    transformOut: (data) => ({
+      ...data,
+      lastModified: new Date(),
+    }),
+  });
+
+  return <form>...</form>;
+};
+```
+
+**Options:**
+
+- `debounceMs?: number` - Debounce delay (default: 300)
+- `selectFields?: string[]` - Only sync specific fields
+- `setMethod?: string` - Store method name (default: 'setFormData')
+- `transformOut?: (data: any) => any` - Transform data before syncing
+
+### useFormFieldError
+
+Extract error information for a specific field:
+
+```typescript
+import { useFormFieldError } from 'spfx-toolkit/lib/components/spForm';
+
+const CustomErrorDisplay = ({ fieldName, errors }) => {
+  const { error, hasError } = useFormFieldError(fieldName, errors);
+
+  if (!hasError) return null;
+
+  return <div className="error">{error}</div>;
+};
+```
+
+**Returns:**
+
+- `error: string | undefined` - Error message
+- `hasError: boolean` - Whether field has error
+
+## Complete Example with New Features
+
+Here's a complete example showcasing all the new features:
+
+```tsx
+import React from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { create } from 'zustand';
+import { TextField } from '@fluentui/react/lib/TextField';
+import {
+  FormProvider,
+  FormContainer,
+  FormItem,
+  FormLabel,
+  FormValue,
+  FormErrorSummary,
+  useScrollToError,
+  useZustandFormSync,
+} from 'spfx-toolkit/lib/components/spForm';
+
+// Zustand store for form drafts
+const useFormStore = create((set) => ({
+  formData: {},
+  setFormData: (data) => set({ formData: data }),
+}));
+
+// Validation schema
+const formSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().regex(/^\d{10}$/, 'Phone must be 10 digits'),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+const AdvancedForm: React.FC = () => {
+  const { control, handleSubmit, formState } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
+
+  // Auto-scroll to first error
+  useScrollToError(formState, {
+    behavior: 'smooth',
+    block: 'center',
+    focusAfterScroll: true,
+  });
+
+  // Auto-save to Zustand store
+  useZustandFormSync(control, useFormStore, {
+    debounceMs: 500,
+  });
+
+  const onSubmit = (data: FormData) => {
+    console.log('Form submitted:', data);
+  };
+
+  return (
+    <FormProvider control={control} autoShowErrors>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Error Summary */}
+        <FormErrorSummary
+          position="top"
+          clickToScroll
+          showFieldLabels
+        />
+
+        <FormContainer labelWidth="160px">
+          {/* Personal Section */}
+          <FormItem fieldName="firstName" section="personal">
+            <FormLabel isRequired htmlFor="firstName">First Name</FormLabel>
+            <FormValue>
+              <Controller
+                name="firstName"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="firstName" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          <FormItem fieldName="lastName" section="personal">
+            <FormLabel isRequired htmlFor="lastName">Last Name</FormLabel>
+            <FormValue>
+              <Controller
+                name="lastName"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="lastName" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          {/* Contact Section */}
+          <FormItem fieldName="email" section="contact">
+            <FormLabel isRequired htmlFor="email">Email</FormLabel>
+            <FormValue>
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="email" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          <FormItem fieldName="phone" section="contact">
+            <FormLabel isRequired htmlFor="phone">Phone</FormLabel>
+            <FormValue>
+              <Controller
+                name="phone"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="phone" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          <button type="submit">Submit</button>
+        </FormContainer>
+      </form>
+    </FormProvider>
+  );
+};
+```
 
 ## DevExtreme Components
 
@@ -586,6 +958,15 @@ A: This is expected - we use `control: any` due to React Hook Form generic limit
 
 **Q: Form doesn't revalidate after submit**
 A: Set `reValidateMode: 'onChange'` in useForm options
+
+## Further Reading
+
+For detailed documentation on specific features:
+
+- **[FormContext System](./context/README.md)** - Complete guide to FormContext, FormProvider, field registry, and form utilities
+- **[Utility Hooks](./hooks/README.md)** - Detailed documentation for useScrollToError, useZustandFormSync, and useFormFieldError
+- **[FormErrorSummary](./FormErrorSummary/README.md)** - Complete guide to the error summary component with examples
+- **[Usage Guide](../../docs/spForm-Usage-Guide.md)** - Comprehensive usage guide with real-world examples
 
 ## License
 

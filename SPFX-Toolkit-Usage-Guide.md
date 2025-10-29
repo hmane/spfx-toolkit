@@ -1141,6 +1141,339 @@ const RequestForm: React.FC = () => {
 - Wrap long forms in `FormContainer` for consistent label widths.
 - Combine with Zod via `zodResolver` for schema validation.
 
+#### NEW: FormContext System & Advanced Features
+
+The spForm system now includes powerful features for enterprise-grade forms:
+
+**FormContext System** - Centralized form state management with:
+- Automatic field registry tracking
+- Error handling utilities
+- Focus management
+- Scroll-to-error capabilities
+
+**FormErrorSummary** - Displays all form errors in a centralized panel with click-to-navigate functionality
+
+**Utility Hooks**:
+- `useScrollToError` - Automatically scroll to first error field
+- `useZustandFormSync` - Sync form state with Zustand stores for drafts/auto-save
+- `useFormFieldError` - Extract error info for custom error displays
+
+##### Complete Example with New Features
+
+```typescript
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { create } from 'zustand';
+import { TextField } from '@fluentui/react/lib/TextField';
+import {
+  FormProvider,
+  FormContainer,
+  FormItem,
+  FormLabel,
+  FormValue,
+  FormErrorSummary,
+  useScrollToError,
+  useZustandFormSync,
+} from 'spfx-toolkit/lib/components/spForm';
+
+// Zustand store for form drafts
+const useFormStore = create((set) => ({
+  formData: {},
+  setFormData: (data) => set({ formData: data }),
+}));
+
+// Validation schema
+const formSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  email: z.string().email('Invalid email address'),
+  priority: z.enum(['low', 'medium', 'high']),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+const AdvancedRequestForm: React.FC = () => {
+  const { control, handleSubmit, formState } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
+
+  // Auto-scroll to first error on validation
+  useScrollToError(formState, {
+    behavior: 'smooth',
+    block: 'center',
+    focusAfterScroll: true,
+  });
+
+  // Auto-save form data to Zustand store
+  useZustandFormSync(control, useFormStore, {
+    debounceMs: 500,
+    selectFields: ['title', 'priority'], // Only sync specific fields
+  });
+
+  const onSubmit = async (data: FormData) => {
+    try {
+      await SPContext.sp.web.lists.getByTitle('Requests').items.add(data);
+      console.log('Request created');
+    } catch (error) {
+      SPContext.logger.error('Failed to create request', error);
+    }
+  };
+
+  return (
+    <FormProvider control={control} autoShowErrors>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Error Summary - shows all errors in one place */}
+        <FormErrorSummary
+          position="sticky"
+          clickToScroll
+          showFieldLabels
+          maxErrors={10}
+        />
+
+        <FormContainer labelWidth="160px">
+          {/* Fields automatically register and show errors */}
+          <FormItem fieldName="title" section="basic">
+            <FormLabel isRequired htmlFor="title">Title</FormLabel>
+            <FormValue>
+              <Controller
+                name="title"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="title" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          <FormItem fieldName="email" section="contact">
+            <FormLabel isRequired htmlFor="email">Email</FormLabel>
+            <FormValue>
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} id="email" />
+                )}
+              />
+            </FormValue>
+          </FormItem>
+
+          <FormItem fieldName="priority" section="settings">
+            <FormLabel isRequired>Priority</FormLabel>
+            <FormValue>
+              <DevExtremeSelectBox
+                name="priority"
+                control={control}
+                items={['low', 'medium', 'high']}
+              />
+            </FormValue>
+          </FormItem>
+
+          <button type="submit">Submit</button>
+        </FormContainer>
+      </form>
+    </FormProvider>
+  );
+};
+```
+
+##### Key Features Explained
+
+**1. FormProvider** - Wraps form to enable advanced features:
+```typescript
+<FormProvider control={control} autoShowErrors>
+  {/* All fields get automatic error handling */}
+</FormProvider>
+```
+
+**2. FormErrorSummary** - Centralized error display:
+```typescript
+<FormErrorSummary
+  position="sticky"      // 'top' | 'bottom' | 'sticky'
+  clickToScroll          // Click errors to scroll to field
+  showFieldLabels        // Show labels vs field names
+  maxErrors={10}         // Limit displayed errors
+/>
+```
+
+**3. Enhanced FormItem** - Auto-registration and error display:
+```typescript
+<FormItem
+  fieldName="email"      // Registers with FormContext
+  autoShowError          // Automatically shows validation errors
+  section="contact"      // Groups fields by section
+/>
+```
+
+**4. useScrollToError** - Automatic scroll to errors:
+```typescript
+useScrollToError(formState, {
+  behavior: 'smooth',
+  block: 'center',
+  focusAfterScroll: true,
+  scrollDelay: 100,
+});
+```
+
+**5. useZustandFormSync** - Auto-save to store:
+```typescript
+useZustandFormSync(control, useFormStore, {
+  debounceMs: 500,                     // Debounce delay
+  selectFields: ['title', 'priority'], // Only sync specific fields
+  transformOut: (data) => ({           // Transform before sync
+    ...data,
+    lastModified: new Date(),
+  }),
+});
+```
+
+**6. useFormContext** - Access form utilities:
+```typescript
+const formContext = useFormContext();
+
+// Available methods:
+formContext.getFieldError('email');      // Get error message
+formContext.hasError('email');           // Check if has error
+formContext.focusField('email');         // Focus field
+formContext.focusFirstError();           // Focus first error
+formContext.scrollToField('email');      // Scroll to field
+formContext.scrollToFirstError();        // Scroll to first error
+formContext.registry.getAll();           // Get all registered fields
+formContext.registry.getBySection('contact'); // Get fields by section
+```
+
+##### Multi-Step Form with Zustand
+
+```typescript
+const useWizardStore = create((set) => ({
+  step1Data: {},
+  step2Data: {},
+  step3Data: {},
+  currentStep: 1,
+  setStep1Data: (data) => set({ step1Data: data }),
+  setStep2Data: (data) => set({ step2Data: data }),
+  setStep3Data: (data) => set({ step3Data: data }),
+  nextStep: () => set((state) => ({ currentStep: state.currentStep + 1 })),
+  prevStep: () => set((state) => ({ currentStep: state.currentStep - 1 })),
+}));
+
+const WizardStep1: React.FC = () => {
+  const { control, handleSubmit } = useForm();
+  const { nextStep } = useWizardStore();
+
+  useZustandFormSync(control, useWizardStore, {
+    setMethod: 'setStep1Data',
+    debounceMs: 300,
+  });
+
+  const onNext = (data) => {
+    console.log('Step 1 data saved to store:', data);
+    nextStep();
+  };
+
+  return (
+    <FormProvider control={control}>
+      <form onSubmit={handleSubmit(onNext)}>
+        {/* Step 1 fields */}
+        <button type="submit">Next</button>
+      </form>
+    </FormProvider>
+  );
+};
+```
+
+##### Form Draft Auto-Save with Persistence
+
+```typescript
+import { persist } from 'zustand/middleware';
+
+const useFormDraftStore = create(
+  persist(
+    (set) => ({
+      draft: {},
+      saveDraft: (data) => set({ draft: data }),
+      clearDraft: () => set({ draft: {} }),
+    }),
+    {
+      name: 'form-draft', // localStorage key
+    }
+  )
+);
+
+const FormWithAutoSave: React.FC = () => {
+  const { control, reset } = useForm();
+  const { draft, saveDraft } = useFormDraftStore();
+
+  // Load draft on mount
+  React.useEffect(() => {
+    if (draft && Object.keys(draft).length > 0) {
+      reset(draft);
+    }
+  }, []);
+
+  // Auto-save every 500ms
+  useZustandFormSync(control, useFormDraftStore, {
+    setMethod: 'saveDraft',
+    debounceMs: 500,
+  });
+
+  return (
+    <FormProvider control={control}>
+      {/* Form fields */}
+    </FormProvider>
+  );
+};
+```
+
+##### Accessibility Features
+
+The new form system is WCAG 2.1 AA compliant with:
+
+- **ARIA attributes**: All form elements have proper `aria-invalid`, `aria-describedby`, `aria-required`
+- **Label associations**: FormLabel with `htmlFor` links to inputs
+- **Error announcements**: Errors have `role="alert"` and `aria-live="polite"`
+- **Keyboard navigation**: Full keyboard support for FormErrorSummary
+- **Screen reader support**: Comprehensive announcements for all interactions
+
+```typescript
+<FormItem fieldName="email">
+  <FormLabel isRequired htmlFor="email">
+    Email Address
+  </FormLabel>
+  <FormValue>
+    <Controller
+      name="email"
+      control={control}
+      render={({ field }) => (
+        <TextField
+          {...field}
+          id="email"                              // Links to label
+          aria-invalid={hasError}                 // Invalid state
+          aria-describedby="email-error"          // Links to error
+        />
+      )}
+    />
+  </FormValue>
+</FormItem>
+```
+
+##### Performance Optimization
+
+- **Debounced Zustand sync**: Prevents excessive store updates
+- **Memoized context**: FormContext value is memoized to prevent re-renders
+- **Efficient field registry**: Uses Map for O(1) field lookups
+- **Smart scroll**: Uses native `scrollIntoView` for optimal performance
+
+##### Further Reading
+
+For detailed documentation:
+- [FormContext System](../src/components/spForm/context/README.md)
+- [Utility Hooks Guide](../src/components/spForm/hooks/README.md)
+- [FormErrorSummary Component](../src/components/spForm/FormErrorSummary/README.md)
+- [Main spForm README](../src/components/spForm/README.md)
+
 ---
 
 ### 12. SPField Suite - SharePoint Field Controls
@@ -1150,33 +1483,99 @@ const RequestForm: React.FC = () => {
 
 #### Basic Usage
 
+> **⚠️ CRITICAL: Validation Requires `control` Prop or FormProvider**
+> To enable validation, error messages, and proper form integration, you have **two options**:
+>
+> **Option 1: Pass `control` directly to each field**
+> ```typescript
+> <SPTextField name="title" control={form.control} required />
+> ```
+>
+> **Option 2: Use FormProvider (recommended for multiple fields)**
+> ```typescript
+> <FormProvider control={form.control}>
+>   <SPTextField name="title" required />  {/* Gets control from context */}
+>   <SPChoiceField name="status" required />  {/* Gets control from context */}
+> </FormProvider>
+> ```
+>
+> Without either option:
+> - ❌ Validation will not work (no red borders, no error messages)
+> - ❌ `isValid` will always be `true`
+> - ❌ `fieldState.error` will always be `undefined`
+> - ✅ Component will work in "standalone mode" but without form integration
+
+**Option 1: Pass control directly (works, but verbose)**
 ```typescript
 import { useForm } from 'react-hook-form';
 import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/lib/components/spFields';
 
 const TaskEditor: React.FC = () => {
-  const { control, handleSubmit } = useForm<{ title: string; status: string; assignees: number[] }>({
+  const form = useForm<{ title: string; status: string; assignees: number[] }>({
     defaultValues: { title: '', status: '', assignees: [] },
   });
 
   return (
-    <form onSubmit={handleSubmit(console.log)}>
-      <SPTextField name="title" label="Title" control={control} rules={{ required: 'Title required' }} />
+    <form onSubmit={form.handleSubmit(console.log)}>
+      <SPTextField
+        name="title"
+        label="Title"
+        control={form.control}  // Must pass to each field
+        rules={{ required: 'Title required' }}
+      />
       <SPChoiceField
         name="status"
         label="Status"
-        control={control}
+        control={form.control}  // Must pass to each field
         choices={['Draft', 'Review', 'Approved']}
-        allowCustomValue
       />
       <SPUserField
         name="assignees"
         label="Assignees"
-        control={control}
+        control={form.control}  // Must pass to each field
         allowMultiple
       />
       <button type="submit">Save</button>
     </form>
+  );
+};
+```
+
+**Option 2: Use FormProvider (recommended, cleaner)**
+```typescript
+import { useForm } from 'react-hook-form';
+import { FormProvider } from 'spfx-toolkit/lib/components/spForm';
+import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/lib/components/spFields';
+
+const TaskEditor: React.FC = () => {
+  const form = useForm<{ title: string; status: string; assignees: number[] }>({
+    defaultValues: { title: '', status: '', assignees: [] },
+  });
+
+  return (
+    <FormProvider control={form.control}>  {/* Provide control once */}
+      <form onSubmit={form.handleSubmit(console.log)}>
+        <SPTextField
+          name="title"
+          label="Title"
+          rules={{ required: 'Title required' }}
+          // No need to pass control!
+        />
+        <SPChoiceField
+          name="status"
+          label="Status"
+          choices={['Draft', 'Review', 'Approved']}
+          // No need to pass control!
+        />
+        <SPUserField
+          name="assignees"
+          label="Assignees"
+          allowMultiple
+          // No need to pass control!
+        />
+        <button type="submit">Save</button>
+      </form>
+    </FormProvider>
   );
 };
 ```
@@ -1200,6 +1599,57 @@ const TaskEditor: React.FC = () => {
 - All fields support RHF `name`, `control`, and `rules` props.
 - Combine with `SPContext.smart` to enable SharePoint-backed lookups.
 - Utility types in `spFields/types` help define strongly-typed list item models.
+
+#### Troubleshooting Validation
+
+**Problem: No red border or error messages appear**
+
+Check these common issues:
+
+1. **Missing `control` prop or FormProvider** (most common)
+   ```typescript
+   // ❌ WRONG - No validation
+   <SPTextField name="title" rules={{ required: true }} />
+
+   // ✅ CORRECT - Option 1: Direct control prop
+   <SPTextField name="title" control={form.control} rules={{ required: true }} />
+
+   // ✅ CORRECT - Option 2: FormProvider (recommended)
+   <FormProvider control={form.control}>
+     <SPTextField name="title" rules={{ required: true }} />
+   </FormProvider>
+   ```
+
+2. **Form mode settings** - Validation timing depends on `mode` and `reValidateMode`:
+   ```typescript
+   const form = useForm({
+     mode: 'onSubmit',        // Validate only on submit
+     reValidateMode: 'onChange' // Re-validate on every change after first submit
+   });
+   ```
+
+   Try submitting the form first - errors may appear after submission depending on your mode.
+
+3. **Validation rules not triggering** - Check that rules are properly defined:
+   ```typescript
+   // ✅ Use zod resolver
+   const form = useForm({
+     resolver: zodResolver(schema),
+   });
+
+   // ✅ Or use rules prop
+   <SPTextField
+     name="title"
+     control={form.control}
+     rules={{ required: 'Title is required', minLength: { value: 3, message: 'Min 3 chars' } }}
+   />
+   ```
+
+4. **Debug validation state** - Add console logs to inspect fieldState:
+   ```typescript
+   console.log('Form errors:', form.formState.errors);
+   console.log('Form state:', form.formState);
+   ```
 
 ---
 

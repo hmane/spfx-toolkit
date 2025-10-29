@@ -16,6 +16,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPNumberFieldProps } from './SPNumberField.types';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPNumberField component for numeric input
@@ -45,6 +46,10 @@ import { ISPNumberFieldProps } from './SPNumberField.types';
  * ```
  */
 export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -59,7 +64,7 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -78,10 +83,32 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     showClearButton = false,
     stylingMode = 'outlined',
     valueChangeMode = 'onChange',
+    inputRef,
   } = props;
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<number | undefined>(defaultValue);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -188,41 +215,44 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
           </Text>
         )}
 
-        <NumberBox
-          key={`numberbox-${disabled}-${readOnly}`}
-          value={fieldValue}
-          onValueChanged={(e: any) => fieldOnChange(e.value)}
-          disabled={disabled}
-          readOnly={readOnly}
-          placeholder={placeholder}
-          min={min}
-          max={max}
-          step={step}
-          format={numberFormat as any}
-          showSpinButtons={showSpinButtons && !readOnly && !disabled}
-          showClearButton={showClearButton && !readOnly && !disabled}
-          stylingMode={stylingMode}
-          valueChangeEvent={valueChangeMode === 'onBlur' ? 'blur' : 'keyup'}
-          onFocusIn={onFocus}
-          onFocusOut={onBlur}
-          isValid={!fieldError}
-          validationError={fieldError ? { message: fieldError } : undefined}
-        />
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        {(() => {
+          const hasError = !!fieldError;
+          return (
+            <NumberBox
+              key={`numberbox-${disabled}-${readOnly}`}
+              value={fieldValue}
+              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              disabled={disabled}
+              readOnly={readOnly}
+              placeholder={placeholder}
+              min={min}
+              max={max}
+              step={step}
+              format={numberFormat as any}
+              showSpinButtons={showSpinButtons && !readOnly && !disabled}
+              showClearButton={showClearButton && !readOnly && !disabled}
+              stylingMode={stylingMode}
+              valueChangeEvent={valueChangeMode === 'onBlur' ? 'blur' : 'keyup'}
+              onFocusIn={onFocus}
+              onFocusOut={onBlur}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+            />
+          );
+        })()}
+        </div>
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue}
         render={({ field, fieldState }) => (

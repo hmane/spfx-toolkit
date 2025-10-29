@@ -8,6 +8,13 @@ export { default as FormError } from './FormError/FormError';
 export { default as FormItem } from './FormItem/FormItem';
 export { default as FormLabel } from './FormLabel/FormLabel';
 export { default as FormValue } from './FormValue/FormValue';
+export { FormErrorSummary } from './FormErrorSummary';
+
+// Form context
+export { FormProvider, useFormContext, FormContext } from './context';
+
+// Form utility hooks
+export { useScrollToError, useZustandFormSync, useFormFieldError } from './hooks';
 
 // DevExtreme controls
 export {
@@ -37,6 +44,23 @@ export type { IFormErrorProps } from './FormError/FormError';
 export type { IFormItemProps } from './FormItem/FormItem';
 export type { IFormLabelProps } from './FormLabel/FormLabel';
 export type { IFormValueProps } from './FormValue/FormValue';
+export type { IFormErrorSummaryProps } from './FormErrorSummary';
+
+// Context types
+export type {
+  IFormContextValue,
+  IFormFieldMetadata,
+  IFieldRegistry,
+  IFormProviderProps,
+} from './context';
+
+// Hook types
+export type {
+  IUseScrollToErrorOptions,
+  IUseScrollToErrorReturn,
+  IUseZustandFormSyncOptions,
+  IUseFormFieldErrorReturn,
+} from './hooks';
 
 export type {
   IDevExtremeAutocompleteProps,

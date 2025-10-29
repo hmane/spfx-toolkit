@@ -18,6 +18,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPUrlField component for URL (hyperlink) input
@@ -42,6 +43,10 @@ import { ISPUrlFieldValue } from '../types';
  * ```
  */
 export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -56,7 +61,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -77,12 +82,34 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     urlPlaceholder = 'https://...',
     descriptionPlaceholder = 'Enter description...',
     stylingMode = 'outlined',
+    inputRef,
   } = props;
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<ISPUrlFieldValue>(
     defaultValue || { Url: '', Description: '' }
   );
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -135,19 +162,24 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
   const validationRules = React.useMemo(() => {
     const baseRules: RegisterOptions = { ...rules };
 
-    if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+    // Initialize validate object if needed
+    if (!baseRules.validate) {
+      baseRules.validate = {};
+    }
+
+    // Add required validation (check if Url property has value)
+    if (required) {
+      (baseRules.validate as any).required = (val: ISPUrlFieldValue) =>
+        !!val?.Url || `${label || 'This field'} is required`;
     }
 
     // Add URL format validation
-    if (validateUrl && !baseRules.validate) {
-      baseRules.validate = {
-        validUrl: (val: ISPUrlFieldValue) =>
-          !val?.Url || urlRegex.test(val.Url) ||
-          (allowRelativeUrl
-            ? 'Please enter a valid URL or relative path'
-            : 'Please enter a valid URL (must start with http:// or https://)'),
-      };
+    if (validateUrl) {
+      (baseRules.validate as any).validUrl = (val: ISPUrlFieldValue) =>
+        !val?.Url || urlRegex.test(val.Url) ||
+        (allowRelativeUrl
+          ? 'Please enter a valid URL or relative path'
+          : 'Please enter a valid URL (must start with http:// or https://)');
     }
 
     return baseRules;
@@ -200,42 +232,55 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
         )}
 
         {/* URL Input */}
-        <Stack tokens={{ childrenGap: 8 }}>
-          <div>
-            {urlLabel && <Text variant="small">{urlLabel}</Text>}
-            <TextBox
-              value={urlValue}
-              onValueChanged={(e: any) => {
-                const newValue = { ...fieldValue, Url: e.value };
-                fieldOnChange(newValue);
-              }}
-              disabled={disabled}
-              readOnly={readOnly}
-              placeholder={urlPlaceholder}
-              stylingMode={stylingMode}
-              onFocusIn={onFocus}
-              onFocusOut={onBlur}
-            />
-          </div>
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        {(() => {
+          const hasError = !!fieldError;
+          return (
+            <Stack tokens={{ childrenGap: 8 }}>
+              <div>
+                {urlLabel && <Text variant="small">{urlLabel}</Text>}
+                <TextBox
+                  value={urlValue}
+                  onValueChanged={(e: any) => {
+                    const newValue = { ...fieldValue, Url: e.value };
+                    fieldOnChange(newValue);
+                  }}
+                  disabled={disabled}
+                  readOnly={readOnly}
+                  placeholder={urlPlaceholder}
+                  stylingMode={stylingMode}
+                  onFocusIn={onFocus}
+                  onFocusOut={onBlur}
+                  isValid={!hasError}
+                  validationStatus={hasError ? 'invalid' : 'valid'}
+                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+                />
+              </div>
 
-          {/* Description Input */}
-          {showDescription && (
-            <div>
-              {descriptionLabel && <Text variant="small">{descriptionLabel}</Text>}
-              <TextBox
-                value={descriptionValue}
-                onValueChanged={(e: any) => {
-                  const newValue = { ...fieldValue, Description: e.value };
-                  fieldOnChange(newValue);
-                }}
-                disabled={disabled}
-                readOnly={readOnly}
-                placeholder={descriptionPlaceholder}
-                stylingMode={stylingMode}
-              />
-            </div>
-          )}
-        </Stack>
+              {/* Description Input */}
+              {showDescription && (
+                <div>
+                  {descriptionLabel && <Text variant="small">{descriptionLabel}</Text>}
+                  <TextBox
+                    value={descriptionValue}
+                    onValueChanged={(e: any) => {
+                      const newValue = { ...fieldValue, Description: e.value };
+                      fieldOnChange(newValue);
+                    }}
+                    disabled={disabled}
+                    readOnly={readOnly}
+                    placeholder={descriptionPlaceholder}
+                    stylingMode={stylingMode}
+                    isValid={!hasError}
+                    validationStatus={hasError ? 'invalid' : 'valid'}
+                    className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+                  />
+                </div>
+              )}
+            </Stack>
+          );
+        })()}
+        </div>
 
         {/* Link Preview */}
         {showLinkIcon && hasValidUrl && !readOnly && (
@@ -251,21 +296,16 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
             </a>
           </div>
         )}
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || { Url: '', Description: '' }}
         render={({ field, fieldState }) => (

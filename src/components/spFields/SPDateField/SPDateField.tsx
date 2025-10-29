@@ -17,6 +17,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPDateField component for date and datetime selection
@@ -42,6 +43,10 @@ import { SPDateTimeFormat } from '../types';
  * ```
  */
 export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -56,7 +61,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -82,11 +87,33 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     disabledDates,
     showCalendarIcon = true,
     stylingMode = 'outlined',
+    inputRef,
   } = props;
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<Date | undefined>(defaultValue);
   const [isDOMReady, setIsDOMReady] = React.useState(false);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Wait for DOM to be fully ready before showing clear button
   React.useEffect(() => {
@@ -246,8 +273,11 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
           </Text>
         )}
 
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+
         {(() => {
           const isActive = !disabled && !readOnly;
+          const hasError = !!fieldError;
           // DevExtreme's DateBox has a bug with showClearButton during initialization
           // Keep it permanently disabled to prevent getComputedStyle errors
           const showClearBtn = false;
@@ -283,8 +313,9 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
                 buttons={dateBoxButtons}
                 onFocusIn={onFocus}
                 onFocusOut={onBlur}
-                isValid={!fieldError}
-                validationError={fieldError ? { message: fieldError } : undefined}
+                isValid={!hasError}
+                validationStatus={hasError ? 'invalid' : 'valid'}
+                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               />
             );
           } else {
@@ -309,27 +340,24 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
                 interval={timeInterval}
                 calendarOptions={calendarOpts}
                 buttons={showCalendarIcon ? ['dropDown'] : []}
-                isValid={!fieldError}
-                validationError={fieldError ? { message: fieldError } : undefined}
+                isValid={!hasError}
+                validationStatus={hasError ? 'invalid' : 'valid'}
+                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               />
             );
           }
         })()}
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
+        </div>
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue}
         render={({ field, fieldState }) => (

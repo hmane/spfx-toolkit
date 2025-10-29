@@ -27,6 +27,7 @@ import {
   SPChoiceDisplayType
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPChoiceField component for choice and multi-choice selection
@@ -55,6 +56,10 @@ import { useSPChoiceField } from './hooks/useSPChoiceField';
  * ```
  */
 export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -69,7 +74,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -92,6 +97,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     showClearButton = DefaultSPChoiceFieldProps.showClearButton,
     renderItem,
     renderValue,
+
+    // Ref for focus management
+    inputRef,
   } = props;
 
   const theme = useTheme();
@@ -99,6 +107,27 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     defaultValue || (allowMultiple ? [] : '')
   );
   const [invalidValueError, setInvalidValueError] = React.useState<string | null>(null);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use the hook to load choices and manage "Other" option
   const {
@@ -354,6 +383,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         return renderCheckboxes();
       }
 
+      const hasError = !!fieldError;
+
       return (
         <RadioGroup
           key={`radiogroup-${loading}-${finalChoices.length}`}
@@ -363,6 +394,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           readOnly={readOnly}
           onValueChanged={(e: any) => fieldOnChange(e.value)}
           layout="vertical"
+          isValid={!hasError}
+          validationStatus={hasError ? 'invalid' : 'valid'}
+          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
         />
       );
     };
@@ -370,6 +404,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     // Render checkboxes mode
     const renderCheckboxes = () => {
       const currentValues = Array.isArray(fieldValue) ? fieldValue : (fieldValue ? [fieldValue] : []);
+      const hasError = !!fieldError;
 
       const handleCheckboxChange = (choice: string, isChecked: boolean) => {
         if (isMultiChoice) {
@@ -394,6 +429,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               disabled={disabled || loading || readOnly}
               readOnly={readOnly}
               onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           ))}
         </Stack>
@@ -402,6 +440,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
     // Render dropdown mode
     const renderDropdown = () => {
+      const hasError = !!fieldError;
+
       return isMultiChoice ? (
         <TagBox
           key={`tagbox-${loading}-${finalChoices.length}`}
@@ -410,8 +450,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           maxDisplayedTags={maxDisplayedTags}
           showMultiTagOnly={showMultiTagOnly}
           onValueChanged={(e: any) => fieldOnChange(e.value)}
-          isValid={!fieldError}
-          validationError={fieldError ? { message: fieldError } : undefined}
+          isValid={!hasError}
+          validationStatus={hasError ? 'invalid' : 'valid'}
+          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
           fieldRender={renderValue ? (values: string[]) => renderValue(values) : undefined}
         />
@@ -421,8 +462,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           {...commonProps}
           value={!Array.isArray(fieldValue) ? fieldValue : undefined}
           onValueChanged={(e: any) => fieldOnChange(e.value)}
-          isValid={!fieldError}
-          validationError={fieldError ? { message: fieldError } : undefined}
+          isValid={!hasError}
+          validationStatus={hasError ? 'invalid' : 'valid'}
+          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
           fieldRender={renderValue ? (value: string) => renderValue(value) : undefined}
         />
@@ -466,7 +508,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           </div>
         )}
 
-        <div className='sp-choice-field-control'>
+        <div className='sp-choice-field-control' ref={fieldRef as React.RefObject<HTMLDivElement>}>
           {renderControl()}
         </div>
 
@@ -482,21 +524,16 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             />
           </div>
         )}
-
-        {/* Show error messages */}
-        {(fieldError || displayErrorMessage) && (
-          <Text className={errorClass}>{fieldError || displayErrorMessage}</Text>
-        )}
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || (isMultiChoice ? [] : '')}
         render={({ field, fieldState }) => {

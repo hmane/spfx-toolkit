@@ -101,6 +101,12 @@ export interface ISPFieldBaseProps<T> {
    * Placeholder text
    */
   placeholder?: string;
+
+  /**
+   * Ref to the input element for focus management and scroll-to-error functionality
+   * Used with FormContext for automatic focus and scroll capabilities
+   */
+  inputRef?: React.RefObject<HTMLElement>;
 }
 
 /**

@@ -2,6 +2,7 @@ import { isEqual } from '@microsoft/sp-lodash-subset';
 import { DateBox } from 'devextreme-react/date-box';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
+import { useFormContext } from '../context/FormContext';
 
 export interface IDevExtremeDateBoxProps<T extends FieldValues> {
   name: Path<T>;
@@ -38,43 +39,65 @@ const DevExtremeDateBox = <T extends FieldValues>({
   onFocusIn,
   onFocusOut,
 }: IDevExtremeDateBoxProps<T>) => {
-  return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field: { onChange, value, onBlur }, fieldState: { error } }) => {
-        const hasError = !!error;
+  const formContext = useFormContext();
+  const fieldRef = React.useRef<HTMLDivElement>(null);
 
-        return (
-          <DateBox
-            value={value || undefined}
-            onValueChanged={e => {
-              if (!isEqual(value, e.value)) {
-                onChange(e.value);
-                onValueChanged?.(e.value);
-              }
-            }}
-            onFocusIn={onFocusIn}
-            onFocusOut={() => {
-              onBlur();
-              onFocusOut?.();
-            }}
-            placeholder={placeholder}
-            disabled={disabled}
-            readOnly={readOnly}
-            type={type}
-            displayFormat={displayFormat}
-            min={min}
-            max={max}
-            showClearButton={showClearButton}
-            stylingMode={stylingMode}
-            className={`${className} ${hasError ? 'dx-invalid' : ''}`}
-            isValid={!hasError}
-            validationError={error as FieldError}
-          />
-        );
-      }}
-    />
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name as string, {
+        name: name as string,
+        label: undefined, // spForm controls don't have labels
+        required: false,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name as string);
+      };
+    }
+  }, [name, formContext]);
+
+  return (
+    <div ref={fieldRef}>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field: { onChange, value, onBlur }, fieldState: { error } }) => {
+          const hasError = !!error;
+
+          return (
+            <DateBox
+              value={value || undefined}
+              onValueChanged={e => {
+                if (!isEqual(value, e.value)) {
+                  onChange(e.value);
+                  onValueChanged?.(e.value);
+                }
+              }}
+              onFocusIn={onFocusIn}
+              onFocusOut={() => {
+                onBlur();
+                onFocusOut?.();
+              }}
+              placeholder={placeholder}
+              disabled={disabled}
+              readOnly={readOnly}
+              type={type}
+              displayFormat={displayFormat}
+              min={min}
+              max={max}
+              showClearButton={showClearButton}
+              stylingMode={stylingMode}
+              className={`${className} ${hasError ? 'dx-invalid' : ''}`}
+              isValid={!hasError}
+              validationError={error as FieldError}
+            />
+          );
+        }}
+      />
+    </div>
   );
 };
 

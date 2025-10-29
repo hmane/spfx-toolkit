@@ -13,6 +13,7 @@ import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/People
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUserFieldProps, SPUserFieldDisplayMode } from './SPUserField.types';
@@ -20,6 +21,7 @@ import { ISPUserFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
 import './SPUserField.css';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPUserField component for user and group selection
@@ -45,6 +47,10 @@ import './SPUserField.css';
  * ```
  */
 export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -59,7 +65,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -84,12 +90,34 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     suggestionLimit = 5,
     customFilter,
     webUrl,
+    inputRef,
   } = props;
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<ISPUserFieldValue | ISPUserFieldValue[]>(
     defaultValue || (allowMultiple ? [] : null as any)
   );
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -216,24 +244,31 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
           </Text>
         )}
 
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {displayMode === SPUserFieldDisplayMode.PeoplePicker ? (
-          <PeoplePicker
-            context={SPContext.peoplepickerContext}
-            personSelectionLimit={allowMultiple ? maxSelections : 1}
-            groupName={typeof limitToGroup === 'string' ? limitToGroup : undefined}
-            showtooltip={true}
-            required={required}
-            disabled={disabled || readOnly}
-            onChange={handlePeoplePickerChange}
-            defaultSelectedUsers={selectedUsers}
-            principalTypes={principalTypes}
-            resolveDelay={resolveDelay}
-            ensureUser={true}
-            showHiddenInUI={false}
-            suggestionsLimit={suggestionLimit}
-            placeholder={placeholder}
-            webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
-          />
+          <div style={{
+            border: fieldError ? '1px solid #a80000' : 'none',
+            borderRadius: fieldError ? '2px' : '0',
+            padding: fieldError ? '0' : '0'
+          }}>
+            <PeoplePicker
+              context={SPContext.peoplepickerContext}
+              personSelectionLimit={allowMultiple ? maxSelections : 1}
+              groupName={typeof limitToGroup === 'string' ? limitToGroup : undefined}
+              showtooltip={true}
+              required={required}
+              disabled={disabled || readOnly}
+              onChange={handlePeoplePickerChange}
+              defaultSelectedUsers={selectedUsers}
+              principalTypes={principalTypes}
+              resolveDelay={resolveDelay}
+              ensureUser={true}
+              showHiddenInUI={false}
+              suggestionsLimit={suggestionLimit}
+              placeholder={placeholder}
+              webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
+            />
+          </div>
         ) : displayMode === SPUserFieldDisplayMode.Compact ? (
           <Stack horizontal tokens={{ childrenGap: 8 }} wrap>
             {Array.isArray(fieldValue) ? (
@@ -290,21 +325,17 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             )}
           </Stack>
         )}
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
+        </div>
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || (allowMultiple ? [] : null)}
         render={({ field, fieldState }) => (

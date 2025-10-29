@@ -21,6 +21,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPTaxonomyFieldProps } from './SPTaxonomyField.types';
 import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPTaxonomyField component for managed metadata (taxonomy) selection
@@ -50,6 +51,10 @@ import { SPContext } from '../../../utilities/context';
  * ```
  */
 export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -64,7 +69,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -86,6 +91,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     showPath = false,
     pathSeparator = ' > ',
     stylingMode = 'outlined',
+    inputRef,
   } = props;
 
   const theme = useTheme();
@@ -95,6 +101,27 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   const [terms, setTerms] = React.useState<ISPTaxonomyFieldValue[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -227,6 +254,8 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       );
     }
 
+    const hasError = !!fieldError;
+
     // Common props for both SelectBox and TagBox
     const commonProps = {
       dataSource: terms,
@@ -259,6 +288,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
           <Spinner size={SpinnerSize.small} label="Loading terms..." />
         )}
 
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {!loading && terms.length >= 0 && (
           allowMultiple ? (
             <TagBox
@@ -271,8 +301,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
                 fieldOnChange(selectedTerms);
               }}
               maxDisplayedTags={maxDisplayedTags}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               searchEnabled={showSearchBox}
               searchTimeout={searchDelay}
               minSearchLength={minSearchLength}
@@ -287,27 +318,24 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
                 const selectedTerm = terms.find(term => term.TermGuid === selectedGuid);
                 fieldOnChange(selectedTerm || null as any);
               }}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               searchEnabled={showSearchBox}
             />
           )
         )}
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
+        </div>
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || (allowMultiple ? [] : null)}
         render={({ field, fieldState }) => (

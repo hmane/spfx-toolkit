@@ -1,6 +1,7 @@
 import { Switch } from 'devextreme-react/switch';
 import * as React from 'react';
 import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
+import { useFormContext } from '../context/FormContext';
 
 export interface IDevExtremeSwitchProps<T extends FieldValues> {
   name: Path<T>;
@@ -41,42 +42,64 @@ const DevExtremeSwitch = <T extends FieldValues>({
   onFocusIn,
   onFocusOut,
 }: IDevExtremeSwitchProps<T>) => {
-  return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field: { onChange, value, onBlur }, fieldState: { error } }) => {
-        const hasError = !!error;
+  const formContext = useFormContext();
+  const fieldRef = React.useRef<HTMLDivElement>(null);
 
-        return (
-          <div style={{ display: 'inline-block' }}>
-            <Switch
-              value={value || false}
-              onValueChanged={e => {
-                if (value !== e.value) {
-                  onChange(e.value);
-                  onValueChanged?.(e.value);
-                }
-              }}
-              disabled={disabled}
-              readOnly={readOnly}
-              width={width}
-              height={height}
-              hint={hint}
-              rtlEnabled={rtlEnabled}
-              activeStateEnabled={activeStateEnabled}
-              focusStateEnabled={focusStateEnabled}
-              hoverStateEnabled={hoverStateEnabled}
-              tabIndex={tabIndex}
-              accessKey={accessKey}
-              className={`${className} ${hasError ? 'dx-invalid' : ''}`}
-              isValid={!hasError}
-              validationError={error as FieldError}
-            />
-          </div>
-        );
-      }}
-    />
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name as string, {
+        name: name as string,
+        label: undefined, // spForm controls don't have labels
+        required: false,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name as string);
+      };
+    }
+  }, [name, formContext]);
+
+  return (
+    <div ref={fieldRef}>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field: { onChange, value, onBlur }, fieldState: { error } }) => {
+          const hasError = !!error;
+
+          return (
+            <div style={{ display: 'inline-block' }}>
+              <Switch
+                value={value || false}
+                onValueChanged={e => {
+                  if (value !== e.value) {
+                    onChange(e.value);
+                    onValueChanged?.(e.value);
+                  }
+                }}
+                disabled={disabled}
+                readOnly={readOnly}
+                width={width}
+                height={height}
+                hint={hint}
+                rtlEnabled={rtlEnabled}
+                activeStateEnabled={activeStateEnabled}
+                focusStateEnabled={focusStateEnabled}
+                hoverStateEnabled={hoverStateEnabled}
+                tabIndex={tabIndex}
+                accessKey={accessKey}
+                className={`${className} ${hasError ? 'dx-invalid' : ''}`}
+                isValid={!hasError}
+                validationError={error as FieldError}
+              />
+            </div>
+          );
+        }}
+      />
+    </div>
   );
 };
 

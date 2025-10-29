@@ -17,6 +17,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.types';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * SPBooleanField component for boolean (Yes/No) input
@@ -41,6 +42,10 @@ import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.typ
  * ```
  */
 export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -54,7 +59,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -69,10 +74,32 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     checkedText = 'Yes',
     uncheckedText = 'No',
     showText = false,
+    inputRef,
   } = props;
 
   const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<boolean>(defaultValue || false);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -134,42 +161,50 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
           </Text>
         )}
 
-        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-          {displayType === SPBooleanDisplayType.Checkbox ? (
-            <CheckBox
-              value={fieldValue}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
-              disabled={disabled}
-              readOnly={readOnly}
-              text={showText ? displayText : ''}
-            />
-          ) : (
-            <Switch
-              value={fieldValue}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
-              disabled={disabled}
-              readOnly={readOnly}
-            />
-          )}
-          {showText && displayType === SPBooleanDisplayType.Toggle && (
-            <Text>{displayText}</Text>
-          )}
-        </Stack>
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        {(() => {
+          const hasError = !!fieldError;
+          return (
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+              {displayType === SPBooleanDisplayType.Checkbox ? (
+                <CheckBox
+                  value={fieldValue}
+                  onValueChanged={(e: any) => fieldOnChange(e.value)}
+                  disabled={disabled}
+                  readOnly={readOnly}
+                  text={showText ? displayText : ''}
+                  isValid={!hasError}
+                  validationStatus={hasError ? 'invalid' : 'valid'}
+                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+                />
+              ) : (
+                <Switch
+                  value={fieldValue}
+                  onValueChanged={(e: any) => fieldOnChange(e.value)}
+                  disabled={disabled}
+                  readOnly={readOnly}
+                  isValid={!hasError}
+                  validationStatus={hasError ? 'invalid' : 'valid'}
+                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+                />
+              )}
+              {showText && displayType === SPBooleanDisplayType.Toggle && (
+                <Text>{displayText}</Text>
+              )}
+            </Stack>
+          );
+        })()}
+        </div>
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || false}
         render={({ field, fieldState }) => (

@@ -5,9 +5,20 @@ export interface IFormErrorProps {
   error?: string | string[];
   showIcon?: boolean;
   className?: string;
+
+  /**
+   * HTML id attribute - used for aria-describedby
+   * @optional
+   */
+  id?: string;
 }
 
-const FormError: React.FC<IFormErrorProps> = ({ error, showIcon = false, className = '' }) => {
+const FormError: React.FC<IFormErrorProps> = ({
+  error,
+  showIcon = false,
+  className = '',
+  id,
+}) => {
   if (!error) {
     return null;
   }
@@ -16,7 +27,7 @@ const FormError: React.FC<IFormErrorProps> = ({ error, showIcon = false, classNa
   const hasMultipleErrors = errors.length > 1;
 
   return (
-    <div className={`spfx-form-error ${className}`}>
+    <div className={`spfx-form-error ${className}`} id={id} role='alert' aria-live='polite'>
       {hasMultipleErrors ? (
         <ul className='spfx-form-error-list'>
           {errors.map((err, index) => (

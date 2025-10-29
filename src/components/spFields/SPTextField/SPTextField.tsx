@@ -19,6 +19,7 @@ import { Label } from '@fluentui/react/lib/Label';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { NoteHistory } from './NoteHistory';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 // Lazy load RichText from PnP for better bundle size
 const RichText = React.lazy(() =>
@@ -49,6 +50,10 @@ const RichText = React.lazy(() =>
  * ```
  */
 export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -63,7 +68,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -106,6 +111,9 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     onNoteAdd,
     onCopyPrevious,
 
+    // Ref for focus management
+    inputRef,
+
     // SharePoint props (for future use)
     // webUrl,
     // showFieldIcon,
@@ -116,6 +124,27 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const [internalValue, setInternalValue] = React.useState<string>(defaultValue || '');
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
   const [fieldValue, setFieldValue] = React.useState<string>(defaultValue || '');
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -260,6 +289,8 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       });
     }
 
+    const hasError = !!fieldError;
+
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
       value: fieldValue || '',
@@ -272,11 +303,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       autoFocus: autoFocus,
       showClearButton: showClearButton && !disabled,
       stylingMode: stylingMode,
-      className: inputClassName,
+      className: `${inputClassName || ''} ${hasError ? 'dx-invalid' : ''}`.trim(),
       onFocusIn: onFocus,
       onFocusOut: onBlur,
-      isValid: !fieldError,
-      validationError: fieldError ? { message: fieldError } : undefined,
+      isValid: !hasError,
+      validationStatus: hasError ? 'invalid' as const : 'valid' as const,
       ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
     };
 
@@ -314,7 +345,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
         {/* Input field (hidden when disabled in append-only mode) */}
         {shouldShowInput && (
-          <>
+          <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
             {isRichTextMode ? (
               <React.Suspense fallback={<Text>Loading rich text editor...</Text>}>
                 <RichText
@@ -351,17 +382,13 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
               />
             )}
 
-            {(fieldError || errorMessage) && (
-              <Text className={errorClass}>{fieldError || errorMessage}</Text>
-            )}
-
             {showCharacterCount && !isRichTextMode && (
               <Text className={charCountClass}>
                 {currentCharCount}
                 {maxLength && ` / ${maxLength}`}
               </Text>
             )}
-          </>
+          </div>
         )}
 
         {/* Show history below if configured (default) */}
@@ -382,23 +409,21 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || ''}
-        render={({ field, fieldState }) => (
-          <>
-            {renderField(
-              field.value,
-              (val) => field.onChange(val),
-              fieldState.error?.message
-            )}
-          </>
-        )}
+        render={({ field, fieldState }) => {
+          return renderField(
+            field.value,
+            (val) => field.onChange(val),
+            fieldState.error?.message
+          );
+        }}
       />
     );
   }

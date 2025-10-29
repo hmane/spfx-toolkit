@@ -25,6 +25,7 @@ import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
+import { useFormContext } from '../../spForm/context/FormContext';
 
 /**
  * Enhanced SPLookupField component with smart threshold-based mode switching
@@ -79,6 +80,10 @@ import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
  * ```
  */
 export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
+  // Get control from FormContext if not provided as prop
+  const formContext = useFormContext();
+  const effectiveControl = props.control || formContext?.control;
+
   const {
     // Base props
     label,
@@ -93,7 +98,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
 
     // Form props
     name,
-    control,
+    control: controlProp,
     rules,
 
     // Standalone props
@@ -119,6 +124,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     dependsOn,
     stylingMode = 'outlined',
     onItemCountDetermined,
+    inputRef,
   } = props;
 
   const theme = useTheme();
@@ -130,6 +136,27 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   const [error, setError] = React.useState<string | null>(null);
   const [itemCount, setItemCount] = React.useState<number>(0);
   const [actualDisplayMode, setActualDisplayMode] = React.useState<SPLookupDisplayMode>(displayMode);
+
+  // Create internal ref if not provided
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = inputRef || internalRef;
+
+  // Register field with FormContext for scroll-to-error functionality
+  React.useEffect(() => {
+    if (name && formContext?.registry) {
+      formContext.registry.register(name, {
+        name,
+        label: label, // Only use label if explicitly provided, don't fallback to name
+        required,
+        ref: fieldRef as React.RefObject<HTMLElement>,
+        section: undefined,
+      });
+
+      return () => {
+        formContext.registry.unregister(name);
+      };
+    }
+  }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -457,6 +484,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     // Render Searchable Mode (PnP ListItemPicker)
     const modeValue = String(actualDisplayMode);
     if (modeValue === 'searchable') {
+      const hasError = !!fieldError;
+
       return (
         <Stack className={`sp-lookup-field sp-lookup-field-searchable ${containerClass} ${className || ''}`}>
           {label && (
@@ -471,6 +500,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             </Text>
           )}
 
+          <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
           <ListItemPicker
             listId={dataSource.listNameOrId}
             columnInternalName={dataSource.displayField || 'Title'}
@@ -504,6 +534,14 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             suggestionsHeaderText="Suggested items"
             className={className}
           />
+          </div>
+
+          {/* Show error with MessageBar for PnP control */}
+          {hasError && (
+            <MessageBar messageBarType={MessageBarType.error} style={{ marginTop: 4 }}>
+              {fieldError}
+            </MessageBar>
+          )}
 
           {itemCount > 0 && (
             <Text className={infoClass}>
@@ -511,16 +549,13 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               Searchable mode - {itemCount} items available
             </Text>
           )}
-
-          {/* Show error messages */}
-          {(fieldError || errorMessage) && (
-            <Text className={errorClass}>{fieldError || errorMessage}</Text>
-          )}
         </Stack>
       );
     }
 
     // Render Dropdown Mode (DevExtreme SelectBox/TagBox)
+    const hasError = !!fieldError;
+
     // Common props for both SelectBox and TagBox
     const commonProps = {
       displayExpr: 'Title',
@@ -551,6 +586,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           <Spinner size={SpinnerSize.small} label="Loading lookup items..." />
         )}
 
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {!isActuallyLoading && lookupItems.length >= 0 && (
           allowMultiple ? (
             <TagBox
@@ -564,8 +600,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 fieldOnChange(selectedItems);
               }}
               maxDisplayedTags={maxDisplayedTags}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showSelectionControls={true}
               searchEnabled={showSearchBox}
@@ -584,8 +621,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 const selectedItem = lookupItems.find(item => item.Id === selectedId);
                 fieldOnChange(selectedItem || null as any);
               }}
-              isValid={!fieldError}
-              validationError={fieldError ? { message: fieldError } : undefined}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showDropDownButton={true}
               searchEnabled={showSearchBox}
@@ -593,6 +631,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             />
           )
         )}
+        </div>
 
         {itemCount > 0 && itemCount > searchableThreshold && (
           <Text className={infoClass}>
@@ -600,21 +639,16 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             Dropdown mode - Showing first {lookupItems.length} of {itemCount} items
           </Text>
         )}
-
-        {/* Show error messages */}
-        {(fieldError || errorMessage) && (
-          <Text className={errorClass}>{fieldError || errorMessage}</Text>
-        )}
       </Stack>
     );
   };
 
-  // If using react-hook-form
-  if (control && name) {
+  // If using react-hook-form (from prop or context)
+  if (effectiveControl && name) {
     return (
       <Controller
         name={name}
-        control={control}
+        control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || (allowMultiple ? [] : null)}
         render={({ field, fieldState }) => (

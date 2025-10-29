@@ -11,6 +11,13 @@ export interface IFormLabelProps {
   infoContent?: React.ReactNode;
   infoPosition?: DirectionalHint;
   className?: string;
+
+  /**
+   * HTML for attribute - connects label to input field
+   * Automatically set by FormItem if fieldName is provided
+   * @optional
+   */
+  htmlFor?: string;
 }
 
 const FormLabel: React.FC<IFormLabelProps> = ({
@@ -20,6 +27,7 @@ const FormLabel: React.FC<IFormLabelProps> = ({
   infoContent,
   infoPosition = DirectionalHint.rightCenter,
   className = '',
+  htmlFor,
 }) => {
   const tooltipId = getId('tooltip');
   const hasInfo = !!(infoText || infoContent);
@@ -35,12 +43,19 @@ const FormLabel: React.FC<IFormLabelProps> = ({
     root: { display: 'inline-block' },
   };
 
+  const LabelWrapper = htmlFor ? 'label' : 'div';
+  const labelProps = htmlFor ? { htmlFor } : {};
+
   return (
-    <div className={`spfx-form-label ${className}`}>
+    <LabelWrapper className={`spfx-form-label ${className}`} {...labelProps}>
       <div className='spfx-form-label-text'>
         <span className='spfx-form-label-content'>{children}</span>
         <span className='spfx-form-label-suffix'>
-          {isRequired && <span className='spfx-form-label-required'>*</span>}
+          {isRequired && (
+            <span className='spfx-form-label-required' aria-label='required'>
+              *
+            </span>
+          )}
           {hasInfo && (
             <TooltipHost
               content={infoDisplayContent}
@@ -58,7 +73,7 @@ const FormLabel: React.FC<IFormLabelProps> = ({
           )}
         </span>
       </div>
-    </div>
+    </LabelWrapper>
   );
 };
 
