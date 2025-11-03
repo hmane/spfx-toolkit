@@ -218,17 +218,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     marginTop: 4,
   });
 
-  // Convert current value to format expected by DevExtreme
-  const displayValue = React.useMemo(() => {
-    if (!currentValue) return allowMultiple ? [] : null;
-
-    if (allowMultiple) {
-      return Array.isArray(currentValue) ? currentValue.map(v => v.TermGuid) : [];
-    } else {
-      return Array.isArray(currentValue) ? currentValue[0]?.TermGuid : (currentValue as ISPTaxonomyFieldValue)?.TermGuid;
-    }
-  }, [currentValue, allowMultiple]);
-
   // Get display label (with path if enabled)
   const getDisplayLabel = React.useCallback((term: ISPTaxonomyFieldValue) => {
     if (showPath && term.Path) {
@@ -253,6 +242,21 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         </Stack>
       );
     }
+
+    // IMPORTANT: Compute displayValue from fieldValue (not from value prop!)
+    // This is the data passed by Controller from React Hook Form
+    const computeDisplayValue = (value: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]): string | string[] | null => {
+      if (!value) return allowMultiple ? [] : null;
+
+      if (allowMultiple) {
+        return Array.isArray(value) ? value.map(v => v.TermGuid) : [];
+      } else {
+        return Array.isArray(value) ? value[0]?.TermGuid : (value as ISPTaxonomyFieldValue)?.TermGuid;
+      }
+    };
+
+    // Use fieldValue (from Controller) to compute displayValue, not the value prop!
+    const fieldDisplayValue = computeDisplayValue(fieldValue);
 
     const hasError = !!fieldError;
 
@@ -294,7 +298,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
             <TagBox
               key={`tagbox-${loading}-${terms.length}`}
               {...commonProps}
-              value={Array.isArray(displayValue) ? displayValue : []}
+              value={Array.isArray(fieldDisplayValue) ? fieldDisplayValue : []}
               onValueChanged={(e: any) => {
                 const selectedGuids = e.value || [];
                 const selectedTerms = terms.filter(term => selectedGuids.includes(term.TermGuid));
@@ -312,7 +316,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
             <SelectBox
               key={`selectbox-${loading}-${terms.length}`}
               {...commonProps}
-              value={!Array.isArray(displayValue) ? displayValue : null}
+              value={!Array.isArray(fieldDisplayValue) ? fieldDisplayValue : null}
               onValueChanged={(e: any) => {
                 const selectedGuid = e.value;
                 const selectedTerm = terms.find(term => term.TermGuid === selectedGuid);

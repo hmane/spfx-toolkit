@@ -2,8 +2,14 @@
  * Utility functions for UserPersona component
  */
 
-import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
 import { IProfileCache } from './types';
+
+// Re-export shared utilities from userPhotoHelper
+export {
+  getInitials,
+  getPersonaColor,
+  pixelSizeToPhotoSize as getPhotoSize,
+} from '../../utilities/userPhotoHelper';
 
 /**
  * In-memory cache for user profiles
@@ -66,48 +72,6 @@ export function getUserPhotoUrl(
   )}`;
 }
 
-/**
- * Get initials from display name
- */
-export function getInitials(displayName: string): string {
-  if (!displayName || displayName.trim().length === 0) {
-    return '?';
-  }
-
-  const parts = displayName.trim().split(' ');
-
-  if (parts.length === 1) {
-    return parts[0].substring(0, 2).toUpperCase();
-  }
-
-  const firstInitial = parts[0].charAt(0).toUpperCase();
-  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
-
-  return `${firstInitial}${lastInitial}`;
-}
-
-/**
- * Get persona color based on display name
- */
-export function getPersonaColor(displayName: string): PersonaInitialsColor {
-  const colors = [
-    PersonaInitialsColor.lightBlue,
-    PersonaInitialsColor.lightGreen,
-    PersonaInitialsColor.lightPink,
-    PersonaInitialsColor.magenta,
-    PersonaInitialsColor.orange,
-    PersonaInitialsColor.teal,
-    PersonaInitialsColor.violet,
-    PersonaInitialsColor.warmGray,
-    PersonaInitialsColor.cyan,
-    PersonaInitialsColor.rust,
-    PersonaInitialsColor.burgundy,
-    PersonaInitialsColor.coolGray,
-  ];
-
-  const hash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[hash % colors.length];
-}
 
 /**
  * Normalize user identifier for lookups
@@ -133,18 +97,6 @@ export function normalizeUserIdentifier(userIdentifier: string): string {
   return userIdentifier.toLowerCase().trim();
 }
 
-/**
- * Get photo size based on persona size
- */
-export function getPhotoSize(personaSize: number): 'S' | 'M' | 'L' {
-  if (personaSize <= 32) {
-    return 'S';
-  } else if (personaSize <= 48) {
-    return 'M';
-  } else {
-    return 'L';
-  }
-}
 
 /**
  * Check if user identifier is valid

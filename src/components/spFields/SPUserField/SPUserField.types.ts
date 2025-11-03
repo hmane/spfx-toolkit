@@ -5,6 +5,7 @@
  */
 
 import { ISPFieldBaseProps, ISPUserFieldValue } from '../types';
+import { IPrincipal } from '../../../types';
 
 /**
  * Display modes for user field
@@ -27,9 +28,14 @@ export enum SPUserFieldDisplayMode {
 }
 
 /**
+ * Value type for SPUserField - supports both IPrincipal (recommended) and legacy ISPUserFieldValue
+ */
+export type SPUserFieldValue = IPrincipal | ISPUserFieldValue;
+
+/**
  * Props for SPUserField component
  */
-export interface ISPUserFieldProps extends ISPFieldBaseProps<ISPUserFieldValue | ISPUserFieldValue[]> {
+export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | SPUserFieldValue[]> {
   /**
    * Allow multiple user selection
    * @default false

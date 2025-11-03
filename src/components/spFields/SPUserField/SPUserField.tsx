@@ -7,21 +7,27 @@
  * @packageDocumentation
  */
 
+import { Label } from '@fluentui/react/lib/Label';
+import { Stack } from '@fluentui/react/lib/Stack';
+import { mergeStyles } from '@fluentui/react/lib/Styling';
+import { Text } from '@fluentui/react/lib/Text';
+import { useTheme } from '@fluentui/react/lib/Theme';
+import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
-import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { Stack } from '@fluentui/react/lib/Stack';
-import { Label } from '@fluentui/react/lib/Label';
-import { Text } from '@fluentui/react/lib/Text';
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
-import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
-import { ISPUserFieldProps, SPUserFieldDisplayMode } from './SPUserField.types';
-import { ISPUserFieldValue } from '../types';
+import { IPrincipal } from '../../../types';
 import { SPContext } from '../../../utilities/context';
+import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
 import './SPUserField.css';
-import { useFormContext } from '../../spForm/context/FormContext';
+import { ISPUserFieldProps, SPUserFieldDisplayMode, SPUserFieldValue } from './SPUserField.types';
+import {
+  getUserDisplayName,
+  getUserIdentifier,
+  normalizeToIPrincipal,
+  peoplePickerItemsToPrincipals,
+  principalToPeoplePickerFormat
+} from './SPUserField.utils';
 
 /**
  * SPUserField component for user and group selection
@@ -94,7 +100,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   } = props;
 
   const theme = useTheme();
-  const [internalValue, setInternalValue] = React.useState<ISPUserFieldValue | ISPUserFieldValue[]>(
+  const [internalValue, setInternalValue] = React.useState<SPUserFieldValue | SPUserFieldValue[]>(
     defaultValue || (allowMultiple ? [] : null as any)
   );
 
@@ -122,31 +128,103 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
 
-  // Convert ISPUserFieldValue to string[] (user IDs or emails) for PeoplePicker
+  // Debug logging - log current value changes
+  React.useEffect(() => {
+    if (SPContext.logger) {
+      SPContext.logger.info(`🔍 SPUserField[${name}] - Current Value:`, {
+        name,
+        currentValue,
+        hasValue: !!currentValue,
+        valueType: Array.isArray(currentValue) ? 'array' : typeof currentValue,
+        valueDetails: currentValue ? (Array.isArray(currentValue) ? currentValue : [currentValue]).map((v: any) => ({
+          id: normalizeToIPrincipal(v).id,
+          email: normalizeToIPrincipal(v).email,
+          title: normalizeToIPrincipal(v).title,
+        })) : null,
+      });
+    }
+  }, [currentValue, name]);
+
+  // Convert value to string[] (user IDs or emails) for PeoplePicker
+  // Filter out empty/invalid users
   const selectedUsers = React.useMemo(() => {
     if (!currentValue) return [];
 
+    const processUser = (user: SPUserFieldValue) => {
+      const principal = normalizeToIPrincipal(user);
+      // Skip users with no id or empty id
+      if (!principal.id || principal.id === '' || principal.id === '0') {
+        return null;
+      }
+      const formatted = principalToPeoplePickerFormat(principal);
+      // Skip if no valid identifier
+      if (!formatted || formatted === '') {
+        return null;
+      }
+      return formatted;
+    };
+
+    let result: string[];
     if (Array.isArray(currentValue)) {
-      return currentValue.map(user => user.EMail || user.Name || user.Title);
+      result = currentValue.map(processUser).filter((u): u is string => u !== null);
     } else {
-      return [currentValue.EMail || currentValue.Name || currentValue.Title];
+      const formatted = processUser(currentValue);
+      result = formatted ? [formatted] : [];
     }
-  }, [currentValue]);
+
+    // Log selectedUsers result
+    if (SPContext.logger && name) {
+      SPContext.logger.info(`🔍 SPUserField[${name}] - Selected Users:`, {
+        name,
+        selectedUsers: result,
+        count: result.length,
+      });
+    }
+
+    return result;
+  }, [currentValue, name]);
+
+  // Generate a key for PeoplePicker to force remount when value changes externally
+  // This is needed because PeoplePicker's defaultSelectedUsers only works on initial mount
+  // Use email/loginName instead of id for better stability (id can be empty on new users)
+  const peoplePickerKey = React.useMemo(() => {
+    if (!currentValue) return `empty-${Date.now()}`;
+
+    const getKey = (user: SPUserFieldValue) => {
+      const principal = normalizeToIPrincipal(user);
+      // Use email or loginName for key (more stable than id which can be empty)
+      return principal.email || principal.loginName || principal.id || 'unknown';
+    };
+
+    let result: string;
+    if (Array.isArray(currentValue)) {
+      const keys = currentValue
+        .map(getKey)
+        .filter(k => k && k !== 'unknown')
+        .join(',');
+      result = keys || `empty-array-${Date.now()}`;
+    } else {
+      const key = getKey(currentValue);
+      result = (key && key !== 'unknown') ? key : `single-${Date.now()}`;
+    }
+
+    // Log peoplePickerKey result
+    if (SPContext.logger && name) {
+      SPContext.logger.info(`🔍 SPUserField[${name}] - PeoplePicker Key:`, {
+        name,
+        peoplePickerKey: result,
+      });
+    }
+
+    return result;
+  }, [currentValue, name]);
 
   // Handle PeoplePicker change
   const handlePeoplePickerChange = React.useCallback(
     (items: any[]) => {
-      // Convert PeoplePicker items to ISPUserFieldValue format
-      const users: ISPUserFieldValue[] = items.map(item => ({
-        Id: item.id || item.Id || 0,
-        EMail: item.secondaryText || item.EMail || '',
-        Title: item.text || item.Title || '',
-        Name: item.loginName || item.Name || '',
-        Picture: item.imageUrl || item.Picture,
-        Sip: item.sip || item.Sip,
-      }));
-
-      const finalValue = allowMultiple ? users : (users.length > 0 ? users[0] : null);
+      // Convert PeoplePicker items to IPrincipal format
+      const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
+      const finalValue = allowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
 
       setInternalValue(finalValue as any);
 
@@ -168,7 +246,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     if (allowMultiple) {
       if (maxSelections && !baseRules.validate) {
         baseRules.validate = {
-          maxSelections: (val: ISPUserFieldValue[]) =>
+          maxSelections: (val: SPUserFieldValue[]) =>
             !val || val.length <= maxSelections! ||
             `Maximum ${maxSelections} selections allowed`,
         };
@@ -178,7 +256,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         if (!baseRules.validate) {
           baseRules.validate = {};
         }
-        (baseRules.validate as Record<string, any>).minSelections = (val: ISPUserFieldValue[]) =>
+        (baseRules.validate as Record<string, any>).minSelections = (val: SPUserFieldValue[]) =>
           !val || val.length >= minSelections! ||
           `Minimum ${minSelections} selections required`;
       }
@@ -210,8 +288,8 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
   // Render field content
   const renderField = (
-    fieldValue: ISPUserFieldValue | ISPUserFieldValue[],
-    fieldOnChange: (val: ISPUserFieldValue | ISPUserFieldValue[]) => void,
+    fieldValue: SPUserFieldValue | SPUserFieldValue[],
+    fieldOnChange: (val: SPUserFieldValue | SPUserFieldValue[]) => void,
     fieldError?: string
   ) => {
     // Check if SPContext is initialized
@@ -229,6 +307,84 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         </Stack>
       );
     }
+
+    // IMPORTANT: Compute selectedUsers from fieldValue (not from value prop!)
+    // This is the data passed by Controller from React Hook Form
+    const computeSelectedUsers = (value: SPUserFieldValue | SPUserFieldValue[]): string[] => {
+      if (!value) return [];
+
+      const processUser = (user: SPUserFieldValue) => {
+        const principal = normalizeToIPrincipal(user);
+        // Skip users with no id or empty id
+        if (!principal.id || principal.id === '' || principal.id === '0') {
+          return null;
+        }
+        const formatted = principalToPeoplePickerFormat(principal);
+        // Skip if no valid identifier
+        if (!formatted || formatted === '') {
+          return null;
+        }
+        return formatted;
+      };
+
+      let result: string[];
+      if (Array.isArray(value)) {
+        result = value.map(processUser).filter((u): u is string => u !== null);
+      } else {
+        const formatted = processUser(value);
+        result = formatted ? [formatted] : [];
+      }
+
+      // Log selectedUsers result
+      if (SPContext.logger && name) {
+        SPContext.logger.info(`🔍 SPUserField[${name}] - Computed Selected Users from fieldValue:`, {
+          name,
+          fieldValue: value,
+          selectedUsers: result,
+          count: result.length,
+        });
+      }
+
+      return result;
+    };
+
+    // IMPORTANT: Compute peoplePickerKey from fieldValue (not from value prop!)
+    const computePeoplePickerKey = (value: SPUserFieldValue | SPUserFieldValue[]): string => {
+      if (!value) return `empty-${Date.now()}`;
+
+      const getKey = (user: SPUserFieldValue) => {
+        const principal = normalizeToIPrincipal(user);
+        // Use email or loginName for key (more stable than id which can be empty)
+        return principal.email || principal.loginName || principal.id || 'unknown';
+      };
+
+      let result: string;
+      if (Array.isArray(value)) {
+        const keys = value
+          .map(getKey)
+          .filter(k => k && k !== 'unknown')
+          .join(',');
+        result = keys || `empty-array-${Date.now()}`;
+      } else {
+        const key = getKey(value);
+        result = (key && key !== 'unknown') ? key : `single-${Date.now()}`;
+      }
+
+      // Log peoplePickerKey result
+      if (SPContext.logger && name) {
+        SPContext.logger.info(`🔍 SPUserField[${name}] - Computed PeoplePicker Key from fieldValue:`, {
+          name,
+          fieldValue: value,
+          peoplePickerKey: result,
+        });
+      }
+
+      return result;
+    };
+
+    // Use fieldValue (from Controller) to compute these, not the value prop!
+    const fieldSelectedUsers = computeSelectedUsers(fieldValue);
+    const fieldPeoplePickerKey = computePeoplePickerKey(fieldValue);
 
     return (
       <Stack className={`sp-user-field ${containerClass} ${className || ''}`}>
@@ -252,14 +408,69 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             padding: fieldError ? '0' : '0'
           }}>
             <PeoplePicker
+              key={fieldPeoplePickerKey}
               context={SPContext.peoplepickerContext}
               personSelectionLimit={allowMultiple ? maxSelections : 1}
               groupName={typeof limitToGroup === 'string' ? limitToGroup : undefined}
               showtooltip={true}
               required={required}
               disabled={disabled || readOnly}
-              onChange={handlePeoplePickerChange}
-              defaultSelectedUsers={selectedUsers}
+              onChange={(items: any[]) => {
+                // Log PeoplePicker onChange
+                if (SPContext.logger && name) {
+                  SPContext.logger.info(`🔍 SPUserField[${name}] - PeoplePicker onChange:`, {
+                    name,
+                    items,
+                    itemCount: items?.length || 0,
+                  });
+                }
+
+                // Convert PeoplePicker items to IPrincipal format
+                const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
+                const finalValue = allowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
+
+                // Log converted value
+                if (SPContext.logger && name) {
+                  SPContext.logger.info(`🔍 SPUserField[${name}] - Converted Value:`, {
+                    name,
+                    principals,
+                    finalValue,
+                    finalValueDetails: finalValue ? (Array.isArray(finalValue) ? finalValue : [finalValue]).map((v: any) => ({
+                      id: v.id,
+                      email: v.email,
+                      title: v.title,
+                    })) : null,
+                  });
+                }
+
+                // Update internal state
+                setInternalValue(finalValue as any);
+
+                // Call fieldOnChange for React Hook Form
+                if (SPContext.logger && name) {
+                  SPContext.logger.info(`🔍 SPUserField[${name}] - Calling fieldOnChange:`, {
+                    name,
+                    finalValue,
+                  });
+                }
+                fieldOnChange(finalValue as any);
+
+                // Call onChange prop if provided
+                if (onChange) {
+                  if (SPContext.logger && name) {
+                    SPContext.logger.info(`🔍 SPUserField[${name}] - Calling onChange prop:`, {
+                      name,
+                      finalValue,
+                    });
+                  }
+                  onChange(finalValue as any);
+                }
+
+                if (SPContext.logger && name) {
+                  SPContext.logger.success(`✅ SPUserField[${name}] - onChange complete`);
+                }
+              }}
+              defaultSelectedUsers={fieldSelectedUsers}
               principalTypes={principalTypes}
               resolveDelay={resolveDelay}
               ensureUser={true}
@@ -272,22 +483,25 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         ) : displayMode === SPUserFieldDisplayMode.Compact ? (
           <Stack horizontal tokens={{ childrenGap: 8 }} wrap>
             {Array.isArray(fieldValue) ? (
-              fieldValue.map((user, index) => (
-                <UserPersona
-                  key={index}
-                  userIdentifier={user.EMail || user.Name || user.Title}
-                  displayName={user.Title}
-                  email={user.EMail}
-                  size={32 as UserPersonaSize}
-                  displayMode={showEmail ? 'avatarAndName' : 'avatar'}
-                  showSecondaryText={showEmail}
-                />
-              ))
+              fieldValue.map((user, index) => {
+                const principal = normalizeToIPrincipal(user);
+                return (
+                  <UserPersona
+                    key={index}
+                    userIdentifier={getUserIdentifier(user)}
+                    displayName={getUserDisplayName(user)}
+                    email={principal.email}
+                    size={32 as UserPersonaSize}
+                    displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                    showSecondaryText={showEmail}
+                  />
+                );
+              })
             ) : fieldValue ? (
               <UserPersona
-                userIdentifier={fieldValue.EMail || fieldValue.Name || fieldValue.Title}
-                displayName={fieldValue.Title}
-                email={fieldValue.EMail}
+                userIdentifier={getUserIdentifier(fieldValue)}
+                displayName={getUserDisplayName(fieldValue)}
+                email={normalizeToIPrincipal(fieldValue).email}
                 size={40 as UserPersonaSize}
                 displayMode={showEmail ? 'avatarAndName' : 'avatar'}
                 showSecondaryText={showEmail}
@@ -300,22 +514,25 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
           // List mode
           <Stack tokens={{ childrenGap: 8 }}>
             {Array.isArray(fieldValue) ? (
-              fieldValue.map((user, index) => (
-                <UserPersona
-                  key={index}
-                  userIdentifier={user.EMail || user.Name || user.Title}
-                  displayName={user.Title}
-                  email={user.EMail}
-                  size={48 as UserPersonaSize}
-                  displayMode={showEmail ? 'avatarAndName' : 'avatar'}
-                  showSecondaryText={showEmail}
-                />
-              ))
+              fieldValue.map((user, index) => {
+                const principal = normalizeToIPrincipal(user);
+                return (
+                  <UserPersona
+                    key={index}
+                    userIdentifier={getUserIdentifier(user)}
+                    displayName={getUserDisplayName(user)}
+                    email={principal.email}
+                    size={48 as UserPersonaSize}
+                    displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                    showSecondaryText={showEmail}
+                  />
+                );
+              })
             ) : fieldValue ? (
               <UserPersona
-                userIdentifier={fieldValue.EMail || fieldValue.Name || fieldValue.Title}
-                displayName={fieldValue.Title}
-                email={fieldValue.EMail}
+                userIdentifier={getUserIdentifier(fieldValue)}
+                displayName={getUserDisplayName(fieldValue)}
+                email={normalizeToIPrincipal(fieldValue).email}
                 size={48 as UserPersonaSize}
                 displayMode={showEmail ? 'avatarAndName' : 'avatar'}
                 showSecondaryText={showEmail}

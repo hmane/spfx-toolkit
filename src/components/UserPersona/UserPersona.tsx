@@ -1,10 +1,10 @@
 import { Persona, PersonaSize } from '@fluentui/react/lib/Persona';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
-import { SPComponentLoader } from '@microsoft/sp-loader';
 import { CachingPessimisticRefresh } from '@pnp/queryable';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
+import { getUserPhoto, pixelSizeToPhotoSize } from '../../utilities/userPhotoHelper';
 import { DefaultUserPersonaProps, IUserPersonaProps, IUserProfile, UserPersonaSize } from './types';
 import './UserPersona.css';
 import {
@@ -15,104 +15,6 @@ import {
   isValidUserIdentifier,
   normalizeUserIdentifier,
 } from './UserPersonaUtils';
-
-// SharePoint default image hashes
-const DEFAULT_PERSONA_IMG_HASHES = new Set([
-  '7ad602295f8386b7615b582d87bcc294',
-  '4a48f26592f4e1498d7a478a4c48609c',
-  '6de6a017bc934f55835ac9b721d04b8b',
-  'f8cb5c6ed63e440b90d962f8c4b2377b',
-  '9a06a83c57864b16a5eef56e83dd5c67',
-  'dc9713f1e28b6ec4d4acba8a50c45caa',
-  '808be61398a910bc29b81f4920de8741',
-  'b04cfcc81483e3d264508991c989a538',
-]);
-const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
-
-/**
- * Load SP component by ID
- */
-const loadSPComponentById = async (componentId: string): Promise<unknown> => {
-  return new Promise((resolve, reject) => {
-    SPComponentLoader.loadComponentById(componentId)
-      .then((component: any) => {
-        resolve(component);
-      })
-      .catch(error => {
-        reject(error);
-      });
-  });
-};
-
-/**
- * Get image as base64
- */
-const getImageBase64 = async (url: string): Promise<string | undefined> => {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return undefined;
-    }
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = (reader.result as string).split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    return undefined;
-  }
-};
-
-/**
- * Get MD5Hash for the image url
- */
-const getMd5HashForUrl = async (url: string): Promise<string> => {
-  const library: any = await loadSPComponentById(MD5_MODULE_ID);
-  try {
-    const md5Hash = library.Md5Hash;
-    if (md5Hash) {
-      const convertedHash: string = md5Hash(url);
-      return convertedHash;
-    }
-  } catch {
-    return url;
-  }
-  return url;
-};
-
-/**
- * Gets user photo
- */
-const getUserPhoto = async (
-  siteUrl: string,
-  userId: string,
-  size: 'S' | 'M' | 'L'
-): Promise<string | undefined> => {
-  try {
-    const personaImgUrl = `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
-      userId
-    )}`;
-    const base64 = await getImageBase64(personaImgUrl);
-    if (!base64) {
-      return undefined;
-    }
-
-    const hash = await getMd5HashForUrl(base64);
-
-    if (DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64)) {
-      return undefined;
-    }
-
-    return `data:image/png;base64,${base64}`;
-  } catch (error) {
-    return undefined;
-  }
-};
 
 export const UserPersona: React.FC<IUserPersonaProps> = props => {
   const {
@@ -212,7 +114,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         return;
       }
 
-      const photoSize = size <= 32 ? 'S' : size <= 48 ? 'M' : 'L';
+      const photoSize = pixelSizeToPhotoSize(size);
 
       try {
         const photo = await getUserPhoto(siteUrl, normalizedIdentifier, photoSize);

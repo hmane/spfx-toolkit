@@ -29,8 +29,8 @@ export function createSPExtractor(item: any) {
       if (typeof value === 'boolean') return value;
       if (typeof value === 'string') {
         const lowerValue = value.toLowerCase().trim();
-        if (lowerValue === 'true' || lowerValue === '1') return true;
-        if (lowerValue === 'false' || lowerValue === '0') return false;
+        if (lowerValue === 'yes' || lowerValue === 'true' || lowerValue === '1') return true;
+        if (lowerValue === 'no' || lowerValue === 'false' || lowerValue === '0') return false;
       }
       return Boolean(value);
     },
@@ -50,18 +50,12 @@ export function createSPExtractor(item: any) {
       if (!item || !fieldName) return undefined;
       const userObj = item[fieldName];
       if (!userObj || typeof userObj !== 'object') return undefined;
+      // check if userObj is array and return first element
+      if (Array.isArray(userObj) && userObj.length > 0) {
+        return userObj[0];
+      }
 
-      return {
-        id: (userObj.ID || userObj.id || '').toString(),
-        email: userObj.EMail || userObj.email || undefined,
-        title: userObj.Title || userObj.title || userObj.text || undefined,
-        value: userObj.Name || userObj.loginName || undefined,
-        loginName: userObj.Name || userObj.loginName || undefined,
-        department: userObj.Department || userObj.department || undefined,
-        jobTitle: userObj.JobTitle || userObj.jobTitle || undefined,
-        sip: userObj.SIP || userObj.sip || undefined,
-        picture: userObj.Picture || userObj.picture || undefined,
-      };
+      return undefined;
     },
 
     userMulti: (fieldName: string): IPrincipal[] => {
