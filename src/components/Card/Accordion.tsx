@@ -12,6 +12,7 @@ import {
 import { AccordionProps } from './Card.types';
 import { useCardController } from './hooks/useCardController';
 import { useAccordionPersistence } from './hooks/usePersistence';
+import { SPContext } from '../../utilities/context';
 
 /**
  * Helper function to get border radius for connected accordion cards
@@ -59,6 +60,7 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
     const cardController = useCardController();
     const isInitializedRef = useRef(false);
     const preventRecursionRef = useRef(false); // COMPLETE FIX: Prevent infinite loops
+    const timersRef = useRef<NodeJS.Timeout[]>([]); // Track timers for cleanup
 
     // Persistence hook
     const { saveAccordionState, loadAccordionState } = useAccordionPersistence(
@@ -78,6 +80,14 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
       isInitializedRef.current = true;
     }, [persist, loadAccordionState]);
 
+    // Cleanup all timers on unmount
+    useEffect(() => {
+      return () => {
+        timersRef.current.forEach(timer => clearTimeout(timer));
+        timersRef.current = [];
+      };
+    }, []);
+
     // Extract card IDs from children
     const cardIds = useMemo(() => {
       const ids: string[] = [];
@@ -94,8 +104,9 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
       (cardId: string, isExpanded: boolean) => {
         if (preventRecursionRef.current) return;
 
-        console.log(
-          `[Accordion] ${id}: Card ${cardId} toggle - isExpanded: ${isExpanded}, allowMultiple: ${allowMultiple}`
+        SPContext.logger.info(
+          `Accordion ${id}: Card ${cardId} toggle - isExpanded: ${isExpanded}, allowMultiple: ${allowMultiple}`,
+          { cardId, isExpanded, allowMultiple }
         );
 
         setExpandedCards(prev => {
@@ -106,41 +117,46 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
             if (allowMultiple) {
               // Allow multiple expanded cards
               newExpanded = prev.includes(cardId) ? prev : [...prev, cardId];
-              console.log(`[Accordion] ${id}: Multi-mode - adding ${cardId}`);
+              SPContext.logger.info(`Accordion ${id}: Multi-mode - adding ${cardId}`, { cardId });
             } else {
               // COMPLETE FIX: Single expand mode - close all others IMMEDIATELY
               newExpanded = [cardId];
-              console.log(`[Accordion] ${id}: Single-mode - only ${cardId} should be open`);
+              SPContext.logger.info(`Accordion ${id}: Single-mode - only ${cardId} should be open`, { cardId });
 
               // COMPLETE FIX: Immediately close other cards via controller
               preventRecursionRef.current = true;
 
               prev.forEach(prevCardId => {
                 if (prevCardId !== cardId) {
-                  console.log(`[Accordion] ${id}: Closing ${prevCardId} to allow ${cardId}`);
+                  SPContext.logger.info(`Accordion ${id}: Closing ${prevCardId} to allow ${cardId}`, {
+                    prevCardId,
+                    cardId,
+                  });
 
                   // Force close the other card immediately
-                  setTimeout(() => {
+                  const timer1 = setTimeout(() => {
                     const cardState = cardController.getCardState(prevCardId);
                     if (cardState?.isExpanded) {
                       cardController.collapseCard(prevCardId, false);
                     }
                   }, 0);
+                  timersRef.current.push(timer1);
                 }
               });
 
               // Reset recursion prevention after a short delay
-              setTimeout(() => {
+              const timer2 = setTimeout(() => {
                 preventRecursionRef.current = false;
               }, 100);
+              timersRef.current.push(timer2);
             }
           } else {
             // Card is being collapsed
             newExpanded = prev.filter(cardIdToFilter => cardIdToFilter !== cardId);
-            console.log(`[Accordion] ${id}: Collapsing ${cardId}`);
+            SPContext.logger.info(`Accordion ${id}: Collapsing ${cardId}`, { cardId });
           }
 
-          console.log(`[Accordion] ${id}: New expanded cards:`, newExpanded);
+          SPContext.logger.info(`Accordion ${id}: New expanded cards`, { newExpanded });
 
           // Save state if persistence is enabled
           if (persist) {
@@ -166,7 +182,7 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
         const unsubscribe = cardController.subscribe(cardId, action => {
           if (preventRecursionRef.current) return;
 
-          console.log(`[Accordion] ${id}: Received ${action} for ${cardId}`);
+          SPContext.logger.info(`Accordion ${id}: Received ${action} for ${cardId}`, { cardId, action });
 
           if (action === 'expand') {
             handleCardToggle(cardId, true);
@@ -186,21 +202,22 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
     useEffect(() => {
       if (!isInitializedRef.current || preventRecursionRef.current) return;
 
-      console.log(`[Accordion] ${id}: Syncing card states. Expanded:`, expandedCards);
+      SPContext.logger.info(`Accordion ${id}: Syncing card states`, { expandedCards });
 
       cardIds.forEach(cardId => {
         const shouldBeExpanded = expandedCards.includes(cardId);
         const currentState = cardController.getCardState(cardId);
 
         if (currentState && currentState.isExpanded !== shouldBeExpanded) {
-          console.log(
-            `[Accordion] ${id}: Syncing ${cardId} to ${shouldBeExpanded ? 'expanded' : 'collapsed'}`
-          );
+          SPContext.logger.info(`Accordion ${id}: Syncing ${cardId} to ${shouldBeExpanded ? 'expanded' : 'collapsed'}`, {
+            cardId,
+            shouldBeExpanded,
+          });
 
           // Prevent recursion during sync
           preventRecursionRef.current = true;
 
-          setTimeout(() => {
+          const timer3 = setTimeout(() => {
             if (shouldBeExpanded) {
               cardController.expandCard(cardId, false);
             } else {
@@ -208,10 +225,12 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
             }
 
             // Reset recursion prevention
-            setTimeout(() => {
+            const timer4 = setTimeout(() => {
               preventRecursionRef.current = false;
             }, 50);
+            timersRef.current.push(timer4);
           }, 10);
+          timersRef.current.push(timer3);
         }
       });
     }, [expandedCards, cardIds, cardController, id]);
@@ -266,12 +285,12 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
           'data-allow-multiple': allowMultiple,
           // COMPLETE FIX: Override card's expand/collapse handlers
           onExpand: (data: any) => {
-            console.log(`[Accordion] ${id}: Card ${cardId} onExpand triggered`);
+            SPContext.logger.info(`Accordion ${id}: Card ${cardId} onExpand triggered`, { cardId });
             handleCardToggle(cardId, true);
             child.props.onExpand?.(data);
           },
           onCollapse: (data: any) => {
-            console.log(`[Accordion] ${id}: Card ${cardId} onCollapse triggered`);
+            SPContext.logger.info(`Accordion ${id}: Card ${cardId} onCollapse triggered`, { cardId });
             handleCardToggle(cardId, false);
             child.props.onCollapse?.(data);
           },

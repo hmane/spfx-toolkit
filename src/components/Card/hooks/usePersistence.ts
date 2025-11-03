@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 import { CardState } from '../Card.types';
 import { StorageService } from '../services/StorageService';
+import { SPContext } from '../../../utilities/context';
 /**
  * Hook for managing card persistence
  * Handles automatic saving and restoring of card states
@@ -36,7 +37,7 @@ export const usePersistence = (cardId: string, enabled: boolean = false, persist
 
         return storageService.saveData(`card-states-${key}`, existingStates);
       } catch (error) {
-        console.error('[SpfxCard] Failed to save card state:', error);
+        SPContext.logger.error('SpfxCard: Failed to save card state', error, { cardId: cardIdRef.current });
         return false;
       }
     },
@@ -54,7 +55,7 @@ export const usePersistence = (cardId: string, enabled: boolean = false, persist
 
       return existingStates[cardIdRef.current] || null;
     } catch (error) {
-      console.error('[SpfxCard] Failed to load card state:', error);
+      SPContext.logger.error('SpfxCard: Failed to load card state', error, { cardId: cardIdRef.current });
       return null;
     }
   }, [storageService]);
@@ -72,7 +73,7 @@ export const usePersistence = (cardId: string, enabled: boolean = false, persist
 
       return storageService.saveData(`card-states-${key}`, existingStates);
     } catch (error) {
-      console.error('[SpfxCard] Failed to clear card state:', error);
+      SPContext.logger.error('SpfxCard: Failed to clear card state', error, { cardId: cardIdRef.current });
       return false;
     }
   }, [storageService]);
@@ -114,7 +115,7 @@ export const useAccordionPersistence = (
         const key = persistKeyRef.current || accordionIdRef.current;
         return storageService.saveAccordionStates(key, expandedCards);
       } catch (error) {
-        console.error('[SpfxCard] Failed to save accordion state:', error);
+        SPContext.logger.error('SpfxCard: Failed to save accordion state', error, { accordionId: accordionIdRef.current });
         return false;
       }
     },
@@ -129,7 +130,7 @@ export const useAccordionPersistence = (
       const key = persistKeyRef.current || accordionIdRef.current;
       return storageService.loadAccordionStates(key);
     } catch (error) {
-      console.error('[SpfxCard] Failed to load accordion state:', error);
+      SPContext.logger.error('SpfxCard: Failed to load accordion state', error, { accordionId: accordionIdRef.current });
       return [];
     }
   }, [storageService]);
@@ -142,7 +143,7 @@ export const useAccordionPersistence = (
       const key = persistKeyRef.current || accordionIdRef.current;
       return storageService.removeAccordionStates(key);
     } catch (error) {
-      console.error('[SpfxCard] Failed to clear accordion state:', error);
+      SPContext.logger.error('SpfxCard: Failed to clear accordion state', error, { accordionId: accordionIdRef.current });
       return false;
     }
   }, [storageService]);
@@ -188,7 +189,7 @@ export const useAutoPersistence = <T>(
       try {
         storageService.saveData(key, data);
       } catch (error) {
-        console.error('[SpfxCard] Auto-persistence failed:', error);
+        SPContext.logger.error('SpfxCard: Auto-persistence failed', error, { key });
       }
     }, debounceMs);
 
@@ -207,7 +208,7 @@ export const useAutoPersistence = <T>(
     try {
       return storageService.loadData<T>(key);
     } catch (error) {
-      console.error('[SpfxCard] Failed to load persisted data:', error);
+      SPContext.logger.error('SpfxCard: Failed to load persisted data', error, { key });
       return undefined;
     }
   }, [enabled, key, storageService]);
@@ -231,10 +232,10 @@ export const useStorageCleanup = (
       try {
         const cleanedCount = storageService.cleanup();
         if (cleanedCount > 0) {
-          console.log(`[SpfxCard] Cleaned up ${cleanedCount} expired storage items`);
+          SPContext.logger.info('SpfxCard: Cleaned up expired storage items', { cleanedCount });
         }
       } catch (error) {
-        console.error('[SpfxCard] Storage cleanup failed:', error);
+        SPContext.logger.error('SpfxCard: Storage cleanup failed', error);
       }
     };
 
@@ -266,7 +267,7 @@ export const useStorageStats = (updateIntervalMs: number = 5000) => {
       try {
         setStats(storageService.getStats());
       } catch (error) {
-        console.error('[SpfxCard] Failed to update storage stats:', error);
+        SPContext.logger.error('SpfxCard: Failed to update storage stats', error);
       }
     };
 
@@ -291,7 +292,7 @@ export const useBulkPersistence = () => {
     try {
       return storageService.exportData();
     } catch (error) {
-      console.error('[SpfxCard] Failed to export data:', error);
+      SPContext.logger.error('SpfxCard: Failed to export data', error);
       return {};
     }
   }, [storageService]);
@@ -301,7 +302,7 @@ export const useBulkPersistence = () => {
       try {
         return storageService.importData(data);
       } catch (error) {
-        console.error('[SpfxCard] Failed to import data:', error);
+        SPContext.logger.error('SpfxCard: Failed to import data', error);
         return false;
       }
     },
@@ -312,7 +313,7 @@ export const useBulkPersistence = () => {
     try {
       return storageService.clearAll();
     } catch (error) {
-      console.error('[SpfxCard] Failed to clear all data:', error);
+      SPContext.logger.error('SpfxCard: Failed to clear all data', error);
       return false;
     }
   }, [storageService]);
@@ -355,7 +356,7 @@ export const useCrossTabSync = (
           url: event.url,
         });
       } catch (error) {
-        console.error('[SpfxCard] Failed to parse storage change:', error);
+        SPContext.logger.error('SpfxCard: Failed to parse storage change', error, { eventKey: event.key });
       }
     };
 
@@ -384,13 +385,13 @@ export const useValidatedPersistence = <T>(
 
       try {
         if (!validator(data)) {
-          console.warn('[SpfxCard] Data validation failed, not saving');
+          SPContext.logger.warn('SpfxCard: Data validation failed, not saving', { key });
           return false;
         }
 
         return storageService.saveData(key, data);
       } catch (error) {
-        console.error('[SpfxCard] Failed to save validated data:', error);
+        SPContext.logger.error('SpfxCard: Failed to save validated data', error, { key });
         return false;
       }
     },
@@ -406,11 +407,11 @@ export const useValidatedPersistence = <T>(
       if (stored && validator(stored)) {
         return stored;
       } else {
-        console.warn('[SpfxCard] Stored data validation failed, using default');
+        SPContext.logger.warn('SpfxCard: Stored data validation failed, using default', { key });
         return defaultValue;
       }
     } catch (error) {
-      console.error('[SpfxCard] Failed to load validated data:', error);
+      SPContext.logger.error('SpfxCard: Failed to load validated data', error, { key });
       return defaultValue;
     }
   }, [enabled, key, validator, defaultValue, storageService]);
@@ -421,7 +422,7 @@ export const useValidatedPersistence = <T>(
     try {
       return storageService.removeData(key);
     } catch (error) {
-      console.error('[SpfxCard] Failed to clear validated data:', error);
+      SPContext.logger.error('SpfxCard: Failed to clear validated data', error, { key });
       return false;
     }
   }, [enabled, key, storageService]);

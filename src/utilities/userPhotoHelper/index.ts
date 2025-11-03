@@ -6,6 +6,9 @@
 export {
   getUserImage,
   getUserPhoto,
+  getUserPhotoIfNotDefault,
+  batchGetUserPhotos,
+  isDefaultPhoto,
   getInitials,
   getPersonaColor,
   pixelSizeToPhotoSize,

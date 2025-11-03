@@ -313,3 +313,90 @@ export async function getUserImage(
     };
   }
 }
+
+/**
+ * Alias for getUserPhoto - returns undefined if it's a default SharePoint photo
+ * Provided for backward compatibility with GroupUsersPicker
+ * @param siteUrl - SharePoint site URL
+ * @param userIdentifier - User email or UPN
+ * @param size - Photo size (S, M, or L)
+ * @returns Photo data URI if custom photo exists, undefined if default photo
+ */
+export const getUserPhotoIfNotDefault = getUserPhoto;
+
+/**
+ * Batch fetch user photos for multiple users
+ * Filters out default SharePoint photos
+ * @param siteUrl - SharePoint site URL
+ * @param users - Array of users with loginName property
+ * @param size - Photo size (S, M, or L)
+ * @returns Map of loginName to photo URL (only non-default photos)
+ *
+ * @example
+ * ```typescript
+ * const users = [
+ *   { loginName: 'john.doe@company.com' },
+ *   { loginName: 'jane.smith@company.com' }
+ * ];
+ * const photoMap = await batchGetUserPhotos(siteUrl, users, 'M');
+ * console.log(photoMap.get('john.doe@company.com')); // Photo URL or undefined
+ * ```
+ */
+export const batchGetUserPhotos = async (
+  siteUrl: string,
+  users: Array<{ loginName: string }>,
+  size: PhotoSize = 'S'
+): Promise<Map<string, string>> => {
+  const photoMap = new Map<string, string>();
+
+  try {
+    // Fetch photos in parallel
+    const promises = users.map(async (user) => {
+      try {
+        const photo = await getUserPhoto(siteUrl, user.loginName, size);
+        if (photo) {
+          photoMap.set(user.loginName, photo);
+        }
+      } catch (error) {
+        SPContext.logger.warn('Failed to fetch photo for user in batch', {
+          loginName: user.loginName,
+          error,
+        });
+      }
+    });
+
+    await Promise.all(promises);
+  } catch (error) {
+    SPContext.logger.error('Batch photo fetch failed', error, { userCount: users.length });
+  }
+
+  return photoMap;
+};
+
+/**
+ * Check if a photo URL is a default SharePoint photo
+ * @param photoUrl - The photo URL to check
+ * @returns True if it's a default photo, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const isDefault = await isDefaultPhoto('https://site/_layouts/15/userphoto.aspx?...');
+ * if (isDefault) {
+ *   console.log('User has no custom photo');
+ * }
+ * ```
+ */
+export const isDefaultPhoto = async (photoUrl: string): Promise<boolean> => {
+  try {
+    const base64 = await getImageBase64(photoUrl);
+    if (!base64) {
+      return true;
+    }
+
+    const hash = await getMd5HashForUrl(base64);
+    return DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64);
+  } catch (error) {
+    SPContext.logger.warn('Failed to check if photo is default', { photoUrl, error });
+    return true;
+  }
+};

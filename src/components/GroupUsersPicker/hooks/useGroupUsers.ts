@@ -6,10 +6,9 @@
 
 import * as React from 'react';
 import { SPContext } from '../../../utilities/context';
-import { getInitials, getPersonaColor } from '../../UserPersona/UserPersonaUtils';
+import { getInitials, getPersonaColor, getUserPhotoIfNotDefault } from '../../../utilities/userPhotoHelper';
 import { IGroupUser } from '../GroupUsersPicker.types';
 import { fetchAllGroupUsersRecursive } from '../utils/groupUserFetcher';
-import { getUserPhotoIfNotDefault } from '../utils/userPhotoHelper';
 
 export interface IUseGroupUsersResult {
   /**
