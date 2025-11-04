@@ -1,17 +1,38 @@
-# SPTextField
+# SPTextField Component 📝
 
-A SharePoint text field component that provides single-line and multi-line text input with full react-hook-form integration and DevExtreme UI components.
+A comprehensive text field component that mirrors SharePoint's Text and Note field types. Supports single-line text, multi-line text areas, rich text editing, and append-only history mode for SharePoint Note fields.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Props](#props)
+- [Display Modes](#display-modes)
+- [Usage Patterns](#usage-patterns)
+- [Complete Examples](#complete-examples)
+- [Best Practices](#best-practices)
+- [TypeScript Support](#typescript-support)
+
+---
 
 ## Features
 
-- **Multiple display modes** - Single-line, multi-line, and rich text support
-- **React Hook Form integration** - Seamless validation and form state management
-- **Character counting** - Track character limits visually
-- **Input masking** - Format input with custom masks
-- **Debouncing** - Optimize performance with configurable debounce delay
-- **Validation** - Built-in pattern, length, and custom validation
-- **Accessibility** - Full ARIA support and keyboard navigation
-- **Icons** - Prefix and suffix icons support
+- 📝 **Multiple Modes** - Single-line, multi-line, and rich text editor
+- 📋 **Note History** - Append-only mode with version history display
+- 🎯 **React Hook Form** - Native integration with validation
+- 🎨 **DevExtreme UI** - Consistent styling with spForm system
+- ✅ **Validation** - Built-in validation with custom rules
+- 🔢 **Character Counting** - Show remaining/used characters
+- 🎭 **Input Masking** - Format input with masks (phone, SSN, etc.)
+- 🔍 **Pattern Validation** - Regex pattern matching
+- 🎨 **Styling Modes** - Outlined, underlined, or filled styles
+- ⚡ **Debouncing** - Configurable onChange debounce delay
+- 🔒 **Access Control** - Read-only and disabled states
+- 📦 **Tree-Shakable** - Import only what you need
+- 🎯 **TypeScript** - Full type safety
+
+---
 
 ## Installation
 
@@ -19,75 +40,74 @@ A SharePoint text field component that provides single-line and multi-line text 
 npm install spfx-toolkit
 ```
 
-## Basic Usage
+---
+
+## Quick Start
 
 ### With React Hook Form
 
 ```typescript
-import * as React from 'react';
+import { SPTextField, SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
 import { useForm } from 'react-hook-form';
-import { SPTextField } from 'spfx-toolkit/lib/components/spFields/SPTextField';
 
-interface IFormData {
-  title: string;
-  description: string;
-}
-
-const MyForm: React.FC = () => {
-  const { control, handleSubmit } = useForm<IFormData>();
-
-  const onSubmit = (data: IFormData) => {
-    console.log('Form data:', data);
-  };
+function MyForm() {
+  const { control } = useForm();
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <>
+      {/* Single-line text */}
       <SPTextField
         name="title"
         label="Title"
         control={control}
         rules={{ required: 'Title is required' }}
         maxLength={255}
-        showCharacterCount
       />
 
+      {/* Multi-line text */}
       <SPTextField
         name="description"
         label="Description"
         control={control}
         mode={SPTextFieldMode.MultiLine}
         rows={6}
-        maxLength={1000}
+        maxLength={500}
         showCharacterCount
       />
 
-      <button type="submit">Save</button>
-    </form>
+      {/* Rich text editor */}
+      <SPTextField
+        name="notes"
+        label="Notes"
+        control={control}
+        mode={SPTextFieldMode.RichText}
+      />
+    </>
   );
-};
+}
 ```
 
-### Standalone Usage
+### Standalone (Without Form)
 
 ```typescript
-import * as React from 'react';
-import { SPTextField } from 'spfx-toolkit/lib/components/spFields/SPTextField';
+import { SPTextField, SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
 
-const MyComponent: React.FC = () => {
-  const [title, setTitle] = React.useState<string>('');
+function MyComponent() {
+  const [description, setDescription] = React.useState('');
 
   return (
     <SPTextField
-      label="Title"
-      value={title}
-      onChange={(value) => setTitle(value)}
-      placeholder="Enter title..."
-      maxLength={255}
-      showCharacterCount
+      label="Description"
+      mode={SPTextFieldMode.MultiLine}
+      value={description}
+      onChange={setDescription}
+      placeholder="Enter description..."
     />
   );
-};
+}
 ```
+
+---
 
 ## Props
 
@@ -95,21 +115,21 @@ const MyComponent: React.FC = () => {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `label` | `string` | - | Field display label |
-| `description` | `string` | - | Help text below field |
+| `label` | `string` | - | Field label text |
+| `description` | `string` | - | Help text below the field |
 | `required` | `boolean` | `false` | Mark field as required |
-| `disabled` | `boolean` | `false` | Disable field input |
+| `disabled` | `boolean` | `false` | Disable the field |
 | `readOnly` | `boolean` | `false` | Make field read-only |
 | `placeholder` | `string` | - | Placeholder text |
 | `errorMessage` | `string` | - | Custom error message |
-| `className` | `string` | - | Custom CSS class |
-| `width` | `number \| string` | `'100%'` | Field width |
+| `className` | `string` | - | CSS class for wrapper |
+| `width` | `string \| number` | - | Field width |
 
 ### Form Integration Props
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `name` | `string` | - | Field name (required for form) |
+| `name` | `string` | - | Field name for form |
 | `control` | `Control` | - | React Hook Form control |
 | `rules` | `RegisterOptions` | - | Validation rules |
 
@@ -127,55 +147,85 @@ const MyComponent: React.FC = () => {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `mode` | `SPTextFieldMode` | `SingleLine` | Display mode (SingleLine, MultiLine, RichText) |
+| `mode` | `SPTextFieldMode` | `SingleLine` | Display mode |
 | `maxLength` | `number` | - | Maximum character length |
 | `minLength` | `number` | - | Minimum character length |
-| `rows` | `number` | `4` | Number of rows (multiline mode) |
+| `rows` | `number` | `4` | Rows for multi-line mode |
 | `showCharacterCount` | `boolean` | `false` | Show character counter |
-| `pattern` | `RegExp` | - | Validation pattern |
-| `patternMessage` | `string` | - | Pattern validation message |
+| `pattern` | `RegExp` | - | Validation regex pattern |
+| `patternMessage` | `string` | - | Error message for pattern |
 | `autoFocus` | `boolean` | `false` | Auto-focus on mount |
-| `inputType` | `string` | `'text'` | Input type (text, email, tel, url, etc.) |
-| `spellCheck` | `boolean` | `true` | Enable spell check |
+| `inputType` | `string` | `'text'` | HTML input type |
+| `spellCheck` | `boolean` | `true` | Enable spell checking |
 | `autoComplete` | `string` | - | Auto-complete attribute |
-| `prefixIcon` | `string` | - | DevExtreme icon name for prefix |
-| `suffixIcon` | `string` | - | DevExtreme icon name for suffix |
+| `prefixIcon` | `string` | - | Icon before input |
+| `suffixIcon` | `string` | - | Icon after input |
 | `showClearButton` | `boolean` | `false` | Show clear button |
-| `debounceDelay` | `number` | `300` | Debounce delay (ms) |
-| `inputClassName` | `string` | - | CSS class for input element |
-| `mask` | `string` | - | Input mask (DevExtreme format) |
-| `maskChar` | `string` | `'_'` | Mask placeholder character |
-| `stylingMode` | `'outlined' \| 'underlined' \| 'filled'` | `'outlined'` | Styling mode |
+| `debounceDelay` | `number` | `300` | onChange debounce (ms) |
+| `mask` | `string` | - | Input mask format |
+| `maskChar` | `string` | `'_'` | Mask placeholder char |
+| `stylingMode` | `string` | `'outlined'` | Style variant |
+
+### Append-Only Mode Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `appendOnly` | `boolean` | `false` | Enable history mode |
+| `itemId` | `number` | - | SharePoint item ID |
+| `listNameOrId` | `string` | - | List name or GUID |
+| `fieldInternalName` | `string` | - | Field internal name |
+| `historyConfig` | `INoteHistoryConfig` | - | History display config |
+| `useCacheForHistory` | `boolean` | `false` | Cache version data |
+| `onHistoryLoad` | `(entries, count) => void` | - | History loaded callback |
+| `onHistoryError` | `(error) => void` | - | History error callback |
+| `onNoteAdd` | `(note) => void` | - | Note added callback |
+| `onCopyPrevious` | `(entry) => void` | - | Copy entry callback |
+
+---
 
 ## Display Modes
 
-### Single Line (Default)
+### SingleLine Mode
+
+Standard single-line text input.
 
 ```typescript
 <SPTextField
   name="title"
   label="Title"
   control={control}
-  placeholder="Enter title..."
+  mode={SPTextFieldMode.SingleLine}
+  maxLength={255}
 />
 ```
 
-### Multi-Line
+**Use cases:** Titles, names, short descriptions, URLs, email addresses
+
+---
+
+### MultiLine Mode
+
+Multi-line textarea for longer content.
 
 ```typescript
-import { SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
-
 <SPTextField
   name="description"
   label="Description"
   control={control}
   mode={SPTextFieldMode.MultiLine}
   rows={6}
-  placeholder="Enter description..."
+  maxLength={1000}
+  showCharacterCount
 />
 ```
 
-### Rich Text (Future Enhancement)
+**Use cases:** Descriptions, comments, notes, addresses, long text
+
+---
+
+### RichText Mode
+
+Rich text editor with formatting toolbar.
 
 ```typescript
 <SPTextField
@@ -186,89 +236,88 @@ import { SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextFiel
 />
 ```
 
-## Validation Examples
+**Features:**
+- Bold, italic, underline
+- Lists (ordered/unordered)
+- Links and images
+- Text alignment
+- Font size and color
 
-### Required Field
+**Use cases:** Articles, documentation, formatted content, announcements
+
+---
+
+## Usage Patterns
+
+### Pattern 1: Basic Text Input
 
 ```typescript
 <SPTextField
-  name="title"
-  label="Title"
+  name="firstName"
+  label="First Name"
   control={control}
-  required
-  rules={{ required: 'Title is required' }}
+  rules={{ required: 'First name is required' }}
+  placeholder="Enter your first name"
+  maxLength={50}
 />
 ```
 
-### Length Validation
+---
+
+### Pattern 2: Text Area with Character Count
 
 ```typescript
 <SPTextField
-  name="username"
-  label="Username"
+  name="comments"
+  label="Comments"
   control={control}
-  minLength={3}
-  maxLength={20}
+  mode={SPTextFieldMode.MultiLine}
+  rows={5}
+  maxLength={500}
   showCharacterCount
+  placeholder="Enter your comments..."
 />
 ```
 
-### Pattern Validation
+---
+
+### Pattern 3: Email Validation
 
 ```typescript
 <SPTextField
   name="email"
-  label="Email"
+  label="Email Address"
   control={control}
   inputType="email"
-  pattern={/^[^\s@]+@[^\s@]+\.[^\s@]+$/}
-  patternMessage="Please enter a valid email address"
-/>
-```
-
-### Custom Validation
-
-```typescript
-<SPTextField
-  name="username"
-  label="Username"
-  control={control}
   rules={{
-    validate: {
-      noSpaces: (value) => !value.includes(' ') || 'Username cannot contain spaces',
-      alphanumeric: (value) => /^[a-zA-Z0-9]+$/.test(value) || 'Only alphanumeric characters allowed'
+    required: 'Email is required',
+    pattern: {
+      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+      message: 'Invalid email address'
     }
   }}
+  prefixIcon="email"
 />
 ```
 
-## Input Types
+---
 
-### Email
-
-```typescript
-<SPTextField
-  name="email"
-  label="Email"
-  control={control}
-  inputType="email"
-  autoComplete="email"
-/>
-```
-
-### Phone Number
+### Pattern 4: Phone Number with Mask
 
 ```typescript
 <SPTextField
   name="phone"
-  label="Phone"
+  label="Phone Number"
   control={control}
   inputType="tel"
   mask="+1 (000) 000-0000"
+  rules={{ required: 'Phone number is required' }}
 />
 ```
 
-### URL
+---
+
+### Pattern 5: URL Input
 
 ```typescript
 <SPTextField
@@ -276,275 +325,361 @@ import { SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextFiel
   label="Website"
   control={control}
   inputType="url"
-  placeholder="https://..."
+  pattern={/^https?:\/\/.+/}
+  patternMessage="URL must start with http:// or https://"
+  prefixIcon="globe"
 />
 ```
 
-### Password
+---
+
+### Pattern 6: Rich Text Editor
 
 ```typescript
 <SPTextField
-  name="password"
-  label="Password"
+  name="announcement"
+  label="Announcement"
   control={control}
-  inputType="password"
-  autoComplete="current-password"
+  mode={SPTextFieldMode.RichText}
+  description="Format your announcement with bold, lists, links, etc."
 />
 ```
 
-## Icons and Styling
+---
 
-### With Icons
+### Pattern 7: Append-Only Note Field with History
 
 ```typescript
 <SPTextField
-  name="search"
-  label="Search"
+  name="notes"
+  label="Project Notes"
   control={control}
-  prefixIcon="search"
-  suffixIcon="clear"
-  showClearButton
+  mode={SPTextFieldMode.MultiLine}
+  appendOnly
+  itemId={123}
+  listNameOrId="Projects"
+  fieldInternalName="Notes"
+  historyConfig={{
+    initialDisplayCount: 5,
+    showUserPhoto: true,
+    timeFormat: 'relative',
+    enableCopyPrevious: true
+  }}
+  onNoteAdd={(note) => console.log('New note:', note)}
 />
 ```
 
-### Styling Modes
+---
+
+## Complete Examples
+
+### Example 1: Contact Form
 
 ```typescript
-// Outlined (default)
-<SPTextField stylingMode="outlined" />
+import { SPTextField, SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
+import { useForm } from 'react-hook-form';
+import { PrimaryButton } from '@fluentui/react/lib/Button';
 
-// Underlined
-<SPTextField stylingMode="underlined" />
+interface IContactForm {
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+}
 
-// Filled
-<SPTextField stylingMode="filled" />
+function ContactForm() {
+  const { control, handleSubmit } = useForm<IContactForm>();
+
+  const onSubmit = async (data: IContactForm) => {
+    console.log('Form data:', data);
+    // Submit to SharePoint
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <SPTextField
+        name="name"
+        label="Full Name"
+        control={control}
+        rules={{ required: 'Name is required' }}
+        placeholder="John Doe"
+        maxLength={100}
+      />
+
+      <SPTextField
+        name="email"
+        label="Email Address"
+        control={control}
+        inputType="email"
+        rules={{
+          required: 'Email is required',
+          pattern: {
+            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+            message: 'Invalid email address'
+          }
+        }}
+        prefixIcon="email"
+      />
+
+      <SPTextField
+        name="phone"
+        label="Phone Number"
+        control={control}
+        inputType="tel"
+        mask="+1 (000) 000-0000"
+        prefixIcon="tel"
+      />
+
+      <SPTextField
+        name="subject"
+        label="Subject"
+        control={control}
+        rules={{ required: 'Subject is required' }}
+        maxLength={200}
+      />
+
+      <SPTextField
+        name="message"
+        label="Message"
+        control={control}
+        mode={SPTextFieldMode.MultiLine}
+        rules={{ required: 'Message is required' }}
+        rows={8}
+        maxLength={2000}
+        showCharacterCount
+        placeholder="Type your message here..."
+      />
+
+      <PrimaryButton type="submit" text="Send Message" />
+    </form>
+  );
+}
 ```
 
-## Input Masking
+---
 
-### Phone Number Mask
+### Example 2: Issue Tracking with Append-Only Notes
 
 ```typescript
+import { SPTextField, SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
+import { useForm } from 'react-hook-form';
+
+interface IIssue {
+  title: string;
+  description: string;
+  notes: string;
+}
+
+function IssueForm({ itemId }: { itemId?: number }) {
+  const { control, handleSubmit, setValue } = useForm<IIssue>();
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <SPTextField
+        name="title"
+        label="Issue Title"
+        control={control}
+        rules={{ required: 'Title is required' }}
+        maxLength={255}
+      />
+
+      <SPTextField
+        name="description"
+        label="Description"
+        control={control}
+        mode={SPTextFieldMode.MultiLine}
+        rows={6}
+        rules={{ required: 'Description is required' }}
+      />
+
+      {/* Append-only note field with history */}
+      {itemId && (
+        <SPTextField
+          name="notes"
+          label="Resolution Notes"
+          control={control}
+          mode={SPTextFieldMode.MultiLine}
+          appendOnly
+          itemId={itemId}
+          listNameOrId="Issues"
+          fieldInternalName="Notes"
+          historyConfig={{
+            initialDisplayCount: 5,
+            showUserPhoto: true,
+            timeFormat: 'relative',
+            enableCopyPrevious: true,
+            historyTitle: 'Previous Updates',
+            emptyHistoryMessage: 'No updates yet'
+          }}
+          onHistoryLoad={(entries, total) => {
+            console.log(`Loaded ${entries.length} of ${total} history entries`);
+          }}
+          onCopyPrevious={(entry) => {
+            // Populate field with previous entry
+            setValue('notes', entry.text);
+          }}
+          description="Add updates to this issue. Previous updates will be preserved."
+        />
+      )}
+    </form>
+  );
+}
+```
+
+---
+
+## Best Practices
+
+### 1. Always Use Labels
+
+```typescript
+// ❌ BAD: No label
+<SPTextField name="field1" control={control} />
+
+// ✅ GOOD: Clear label
 <SPTextField
-  name="phone"
-  label="Phone Number"
+  name="firstName"
+  label="First Name"
   control={control}
-  mask="+1 (000) 000-0000"
-  placeholder="+1 (___) ___-____"
 />
 ```
 
-### Social Security Number
+---
+
+### 2. Set Appropriate Max Length
 
 ```typescript
+// ✅ GOOD: Match SharePoint field limits
+<SPTextField
+  name="title"
+  label="Title"
+  control={control}
+  maxLength={255}  // SharePoint single-line text limit
+  showCharacterCount
+/>
+```
+
+---
+
+### 3. Provide Helpful Descriptions
+
+```typescript
+// ✅ GOOD: Clear guidance
+<SPTextField
+  name="sku"
+  label="SKU"
+  control={control}
+  description="Enter the 6-digit product SKU (e.g., 123456)"
+  pattern={/^\d{6}$/}
+/>
+```
+
+---
+
+### 4. Use Appropriate Input Types
+
+```typescript
+// ✅ GOOD: Specific input types
+<SPTextField name="email" inputType="email" />
+<SPTextField name="phone" inputType="tel" />
+<SPTextField name="website" inputType="url" />
+<SPTextField name="search" inputType="search" />
+```
+
+---
+
+### 5. Validate with Patterns
+
+```typescript
+// ✅ GOOD: Client-side validation
 <SPTextField
   name="ssn"
   label="SSN"
   control={control}
   mask="000-00-0000"
-  maskChar="_"
+  pattern={/^\d{3}-\d{2}-\d{4}$/}
+  patternMessage="Invalid SSN format"
 />
 ```
 
-### Credit Card
+---
+
+### 6. Use Character Counts for Long Text
 
 ```typescript
+// ✅ GOOD: Show progress
 <SPTextField
-  name="creditCard"
-  label="Credit Card"
-  control={control}
-  mask="0000 0000 0000 0000"
-/>
-```
-
-## Character Counting
-
-```typescript
-<SPTextField
-  name="bio"
-  label="Bio"
+  name="description"
+  label="Description"
   control={control}
   mode={SPTextFieldMode.MultiLine}
   maxLength={500}
   showCharacterCount
-  placeholder="Tell us about yourself..."
 />
 ```
 
-## Debouncing
+---
 
-Optimize performance for expensive operations (like API calls) with debouncing:
+## TypeScript Support
+
+Full TypeScript support with comprehensive type definitions:
 
 ```typescript
-const MyComponent: React.FC = () => {
-  const [searchTerm, setSearchTerm] = React.useState<string>('');
+import {
+  SPTextField,
+  SPTextFieldMode,
+  ISPTextFieldProps,
+  INoteHistoryEntry,
+  INoteHistoryConfig
+} from 'spfx-toolkit/lib/components/spFields/SPTextField';
 
-  React.useEffect(() => {
-    // This will only fire 500ms after user stops typing
-    if (searchTerm) {
-      performSearch(searchTerm);
-    }
-  }, [searchTerm]);
+// All props are fully typed
+const props: ISPTextFieldProps = {
+  name: 'description',
+  label: 'Description',
+  mode: SPTextFieldMode.MultiLine,
+  maxLength: 500,
+  showCharacterCount: true
+};
 
-  return (
-    <SPTextField
-      label="Search"
-      value={searchTerm}
-      onChange={setSearchTerm}
-      debounceDelay={500}
-      prefixIcon="search"
-    />
-  );
+// History entries are typed
+const onHistoryLoad = (entries: INoteHistoryEntry[], total: number) => {
+  entries.forEach(entry => {
+    console.log(entry.author.title, entry.created, entry.text);
+  });
 };
 ```
 
-## Advanced Examples
-
-### Multi-Field Validation
-
-```typescript
-const MyForm: React.FC = () => {
-  const { control, watch } = useForm();
-  const password = watch('password');
-
-  return (
-    <>
-      <SPTextField
-        name="password"
-        label="Password"
-        control={control}
-        inputType="password"
-        rules={{
-          required: 'Password is required',
-          minLength: { value: 8, message: 'Minimum 8 characters' }
-        }}
-      />
-
-      <SPTextField
-        name="confirmPassword"
-        label="Confirm Password"
-        control={control}
-        inputType="password"
-        rules={{
-          validate: (value) => value === password || 'Passwords do not match'
-        }}
-      />
-    </>
-  );
-};
-```
-
-### Conditional Rendering
-
-```typescript
-const MyForm: React.FC = () => {
-  const { control, watch } = useForm();
-  const showAdditionalField = watch('needsAdditionalInfo');
-
-  return (
-    <>
-      <SPTextField
-        name="name"
-        label="Name"
-        control={control}
-      />
-
-      {showAdditionalField && (
-        <SPTextField
-          name="additionalInfo"
-          label="Additional Information"
-          control={control}
-          mode={SPTextFieldMode.MultiLine}
-        />
-      )}
-    </>
-  );
-};
-```
-
-## Accessibility
-
-SPTextField includes comprehensive accessibility features:
-
-- **ARIA labels** - Proper labeling for screen readers
-- **Keyboard navigation** - Full keyboard support
-- **Focus management** - Visible focus indicators
-- **Error announcements** - Screen reader error messages
-- **Required field indicators** - Visual and semantic required markers
-
-```typescript
-<SPTextField
-  name="title"
-  label="Document Title"
-  control={control}
-  required
-  description="Enter a descriptive title for your document"
-  aria-describedby="title-help-text"
-/>
-```
-
-## Styling
-
-### Custom Width
-
-```typescript
-<SPTextField width="300px" />
-<SPTextField width="50%" />
-<SPTextField width={400} />
-```
-
-### Custom CSS Class
-
-```typescript
-<SPTextField
-  className="my-custom-field"
-  inputClassName="my-custom-input"
-/>
-```
-
-## TypeScript
-
-### Type Definitions
-
-```typescript
-import { ISPTextFieldProps, SPTextFieldMode } from 'spfx-toolkit/lib/components/spFields/SPTextField';
-
-const fieldProps: ISPTextFieldProps = {
-  name: 'title',
-  label: 'Title',
-  control: control,
-  mode: SPTextFieldMode.SingleLine,
-  maxLength: 255,
-};
-```
-
-## Performance Tips
-
-1. **Use debouncing** for expensive onChange operations
-2. **Memoize callbacks** to prevent unnecessary re-renders
-3. **Control character counting** - Only enable when needed
-4. **Optimize validation** - Use built-in rules over custom validators when possible
-
-## Browser Support
-
-SPTextField supports all modern browsers through DevExtreme:
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+---
 
 ## Related Components
 
-- [SPChoiceField](../SPChoiceField/README.md) - Choice and multi-choice fields
-- [SPNumberField](../SPNumberField/README.md) - Numeric input fields
-- [SPDateField](../SPDateField/README.md) - Date and time fields
-- [SPUrlField](../SPUrlField/README.md) - Hyperlink fields
+- **[SPChoiceField](../SPChoiceField/README.md)** - Choice and dropdown fields
+- **[SPDateField](../SPDateField/README.md)** - Date and time fields
+- **[SPUserField](../SPUserField/README.md)** - People picker fields
+- **[SPNumberField](../SPNumberField/README.md)** - Numeric input fields
 
-## API Reference
+---
 
-See [type definitions](./SPTextField.types.ts) for complete API documentation.
+## Tree-Shaking
+
+Always use specific imports for optimal bundle size:
+
+```typescript
+// ✅ RECOMMENDED: Specific import
+import { SPTextField } from 'spfx-toolkit/lib/components/spFields/SPTextField';
+
+// ❌ AVOID: Bulk import
+import { SPTextField } from 'spfx-toolkit';
+```
+
+---
 
 ## License
 
-Part of the spfx-toolkit package.
+Part of [SPFx Toolkit](../../../../README.md) - MIT License
+
+---
+
+**Last Updated:** November 2025

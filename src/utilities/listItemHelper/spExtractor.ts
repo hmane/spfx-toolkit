@@ -50,11 +50,16 @@ export function createSPExtractor(item: any) {
       if (!item || !fieldName) return undefined;
       const userObj = item[fieldName];
       if (!userObj || typeof userObj !== 'object') return undefined;
-      // check if userObj is array and return first element
-      if (Array.isArray(userObj) && userObj.length > 0) {
-        return userObj[0];
+
+      // SharePoint sometimes returns array even for single user field
+      if (Array.isArray(userObj)) {
+        if (userObj.length === 0) return undefined;
+        // Extract first user from array and map to IPrincipal
+        const firstUser = userObj[0];
+        return firstUser;
       }
 
+      // Normal user object (non-array)
       return undefined;
     },
 
