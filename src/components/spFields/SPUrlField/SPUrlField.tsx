@@ -253,6 +253,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                   onFocusOut={onBlur}
                   isValid={!hasError}
                   validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                   className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               </div>
@@ -273,6 +274,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                     stylingMode={stylingMode}
                     isValid={!hasError}
                     validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                     className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                   />
                 </div>

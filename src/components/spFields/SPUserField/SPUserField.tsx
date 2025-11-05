@@ -100,8 +100,13 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   } = props;
 
   const theme = useTheme();
+
+  // Stable default values to prevent re-render loops
+  const emptyArray = React.useRef<SPUserFieldValue[]>([]).current;
+  const emptyValue = React.useRef<null>(null).current;
+
   const [internalValue, setInternalValue] = React.useState<SPUserFieldValue | SPUserFieldValue[]>(
-    defaultValue || (allowMultiple ? [] : null as any)
+    defaultValue || (allowMultiple ? emptyArray : emptyValue as any)
   );
 
   // Create internal ref if not provided
@@ -188,7 +193,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   // This is needed because PeoplePicker's defaultSelectedUsers only works on initial mount
   // Use email/loginName instead of id for better stability (id can be empty on new users)
   const peoplePickerKey = React.useMemo(() => {
-    if (!currentValue) return `empty-${Date.now()}`;
+    if (!currentValue) return 'empty';
 
     const getKey = (user: SPUserFieldValue) => {
       const principal = normalizeToIPrincipal(user);
@@ -202,10 +207,10 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         .map(getKey)
         .filter(k => k && k !== 'unknown')
         .join(',');
-      result = keys || `empty-array-${Date.now()}`;
+      result = keys || 'empty-array';
     } else {
       const key = getKey(currentValue);
-      result = (key && key !== 'unknown') ? key : `single-${Date.now()}`;
+      result = (key && key !== 'unknown') ? key : 'single-unknown';
     }
 
     // Log peoplePickerKey result
@@ -350,7 +355,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
     // IMPORTANT: Compute peoplePickerKey from fieldValue (not from value prop!)
     const computePeoplePickerKey = (value: SPUserFieldValue | SPUserFieldValue[]): string => {
-      if (!value) return `empty-${Date.now()}`;
+      if (!value) return 'empty';
 
       const getKey = (user: SPUserFieldValue) => {
         const principal = normalizeToIPrincipal(user);
@@ -364,10 +369,10 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
           .map(getKey)
           .filter(k => k && k !== 'unknown')
           .join(',');
-        result = keys || `empty-array-${Date.now()}`;
+        result = keys || 'empty-array';
       } else {
         const key = getKey(value);
-        result = (key && key !== 'unknown') ? key : `single-${Date.now()}`;
+        result = (key && key !== 'unknown') ? key : 'single';
       }
 
       // Log peoplePickerKey result
@@ -554,11 +559,11 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         name={name}
         control={effectiveControl}
         rules={validationRules}
-        defaultValue={defaultValue || (allowMultiple ? [] : null)}
+        defaultValue={defaultValue || (allowMultiple ? emptyArray : emptyValue)}
         render={({ field, fieldState }) => (
           <>
             {renderField(
-              field.value || (allowMultiple ? [] : null),
+              field.value || (allowMultiple ? emptyArray : emptyValue),
               (val) => field.onChange(val),
               fieldState.error?.message
             )}

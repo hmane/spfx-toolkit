@@ -103,8 +103,13 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   } = props;
 
   const theme = useTheme();
+
+  // Create stable references to prevent infinite loops
+  const emptyArray = React.useRef<string[]>([]).current;
+  const emptyString = React.useRef<string>('').current;
+
   const [internalValue, setInternalValue] = React.useState<string | string[]>(
-    defaultValue || (allowMultiple ? [] : '')
+    defaultValue || (allowMultiple ? emptyArray : emptyString)
   );
   const [invalidValueError, setInvalidValueError] = React.useState<string | null>(null);
 
@@ -164,28 +169,54 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     return metadata?.isMultiChoice || false;
   }, [allowMultiple, metadata]);
 
+  // Memoize transformed values to prevent infinite loops from array recreation
+  const transformedValuesCache = React.useRef<Map<string, string | string[]>>(new Map());
+
   // Helper function to transform value for dropdown display (convert custom values to "Other" if needed)
   const getDropdownValue = React.useCallback(
     (val: string | string[] | undefined | null) => {
-      if (!val) return isMultiChoice ? [] : undefined;
+      if (!val) return isMultiChoice ? emptyArray : undefined;
+
+      // Create a stable cache key
+      const cacheKey = JSON.stringify({ val, otherEnabled, otherOptionText });
+
+      // Return cached result if available
+      if (transformedValuesCache.current.has(cacheKey)) {
+        return transformedValuesCache.current.get(cacheKey);
+      }
+
+      let result: string | string[];
 
       if (Array.isArray(val)) {
         // Multi-select: replace custom values with "Other"
-        return val.map(v => {
+        const mapped = val.map(v => {
           if (otherEnabled && isOtherValue(v)) {
             return otherOptionText;
           }
           return v;
         });
+        result = mapped;
       } else {
         // Single-select: replace custom value with "Other"
         if (otherEnabled && isOtherValue(val)) {
-          return otherOptionText;
+          result = otherOptionText;
+        } else {
+          result = val;
         }
-        return val;
       }
+
+      // Cache the result
+      transformedValuesCache.current.set(cacheKey, result);
+
+      // Limit cache size to prevent memory leaks
+      if (transformedValuesCache.current.size > 100) {
+        const firstKey = transformedValuesCache.current.keys().next().value;
+        transformedValuesCache.current.delete(firstKey);
+      }
+
+      return result;
     },
-    [otherEnabled, isOtherValue, otherOptionText, isMultiChoice]
+    [otherEnabled, isOtherValue, otherOptionText, isMultiChoice, emptyArray]
   );
 
   // Determine dropdown value for standalone mode (convert custom values to "Other" if needed)
@@ -396,6 +427,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           layout="vertical"
           isValid={!hasError}
           validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
           className={`${hasError ? 'dx-invalid' : ''}`.trim()}
         />
       );
@@ -431,6 +463,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           ))}
@@ -452,6 +485,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           onValueChanged={(e: any) => fieldOnChange(e.value)}
           isValid={!hasError}
           validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
           className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
           fieldRender={renderValue ? (values: string[]) => renderValue(values) : undefined}
@@ -464,6 +498,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           onValueChanged={(e: any) => fieldOnChange(e.value)}
           isValid={!hasError}
           validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
           className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
           fieldRender={renderValue ? (value: string) => renderValue(value) : undefined}
@@ -535,7 +570,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         name={name}
         control={effectiveControl}
         rules={validationRules}
-        defaultValue={defaultValue || (isMultiChoice ? [] : '')}
+        defaultValue={defaultValue || (isMultiChoice ? emptyArray : emptyString)}
         render={({ field, fieldState }) => {
           // Transform field.value for dropdown display (replace custom values with "Other")
           const displayValue = getDropdownValue(field.value);
@@ -543,10 +578,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           return (
             <>
               {renderField(
-                displayValue || (isMultiChoice ? [] : ''),
+                displayValue || (isMultiChoice ? emptyArray : emptyString),
                 val => {
                   field.onChange(val);
-                  handleDropdownChange(val || (isMultiChoice ? [] : ''));
+                  handleDropdownChange(val || (isMultiChoice ? emptyArray : emptyString));
                 },
                 fieldState.error?.message
               )}
@@ -558,7 +593,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   }
 
   // Standalone mode
-  return renderField(dropdownValue || (isMultiChoice ? [] : ''), handleDropdownChange);
+  return renderField(dropdownValue || (isMultiChoice ? emptyArray : emptyString), handleDropdownChange);
 };
 
 export default SPChoiceField;

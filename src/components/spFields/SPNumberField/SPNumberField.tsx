@@ -238,6 +238,7 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
               onFocusOut={onBlur}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           );

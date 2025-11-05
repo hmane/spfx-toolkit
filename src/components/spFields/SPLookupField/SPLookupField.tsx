@@ -602,6 +602,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               maxDisplayedTags={maxDisplayedTags}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showSelectionControls={true}
@@ -623,6 +624,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               }}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showDropDownButton={true}

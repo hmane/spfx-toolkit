@@ -308,6 +308,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       onFocusOut: onBlur,
       isValid: !hasError,
       validationStatus: hasError ? 'invalid' as const : 'valid' as const,
+      validationError: fieldError, // Pass error message for DevExtreme validation tooltip
       ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
     };
 

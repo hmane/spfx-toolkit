@@ -307,6 +307,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
               maxDisplayedTags={maxDisplayedTags}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               searchEnabled={showSearchBox}
               searchTimeout={searchDelay}
@@ -324,6 +325,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
               }}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
               className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               searchEnabled={showSearchBox}
             />

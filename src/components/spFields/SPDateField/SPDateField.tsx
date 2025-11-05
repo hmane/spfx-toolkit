@@ -315,6 +315,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
                 onFocusOut={onBlur}
                 isValid={!hasError}
                 validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                 className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               />
             );
@@ -342,6 +343,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
                 buttons={showCalendarIcon ? ['dropDown'] : []}
                 isValid={!hasError}
                 validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                 className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               />
             );

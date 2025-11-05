@@ -175,6 +175,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   text={showText ? displayText : ''}
                   isValid={!hasError}
                   validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                   className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               ) : (
@@ -185,6 +186,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   readOnly={readOnly}
                   isValid={!hasError}
                   validationStatus={hasError ? 'invalid' : 'valid'}
+          validationError={fieldError}
                   className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               )}
