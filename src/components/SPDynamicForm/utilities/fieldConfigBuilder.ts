@@ -136,6 +136,7 @@ export function buildFieldProps(
   field: IFieldMetadata,
   mode: 'new' | 'edit' | 'view',
   control: any,
+  listId: string,
   override?: IFieldOverride
 ): any {
   const props: any = {
@@ -153,10 +154,7 @@ export function buildFieldProps(
     case SPFieldType.Text:
     case SPFieldType.Note:
       props.maxLength = field.fieldConfig.maxLength;
-      if (field.fieldConfig.allowMultiline) {
-        props.multiline = true;
-        props.numberOfLines = field.fieldConfig.numberOfLines || 6;
-      }
+      // Note: mode and numberOfLines are set in SPDynamicFormField based on field type
       break;
 
     case SPFieldType.Number:
@@ -169,28 +167,37 @@ export function buildFieldProps(
     case SPFieldType.Choice:
     case SPFieldType.MultiChoice:
       props.choices = field.fieldConfig.choices;
-      props.allowFillIn = field.fieldConfig.fillInChoice;
-      props.isMulti = field.fieldConfig.isMulti;
+      props.allowMultiple = field.fieldConfig.isMulti;
+      // Note: allowFillIn/fillInChoice is handled via otherConfig in SPChoiceField
       break;
 
     case SPFieldType.DateTime:
-      props.dateOnly = field.fieldConfig.displayFormat === 0;
+      // Note: dateTimeFormat is set in SPDynamicFormField based on displayFormat
       break;
 
     case SPFieldType.User:
-      props.allowMultiple = field.fieldConfig.allowMultiple;
-      props.principalTypes = field.fieldConfig.selectionMode === 0 ? ['User'] : ['User', 'Group'];
+      // Use columnName/listId pattern for auto-loading field configuration
+      props.columnName = field.internalName;
+      props.listId = listId;
       break;
 
     case SPFieldType.Lookup:
-      props.listId = field.fieldConfig.lookupListId;
-      props.lookupField = field.fieldConfig.lookupField || 'Title';
-      props.isMulti = field.fieldConfig.allowMultiple;
+      // Create proper dataSource object for SPLookupField
+      props.dataSource = {
+        listNameOrId: field.fieldConfig.lookupListId || '',
+        displayField: field.fieldConfig.lookupField || 'Title',
+      };
+      props.allowMultiple = field.fieldConfig.allowMultiple;
+      // Set display mode based on item count if available
+      if (field.lookupItemCount && field.lookupItemCount > 100) {
+        props.displayMode = 'searchable';
+      }
       break;
 
     case SPFieldType.TaxonomyFieldType:
-      props.termSetId = field.fieldConfig.termSetId;
-      props.allowMultiple = field.fieldConfig.allowMultiple;
+      // Use columnName/listId pattern for auto-loading field configuration
+      props.columnName = field.internalName;
+      props.listId = listId;
       break;
 
     default:

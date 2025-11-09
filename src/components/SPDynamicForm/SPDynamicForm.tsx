@@ -6,14 +6,16 @@ import { useDynamicFormData } from './hooks/useDynamicFormData';
 import { useDynamicFormValidation } from './hooks/useDynamicFormValidation';
 import { SPDynamicFormField } from './components/SPDynamicFormField';
 import { SPDynamicFormSection } from './components/SPDynamicFormSection';
-import { SPDynamicFormAttachments } from './components/SPDynamicFormAttachments';
+import { SPListItemAttachments } from '../SPListItemAttachments';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { PrimaryButton, DefaultButton } from '@fluentui/react/lib/Button';
 import { SPContext } from '../../utilities/context';
 import { FormProvider as SPFormProvider } from '../spForm/context/FormContext';
+import FormErrorSummary from '../spForm/FormErrorSummary/FormErrorSummary';
 import './SPDynamicForm.css';
+import '../spForm/spfxForm.css';
 
 /**
  * SPDynamicForm - Dynamically generates forms from SharePoint list/library metadata
@@ -76,6 +78,15 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   const [filesToDelete, setFilesToDelete] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // Memoize error callback to prevent infinite loops
+  const handleFieldLoadError = React.useCallback((err: Error) => {
+    onError?.(err, 'load');
+  }, [onError]);
+
+  const handleDataLoadError = React.useCallback((err: Error) => {
+    onError?.(err, 'load');
+  }, [onError]);
+
   // Load fields
   const {
     fields,
@@ -100,8 +111,21 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     cacheFields,
     onBeforeLoad,
     onAfterLoad: onAfterLoad as any,
-    onError: (err) => onError?.(err, 'load'),
+    onError: handleFieldLoadError,
   });
+
+  // Don't include fields in dependency to prevent infinite loops
+  // The parent's onAfterLoad already has access to fields if needed
+  const fieldsRef = React.useRef(fields);
+  React.useEffect(() => {
+    fieldsRef.current = fields;
+  }, [fields]);
+
+  const handleDataAfterLoad = React.useCallback((data: any, item: any) => {
+    if (onAfterLoad) {
+      onAfterLoad(data as T, fieldsRef.current);
+    }
+  }, [onAfterLoad]);
 
   // Load data (for edit/view modes)
   const {
@@ -115,12 +139,8 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     itemId,
     mode,
     fields,
-    onAfterLoad: (data, item) => {
-      if (onAfterLoad) {
-        onAfterLoad(data as T, fields);
-      }
-    },
-    onError: (err) => onError?.(err, 'load'),
+    onAfterLoad: handleDataAfterLoad,
+    onError: handleDataLoadError,
   });
 
   // Build default values for new mode
@@ -390,13 +410,32 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     }
 
     return (
-      <SPDynamicFormAttachments
+      <SPListItemAttachments
+        listId={listId}
+        itemId={itemId}
         mode={mode}
-        existingAttachments={attachments}
-        maxSize={maxAttachmentSize}
-        allowedTypes={allowedFileTypes}
+        maxFileSize={maxAttachmentSize}
+        allowedExtensions={allowedFileTypes}
         disabled={externalDisabled || isSubmitting}
-        onFilesChange={handleAttachmentsChange}
+        label="Attachments"
+        enableDragDrop={true}
+        showPreviews={true}
+        allowMultiple={true}
+        onFilesAdded={(files) => {
+          // For new mode, stage files for upload after item creation
+          if (mode === 'new') {
+            setFilesToAdd((prev) => [...prev, ...files]);
+          }
+        }}
+        onFilesRemoved={(fileNames) => {
+          // For edit mode, mark existing files for deletion
+          if (mode === 'edit') {
+            setFilesToDelete((prev) => [...prev, ...fileNames]);
+          } else {
+            // For new mode, remove from staged files
+            setFilesToAdd((prev) => prev.filter(f => !fileNames.includes(f.name)));
+          }
+        }}
       />
     );
   };
@@ -417,6 +456,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         field={field}
         control={control}
         mode={mode}
+        listId={listId}
         override={fieldOverride}
         customRenderer={customFieldRenderer}
         error={errors[field.internalName]?.message as string}
@@ -519,7 +559,11 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     // Determine spacing based on compact mode and custom spacing
     const spacing = fieldSpacing !== undefined ? fieldSpacing : compact ? 8 : 16;
 
-    return <Stack tokens={{ childrenGap: spacing }}>{elements}</Stack>;
+    return (
+      <div className="spfx-form-container">
+        <Stack tokens={{ childrenGap: spacing }}>{elements}</Stack>
+      </div>
+    );
   };
 
   // Render sections with custom content
@@ -684,6 +728,17 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
           <form onSubmit={handleSubmit(handleFormSubmit)}>
             <Stack tokens={{ childrenGap: 20 }}>
               {useSections ? renderSections() : renderFields()}
+
+              {/* Error Summary - shows above buttons when there are validation errors */}
+              {Object.keys(errors).length > 0 && (
+                <FormErrorSummary
+                  position="bottom"
+                  showFieldLabels={true}
+                  clickToScroll={scrollToError}
+                  compact={compact}
+                />
+              )}
+
               {renderFormButtons()}
             </Stack>
           </form>

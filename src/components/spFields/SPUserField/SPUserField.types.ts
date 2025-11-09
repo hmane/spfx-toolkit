@@ -37,13 +37,28 @@ export type SPUserFieldValue = IPrincipal | ISPUserFieldValue;
  */
 export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | SPUserFieldValue[]> {
   /**
+   * SharePoint column/field name to auto-load configuration from
+   * When provided, the component will read column metadata to get allowMultiple and allowGroups settings
+   * @optional
+   */
+  columnName?: string;
+
+  /**
+   * List ID or name where the column exists (required when using columnName)
+   * @optional
+   */
+  listId?: string;
+
+  /**
    * Allow multiple user selection
+   * Optional if columnName is provided - will auto-load from SharePoint column metadata
    * @default false
    */
   allowMultiple?: boolean;
 
   /**
    * Allow group selection
+   * Optional if columnName is provided - will auto-load from SharePoint column metadata
    * @default false
    */
   allowGroups?: boolean;

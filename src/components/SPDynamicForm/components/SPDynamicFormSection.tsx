@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { ISectionMetadata } from '../types/fieldMetadata';
-import { Card, Header, Content } from '../../Card';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
+import { Separator } from '@fluentui/react/lib/Separator';
 
 export interface ISPDynamicFormSectionProps {
   section: ISectionMetadata;
@@ -13,43 +13,31 @@ export interface ISPDynamicFormSectionProps {
 }
 
 /**
- * Wraps form fields in a collapsible Card section
+ * Wraps form fields in a section with header
  */
 export const SPDynamicFormSection: React.FC<ISPDynamicFormSectionProps> = React.memo((props) => {
-  const { section, children, persistenceKey, compact = false, fieldSpacing = 16 } = props;
+  const { section, children, compact = false, fieldSpacing = 16 } = props;
 
-  const cardId = persistenceKey
-    ? `${persistenceKey}_section_${section.name}`
-    : `section_${section.name}`;
-
-  // Determine padding based on compact mode
-  const padding = compact ? 'compact' : 'comfortable';
+  // Determine spacing based on compact mode
+  const sectionSpacing = compact ? 8 : 16;
 
   return (
-    <Card
-      id={cardId}
-      defaultExpanded={section.defaultExpanded}
-      allowExpand={section.collapsible}
-      persist={!!persistenceKey}
-      persistKey={persistenceKey}
-      size="regular"
-    >
-      <Header>
-        <Stack>
-          <Text variant="mediumPlus" block styles={{ root: { fontWeight: 600 } }}>
-            {section.title}
+    <div className="spfx-form-section" style={{ marginBottom: compact ? 16 : 24 }}>
+      <div className="spfx-form-section-header">
+        <Text variant="xLarge" block styles={{ root: { fontWeight: 600, marginBottom: 4 } }}>
+          {section.title}
+        </Text>
+        {section.description && (
+          <Text variant="small" block styles={{ root: { color: '#605e5c', marginBottom: 8 } }}>
+            {section.description}
           </Text>
-          {section.description && (
-            <Text variant="small" block styles={{ root: { color: '#605e5c' } }}>
-              {section.description}
-            </Text>
-          )}
-        </Stack>
-      </Header>
-      <Content padding={padding}>
+        )}
+      </div>
+      <Separator styles={{ root: { marginBottom: sectionSpacing } }} />
+      <div className="spfx-form-container">
         <Stack tokens={{ childrenGap: fieldSpacing }}>{children}</Stack>
-      </Content>
-    </Card>
+      </div>
+    </div>
   );
 });
 

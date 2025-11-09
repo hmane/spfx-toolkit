@@ -264,7 +264,14 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       } catch (err: any) {
         if (!isMounted) return;
 
-        const errorMsg = err?.message || 'Failed to determine display mode';
+        // Provide user-friendly error messages
+        let errorMsg = 'Failed to load lookup field';
+        if (err?.message?.includes('does not exist') || err?.status === 404) {
+          errorMsg = `Lookup list not found: "${dataSource.listNameOrId}". Please verify the list exists and you have access.`;
+        } else if (err?.message) {
+          errorMsg = err.message;
+        }
+
         setError(errorMsg);
         SPContext.logger.error('SPLookupField: Failed to determine display mode', err, { dataSource });
         setLoading(false);
@@ -355,7 +362,14 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       } catch (err: any) {
         if (!isMounted) return;
 
-        const errorMsg = err?.message || 'Failed to load lookup items';
+        // Provide user-friendly error messages
+        let errorMsg = 'Failed to load lookup items';
+        if (err?.message?.includes('does not exist') || err?.status === 404) {
+          errorMsg = `Lookup list not found: "${dataSource.listNameOrId}". Please verify the list exists and you have access.`;
+        } else if (err?.message) {
+          errorMsg = err.message;
+        }
+
         setError(errorMsg);
         SPContext.logger.error('SPLookupField: Failed to load items', err, {
           list: dataSource.listNameOrId,

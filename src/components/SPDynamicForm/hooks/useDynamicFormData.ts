@@ -42,6 +42,20 @@ export function useDynamicFormData<T extends FieldValues = any>(
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
+  // Use refs for callbacks to prevent infinite loops
+  const onAfterLoadRef = React.useRef(onAfterLoad);
+  const onErrorRef = React.useRef(onError);
+
+  React.useEffect(() => {
+    onAfterLoadRef.current = onAfterLoad;
+    onErrorRef.current = onError;
+  }, [onAfterLoad, onError]);
+
+  // Create stable reference for fields array to prevent infinite loops
+  const fieldsStr = React.useMemo(() => {
+    return JSON.stringify(fields.map((f) => f.internalName));
+  }, [fields]);
+
   const loadData = React.useCallback(async () => {
     // Only load data for edit/view modes
     if (mode === 'new') {
@@ -55,8 +69,8 @@ export function useDynamicFormData<T extends FieldValues = any>(
     if (!itemId) {
       const error = new Error('itemId is required for edit/view modes');
       setError(error);
-      if (onError) {
-        onError(error, 'load');
+      if (onErrorRef.current) {
+        onErrorRef.current(error, 'load');
       }
       return;
     }
@@ -97,8 +111,14 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       fields.forEach((field) => {
         try {
-          // Get raw value from item - we don't use typed extractors here since we don't know the type
-          const value = item[field.internalName];
+          // Get raw value from item
+          let value = item[field.internalName];
+
+          // Convert date strings to Date objects for DateTime fields
+          if (field.fieldType === 'DateTime' && value && typeof value === 'string') {
+            value = new Date(value);
+          }
+
           formData[field.internalName] = value;
         } catch (err) {
           SPContext.logger.warn(`Failed to extract field "${field.internalName}"`, err);
@@ -117,9 +137,9 @@ export function useDynamicFormData<T extends FieldValues = any>(
         setAttachments([]);
       }
 
-      // Call onAfterLoad
-      if (onAfterLoad) {
-        onAfterLoad(formData as T, item);
+      // Call onAfterLoad using ref
+      if (onAfterLoadRef.current) {
+        onAfterLoadRef.current(formData as T, item);
       }
 
       const duration = timer();
@@ -133,13 +153,13 @@ export function useDynamicFormData<T extends FieldValues = any>(
       setError(error);
       SPContext.logger.error('Failed to load item data', error, { listId, itemId });
 
-      if (onError) {
-        onError(error, 'load');
+      if (onErrorRef.current) {
+        onErrorRef.current(error, 'load');
       }
     } finally {
       setLoading(false);
     }
-  }, [listId, itemId, mode, fields, onAfterLoad, onError]);
+  }, [listId, itemId, mode, fieldsStr]);
 
   // Load data when dependencies change
   React.useEffect(() => {

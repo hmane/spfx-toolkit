@@ -8,6 +8,7 @@ export * from './ManageAccess';
 export * from './spForm';
 export * from './spFields';
 export * from './SPDynamicForm';
+export * from './SPListItemAttachments';
 export * from './UserPersona';
 export * from './VersionHistory';
 export * from './WorkflowStepper';

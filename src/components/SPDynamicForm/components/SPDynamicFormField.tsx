@@ -5,7 +5,7 @@ import { IFieldOverride, IFieldRenderProps, ICustomFieldRenderer } from '../SPDy
 import { SPFieldType } from '../../spFields/types';
 import { buildFieldProps } from '../utilities/fieldConfigBuilder';
 import { getLookupRenderMode } from '../utilities/lookupFieldOptimizer';
-import { SPTextField } from '../../spFields/SPTextField';
+import { SPTextField, SPTextFieldMode } from '../../spFields/SPTextField';
 import { SPNumberField } from '../../spFields/SPNumberField';
 import { SPBooleanField } from '../../spFields/SPBooleanField';
 import { SPDateField } from '../../spFields/SPDateField';
@@ -14,6 +14,7 @@ import { SPUserField } from '../../spFields/SPUserField';
 import { SPLookupField } from '../../spFields/SPLookupField';
 import { SPUrlField } from '../../spFields/SPUrlField';
 import { SPTaxonomyField } from '../../spFields/SPTaxonomyField';
+import { SPDateTimeFormat } from '../../spFields/types';
 import { Text } from '@fluentui/react/lib/Text';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Stack } from '@fluentui/react/lib/Stack';
@@ -21,11 +22,15 @@ import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { ErrorBoundary } from '../../ErrorBoundary';
 import { SPContext } from '../../../utilities/context';
+import FormItem from '../../spForm/FormItem/FormItem';
+import FormLabel from '../../spForm/FormLabel/FormLabel';
+import FormValue from '../../spForm/FormValue/FormValue';
 
 export interface ISPDynamicFormFieldProps {
   field: IFieldMetadata;
   control: Control<any>;
   mode: 'new' | 'edit' | 'view';
+  listId: string;
   override?: IFieldOverride;
   customRenderer?: ICustomFieldRenderer;
   error?: string;
@@ -43,6 +48,7 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     field,
     control,
     mode,
+    listId,
     override,
     customRenderer,
     error,
@@ -64,7 +70,7 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
   }
 
   // Build base props for SPField components
-  const fieldProps = buildFieldProps(field, mode, control, override);
+  const fieldProps = buildFieldProps(field, mode, control, listId, override);
   fieldProps.disabled = disabled || fieldProps.disabled;
   fieldProps.readOnly = readOnly || fieldProps.readOnly;
 
@@ -107,6 +113,10 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     }
   }
 
+  // Extract label for FormItem pattern
+  const labelText = fieldProps.label;
+  const isRequired = fieldProps.required;
+
   // Render field help tooltip
   const renderFieldHelp = () => {
     if (!showHelp || !field.description) {
@@ -130,55 +140,67 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     );
   };
 
-  // Update label to include help icon
-  if (showHelp && field.description && fieldProps.label) {
-    fieldProps.label = (
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }}>
-        <span>{fieldProps.label}</span>
-        {renderFieldHelp()}
-      </Stack>
-    );
-  }
+  // Remove label and description from fieldProps - FormItem will handle them
+  const fieldPropsWithoutLabel = { ...fieldProps };
+  delete fieldPropsWithoutLabel.label;
+  delete fieldPropsWithoutLabel.description;
 
   // Render field content based on field type
   const renderFieldContent = () => {
     switch (field.fieldType) {
       case SPFieldType.Text:
-        return <SPTextField {...fieldProps} />;
+        return <SPTextField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.Note:
-        // Check if rich text is enabled
-        const isRichText = field.fieldConfig.richText;
+        // Determine mode based on rich text setting
+        const noteMode = field.fieldConfig.richText
+          ? SPTextFieldMode.RichText
+          : SPTextFieldMode.MultiLine;
         return (
           <SPTextField
-            {...fieldProps}
-            multiline
+            {...fieldPropsWithoutLabel}
+            mode={noteMode}
             numberOfLines={field.fieldConfig.numberOfLines || 6}
-            isRichText={isRichText}
           />
         );
 
       case SPFieldType.Number:
         // For currency fields, just use regular number field
         // The formatting would need to be handled in a wrapper or custom field
-        return <SPNumberField {...fieldProps} />;
+        return <SPNumberField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.Boolean:
-        return <SPBooleanField {...fieldProps} />;
+        return <SPBooleanField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.DateTime:
-        return <SPDateField {...fieldProps} />;
+        // Set dateTimeFormat based on displayFormat (0 = DateOnly, 1 = DateTime)
+        const dateTimeFormat =
+          field.fieldConfig.displayFormat === 0
+            ? SPDateTimeFormat.DateOnly
+            : SPDateTimeFormat.DateTime;
+        return <SPDateField {...fieldPropsWithoutLabel} dateTimeFormat={dateTimeFormat} />;
 
       case SPFieldType.Choice:
-        return <SPChoiceField {...fieldProps} />;
+        return <SPChoiceField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.MultiChoice:
-        return <SPChoiceField {...fieldProps} isMulti />;
+        // allowMultiple is already set in fieldProps from buildFieldProps
+        return <SPChoiceField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.User:
-        return <SPUserField {...fieldProps} />;
+        return <SPUserField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.Lookup: {
+        // Validate lookup configuration
+        const lookupListId = field.fieldConfig?.lookupListId;
+        if (!lookupListId) {
+          return (
+            <MessageBar messageBarType={MessageBarType.error}>
+              Lookup field configuration error: Missing lookup list ID for field "{field.displayName}"
+            </MessageBar>
+          );
+        }
+
         // Smart lookup rendering based on item count
         const renderMode = getLookupRenderMode(field, override?.lookupRenderMode);
 
@@ -191,19 +213,30 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
                 Large lookup list ({field.lookupItemCount?.toLocaleString()} items) - autocomplete mode
                 (coming soon). Using dropdown for now.
               </MessageBar>
-              <SPLookupField {...fieldProps} />
+              <SPLookupField {...fieldPropsWithoutLabel} />
             </Stack>
           );
         }
 
-        return <SPLookupField {...fieldProps} />;
+        return <SPLookupField {...fieldPropsWithoutLabel} />;
       }
 
       case SPFieldType.URL:
-        return <SPUrlField {...fieldProps} />;
+        return <SPUrlField {...fieldPropsWithoutLabel} />;
 
-      case SPFieldType.TaxonomyFieldType:
-        return <SPTaxonomyField {...fieldProps} />;
+      case SPFieldType.TaxonomyFieldType: {
+        // Validate taxonomy configuration
+        const termSetId = field.fieldConfig?.termSetId;
+        if (!termSetId) {
+          return (
+            <MessageBar messageBarType={MessageBarType.error}>
+              Taxonomy field configuration error: Missing term set ID for field "{field.displayName}"
+            </MessageBar>
+          );
+        }
+
+        return <SPTaxonomyField {...fieldPropsWithoutLabel} />;
+      }
 
       default:
         return (
@@ -219,20 +252,28 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     }
   };
 
-  // Wrap in error boundary and return
+  // Wrap in FormItem with horizontal responsive layout
   return (
-    <div {...wrapperProps}>
-      <ErrorBoundary
-        onError={(err) => {
-          SPContext.logger.error(`Error rendering field "${field.internalName}"`, err, {
-            fieldType: field.fieldType,
-            typeAsString: field.typeAsString,
-          });
-        }}
+    <FormItem fieldName={field.internalName} {...wrapperProps}>
+      <FormLabel
+        isRequired={isRequired}
+        infoText={showHelp && field.description ? field.description : undefined}
       >
-        {renderFieldContent()}
-      </ErrorBoundary>
-    </div>
+        {labelText}
+      </FormLabel>
+      <FormValue>
+        <ErrorBoundary
+          onError={(err) => {
+            SPContext.logger.error(`Error rendering field "${field.internalName}"`, err, {
+              fieldType: field.fieldType,
+              typeAsString: field.typeAsString,
+            });
+          }}
+        >
+          {renderFieldContent()}
+        </ErrorBoundary>
+      </FormValue>
+    </FormItem>
   );
 });
 

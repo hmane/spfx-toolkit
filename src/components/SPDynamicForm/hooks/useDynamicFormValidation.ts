@@ -24,6 +24,23 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
   const { mode, listId, itemId, originalItem, filesToAdd, filesToDelete, onBeforeSubmit, onError } =
     options;
 
+  // Use refs for callbacks and array dependencies to prevent infinite loops
+  const onBeforeSubmitRef = React.useRef(onBeforeSubmit);
+  const onErrorRef = React.useRef(onError);
+
+  React.useEffect(() => {
+    onBeforeSubmitRef.current = onBeforeSubmit;
+    onErrorRef.current = onError;
+  }, [onBeforeSubmit, onError]);
+
+  // Create stable references for array/object dependencies
+  const filesToAddStr = React.useMemo(
+    () => JSON.stringify(filesToAdd.map((f) => f.name)),
+    [filesToAdd]
+  );
+  const filesToDeleteStr = React.useMemo(() => JSON.stringify(filesToDelete), [filesToDelete]);
+  const originalItemStr = React.useMemo(() => JSON.stringify(originalItem || {}), [originalItem]);
+
   /**
    * Prepares the form submission result
    */
@@ -53,9 +70,9 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
           });
         }
 
-        // Call onBeforeSubmit
-        if (onBeforeSubmit) {
-          const proceed = await onBeforeSubmit(formData, changes);
+        // Call onBeforeSubmit using ref
+        if (onBeforeSubmitRef.current) {
+          const proceed = await onBeforeSubmitRef.current(formData, changes);
           if (proceed === false) {
             SPContext.logger.info('Form submission cancelled by onBeforeSubmit');
             return null;
@@ -92,14 +109,14 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
         const error = err as Error;
         SPContext.logger.error('Failed to prepare form submission', error);
 
-        if (onError) {
-          onError(error, 'validation');
+        if (onErrorRef.current) {
+          onErrorRef.current(error, 'validation');
         }
 
         throw error;
       }
     },
-    [mode, listId, itemId, originalItem, filesToAdd, filesToDelete, onBeforeSubmit, onError]
+    [mode, listId, itemId, originalItemStr, filesToAddStr, filesToDeleteStr]
   );
 
   return {

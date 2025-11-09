@@ -18,6 +18,7 @@ import '@pnp/sp/lists';
  * @example
  * ```typescript
  * isGuid('a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6'); // true
+ * isGuid('{a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6}'); // true (SharePoint format)
  * isGuid('MyList'); // false
  * ```
  */
@@ -26,12 +27,15 @@ export function isGuid(value: string): boolean {
     return false;
   }
 
+  // Remove curly braces if present (SharePoint format: {GUID})
+  const cleanValue = value.replace(/[{}]/g, '');
+
   // GUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   // Also supports format without hyphens: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const guidPatternNoHyphens = /^[0-9a-f]{32}$/i;
 
-  return guidPattern.test(value) || guidPatternNoHyphens.test(value);
+  return guidPattern.test(cleanValue) || guidPatternNoHyphens.test(cleanValue);
 }
 
 /**
@@ -49,11 +53,16 @@ export function isGuid(value: string): boolean {
  *
  * // Using GUID
  * const list = getListByNameOrId(SPContext.sp, 'a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6');
+ *
+ * // Using GUID with curly braces (SharePoint format)
+ * const list = getListByNameOrId(SPContext.sp, '{a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6}');
  * ```
  */
 export function getListByNameOrId(sp: SPFI, listNameOrId: string) {
   if (isGuid(listNameOrId)) {
-    return sp.web.lists.getById(listNameOrId);
+    // Remove curly braces if present (SharePoint format: {GUID})
+    const cleanGuid = listNameOrId.replace(/[{}]/g, '');
+    return sp.web.lists.getById(cleanGuid);
   } else {
     return sp.web.lists.getByTitle(listNameOrId);
   }

@@ -100,18 +100,27 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
     case SPFieldType.User:
       config.allowMultiple = field.AllowMultipleValues || false;
       config.selectionMode = field.SelectionMode; // 0 = PeopleOnly, 1 = PeopleAndGroups
+      config.selectionGroup = field.SelectionGroup; // Group ID to limit selection
+      config.presenceOnline = field.Presence || false;
       break;
 
     case SPFieldType.Lookup:
       config.lookupListId = field.LookupList;
       config.lookupField = field.LookupField || 'Title';
+      config.lookupWebId = field.LookupWebId; // For cross-site lookups
       config.allowMultiple = field.AllowMultipleValues || false;
+      config.relationshipDeleteBehavior = field.RelationshipDeleteBehavior; // 0 = None, 1 = Cascade, 2 = Restrict
+      config.unlimitedLength = field.UnlimitedLengthInDocumentLibrary || false;
       break;
 
     case SPFieldType.TaxonomyFieldType:
       config.termSetId = field.TermSetId;
       config.anchorId = field.AnchorId;
       config.allowMultiple = field.AllowMultipleValues || false;
+      config.isPathRendered = field.IsPathRendered || false; // Show full path
+      config.open = field.Open || false; // Allow fill-in values
+      config.sspId = field.SspId; // Term store ID
+      config.termStoreId = field.TermStoreId;
       break;
 
     case SPFieldType.URL:

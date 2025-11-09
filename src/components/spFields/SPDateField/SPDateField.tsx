@@ -230,6 +230,18 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     fieldOnChange: (val: Date | undefined) => void,
     fieldError?: string
   ) => {
+    // Defensive normalization: convert string dates to Date objects
+    // SharePoint may return ISO 8601 strings instead of Date objects
+    const normalizedValue = React.useMemo(() => {
+      if (!fieldValue) return undefined;
+      if (fieldValue instanceof Date) return fieldValue;
+      if (typeof fieldValue === 'string') {
+        const parsed = new Date(fieldValue);
+        return isNaN(parsed.getTime()) ? undefined : parsed;
+      }
+      return undefined;
+    }, [fieldValue]);
+
     // Memoize buttons configuration to prevent re-creation on every render
     const dateBoxButtons = React.useMemo(() => {
       const buttons: any[] = [];
@@ -287,7 +299,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
             return (
               <DateBox
                 key={componentKey}
-                value={fieldValue}
+                value={normalizedValue}
                 onValueChanged={(e: any) => {
                   if (e.value !== undefined && e.value !== null) {
                     fieldOnChange(e.value);
@@ -323,7 +335,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
             return (
               <DateBox
                 key={componentKey}
-                value={fieldValue}
+                value={normalizedValue}
                 onValueChanged={(e: any) => fieldOnChange(e.value)}
                 type={includeTime ? 'datetime' : 'date'}
                 displayFormat={format}

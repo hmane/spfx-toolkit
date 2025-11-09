@@ -1,0 +1,90 @@
+/**
+ * Styles for SPListItemAttachments component
+ */
+
+.sp-list-item-attachments {
+  position: relative;
+}
+
+/* Smooth animations for drag and drop */
+.sp-list-item-attachments .drop-zone {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sp-list-item-attachments .drop-zone.dragging {
+  transform: scale(1.02);
+}
+
+/* Attachment card animations */
+.sp-list-item-attachments .attachment-card {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* File preview image styling */
+.sp-list-item-attachments .file-preview {
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* Upload progress indicator */
+.sp-list-item-attachments .upload-progress {
+  height: 4px;
+  background-color: #0078d4;
+  transition: width 0.3s ease;
+}
+
+/* Hover effects */
+.sp-list-item-attachments .attachment-card:hover .attachment-actions {
+  opacity: 1;
+}
+
+.sp-list-item-attachments .attachment-actions {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+/* Grid layout for attachment cards */
+.sp-list-item-attachments .attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Delete animation */
+.sp-list-item-attachments .attachment-card.deleting {
+  animation: fadeOutDown 0.3s ease-out forwards;
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* File type icon styling */
+.sp-list-item-attachments .file-type-icon {
+  flex-shrink: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .sp-list-item-attachments .attachments-grid {
+    grid-template-columns: 1fr;
+  }
+}

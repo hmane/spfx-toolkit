@@ -32,8 +32,22 @@ export interface ITaxonomyDataSource {
 export interface ISPTaxonomyFieldProps extends ISPFieldBaseProps<ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]> {
   /**
    * Taxonomy data source configuration
+   * Optional if columnName is provided - will auto-load from SharePoint column metadata
    */
-  dataSource: ITaxonomyDataSource;
+  dataSource?: ITaxonomyDataSource;
+
+  /**
+   * SharePoint column/field name to auto-load configuration from
+   * When provided, the component will read column metadata to get termSetId
+   * @optional
+   */
+  columnName?: string;
+
+  /**
+   * List ID or name where the column exists (required when using columnName)
+   * @optional
+   */
+  listId?: string;
 
   /**
    * Allow multiple term selections

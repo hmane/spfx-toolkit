@@ -17,6 +17,7 @@ import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
 import { IPrincipal } from '../../../types';
 import { SPContext } from '../../../utilities/context';
+import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
 import './SPUserField.css';
@@ -82,6 +83,8 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     onFocus,
 
     // User field specific props
+    columnName,
+    listId,
     allowMultiple = false,
     allowGroups = false,
     limitToGroup,
@@ -108,6 +111,11 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   const [internalValue, setInternalValue] = React.useState<SPUserFieldValue | SPUserFieldValue[]>(
     defaultValue || (allowMultiple ? emptyArray : emptyValue as any)
   );
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
+  const [resolvedAllowGroups, setResolvedAllowGroups] = React.useState<boolean | undefined>(allowGroups);
+  const [resolvedLimitToGroup, setResolvedLimitToGroup] = React.useState<string | string[] | undefined>(limitToGroup);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -129,6 +137,84 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
       };
     }
   }, [name, label, required, formContext, fieldRef]);
+
+  // Auto-load column metadata when columnName is provided
+  React.useEffect(() => {
+    if (!columnName || !listId) {
+      // If props are provided directly, use them
+      setResolvedAllowMultiple(allowMultiple);
+      setResolvedAllowGroups(allowGroups);
+      setResolvedLimitToGroup(limitToGroup);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadColumnMetadata = async () => {
+      if (!SPContext.sp) {
+        if (isMounted) {
+          setError('SPContext not initialized');
+        }
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const list = getListByNameOrId(SPContext.sp, listId);
+        const field = await list.fields.getByInternalNameOrTitle(columnName)();
+
+        if (!isMounted) return;
+
+        // Extract user field configuration
+        const selectionMode = (field as any).SelectionMode;
+        const allowMultipleValues = (field as any).AllowMultipleValues;
+        const selectionGroup = (field as any).SelectionGroup; // Group ID to limit selection
+
+        // SelectionMode: 0 = PeopleOnly, 1 = PeopleAndGroups
+        const groupsAllowed = selectionMode === 1;
+
+        setResolvedAllowMultiple(allowMultipleValues ?? allowMultiple);
+        setResolvedAllowGroups(groupsAllowed ?? allowGroups);
+
+        // Set group limitation if specified in column
+        if (selectionGroup) {
+          // SelectionGroup can be a single ID or multiple IDs
+          setResolvedLimitToGroup(selectionGroup.toString());
+        } else {
+          setResolvedLimitToGroup(limitToGroup);
+        }
+
+        SPContext.logger.info('SPUserField: Auto-loaded column metadata', {
+          columnName,
+          allowMultipleValues,
+          selectionMode,
+          groupsAllowed,
+          selectionGroup,
+        });
+      } catch (err: any) {
+        if (!isMounted) return;
+
+        const errorMsg = `Failed to load column metadata for "${columnName}": ${err?.message || 'Unknown error'}`;
+        setError(errorMsg);
+        SPContext.logger.error('SPUserField: Failed to load column metadata', err, {
+          columnName,
+          listId,
+        });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadColumnMetadata();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [columnName, listId, allowMultiple, allowGroups, limitToGroup]);
 
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
@@ -229,7 +315,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     (items: any[]) => {
       // Convert PeoplePicker items to IPrincipal format
       const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
-      const finalValue = allowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
+      const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
 
       setInternalValue(finalValue as any);
 
@@ -237,7 +323,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         onChange(finalValue as any);
       }
     },
-    [allowMultiple, onChange]
+    [resolvedAllowMultiple, onChange]
   );
 
   // Merge validation rules
@@ -248,7 +334,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
       baseRules.required = `${label || 'This field'} is required`;
     }
 
-    if (allowMultiple) {
+    if (resolvedAllowMultiple) {
       if (maxSelections && !baseRules.validate) {
         baseRules.validate = {
           maxSelections: (val: SPUserFieldValue[]) =>
@@ -268,7 +354,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     }
 
     return baseRules;
-  }, [required, allowMultiple, maxSelections, minSelections, label, rules]);
+  }, [required, resolvedAllowMultiple, maxSelections, minSelections, label, rules]);
 
   // Styles
   const containerClass = mergeStyles({
@@ -282,14 +368,14 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     marginTop: 4,
   });
 
-  // Get PrincipalType based on allowGroups
+  // Get PrincipalType based on resolvedAllowGroups
   const principalTypes = React.useMemo(() => {
     const types = [PrincipalType.User];
-    if (allowGroups) {
+    if (resolvedAllowGroups) {
       types.push(PrincipalType.SharePointGroup);
     }
     return types;
-  }, [allowGroups]);
+  }, [resolvedAllowGroups]);
 
   // Render field content
   const renderField = (
@@ -308,6 +394,22 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
           )}
           <Text style={{ color: theme.palette.redDark }}>
             SPContext not initialized. Please initialize SPContext before using SPUserField.
+          </Text>
+        </Stack>
+      );
+    }
+
+    // Show error if column metadata loading failed
+    if (error) {
+      return (
+        <Stack className={containerClass}>
+          {label && (
+            <Label required={required} disabled={disabled}>
+              {label}
+            </Label>
+          )}
+          <Text style={{ color: theme.palette.redDark }}>
+            {error}
           </Text>
         </Stack>
       );
@@ -415,11 +517,11 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             <PeoplePicker
               key={fieldPeoplePickerKey}
               context={SPContext.peoplepickerContext}
-              personSelectionLimit={allowMultiple ? maxSelections : 1}
-              groupName={typeof limitToGroup === 'string' ? limitToGroup : undefined}
+              personSelectionLimit={resolvedAllowMultiple ? maxSelections : 1}
+              groupName={typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined}
               showtooltip={true}
               required={required}
-              disabled={disabled || readOnly}
+              disabled={disabled || readOnly || loading}
               onChange={(items: any[]) => {
                 // Log PeoplePicker onChange
                 if (SPContext.logger && name) {
@@ -432,7 +534,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
                 // Convert PeoplePicker items to IPrincipal format
                 const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
-                const finalValue = allowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
+                const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
 
                 // Log converted value
                 if (SPContext.logger && name) {
@@ -559,11 +661,11 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         name={name}
         control={effectiveControl}
         rules={validationRules}
-        defaultValue={defaultValue || (allowMultiple ? emptyArray : emptyValue)}
+        defaultValue={defaultValue || (resolvedAllowMultiple ? emptyArray : emptyValue)}
         render={({ field, fieldState }) => (
           <>
             {renderField(
-              field.value || (allowMultiple ? emptyArray : emptyValue),
+              field.value || (resolvedAllowMultiple ? emptyArray : emptyValue),
               (val) => field.onChange(val),
               fieldState.error?.message
             )}

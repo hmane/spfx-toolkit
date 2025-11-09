@@ -77,10 +77,41 @@ export function useDynamicFormFields(
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
+  // Use refs for callbacks to avoid re-creating loadFields on every callback change
+  const onBeforeLoadRef = React.useRef(onBeforeLoad);
+  const onAfterLoadRef = React.useRef(onAfterLoad);
+  const onErrorRef = React.useRef(onError);
+
+  React.useEffect(() => {
+    onBeforeLoadRef.current = onBeforeLoad;
+    onAfterLoadRef.current = onAfterLoad;
+    onErrorRef.current = onError;
+  }, [onBeforeLoad, onAfterLoad, onError]);
+
   // Cache key for field metadata
   const cacheKey = React.useMemo(
     () => `DynamicFormFields_${listId}_${contentTypeId || 'default'}`,
     [listId, contentTypeId]
+  );
+
+  // Create stable references for array/object dependencies to prevent infinite loops
+  const specifiedFieldsStr = React.useMemo(
+    () => JSON.stringify(specifiedFields || []),
+    [specifiedFields]
+  );
+  const excludeFieldsStr = React.useMemo(() => JSON.stringify(excludeFields), [excludeFields]);
+  const fieldOrderStr = React.useMemo(() => JSON.stringify(fieldOrder || []), [fieldOrder]);
+  const manualSectionsStr = React.useMemo(
+    () => JSON.stringify(manualSections || []),
+    [manualSections]
+  );
+  const fieldOverridesStr = React.useMemo(
+    () => JSON.stringify(fieldOverrides || []),
+    [fieldOverrides]
+  );
+  const lookupFieldConfigStr = React.useMemo(
+    () => JSON.stringify(lookupFieldConfig || []),
+    [lookupFieldConfig]
   );
 
   const loadFields = React.useCallback(async () => {
@@ -90,9 +121,9 @@ export function useDynamicFormFields(
 
       const timer = SPContext.logger.startTimer('useDynamicFormFields.loadFields');
 
-      // Call onBeforeLoad
-      if (onBeforeLoad) {
-        const proceed = await onBeforeLoad();
+      // Call onBeforeLoad using ref
+      if (onBeforeLoadRef.current) {
+        const proceed = await onBeforeLoadRef.current();
         if (proceed === false) {
           SPContext.logger.info('Field loading cancelled by onBeforeLoad');
           setLoading(false);
@@ -170,9 +201,9 @@ export function useDynamicFormFields(
 
       setResult(finalResult);
 
-      // Call onAfterLoad
-      if (onAfterLoad) {
-        onAfterLoad(fields);
+      // Call onAfterLoad using ref
+      if (onAfterLoadRef.current) {
+        onAfterLoadRef.current(fields);
       }
 
       const duration = timer();
@@ -187,8 +218,9 @@ export function useDynamicFormFields(
       setError(error);
       SPContext.logger.error('Failed to load form fields', error);
 
-      if (onError) {
-        onError(error);
+      // Call onError using ref
+      if (onErrorRef.current) {
+        onErrorRef.current(error);
       }
     } finally {
       setLoading(false);
@@ -197,20 +229,17 @@ export function useDynamicFormFields(
     listId,
     mode,
     contentTypeId,
-    specifiedFields,
-    excludeFields,
-    fieldOrder,
+    specifiedFieldsStr,
+    excludeFieldsStr,
+    fieldOrderStr,
     useContentTypeOrder,
-    manualSections,
+    manualSectionsStr,
     useContentTypeGroups,
-    fieldOverrides,
+    fieldOverridesStr,
     lookupThreshold,
-    lookupFieldConfig,
+    lookupFieldConfigStr,
     cacheFields,
     cacheKey,
-    onBeforeLoad,
-    onAfterLoad,
-    onError,
   ]);
 
   // Load fields on mount and when dependencies change
