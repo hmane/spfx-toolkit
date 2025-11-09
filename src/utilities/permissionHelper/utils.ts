@@ -1,6 +1,7 @@
 import { SPFI } from '@pnp/sp';
 import { PermissionKind } from '@pnp/sp/security';
 import { IPermissionMask, ISPGroup, ISPUser, SPPermissionLevel } from '../../types/permissionTypes';
+import { SPContext } from '../context';
 import { PermissionHierarchy, PermissionLevelHierarchy } from './constants';
 
 /**
@@ -13,7 +14,7 @@ export async function getAllSiteGroups(sp: SPFI): Promise<string[]> {
     const groups = await sp.web.siteGroups();
     return groups.map((group: ISPGroup) => group.Title);
   } catch (error) {
-    console.error('Error retrieving site groups:', error);
+    SPContext.logger.error('PermissionHelper: Error retrieving site groups', error);
     return [];
   }
 }

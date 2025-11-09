@@ -6,6 +6,7 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import * as React from 'react';
+import { SPContext } from '../../utilities/context';
 
 // ============================================================================
 // Types and Interfaces
@@ -388,13 +389,10 @@ const DefaultErrorFallback: React.FC<IErrorFallbackProps> = React.memo(
 
     // Focus management - announce error to screen readers
     React.useEffect(() => {
-      console.log('DefaultErrorFallback rendered', { error, errorDetails });
       if (headerRef.current) {
         headerRef.current.focus();
       }
     }, [error, errorDetails]);
-
-    console.log('Rendering error fallback UI');
 
     return (
       <div style={DEFAULT_CONTAINER_STYLE} role='alert' aria-live='assertive'>
@@ -956,20 +954,26 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
     const { enableConsoleLogging, logLevel } = this.props;
 
     if (enableConsoleLogging) {
-      console.group(`🚨 Error Boundary - ${errorDetails.timestamp.toISOString()}`);
-      console.error('Error:', error.message);
-      console.error(`Severity: ${errorDetails.severity} | Category: ${errorDetails.category}`);
+      // Log to SPContext.logger for centralized logging
+      SPContext.logger.error('ErrorBoundary caught error', error, {
+        severity: errorDetails.severity,
+        category: errorDetails.category,
+        timestamp: errorDetails.timestamp,
+        sessionId: errorDetails.sessionId,
+        retryAttempt: errorDetails.retryAttempt,
+        componentStack: logLevel === 'verbose' ? errorInfo.componentStack : undefined,
+      });
 
-      if (logLevel === 'detailed' || logLevel === 'verbose') {
-        console.error('Error Details:', errorDetails);
-      }
-
+      // Also log to console for development visibility
       if (logLevel === 'verbose') {
+        console.group(`🚨 Error Boundary - ${errorDetails.timestamp.toISOString()}`);
+        console.error('Error:', error.message);
+        console.error(`Severity: ${errorDetails.severity} | Category: ${errorDetails.category}`);
+        console.error('Error Details:', errorDetails);
         console.error('Component Stack:', errorInfo.componentStack);
         console.error('Stack Trace:', error.stack);
+        console.groupEnd();
       }
-
-      console.groupEnd();
     }
   };
 
@@ -1058,19 +1062,19 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       errorContainerStyle = {},
     } = this.props;
 
-    console.log('ErrorBoundary render()', { hasError, error: error?.message, errorInfo });
-
     if (!hasError) {
       return children;
     }
 
     if (!error || !errorInfo) {
       // Shouldn't happen, but handle gracefully
-      console.error('Error boundary in invalid state - has error but missing error or errorInfo');
+      SPContext.logger.error('ErrorBoundary in invalid state', new Error('Missing error or errorInfo'), {
+        hasError,
+        hasErrorObject: !!error,
+        hasErrorInfo: !!errorInfo,
+      });
       return children;
     }
-
-    console.log('ErrorBoundary: Rendering fallback component');
 
     const defaultMessages: IUserFriendlyMessages = {
       title: 'Something went wrong',
@@ -1107,8 +1111,6 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
       retryAttempt: retryCount,
       spfxContext: SPFxContextExtractor.extractContext(this.props.spfxContext),
     };
-
-    console.log('ErrorBoundary: Creating fallback element', { FallbackComponent, errorDetails });
 
     return (
       <div className={`spfx-error-boundary ${className}`} style={errorContainerStyle}>

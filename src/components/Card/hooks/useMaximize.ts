@@ -23,6 +23,7 @@ export const useMaximize = (
   }>();
   const elementRef = useRef<HTMLElement>();
   const backdropRef = useRef<HTMLElement>();
+  const backdropClickHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
   const isMaximizingRef = useRef(false);
 
   const getCardElement = useCallback((): HTMLElement | null => {
@@ -68,6 +69,13 @@ export const useMaximize = (
     if (!backdropRef.current) return;
 
     const backdrop = backdropRef.current;
+
+    // Remove event listener before removing backdrop
+    if (backdropClickHandlerRef.current) {
+      backdrop.removeEventListener('click', backdropClickHandlerRef.current);
+      backdropClickHandlerRef.current = null;
+    }
+
     backdrop.style.opacity = '0';
 
     setTimeout(() => {
@@ -238,6 +246,7 @@ export const useMaximize = (
           restore().catch(console.error);
         }
       };
+      backdropClickHandlerRef.current = handleBackdropClick;
       backdrop.addEventListener('click', handleBackdropClick);
 
       // Wait for animation to complete

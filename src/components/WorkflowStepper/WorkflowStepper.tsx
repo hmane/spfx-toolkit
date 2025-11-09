@@ -3,6 +3,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SPContext } from '../../utilities/context';
 import { ContentArea } from './ContentArea';
 import { StepItem } from './StepItem';
 import { StepData, WorkflowStepperProps } from './types';
@@ -31,6 +32,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const stepsWrapperRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafIdRef = useRef<number | null>(null);
   const [internalSelectedStepId, setInternalSelectedStepId] = useState<string | null>(null);
   const [announceText, setAnnounceText] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
@@ -41,9 +44,9 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   // Validate step IDs on mount
   useEffect(() => {
     if (!validateStepIds(steps)) {
-      console.warn(
-        'WorkflowStepper: Duplicate step IDs detected. Each step must have a unique ID.'
-      );
+      SPContext.logger.warn('WorkflowStepper: Duplicate step IDs detected', {
+        stepCount: steps.length,
+      });
     }
   }, [steps]);
 
@@ -82,11 +85,15 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     if (!wrapper) return;
 
     // Debounced check function
-    let timeoutId: NodeJS.Timeout;
     const checkScrollDelayed = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        requestAnimationFrame(checkScrollHints);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        rafIdRef.current = requestAnimationFrame(checkScrollHints);
       }, 100);
     };
 
@@ -105,7 +112,14 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     }
 
     return () => {
-      clearTimeout(timeoutId);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       wrapper.removeEventListener('scroll', checkScrollHints);
       window.removeEventListener('resize', checkScrollDelayed);
       resizeObserver?.disconnect();
@@ -187,7 +201,10 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           await Promise.resolve(onStepClick(step));
         }
       } catch (error) {
-        console.error('Error handling step click:', error);
+        SPContext.logger.error('WorkflowStepper: Step click handler failed', error, {
+          stepId: step.id,
+          stepTitle: step.title,
+        });
         setAnnounceText(`Error navigating to step: ${step.title}`);
       } finally {
         setIsLoading(false);

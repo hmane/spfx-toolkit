@@ -29,6 +29,17 @@ const DEFAULT_PERSONA_IMG_HASHES = new Set([
 const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
 
 /**
+ * Cache for user photos to prevent redundant fetches
+ * Key format: `${loginName}_${size}`
+ */
+const photoCache = new Map<string, { photo: string | undefined; timestamp: number }>();
+
+/**
+ * Cache duration for user photos (5 minutes)
+ */
+const PHOTO_CACHE_DURATION = 5 * 60 * 1000;
+
+/**
  * Load SharePoint component by ID
  * @param componentId - The SharePoint component ID
  * @returns The loaded component
@@ -348,12 +359,35 @@ export const batchGetUserPhotos = async (
   size: PhotoSize = 'S'
 ): Promise<Map<string, string>> => {
   const photoMap = new Map<string, string>();
+  const now = Date.now();
 
   try {
-    // Fetch photos in parallel
-    const promises = users.map(async (user) => {
+    // Separate users into cached and need-to-fetch
+    const usersToFetch: Array<{ loginName: string }> = [];
+
+    for (const user of users) {
+      const cacheKey = `${user.loginName}_${size}`;
+      const cached = photoCache.get(cacheKey);
+
+      // Check if cache is valid
+      if (cached && (now - cached.timestamp) < PHOTO_CACHE_DURATION) {
+        if (cached.photo) {
+          photoMap.set(user.loginName, cached.photo);
+        }
+      } else {
+        usersToFetch.push(user);
+      }
+    }
+
+    // Fetch photos for uncached users in parallel
+    const promises = usersToFetch.map(async (user) => {
       try {
         const photo = await getUserPhoto(siteUrl, user.loginName, size);
+        const cacheKey = `${user.loginName}_${size}`;
+
+        // Cache the result
+        photoCache.set(cacheKey, { photo, timestamp: now });
+
         if (photo) {
           photoMap.set(user.loginName, photo);
         }
@@ -371,6 +405,42 @@ export const batchGetUserPhotos = async (
   }
 
   return photoMap;
+};
+
+/**
+ * Clear the user photo cache
+ * Useful for testing or when photos need to be refreshed
+ *
+ * @example
+ * ```typescript
+ * // Clear all cached photos
+ * clearPhotoCache();
+ *
+ * // Clear cache for specific user
+ * clearPhotoCache('john.doe@company.com');
+ *
+ * // Clear cache for specific user and size
+ * clearPhotoCache('john.doe@company.com', 'M');
+ * ```
+ */
+export const clearPhotoCache = (loginName?: string, size?: PhotoSize): void => {
+  if (loginName && size) {
+    // Clear specific user + size
+    const cacheKey = `${loginName}_${size}`;
+    photoCache.delete(cacheKey);
+  } else if (loginName) {
+    // Clear all sizes for specific user
+    const keysToDelete: string[] = [];
+    photoCache.forEach((_, key) => {
+      if (key.startsWith(`${loginName}_`)) {
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach(key => photoCache.delete(key));
+  } else {
+    // Clear entire cache
+    photoCache.clear();
+  }
 };
 
 /**

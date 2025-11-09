@@ -7,6 +7,7 @@ import {
   IBatchOperation,
   IOperationResult,
 } from '../../types/batchOperationTypes';
+import { SPContext } from '../context';
 import { addOperationToBatch } from './addOperationToBatch';
 
 /**
@@ -18,6 +19,10 @@ export async function executeBatch(
 ): Promise<ExecuteBatchReturn> {
   const results: IOperationResult[] = [];
   const errors: IBatchError[] = [];
+
+  SPContext.logger.info('executeBatch: Starting batch execution', {
+    operationCount: operations.length,
+  });
 
   try {
     const [batchedSP, execute] = sp.batched();
@@ -31,6 +36,12 @@ export async function executeBatch(
         trackers.push(tracker);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to add operation to batch';
+        SPContext.logger.warn('executeBatch: Failed to queue operation', {
+          operationType: operation.operationType,
+          listName: operation.listName,
+          itemId: operation.itemId,
+          error: msg,
+        });
         results.push({
           operationType: operation.operationType,
           listName: operation.listName,
@@ -87,6 +98,10 @@ export async function executeBatch(
     }
   } catch (batchErr) {
     const msg = batchErr instanceof Error ? batchErr.message : 'Batch execution failed';
+    SPContext.logger.error('executeBatch: Batch execution failed', batchErr, {
+      operationCount: operations.length,
+      error: msg,
+    });
     for (const operation of operations) {
       results.push({
         operationType: operation.operationType,
@@ -104,6 +119,21 @@ export async function executeBatch(
         operationId: operation.operationId,
       });
     }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const failureCount = results.filter(r => !r.success).length;
+
+  if (failureCount > 0) {
+    SPContext.logger.warn('executeBatch: Completed with failures', {
+      totalOperations: results.length,
+      successful: successCount,
+      failed: failureCount,
+    });
+  } else {
+    SPContext.logger.info('executeBatch: All operations successful', {
+      totalOperations: results.length,
+    });
   }
 
   return { results, errors };

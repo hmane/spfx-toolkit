@@ -93,6 +93,8 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
   // Initialize detector
   useEffect(() => {
+    const abortController = new AbortController();
+
     const initializeDetector = async () => {
       if (!enabled || !listId?.trim() || !itemId || !sp) {
         console.warn('ConflictDetectionProvider: Required props missing or disabled');
@@ -113,7 +115,8 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
         const result = await detectorRef.current.initialize();
 
-        if (!isMountedRef.current) return; // Check if component is still mounted
+        // Check if operation was aborted or component unmounted
+        if (abortController.signal.aborted || !isMountedRef.current) return;
 
         if (result.success) {
           updateState({
@@ -133,6 +136,9 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
           });
         }
       } catch (error) {
+        // Ignore errors if operation was aborted
+        if (abortController.signal.aborted) return;
+
         console.error('ConflictDetectionProvider: Failed to initialize', error);
         if (isMountedRef.current) {
           updateState({
@@ -151,6 +157,9 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
     // Cleanup function
     return () => {
+      // Abort ongoing initialization
+      abortController.abort();
+
       if (detectorRef.current) {
         detectorRef.current.dispose();
         detectorRef.current = undefined;

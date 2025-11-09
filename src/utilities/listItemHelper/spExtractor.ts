@@ -56,11 +56,33 @@ export function createSPExtractor(item: any) {
         if (userObj.length === 0) return undefined;
         // Extract first user from array and map to IPrincipal
         const firstUser = userObj[0];
-        return firstUser;
+        const mapped: IPrincipal = {
+          id: (firstUser.ID || firstUser.id || '').toString(),
+          email: firstUser.EMail || firstUser.email || undefined,
+          title: firstUser.Title || firstUser.title || firstUser.text || undefined,
+          value: firstUser.Name || firstUser.loginName || undefined,
+          loginName: firstUser.Name || firstUser.loginName || undefined,
+          department: firstUser.Department || firstUser.department || undefined,
+          jobTitle: firstUser.JobTitle || firstUser.jobTitle || undefined,
+          sip: firstUser.SIP || firstUser.sip || undefined,
+          picture: firstUser.Picture || firstUser.picture || undefined,
+        };
+        return mapped.id !== '' ? mapped : undefined;
       }
 
       // Normal user object (non-array)
-      return undefined;
+      const mapped: IPrincipal = {
+        id: (userObj.ID || userObj.id || '').toString(),
+        email: userObj.EMail || userObj.email || undefined,
+        title: userObj.Title || userObj.title || userObj.text || undefined,
+        value: userObj.Name || userObj.loginName || undefined,
+        loginName: userObj.Name || userObj.loginName || undefined,
+        department: userObj.Department || userObj.department || undefined,
+        jobTitle: userObj.JobTitle || userObj.jobTitle || undefined,
+        sip: userObj.SIP || userObj.sip || undefined,
+        picture: userObj.Picture || userObj.picture || undefined,
+      };
+      return mapped.id !== '' ? mapped : undefined;
     },
 
     userMulti: (fieldName: string): IPrincipal[] => {

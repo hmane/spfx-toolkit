@@ -419,25 +419,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     }
   }, [state.statusMessage]);
 
-  React.useEffect(() => {
-    loadVersionHistory();
-  }, [listId, itemId]);
-
-  React.useEffect(() => {
-    if (state.allVersions.length > 0) {
-      applyFilters();
-    }
-  }, [
-    state.allVersions,
-    state.searchQuery,
-    state.filterByUser,
-    state.filterDateRange,
-    state.showMajorOnly,
-    state.customDateStart,
-    state.customDateEnd,
-  ]);
-
-  const loadVersionHistory = async (): Promise<void> => {
+  const loadVersionHistory = React.useCallback(async (): Promise<void> => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -511,7 +493,11 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         },
       }));
     }
-  };
+  }, [listId, itemId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    loadVersionHistory();
+  }, [listId, itemId, loadVersionHistory]);
 
   const checkPermissions = async (): Promise<boolean> => {
     try {
@@ -880,7 +866,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     }
   };
 
-  const applyFilters = (): void => {
+  const applyFilters = React.useCallback((): void => {
     const filtered = filterVersions(state.allVersions, filterState);
 
     setState(prev => ({
@@ -891,7 +877,22 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           ? filtered.find(v => v.versionLabel === prev.selectedVersion?.versionLabel) || filtered[0]
           : null,
     }));
-  };
+  }, [state.allVersions, filterState]);
+
+  React.useEffect(() => {
+    if (state.allVersions.length > 0) {
+      applyFilters();
+    }
+  }, [
+    state.allVersions,
+    state.searchQuery,
+    state.filterByUser,
+    state.filterDateRange,
+    state.showMajorOnly,
+    state.customDateStart,
+    state.customDateEnd,
+    applyFilters,
+  ]);
 
   const handleSelectVersion = React.useCallback((version: IVersionInfo) => {
     setState(prev => ({ ...prev, selectedVersion: version }));

@@ -166,34 +166,145 @@ export class SPContext {
     return SPContext.contextModule.Context.getCurrentContext();
   }
 
+  /**
+   * Get the default PnP SP instance with standard caching
+   *
+   * This is the most commonly used instance for SharePoint operations.
+   * Uses default caching strategy (memory cache with TTL).
+   *
+   * @returns SPFI instance for SharePoint operations
+   *
+   * @example
+   * ```typescript
+   * // Fetch list items
+   * const items = await SPContext.sp.web.lists.getByTitle('MyList').items();
+   *
+   * // Get current user
+   * const user = await SPContext.sp.web.currentUser();
+   * ```
+   */
   static get sp(): SPFI {
     return SPContext.context.sp;
   }
 
+  /**
+   * Get PnP SP instance with aggressive memory caching
+   *
+   * Uses in-memory caching for frequently accessed data that changes infrequently.
+   * Best for site metadata, user info, and list schemas.
+   *
+   * @returns SPFI instance with memory caching enabled
+   *
+   * @example
+   * ```typescript
+   * // Cache-friendly operations
+   * const lists = await SPContext.spCached.web.lists();
+   * const fields = await SPContext.spCached.web.lists.getByTitle('MyList').fields();
+   * ```
+   */
   static get spCached(): SPFI {
     return SPContext.context.spCached;
   }
 
+  /**
+   * Get PnP SP instance with no caching (pessimistic mode)
+   *
+   * Bypasses all caching to always fetch fresh data from SharePoint.
+   * Use for real-time data, permission checks, or when cache invalidation is critical.
+   *
+   * @returns SPFI instance with caching disabled
+   *
+   * @example
+   * ```typescript
+   * // Always get fresh data
+   * const currentPermissions = await SPContext.spPessimistic.web.lists
+   *   .getByTitle('MyList')
+   *   .currentUserHasPermissions(PermissionKind.EditListItems);
+   * ```
+   */
   static get spPessimistic(): SPFI {
     return SPContext.context.spPessimistic;
   }
 
+  /**
+   * Get the centralized logger instance
+   *
+   * Provides structured logging with multiple levels (info, warn, error, success).
+   * Automatically categorizes errors and sanitizes sensitive data.
+   *
+   * @returns Logger instance
+   *
+   * @example
+   * ```typescript
+   * // Log various levels
+   * SPContext.logger.info('User action', { action: 'submit', formId: 123 });
+   * SPContext.logger.warn('API rate limit approaching', { remaining: 10 });
+   * SPContext.logger.error('Failed to save', error, { itemId: 456 });
+   * SPContext.logger.success('Operation completed', { duration: 1500 });
+   *
+   * // Performance timing
+   * const timer = SPContext.logger.startTimer('operation');
+   * // ... do work
+   * const duration = timer(); // Returns duration in ms
+   * ```
+   */
   static get logger(): Logger {
     return SPContext.context.logger;
   }
 
+  /**
+   * Get the HTTP client for custom API calls
+   *
+   * Configured with authentication and retry logic.
+   * Use for calling custom APIs, Azure Functions, or third-party services.
+   *
+   * @returns HttpClient instance
+   *
+   * @example
+   * ```typescript
+   * const response = await SPContext.http.get('https://api.example.com/data');
+   * const data = await response.json();
+   * ```
+   */
   static get http(): HttpClient {
     return SPContext.context.http;
   }
 
+  /**
+   * Get the performance tracker
+   *
+   * Monitors operation performance and provides metrics.
+   *
+   * @returns PerformanceTracker instance
+   */
   static get performance(): PerformanceTracker {
     return SPContext.context.performance;
   }
 
+  /**
+   * Get the original SPFx context
+   *
+   * Access to the raw SharePoint Framework context object.
+   *
+   * @returns SPFx context input
+   */
   static get spfxContext(): SPFxContextInput {
     return SPContext.context.context;
   }
 
+  /**
+   * Get the page context from SPFx
+   *
+   * Contains site, web, user, and page information.
+   *
+   * @returns PageContext from SPFx
+   *
+   * @example
+   * ```typescript
+   * const siteUrl = SPContext.pageContext.web.absoluteUrl;
+   * const userName = SPContext.pageContext.user.displayName;
+   * ```
+   */
   static get pageContext(): PageContext {
     return SPContext.context.pageContext;
   }

@@ -6,10 +6,31 @@ import {
   IBatchResult,
   IOperationResult,
 } from '../../types/batchOperationTypes';
+import { SPContext } from '../context';
 import { executeBatch } from './executeBatch';
 import { ListOperationBuilder } from './ListOperationBuilder';
 import { splitIntoBatches } from './splitIntoBatches';
 
+/**
+ * Builder for creating and executing batched SharePoint operations
+ *
+ * Provides a fluent API for queuing multiple SharePoint operations and executing
+ * them efficiently in batches to minimize network requests.
+ *
+ * @example
+ * ```typescript
+ * const batch = new BatchBuilder(SPContext.sp, { batchSize: 50 });
+ *
+ * batch
+ *   .list('Tasks')
+ *   .create({ Title: 'Task 1', Status: 'Active' })
+ *   .create({ Title: 'Task 2', Status: 'Pending' })
+ *   .update(10, { Status: 'Complete' });
+ *
+ * const result = await batch.execute();
+ * console.log(`Success: ${result.successfulOperations}, Failed: ${result.failedOperations}`);
+ * ```
+ */
 export class BatchBuilder {
   private operations: IBatchOperation[] = [];
   private currentListBuilder?: ListOperationBuilder;
@@ -18,7 +39,23 @@ export class BatchBuilder {
     this.config = { batchSize: 100, enableConcurrency: false, ...config };
   }
 
-  /** Begin operations on a specific list */
+  /**
+   * Begin queuing operations on a specific SharePoint list
+   *
+   * Returns a ListOperationBuilder for chaining create/update/delete operations.
+   * Automatically commits pending operations from any previous list.
+   *
+   * @param listName - Title or GUID of the SharePoint list
+   * @returns ListOperationBuilder for chaining operations
+   *
+   * @example
+   * ```typescript
+   * batch.list('Tasks')
+   *   .create({ Title: 'New Task' })
+   *   .update(5, { Status: 'Complete' })
+   *   .delete(10);
+   * ```
+   */
   list(listName: string): ListOperationBuilder {
     if (this.currentListBuilder) {
       this.operations.push(...this.currentListBuilder.getOperations());
@@ -27,7 +64,27 @@ export class BatchBuilder {
     return this.currentListBuilder;
   }
 
-  /** Execute all queued operations */
+  /**
+   * Execute all queued operations in batches
+   *
+   * Splits operations into batches based on configured size and executes them
+   * sequentially or concurrently. Returns detailed results including successes
+   * and failures.
+   *
+   * @returns Promise resolving to batch execution results with operation counts and errors
+   *
+   * @example
+   * ```typescript
+   * const result = await batch.execute();
+   *
+   * if (result.success) {
+   *   console.log(`All ${result.totalOperations} operations successful`);
+   * } else {
+   *   console.error(`${result.failedOperations} operations failed`);
+   *   result.errors.forEach(err => console.error(err.error));
+   * }
+   * ```
+   */
   async execute(): Promise<IBatchResult> {
     if (this.currentListBuilder) {
       this.operations.push(...this.currentListBuilder.getOperations());
@@ -35,6 +92,7 @@ export class BatchBuilder {
     }
 
     if (this.operations.length === 0) {
+      SPContext.logger.info('BatchBuilder: No operations to execute');
       return {
         success: true,
         totalOperations: 0,
@@ -46,6 +104,15 @@ export class BatchBuilder {
     }
 
     const batches = splitIntoBatches(this.operations, this.config.batchSize || 100);
+    const timer = SPContext.logger.startTimer('BatchBuilder.execute');
+
+    SPContext.logger.info('BatchBuilder: Starting execution', {
+      totalOperations: this.operations.length,
+      batchCount: batches.length,
+      batchSize: this.config.batchSize || 100,
+      concurrency: this.config.enableConcurrency || false,
+    });
+
     const allResults: IOperationResult[] = [];
     const allErrors: IBatchError[] = [];
 
@@ -111,6 +178,29 @@ export class BatchBuilder {
     const successfulOperations = allResults.filter(r => r.success).length;
     const failedOperations = allResults.length - successfulOperations;
 
+    const duration = timer();
+
+    // Log results
+    if (failedOperations > 0) {
+      SPContext.logger.warn('BatchBuilder: Execution completed with failures', {
+        totalOperations: allResults.length,
+        successfulOperations,
+        failedOperations,
+        duration,
+        sampleErrors: allErrors.slice(0, 3).map(e => ({
+          list: e.listName,
+          operation: e.operationType,
+          error: e.error,
+        })),
+      });
+    } else {
+      SPContext.logger.success('BatchBuilder: All operations successful', {
+        totalOperations: allResults.length,
+        successfulOperations,
+        duration,
+      });
+    }
+
     // reset state for reuse
     this.operations = [];
 
@@ -124,17 +214,57 @@ export class BatchBuilder {
     };
   }
 
+  /**
+   * Get the current batch configuration
+   *
+   * Returns a copy of the configuration to prevent external modifications.
+   *
+   * @returns Current batch builder configuration
+   */
   getConfig(): IBatchBuilderConfig {
     return { ...this.config };
   }
 
+  /**
+   * Update the batch configuration
+   *
+   * Merges provided config with existing configuration.
+   * Returns this for method chaining.
+   *
+   * @param config - Partial configuration to merge with existing config
+   * @returns This BatchBuilder instance for chaining
+   *
+   * @example
+   * ```typescript
+   * batch
+   *   .updateConfig({ batchSize: 50, enableConcurrency: true })
+   *   .list('Tasks')
+   *   .create({ Title: 'Task 1' });
+   * ```
+   */
   updateConfig(config: Partial<IBatchBuilderConfig>): this {
     this.config = { ...this.config, ...config };
     return this;
   }
 }
 
-/** Factory */
+/**
+ * Factory function to create a new BatchBuilder instance
+ *
+ * Convenient alternative to using `new BatchBuilder()`.
+ *
+ * @param sp - PnP SPFI instance configured for the target site
+ * @param config - Optional batch configuration (batchSize, enableConcurrency)
+ * @returns New BatchBuilder instance
+ *
+ * @example
+ * ```typescript
+ * const batch = createBatchBuilder(SPContext.sp, {
+ *   batchSize: 100,
+ *   enableConcurrency: false
+ * });
+ * ```
+ */
 export function createBatchBuilder(sp: SPFI, config?: IBatchBuilderConfig): BatchBuilder {
   return new BatchBuilder(sp, config);
 }

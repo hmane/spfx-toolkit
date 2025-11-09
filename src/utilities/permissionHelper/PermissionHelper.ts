@@ -7,6 +7,7 @@ import '@pnp/sp/site-groups';
 import '@pnp/sp/site-users';
 import '@pnp/sp/webs';
 
+import { SPContext } from '../context';
 import {
   ICachedPermission,
   IItemPermissions,
@@ -75,6 +76,11 @@ export class PermissionHelper {
       return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      SPContext.logger.warn('PermissionHelper: List permission check failed', {
+        listName,
+        permissionLevel,
+        error: errorMessage,
+      });
       return {
         hasPermission: false,
         error: errorMessage,
@@ -114,6 +120,12 @@ export class PermissionHelper {
       return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      SPContext.logger.warn('PermissionHelper: Item permission check failed', {
+        listName,
+        itemId,
+        permissionLevel,
+        error: errorMessage,
+      });
       return {
         hasPermission: false,
         error: errorMessage,
@@ -155,6 +167,10 @@ export class PermissionHelper {
       return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      SPContext.logger.warn('PermissionHelper: Role check failed', {
+        groupName,
+        error: errorMessage,
+      });
       return {
         hasPermission: false,
         error: errorMessage,
@@ -204,6 +220,10 @@ export class PermissionHelper {
       return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      SPContext.logger.warn('PermissionHelper: Any role check failed', {
+        groupNames,
+        error: errorMessage,
+      });
       return {
         hasPermission: false,
         error: errorMessage,

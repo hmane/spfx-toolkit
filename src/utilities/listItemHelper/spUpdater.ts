@@ -469,7 +469,6 @@ function formatValueForPnP(fieldName: string, value: any): Record<string, any> {
   }
 
   if (typeof value === 'object' && value !== null) {
-    debugger;
     if ('email' in value && 'id' in value) {
       // User single
       updates[`${fieldName}Id`] = parseInt((value as IPrincipal).id, 10);

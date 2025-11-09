@@ -184,36 +184,14 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     );
 
     if (displayMode === 'avatar') {
-      const avatar = (
+      return (
         <div className='user-persona-avatar-wrapper' style={{ width: size, height: size }}>
-          {showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
-            <LivePersona
-              upn={normalizedIdentifier}
-              template={personaElement}
-              serviceScope={SPContext.spfxContext.serviceScope}
-            />
-          ) : (
-            personaElement
-          )}
+          {personaElement}
         </div>
       );
-
-      return avatar;
     }
 
-    return (
-      <div className='user-persona-text'>
-        {showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
-          <LivePersona
-            upn={normalizedIdentifier}
-            template={personaElement}
-            serviceScope={SPContext.spfxContext.serviceScope}
-          />
-        ) : (
-          personaElement
-        )}
-      </div>
-    );
+    return <div className='user-persona-text'>{personaElement}</div>;
   };
 
   const containerClassName = [
@@ -249,9 +227,21 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     </div>
   );
 
+  // Wrap entire container with LivePersona if enabled
+  const contentWithLivePersona =
+    showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
+      <LivePersona
+        upn={normalizedIdentifier}
+        template={content}
+        serviceScope={SPContext.spfxContext.serviceScope}
+      />
+    ) : (
+      content
+    );
+
   if (tooltipContent && displayMode === 'avatar') {
-    return <TooltipHost content={tooltipContent}>{content}</TooltipHost>;
+    return <TooltipHost content={tooltipContent}>{contentWithLivePersona}</TooltipHost>;
   }
 
-  return content;
+  return contentWithLivePersona;
 };
