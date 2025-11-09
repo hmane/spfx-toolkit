@@ -1,0 +1,19 @@
+.sp-dynamic-form {
+  width: 100%;
+}
+
+.sp-dynamic-form-new {
+  /* Styles specific to new mode */
+}
+
+.sp-dynamic-form-edit {
+  /* Styles specific to edit mode */
+}
+
+.sp-dynamic-form-view {
+  /* Styles specific to view mode */
+}
+
+.sp-dynamic-form form {
+  width: 100%;
+}

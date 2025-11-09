@@ -179,19 +179,6 @@ const FormErrorSummary: React.FC<IFormErrorSummaryProps> = ({
                     {label && <strong>{label}: </strong>}
                     {errorMessage}
                   </Text>
-                  {clickToScroll && !compact && (
-                    <Icon
-                      iconName='NavigateForward'
-                      style={{
-                        marginLeft: 'auto',
-                        fontSize: '12px',
-                        color: '#605e5c',
-                        opacity: isHovered ? 1 : 0.5,
-                        transition: 'opacity 0.15s ease',
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
                 </Stack>
               </div>
             );

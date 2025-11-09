@@ -1450,3 +1450,35 @@ button:active {
   background-color: #f3f2f1 !important;
   border-radius: 50% !important;
 }
+
+/* ============================================
+   DevExtreme TextBox/TextArea Character Counter
+   Move character counter to right side below field
+   ============================================ */
+
+/* Reposition the character counter to the right side below the field */
+.dx-textbox .dx-texteditor-label,
+.dx-textarea .dx-texteditor-label {
+  position: absolute !important;
+  left: auto !important;
+  right: 0 !important;
+  bottom: -20px !important;
+  top: auto !important;
+  font-size: 12px !important;
+  color: #605e5c !important;
+  text-align: right !important;
+  margin: 0 !important;
+  padding: 2px 0 0 0 !important;
+}
+
+/* Add margin to the text editor container to accommodate the counter below */
+.dx-textbox:has(.dx-texteditor-label),
+.dx-textarea:has(.dx-texteditor-label) {
+  margin-bottom: 20px !important;
+}
+
+/* Ensure the texteditor container is positioned relative */
+.dx-textbox .dx-texteditor-container,
+.dx-textarea .dx-texteditor-container {
+  position: relative;
+}
