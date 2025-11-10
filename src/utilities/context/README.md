@@ -103,6 +103,72 @@ export default class MyWebPart extends BaseClientSideWebPart<IProps> {
 | Apps      | `spfx-toolkit/lib/utilities/context/pnpImports/apps`     | **+10-15KB**  | appcatalog                              | App management       |
 | Hub Sites | `spfx-toolkit/lib/utilities/context/pnpImports/hubsites` | **+5-10KB**   | hubsites                                | Hub site operations  |
 
+## Centralized PnP Setup (Consumer Projects)
+
+Downstream SPFx solutions should keep PnP imports in two shared files:
+
+```typescript
+// src/webparts/pnpImports.ts
+import 'spfx-toolkit/lib/utilities/context/pnpImports/core';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
+import 'spfx-toolkit/lib/utilities/context/pnpImports/content';
+
+// Optional bundles – add only what you use
+// import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
+// import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
+// import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy';
+// import 'spfx-toolkit/lib/utilities/context/pnpImports/security';
+```
+
+```typescript
+/**
+ * src/types/pnp-augmentations.d.ts
+ * TypeScript-only imports (no bundle cost)
+ */
+import '@pnp/sp/webs';
+import '@pnp/sp/site-users';
+import '@pnp/sp/profiles';
+import '@pnp/sp/site-groups/web';
+
+import '@pnp/sp/lists';
+import '@pnp/sp/items';
+import '@pnp/sp/batching';
+import '@pnp/sp/views';
+
+import '@pnp/sp/fields';
+import '@pnp/sp/fields/list';
+import '@pnp/sp/column-defaults';
+import '@pnp/sp/content-types';
+
+import '@pnp/sp/files';
+import '@pnp/sp/folders';
+import '@pnp/sp/attachments';
+
+import '@pnp/sp/appcatalog';
+import '@pnp/sp/features';
+import '@pnp/sp/navigation';
+import '@pnp/sp/regional-settings';
+import '@pnp/sp/user-custom-actions';
+
+import '@pnp/sp/clientside-pages';
+import '@pnp/sp/comments';
+import '@pnp/sp/publishing-sitepageservice';
+
+import '@pnp/sp/search';
+import '@pnp/sp/favorites';
+import '@pnp/sp/subscriptions';
+
+import '@pnp/sp/taxonomy';
+import '@pnp/sp/hubsites';
+
+import '@pnp/sp/security';
+import '@pnp/sp/sharing';
+```
+
+- Import `../pnpImports` once at every web part entry point.
+- Keep the `.d.ts` file in `src/types` so `tsconfig` picks it up automatically.
+- When adding new modules, update both files and mirror the change inside the toolkit (this repo ships the same `src/types/pnp-augmentations.d.ts`).
+
 #### ✅ Tree-Shaking Examples by Use Case
 
 **Basic List Operations (Minimal Bundle Impact):**

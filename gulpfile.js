@@ -87,6 +87,7 @@ function copyAssets() {
     .src(
       [
         'src/**/*.{css,scss,json,svg,png,jpg,jpeg,gif,woff,woff2}',
+        'src/**/*.d.ts',
         '!src/**/__tests__/**',
         '!src/**/README.md',
       ],

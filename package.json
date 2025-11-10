@@ -46,7 +46,8 @@
     "**/*.css",
     "**/*.scss",
     "**/CssLoader.js",
-    "**/context/sp-context.js"
+    "**/context/sp-context.js",
+    "**/context/pnpImports/*.js"
   ],
   "engines": {
     "node": ">=18 <23"
