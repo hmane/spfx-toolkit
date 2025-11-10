@@ -62,6 +62,10 @@ export type {
   LinkBuilder,
   CacheProvider,
   AuthProvider,
+  // Multi-site types
+  ISiteContext,
+  ISiteConfig,
+  IMultiSiteAPI,
 } from './types';
 
 // ========================================

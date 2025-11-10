@@ -9,6 +9,7 @@ A comprehensive toolkit designed to accelerate SPFx development with reusable, t
 - 🎯 **Tree-Shakable Architecture** - Import only what you need for minimal bundle size
 - 🔧 **SPFx Optimized** - Built specifically for SharePoint Framework applications
 - 📦 **Zero External Dependencies** - Only requires SPFx peer dependencies
+- 🌐 **Multi-Site Connectivity** - Connect to and work with multiple SharePoint sites
 - 🎨 **Fluent UI Integration** - Consistent with SharePoint theming
 - ♿ **Accessibility First** - WCAG 2.1 AA compliant components
 - 📱 **Mobile Responsive** - Works seamlessly across all devices
@@ -197,14 +198,15 @@ const MyWebPart: React.FC = () => {
 
 ### 🛠️ Utilities
 
-| Utility                                                            | Description                                   |
-| ------------------------------------------------------------------ | --------------------------------------------- |
-| [**BatchBuilder**](./src/utilities/batchBuilder/README.md)         | Fluent API for SharePoint batch operations    |
-| [**PermissionHelper**](./src/utilities/permissionHelper/README.md) | SharePoint permission and group validation    |
-| [**Context Management**](./src/utilities/context/README.md)        | Advanced SPFx context handling with caching   |
-| [**ListItemHelper**](./src/utilities/listItemHelper/README.md)     | Extract and transform SharePoint field values |
-| [**StringUtils**](./src/utilities/stringUtils/README.md)           | String manipulation extensions                |
-| [**DateUtils**](./src/utilities/dateUtils/README.md)               | Date formatting and calculation utilities     |
+| Utility                                                            | Description                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------- |
+| [**Context Management**](./src/utilities/context/README.md)        | Advanced SPFx context handling with caching             |
+| [**Multi-Site Connectivity**](./src/utilities/context/MULTI-SITE-GUIDE.md) | Connect to and work with multiple SharePoint sites |
+| [**BatchBuilder**](./src/utilities/batchBuilder/README.md)         | Fluent API for SharePoint batch operations              |
+| [**PermissionHelper**](./src/utilities/permissionHelper/README.md) | SharePoint permission and group validation              |
+| [**ListItemHelper**](./src/utilities/listItemHelper/README.md)     | Extract and transform SharePoint field values           |
+| [**StringUtils**](./src/utilities/stringUtils/README.md)           | String manipulation extensions                          |
+| [**DateUtils**](./src/utilities/dateUtils/README.md)               | Date formatting and calculation utilities               |
 
 ## 📊 Bundle Size Optimization
 
@@ -390,6 +392,28 @@ import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
 import { PermissionHelper } from 'spfx-toolkit/lib/utilities/permissionHelper';
 
 // Perfect for: Document libraries, access control, security applications
+```
+
+### 🌐 Multi-Site Applications
+
+```typescript
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// Initialize primary context
+await SPContext.smart(this.context, 'MyWebPart');
+
+// Connect to other sites
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', {
+  alias: 'hr',
+  cache: { strategy: 'memory', ttl: 300000 }
+});
+
+// Use connected sites
+const hrSite = SPContext.sites.get('hr');
+const employees = await hrSite.sp.web.lists.getByTitle('Employees').items();
+
+// Perfect for: Cross-site dashboards, hub site integrations, data aggregation
+// See: Multi-Site Connectivity Guide for complete examples
 ```
 
 ## 🚀 Getting Started

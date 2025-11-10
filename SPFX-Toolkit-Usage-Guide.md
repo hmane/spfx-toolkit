@@ -319,6 +319,212 @@ console.log('Context health:', health);
 - **Check initialization**: Use `SPContext.isReady()` to verify
 - **Teams context**: Use `.teams()` preset for optimal Teams performance
 
+### Multi-Site Connectivity
+
+**NEW:** SPContext now supports connecting to and working with multiple SharePoint sites within a single application!
+
+#### Quick Example
+
+```typescript
+// 1. Initialize primary context
+await SPContext.smart(this.context, 'MyWebPart');
+
+// 2. Connect to other sites
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', {
+  alias: 'hr',
+  cache: { strategy: 'memory', ttl: 300000 } // 5 minutes
+});
+
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/finance', {
+  alias: 'finance'
+});
+
+// 3. Use connected sites
+const hrSite = SPContext.sites.get('hr');
+const employees = await hrSite.sp.web.lists
+  .getByTitle('Employees')
+  .items();
+
+const financeSite = SPContext.sites.get('finance');
+const budgets = await financeSite.sp.web.lists
+  .getByTitle('Budgets')
+  .items.top(10)();
+
+console.log(`HR Site: ${hrSite.webTitle} (${employees.length} employees)`);
+console.log(`Finance Site: ${financeSite.webTitle} (${budgets.length} budgets)`);
+
+// 4. Clean up when done
+SPContext.sites.remove('hr');
+SPContext.sites.remove('finance');
+```
+
+#### Multi-Site API
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `sites.add(url, config?)` | Connect to another site | `await SPContext.sites.add('...', { alias: 'hr' })` |
+| `sites.get(urlOrAlias)` | Get site context | `const site = SPContext.sites.get('hr')` |
+| `sites.remove(urlOrAlias)` | Disconnect from site | `SPContext.sites.remove('hr')` |
+| `sites.list()` | List all connected sites | `const sites = SPContext.sites.list()` |
+| `sites.has(urlOrAlias)` | Check if site connected | `if (SPContext.sites.has('hr')) { ... }` |
+
+#### ISiteContext Properties
+
+Each connected site returns an `ISiteContext` object:
+
+```typescript
+const hrSite = SPContext.sites.get('hr');
+
+// PnP Instances (same as main SPContext)
+hrSite.sp                    // Standard PnP instance
+hrSite.spCached              // Memory-cached instance
+hrSite.spPessimistic         // No-cache instance
+
+// Site Properties
+hrSite.webAbsoluteUrl        // Full site URL
+hrSite.webTitle              // Site title
+hrSite.webId                 // Site GUID
+hrSite.webServerRelativeUrl  // Server-relative URL
+
+// Configuration
+hrSite.alias                 // Friendly name (if provided)
+hrSite.config                // Active configuration
+hrSite.logger                // Site-specific logger
+hrSite.cache                 // Site-specific cache
+```
+
+#### Cross-Site Data Aggregation
+
+```typescript
+async function loadDashboardData() {
+  // Connect to multiple sites in parallel
+  await Promise.all([
+    SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', { alias: 'hr' }),
+    SPContext.sites.add('https://contoso.sharepoint.com/sites/finance', { alias: 'finance' }),
+    SPContext.sites.add('https://contoso.sharepoint.com/sites/projects', { alias: 'projects' })
+  ]);
+
+  // Fetch data from all sites in parallel
+  const [hrTasks, financeBudgets, activeProjects] = await Promise.all([
+    SPContext.sites.get('hr').sp.web.lists
+      .getByTitle('Tasks')
+      .items.filter('Status eq \'Active\'')(),
+
+    SPContext.sites.get('finance').sp.web.lists
+      .getByTitle('Budgets')
+      .items.top(10)(),
+
+    SPContext.sites.get('projects').sp.web.lists
+      .getByTitle('Projects')
+      .items.filter('Status eq \'Active\'')()
+  ]);
+
+  return { hrTasks, financeBudgets, activeProjects };
+}
+```
+
+#### Cache Strategies Per Site
+
+```typescript
+// No caching - always fresh data
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/live', {
+  cache: { strategy: 'none' }
+});
+
+// Memory cache - session storage (5 minutes)
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/common', {
+  cache: { strategy: 'memory', ttl: 300000 }
+});
+
+// Local storage - persists across sessions (1 hour)
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/config', {
+  cache: { strategy: 'storage', ttl: 3600000 }
+});
+
+// Inherit from primary context (default)
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/other');
+```
+
+#### Error Handling
+
+```typescript
+try {
+  await SPContext.sites.add('https://contoso.sharepoint.com/sites/restricted');
+} catch (error) {
+  if (error.message.includes('403')) {
+    // Access denied - user doesn't have permissions
+    SPContext.logger.error('Cannot access site', error);
+    showErrorMessage('You do not have permission to access this site.');
+  } else if (error.message.includes('404')) {
+    // Site not found
+    SPContext.logger.error('Site does not exist', error);
+    showErrorMessage('The requested site could not be found.');
+  } else {
+    // Network or other error
+    SPContext.logger.error('Connection failed', error);
+    showErrorMessage('Failed to connect to site. Please try again.');
+  }
+}
+```
+
+#### Best Practices
+
+1. **Use aliases** for readability:
+   ```typescript
+   await SPContext.sites.add('https://...', { alias: 'hr' });
+   const site = SPContext.sites.get('hr'); // ✅ Clear
+   ```
+
+2. **Check before adding** to prevent duplicates:
+   ```typescript
+   if (!SPContext.sites.has('hr')) {
+     await SPContext.sites.add('...', { alias: 'hr' });
+   }
+   ```
+
+3. **Clean up connections** when done:
+   ```typescript
+   // In React component
+   React.useEffect(() => {
+     return () => {
+       SPContext.sites.remove('hr');
+       SPContext.sites.remove('finance');
+     };
+   }, []);
+
+   // In web part
+   public dispose(): void {
+     SPContext.sites.remove('temp-site');
+     super.dispose();
+   }
+   ```
+
+4. **Choose appropriate cache strategy**:
+   - **`none`**: Real-time data (permissions, live updates)
+   - **`memory`**: Frequently accessed, moderately changing data (lists, users)
+   - **`storage`**: Static configuration data (hub settings, navigation)
+
+5. **Connect in parallel** for better performance:
+   ```typescript
+   // ✅ Good - parallel connections
+   await Promise.all([
+     SPContext.sites.add('site1'),
+     SPContext.sites.add('site2'),
+     SPContext.sites.add('site3')
+   ]);
+
+   // ❌ Avoid - sequential connections (slower)
+   await SPContext.sites.add('site1');
+   await SPContext.sites.add('site2');
+   await SPContext.sites.add('site3');
+   ```
+
+#### Complete Documentation
+
+For comprehensive examples, advanced patterns, and detailed API reference, see:
+- [Multi-Site Connectivity Guide](./src/utilities/context/MULTI-SITE-GUIDE.md)
+- [Context System README](./src/utilities/context/README.md#multi-site-connectivity)
+
 ---
 
 ## Components

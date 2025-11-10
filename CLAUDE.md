@@ -1,6 +1,6 @@
 # CLAUDE.md - SPFx Toolkit Development Guide
 
-This file provides comprehensive guidance for Claude Code (claude.ai/code) when working with this repository. It should be used as the primary reference for understanding the project structure, patterns, and best practices.
+This file provides comprehensive guidance for Claude Code (claude.ai/code) when working with this repository. It should be used as the primary reference for understanding the project structure, patterns, and best practices. General AI assistants (Copilot, ChatGPT, etc.) should load `copilot-instructions.md`, which mirrors the same constraints in a condensed form.
 
 ## 📋 Quick Reference for New Sessions
 
@@ -14,6 +14,7 @@ This file provides comprehensive guidance for Claude Code (claude.ai/code) when 
 6. **Tree-shaking is mandatory** - Use specific import paths
 7. **NO path aliases in source code** - Use relative imports only (e.g., `'./ComponentName'`, `'../utilities/helper'`)
 8. **NO additional npm packages** - Build custom solutions with existing peer dependencies
+9. **AI Context** - Keep `copilot-instructions.md` aligned with any new standards so all assistants share the same guidance.
 
 ### Current Project State
 
@@ -261,6 +262,83 @@ SPContext.webAbsoluteUrl;
 SPContext.currentUser;
 SPContext.logger.info('Message', data);
 ```
+
+### 🌐 Multi-Site Connectivity (NEW)
+
+**SPContext now supports connecting to multiple SharePoint sites!**
+
+```typescript
+// 1. Initialize primary context
+await SPContext.smart(this.context, 'MyWebPart');
+
+// 2. Connect to other sites
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', {
+  alias: 'hr',
+  cache: { strategy: 'memory', ttl: 300000 }
+});
+
+// 3. Use connected sites
+const hrSite = SPContext.sites.get('hr');
+const employees = await hrSite.sp.web.lists.getByTitle('Employees').items();
+
+// 4. Each site has its own PnP instances
+hrSite.sp                    // Standard instance
+hrSite.spCached              // Cached instance
+hrSite.spPessimistic         // No-cache instance
+
+// 5. Site properties available
+hrSite.webAbsoluteUrl        // Full URL
+hrSite.webTitle              // Site title
+hrSite.webId                 // GUID
+
+// 6. Clean up when done
+SPContext.sites.remove('hr');
+```
+
+**Multi-Site API Methods:**
+- `SPContext.sites.add(url, config?)` - Connect to another site
+- `SPContext.sites.get(urlOrAlias)` - Get site context
+- `SPContext.sites.remove(urlOrAlias)` - Disconnect from site
+- `SPContext.sites.list()` - List all connected sites
+- `SPContext.sites.has(urlOrAlias)` - Check if site is connected
+
+**Common Patterns:**
+
+```typescript
+// Cross-site data aggregation
+await Promise.all([
+  SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', { alias: 'hr' }),
+  SPContext.sites.add('https://contoso.sharepoint.com/sites/finance', { alias: 'finance' })
+]);
+
+const [hrData, financeData] = await Promise.all([
+  SPContext.sites.get('hr').sp.web.lists.getByTitle('Tasks').items(),
+  SPContext.sites.get('finance').sp.web.lists.getByTitle('Budgets').items()
+]);
+
+// Hub site configuration pattern
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/hub', {
+  alias: 'hub',
+  cache: { strategy: 'storage', ttl: 3600000 } // 1 hour
+});
+
+const hubConfig = await SPContext.sites.get('hub').sp.web.lists
+  .getByTitle('HubConfiguration')
+  .items.getById(1)();
+
+// Safe connection with error handling
+try {
+  await SPContext.sites.add('https://contoso.sharepoint.com/sites/restricted');
+} catch (error) {
+  if (error.message.includes('403')) {
+    // Access denied
+  } else if (error.message.includes('404')) {
+    // Site not found
+  }
+}
+```
+
+**Documentation:** See [Multi-Site Connectivity Guide](./src/utilities/context/MULTI-SITE-GUIDE.md)
 
 ---
 

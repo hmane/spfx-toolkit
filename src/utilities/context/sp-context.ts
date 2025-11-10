@@ -13,6 +13,7 @@ import type {
   Logger,
   HttpClient,
   PerformanceTracker,
+  IMultiSiteAPI,
 } from './types';
 import { IPrincipal } from '../../types';
 
@@ -21,6 +22,7 @@ import { IPrincipal } from '../../types';
  */
 export class SPContext {
   private static contextModule: any = null;
+  private static multiSiteManager: any = null;
 
   /**
    * Initialize the context with lazy loading
@@ -33,7 +35,34 @@ export class SPContext {
       SPContext.contextModule = await import('./core/context-manager');
     }
 
-    return SPContext.contextModule.Context.initialize(spfxContext, config);
+    const context = await SPContext.contextModule.Context.initialize(spfxContext, config);
+
+    // Initialize multi-site manager
+    await SPContext.initializeMultiSiteManager(spfxContext, config);
+
+    return context;
+  }
+
+  /**
+   * Initialize the multi-site manager (internal)
+   */
+  private static async initializeMultiSiteManager(
+    spfxContext: SPFxContextInput,
+    config: ContextConfig
+  ): Promise<void> {
+    if (!SPContext.multiSiteManager) {
+      const { MultiSiteContextManager } = await import('./core/multi-site-manager');
+      const { SimpleLogger } = await import('./modules/logger');
+
+      // Get the logger instance - it's a SimpleLogger internally
+      const loggerInstance = SPContext.context.logger as any;
+
+      SPContext.multiSiteManager = new MultiSiteContextManager(
+        spfxContext,
+        loggerInstance,
+        config.cache
+      );
+    }
   }
 
   /**
@@ -406,6 +435,55 @@ export class SPContext {
   }
 
   // ========================================
+  // MULTI-SITE CONNECTIVITY
+  // ========================================
+
+  /**
+   * Multi-site connection management API
+   *
+   * Provides methods to connect to and manage multiple SharePoint sites.
+   * Each connected site gets its own PnP instances (sp, spCached, spPessimistic).
+   *
+   * @returns Multi-site API with add, get, remove, list, and has methods
+   *
+   * @example
+   * ```typescript
+   * // Connect to another site
+   * await SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', {
+   *   alias: 'hr',
+   *   cache: { strategy: 'memory', ttl: 300000 }
+   * });
+   *
+   * // Use the connected site
+   * const hrSite = SPContext.sites.get('hr');
+   * const employees = await hrSite.sp.web.lists
+   *   .getByTitle('Employees')
+   *   .items();
+   *
+   * console.log(`Site: ${hrSite.webTitle}`);
+   * console.log(`Found ${employees.length} employees`);
+   *
+   * // Clean up when done
+   * SPContext.sites.remove('hr');
+   * ```
+   */
+  static get sites(): IMultiSiteAPI {
+    if (!SPContext.multiSiteManager) {
+      throw new Error(
+        'SPContext not initialized. Call SPContext.smart() or SPContext.initialize() first.'
+      );
+    }
+
+    return {
+      add: (siteUrl: string, config?: any) => SPContext.multiSiteManager.addSite(siteUrl, config),
+      get: (siteUrlOrAlias: string) => SPContext.multiSiteManager.getSite(siteUrlOrAlias),
+      remove: (siteUrlOrAlias: string) => SPContext.multiSiteManager.removeSite(siteUrlOrAlias),
+      list: () => SPContext.multiSiteManager.listSites(),
+      has: (siteUrlOrAlias: string) => SPContext.multiSiteManager.hasSite(siteUrlOrAlias),
+    };
+  }
+
+  // ========================================
   // UTILITY METHODS
   // ========================================
 
@@ -418,6 +496,13 @@ export class SPContext {
   }
 
   static reset(): void {
+    // Clean up multi-site connections
+    if (SPContext.multiSiteManager) {
+      SPContext.multiSiteManager.cleanup();
+      SPContext.multiSiteManager = null;
+    }
+
+    // Clean up main context
     if (SPContext.contextModule) {
       SPContext.contextModule.Context.reset();
     }

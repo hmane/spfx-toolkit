@@ -874,6 +874,122 @@ if (SPContext.isRightToLeft) {
 - [ ] Remove unused imports
 - [ ] Consider lazy loading for rarely used features
 
+## Multi-Site Connectivity
+
+SPContext supports connecting to and working with multiple SharePoint sites within a single application. Each connected site gets its own PnP instances (sp, spCached, spPessimistic) with configurable caching strategies.
+
+### Quick Example
+
+```typescript
+// 1. Initialize primary context
+await SPContext.smart(this.context, 'MyWebPart');
+
+// 2. Connect to another site
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', {
+  alias: 'hr',
+  cache: {
+    strategy: 'memory',
+    ttl: 300000 // 5 minutes
+  }
+});
+
+// 3. Use the connected site
+const hrSite = SPContext.sites.get('hr');
+const employees = await hrSite.sp.web.lists
+  .getByTitle('Employees')
+  .items();
+
+console.log(`Site: ${hrSite.webTitle}`);
+console.log(`Found ${employees.length} employees`);
+
+// 4. Clean up when done
+SPContext.sites.remove('hr');
+```
+
+### Multi-Site API
+
+| Method | Description |
+|--------|-------------|
+| `SPContext.sites.add(url, config?)` | Connect to another SharePoint site |
+| `SPContext.sites.get(urlOrAlias)` | Get a connected site context |
+| `SPContext.sites.remove(urlOrAlias)` | Remove a site connection |
+| `SPContext.sites.list()` | List all connected sites |
+| `SPContext.sites.has(urlOrAlias)` | Check if site is connected |
+
+### Cross-Site Data Aggregation
+
+```typescript
+// Connect to multiple sites
+await Promise.all([
+  SPContext.sites.add('https://contoso.sharepoint.com/sites/hr', { alias: 'hr' }),
+  SPContext.sites.add('https://contoso.sharepoint.com/sites/finance', { alias: 'finance' }),
+  SPContext.sites.add('https://contoso.sharepoint.com/sites/projects', { alias: 'projects' })
+]);
+
+// Fetch data in parallel
+const [hrData, financeData, projectData] = await Promise.all([
+  SPContext.sites.get('hr').sp.web.lists.getByTitle('Tasks').items(),
+  SPContext.sites.get('finance').sp.web.lists.getByTitle('Budgets').items(),
+  SPContext.sites.get('projects').sp.web.lists.getByTitle('Projects').items()
+]);
+```
+
+### ISiteContext Properties
+
+Each connected site returns an `ISiteContext` object with:
+
+- **PnP Instances**: `sp`, `spCached`, `spPessimistic`
+- **Site Properties**: `webAbsoluteUrl`, `webTitle`, `webId`, `webServerRelativeUrl`
+- **Configuration**: `alias`, `config`, `logger`, `cache`
+
+### Cache Strategies
+
+```typescript
+// No caching - always fresh data
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/live', {
+  cache: { strategy: 'none' }
+});
+
+// Memory cache - session storage
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/common', {
+  cache: { strategy: 'memory', ttl: 300000 } // 5 minutes
+});
+
+// Local storage - persists across sessions
+await SPContext.sites.add('https://contoso.sharepoint.com/sites/config', {
+  cache: { strategy: 'storage', ttl: 3600000 } // 1 hour
+});
+```
+
+### Error Handling
+
+```typescript
+try {
+  await SPContext.sites.add('https://contoso.sharepoint.com/sites/restricted');
+} catch (error) {
+  if (error.message.includes('403')) {
+    // Access denied
+    SPContext.logger.error('No permission to access site', error);
+  } else if (error.message.includes('404')) {
+    // Site not found
+    SPContext.logger.error('Site does not exist', error);
+  }
+}
+```
+
+### Best Practices
+
+1. **Use aliases** for readability: `SPContext.sites.get('hr')` vs full URLs
+2. **Check before adding**: Use `has()` to prevent duplicate connections
+3. **Clean up connections**: Call `remove()` when done to free resources
+4. **Choose appropriate cache strategy**: Match cache to data volatility
+5. **Connect in parallel**: Use `Promise.all()` for multiple sites
+6. **Use cached instances**: `site.spCached` for metadata, `site.sp` for normal ops
+
+### Complete Documentation
+
+For comprehensive examples, configuration options, and advanced patterns, see the [Multi-Site Connectivity Guide](./MULTI-SITE-GUIDE.md).
+
 ## API Reference
 
 ### Static Properties
@@ -892,5 +1008,13 @@ if (SPContext.isRightToLeft) {
 - `initialize()`, `isReady()`, `reset()`, `addModule()`
 - `getHealthCheck()`, `getContextSummary()`
 - `buildApiUrl()`, `getEnvironmentDisplayName()`, `getTenantInfo()`
+
+### Multi-Site API
+
+- `sites.add(url, config?)` - Connect to another SharePoint site
+- `sites.get(urlOrAlias)` - Get a connected site context
+- `sites.remove(urlOrAlias)` - Remove a site connection
+- `sites.list()` - List all connected sites
+- `sites.has(urlOrAlias)` - Check if site is connected
 
 SPContext provides everything you need for robust, scalable SharePoint Framework development with built-in monitoring, performance tracking, and environment awareness!

@@ -236,3 +236,6 @@ export interface AuthProvider {
   getToken(resourceUri: string): Promise<string>;
   isAuthenticated(): boolean;
 }
+
+// Multi-site types - re-export from multi-site.types.ts
+export type { ISiteContext, ISiteConfig, IMultiSiteAPI } from './multi-site.types';
