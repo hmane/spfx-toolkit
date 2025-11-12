@@ -1,6 +1,7 @@
 export * from './batchBuilder';
 export * from './context';
 export * from './dateUtils';
+export * from './dialogService';
 export * from './lazyLoader';
 export * from './listItemHelper';
 export * from './permissionHelper';

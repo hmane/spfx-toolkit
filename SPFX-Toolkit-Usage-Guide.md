@@ -2758,6 +2758,441 @@ const SettingsButton: React.FC = () => {
 
 ---
 
+### 8. DialogService - Loading, Alert & Confirm Dialogs
+
+**Use Case:** Loading overlays, user notifications, confirmation dialogs with blocking UI
+
+```typescript
+import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/lib/utilities/dialogService';
+import * as React from 'react';
+
+// Basic usage with strings
+showLoading('Loading data...');
+await fetchData();
+hideLoading();
+
+await alert('Operation completed successfully!');
+
+const result = await confirm('Are you sure you want to delete this item?');
+if (result) {
+  await deleteItem();
+}
+```
+
+#### Loading Overlay
+
+Block the UI while performing async operations. Supports **global (full-screen)** and **scoped (component-level)** loading:
+
+```typescript
+// Global loading (default)
+showLoading('Processing...');
+await operation();
+hideLoading();
+
+// Scoped loading to specific container
+showLoading('Loading chart...', { containerId: 'chart-container' });
+await loadChart();
+hideLoading('chart-container');
+
+// Multiple scoped loaders simultaneously
+showLoading('Loading chart...', { containerId: 'chart-1' });
+showLoading('Loading table...', { containerId: 'table-1' });
+await Promise.all([loadChart(), loadTable()]);
+hideLoading('chart-1');
+hideLoading('table-1');
+
+// Or hide all at once
+hideLoading();
+
+// Update message during operation (smoothly updates without creating multiple overlays)
+showLoading('Initializing...');
+await init();
+showLoading('Loading data...');  // Updates existing loader, doesn't darken
+await loadData();
+hideLoading();
+
+// Always use finally block
+try {
+  showLoading('Saving changes...');
+  await saveData();
+} finally {
+  hideLoading();
+}
+
+// JSX content with progress
+showLoading(
+  <div>
+    <strong>Uploading files...</strong>
+    <div style={{ marginTop: '12px' }}>
+      <div style={{ fontSize: '13px', color: '#605e5c' }}>
+        Processing 7 of 10 files...
+      </div>
+    </div>
+  </div>
+);
+```
+
+**Custom Loading Icon** (prevents Spinner restart in frequent updates):
+
+```typescript
+import { Icon } from '@fluentui/react/lib/Icon';
+
+// Custom animated icon for progress updates
+const CustomSpinner = () => (
+  <div style={{ animation: 'spin 1s linear infinite' }}>
+    <Icon iconName="ProgressRingDots" style={{ fontSize: '32px', color: '#0078d4' }} />
+  </div>
+);
+
+// Use in loops to prevent visual glitches
+for (let i = 1; i <= 10; i++) {
+  showLoading(
+    `Processing file ${i} of 10...`,
+    { customIcon: <CustomSpinner /> }
+  );
+  await processFile(i);
+}
+hideLoading();
+```
+
+**Container Requirements** for scoped loading:
+
+```typescript
+<div
+  id="chart-container"
+  style={{ position: 'relative', minHeight: '400px' }}
+>
+  {/* Content */}
+</div>
+```
+
+#### Alert Dialog
+
+Show informational messages:
+
+```typescript
+// Simple alert
+await alert('Your changes have been saved.');
+
+// Custom title and button
+await alert('The item has been deleted.', {
+  title: 'Success',
+  buttonText: 'Close'
+});
+
+// Non-dismissable alert
+await alert('Please read this important message.', {
+  title: 'Important',
+  isDismissable: false
+});
+
+// JSX content with formatting
+await alert(
+  <div>
+    <p>Your changes have been saved successfully!</p>
+    <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
+      <li>Item 1 updated</li>
+      <li>Item 2 created</li>
+      <li>3 files uploaded</li>
+    </ul>
+  </div>,
+  {
+    title: <span style={{ color: '#107c10' }}>✓ Success</span>
+  }
+);
+```
+
+#### Confirm Dialog
+
+Show confirmation dialogs with custom buttons:
+
+```typescript
+// Simple yes/no
+const result = await confirm('Are you sure?');
+if (result) {
+  // User clicked OK (returns true)
+  await performAction();
+}
+
+// Custom buttons
+const choice = await confirm('What would you like to do?', {
+  title: 'Choose Action',
+  buttons: [
+    { text: 'Save', primary: true, value: 'save' },
+    { text: 'Discard', value: 'discard' },
+    { text: 'Cancel', value: 'cancel' }
+  ]
+});
+
+switch (choice) {
+  case 'save':
+    await saveChanges();
+    break;
+  case 'discard':
+    discardChanges();
+    break;
+  case 'cancel':
+  default:
+    // User cancelled
+    break;
+}
+
+// JSX content with warning
+const result = await confirm(
+  <div>
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      <Icon
+        iconName="Warning"
+        style={{ fontSize: '24px', color: '#d13438' }}
+      />
+      <div>
+        <div style={{ fontWeight: 600, marginBottom: '8px' }}>
+          This action will permanently delete the following items:
+        </div>
+        <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+          <li>Project Document.docx</li>
+          <li>Budget Spreadsheet.xlsx</li>
+        </ul>
+        <div style={{
+          marginTop: '12px',
+          padding: '8px',
+          backgroundColor: '#fef0f1',
+          borderRadius: '4px'
+        }}>
+          <strong>Note:</strong> This action cannot be undone.
+        </div>
+      </div>
+    </div>
+  </div>,
+  {
+    title: <span style={{ color: '#d13438' }}>⚠️ Confirm Deletion</span>,
+    buttons: [
+      {
+        text: 'Delete',
+        primary: true,
+        value: true,
+        props: {
+          styles: { root: { backgroundColor: '#a4262c', borderColor: '#a4262c' } }
+        }
+      },
+      { text: 'Cancel', value: false }
+    ]
+  }
+);
+
+// Many buttons with dialog sizing (auto-vertical stack for >3 buttons)
+const action = await confirm('Select a document action:', {
+  title: 'Document Actions',
+  maxWidth: '600px',  // Wider dialog for better layout
+  buttons: [
+    { text: 'Download', primary: true, value: 'download' },
+    { text: 'Share', value: 'share' },
+    { text: 'Delete', value: 'delete' },
+    { text: 'Archive', value: 'archive' },
+    { text: 'Cancel', value: null }
+  ]
+  // Buttons auto-stack vertically with 8px gap when >3 buttons
+});
+
+// Force horizontal or vertical layout
+await confirm('Choose an option:', {
+  stackButtons: true,  // Force vertical even with 2-3 buttons
+  buttons: [
+    { text: 'Option 1', primary: true, value: 1 },
+    { text: 'Option 2', value: 2 }
+  ]
+});
+```
+
+**Button Layout**: Buttons have 8px spacing in both horizontal (≤3 buttons) and vertical (>3 buttons) layouts. Vertical stacking is automatic when >3 buttons or can be forced with `stackButtons: true`.
+
+#### Real-World Example: Form Submission
+
+```typescript
+import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/lib/utilities/dialogService';
+import { sp } from '@pnp/sp';
+
+const handleSubmit = async (): Promise<void> => {
+  try {
+    showLoading('Submitting form...');
+
+    await sp.web.lists.getByTitle('MyList').items.add({
+      Title: formData.title,
+      Description: formData.description
+    });
+
+    hideLoading();
+    await alert('Form submitted successfully!', { title: 'Success' });
+
+    // Redirect
+    window.location.href = '/sites/mysite/lists/MyList';
+  } catch (error) {
+    hideLoading();
+    await alert(`Failed to submit: ${error.message}`, {
+      title: 'Error',
+      buttonText: 'Close'
+    });
+  }
+};
+
+const handleDelete = async (itemId: number): Promise<void> => {
+  const confirmed = await confirm('This action cannot be undone. Are you sure?', {
+    title: 'Delete Item',
+    buttons: [
+      {
+        text: 'Delete',
+        primary: true,
+        value: true,
+        props: {
+          styles: { root: { backgroundColor: '#a4262c', borderColor: '#a4262c' } }
+        }
+      },
+      { text: 'Cancel', value: false }
+    ]
+  });
+
+  if (!confirmed) return;
+
+  try {
+    showLoading('Deleting item...');
+    await sp.web.lists.getByTitle('MyList').items.getById(itemId).delete();
+    hideLoading();
+    await alert('Item deleted successfully.', { title: 'Success' });
+  } catch (error) {
+    hideLoading();
+    await alert(`Failed to delete: ${error.message}`, { title: 'Error' });
+  }
+};
+```
+
+#### API Reference
+
+```typescript
+/**
+ * Show loading overlay
+ * @param message - Loading message (string or JSX)
+ * @param options - Loading options
+ * @returns Loader ID for tracking
+ */
+showLoading(message?: React.ReactNode, options?: {
+  containerId?: string;        // Optional container ID for scoped loading
+  customIcon?: React.ReactNode; // Custom loading icon (replaces default Spinner)
+}): string;
+
+/**
+ * Hide loading overlay
+ * @param containerId - Optional container ID to hide specific scoped loader
+ *                      If undefined, hides all loaders
+ */
+hideLoading(containerId?: string): void;
+
+/**
+ * Show alert dialog
+ * @param message - Alert message (string or JSX)
+ * @param options - Additional options
+ * @returns Promise that resolves when dismissed
+ */
+alert(message: React.ReactNode, options?: {
+  title?: React.ReactNode;     // Dialog title (string or JSX)
+  buttonText?: string;          // Button text (default: 'OK')
+  isDismissable?: boolean;      // Can dismiss with ESC/backdrop (default: true)
+  className?: string;           // Custom CSS class
+  dialogContentProps?: any;     // Fluent UI dialog props
+  width?: string;               // Dialog width (e.g., '500px', '80%')
+  maxWidth?: string;            // Dialog max width (default: 340px)
+  minWidth?: string;            // Dialog min width
+}): Promise<void>;
+
+/**
+ * Show confirm dialog
+ * @param message - Confirm message (string or JSX)
+ * @param options - Additional options
+ * @returns Promise that resolves with button value
+ */
+confirm(message: React.ReactNode, options?: {
+  title?: React.ReactNode;     // Dialog title (string or JSX)
+  buttons?: Array<{            // Custom buttons
+    text: string;              // Button text
+    primary?: boolean;         // Is primary button
+    value?: any;               // Value returned when clicked
+    props?: any;               // Fluent UI button props
+  }>;
+  isDismissable?: boolean;     // Can dismiss with ESC/backdrop (default: true)
+  className?: string;          // Custom CSS class
+  dialogContentProps?: any;    // Fluent UI dialog props
+  width?: string;              // Dialog width (e.g., '500px', '80%')
+  maxWidth?: string;           // Dialog max width (default: 340px)
+  minWidth?: string;           // Dialog min width
+  stackButtons?: boolean;      // Force vertical button layout (auto if >3 buttons)
+}): Promise<any>;
+
+// TypeScript types
+import type {
+  DialogContent,
+  ILoadingOptions,
+  IAlertOptions,
+  IConfirmOptions,
+  IConfirmButton
+} from 'spfx-toolkit/lib/utilities/dialogService';
+```
+
+#### Best Practices
+
+1. **Always hide loading in finally block**
+   ```typescript
+   try {
+     showLoading('Processing...');
+     await operation();
+   } finally {
+     hideLoading(); // Always runs
+   }
+   ```
+
+2. **Provide clear messages**
+   ```typescript
+   // ✅ GOOD
+   showLoading('Uploading 3 of 10 files...');
+
+   // ❌ AVOID
+   showLoading('Please wait...');
+   ```
+
+3. **Use meaningful button values**
+   ```typescript
+   // ✅ GOOD
+   const choice = await confirm('Select action:', {
+     buttons: [
+       { text: 'Approve', value: 'approve' },
+       { text: 'Reject', value: 'reject' }
+     ]
+   });
+
+   // ❌ AVOID
+   const choice = await confirm('Select:', {
+     buttons: [
+       { text: 'Option 1', value: 1 },
+       { text: 'Option 2', value: 2 }
+     ]
+   });
+   ```
+
+4. **Chain dialogs sequentially**
+   ```typescript
+   // ✅ GOOD
+   await alert('First message');
+   await alert('Second message');
+
+   // ❌ AVOID
+   alert('First'); // Only last shows
+   alert('Second');
+   ```
+
+**Bundle Size Impact:** ~15KB (shared Fluent UI dependencies)
+
+**Documentation:** See [DialogService README](./src/utilities/dialogService/README.md) for comprehensive examples
+
+---
+
 ## TypeScript Types
 
 The toolkit provides **comprehensive, reusable TypeScript types** for all components, utilities, and SharePoint operations. These types can be imported and used in any SPFx application for type-safe development.
@@ -2797,6 +3232,17 @@ import type {
   ISPRoleAssignment,
   PermissionErrorCode
 } from 'spfx-toolkit/lib/types';
+
+// ===== UTILITY TYPES =====
+import type {
+  // DialogService Types
+  DialogContent,
+  IAlertOptions,
+  IConfirmOptions,
+  IConfirmButton,
+  ILoadingState,
+  IDialogState
+} from 'spfx-toolkit/lib/utilities/dialogService';
 
 // ===== COMPONENT TYPES =====
 import type {
@@ -3192,6 +3638,200 @@ const checkUserAccess = async (
     const errorCode: PermissionErrorCode = 'PERMISSION_DENIED';
     console.error(errorCode, error);
     return null;
+  }
+};
+```
+
+---
+
+#### 1.4 DialogService Types
+
+```typescript
+/**
+ * Type for content that can be either string or JSX
+ */
+export type DialogContent = string | React.ReactNode;
+
+/**
+ * Configuration for confirm dialog buttons
+ */
+export interface IConfirmButton {
+  /**
+   * Button text to display
+   */
+  text: string;
+
+  /**
+   * Whether this is the primary action button
+   * @default false
+   */
+  primary?: boolean;
+
+  /**
+   * Additional button properties from Fluent UI
+   */
+  props?: Partial<IButtonProps>;
+
+  /**
+   * Value returned when this button is clicked
+   */
+  value?: any;
+}
+
+/**
+ * Configuration for confirm dialog
+ */
+export interface IConfirmOptions {
+  /**
+   * Dialog title/heading (can be string or JSX)
+   */
+  title?: DialogContent;
+
+  /**
+   * Dialog message/content (can be string or JSX)
+   */
+  message: DialogContent;
+
+  /**
+   * Array of buttons to display
+   * @default [{ text: 'OK', primary: true, value: true }, { text: 'Cancel', value: false }]
+   */
+  buttons?: IConfirmButton[];
+
+  /**
+   * Additional dialog content properties
+   */
+  dialogContentProps?: Partial<IDialogContentProps>;
+
+  /**
+   * Whether the dialog can be dismissed by clicking outside or pressing ESC
+   * @default true
+   */
+  isDismissable?: boolean;
+
+  /**
+   * Custom CSS class name for the dialog
+   */
+  className?: string;
+}
+
+/**
+ * Configuration for alert dialog
+ */
+export interface IAlertOptions {
+  /**
+   * Alert title/heading (can be string or JSX)
+   */
+  title?: DialogContent;
+
+  /**
+   * Alert message/content (can be string or JSX)
+   */
+  message: DialogContent;
+
+  /**
+   * Button text
+   * @default 'OK'
+   */
+  buttonText?: string;
+
+  /**
+   * Additional dialog content properties
+   */
+  dialogContentProps?: Partial<IDialogContentProps>;
+
+  /**
+   * Whether the dialog can be dismissed by clicking outside or pressing ESC
+   * @default true
+   */
+  isDismissable?: boolean;
+
+  /**
+   * Custom CSS class name for the dialog
+   */
+  className?: string;
+}
+
+/**
+ * Internal state for loading overlay
+ */
+export interface ILoadingState {
+  isVisible: boolean;
+  message: DialogContent;
+}
+
+/**
+ * Internal state for dialog
+ */
+export interface IDialogState {
+  isVisible: boolean;
+  type: 'alert' | 'confirm' | null;
+  options: IAlertOptions | IConfirmOptions | null;
+  resolve: ((value: any) => void) | null;
+}
+```
+
+**Usage Example:**
+
+```typescript
+import type {
+  DialogContent,
+  IAlertOptions,
+  IConfirmOptions,
+  IConfirmButton
+} from 'spfx-toolkit/lib/utilities/dialogService';
+import * as React from 'react';
+
+// Type-safe JSX messages
+const message: DialogContent = (
+  <div>
+    <p>Your changes have been saved.</p>
+    <ul>
+      <li>Item 1 updated</li>
+      <li>Item 2 created</li>
+    </ul>
+  </div>
+);
+
+// Type-safe alert options
+const alertOptions: IAlertOptions = {
+  title: 'Success',
+  message: message,
+  buttonText: 'Close',
+  isDismissable: true
+};
+
+// Type-safe confirm buttons
+const buttons: IConfirmButton[] = [
+  { text: 'Save', primary: true, value: 'save' },
+  { text: 'Discard', value: 'discard' },
+  { text: 'Cancel', value: null }
+];
+
+const confirmOptions: IConfirmOptions = {
+  title: 'Unsaved Changes',
+  message: 'Do you want to save your changes?',
+  buttons: buttons,
+  isDismissable: false
+};
+
+// Type-safe usage
+const handleAction = async (): Promise<void> => {
+  const choice: string | null = await confirm(
+    'Choose an action:',
+    confirmOptions
+  );
+
+  switch (choice) {
+    case 'save':
+      await saveChanges();
+      break;
+    case 'discard':
+      discardChanges();
+      break;
+    case null:
+      // User cancelled
+      break;
   }
 };
 ```
