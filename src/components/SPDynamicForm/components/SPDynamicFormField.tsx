@@ -188,9 +188,11 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
         return <SPChoiceField {...fieldPropsWithoutLabel} />;
 
       case SPFieldType.User:
+      case SPFieldType.UserMulti:
         return <SPUserField {...fieldPropsWithoutLabel} />;
 
-      case SPFieldType.Lookup: {
+      case SPFieldType.Lookup:
+      case SPFieldType.LookupMulti: {
         // Validate lookup configuration
         const lookupListId = field.fieldConfig?.lookupListId;
         if (!lookupListId) {

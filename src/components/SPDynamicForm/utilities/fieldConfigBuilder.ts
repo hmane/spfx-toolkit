@@ -176,18 +176,25 @@ export function buildFieldProps(
       break;
 
     case SPFieldType.User:
+    case SPFieldType.UserMulti:
       // Use columnName/listId pattern for auto-loading field configuration
       props.columnName = field.internalName;
       props.listId = listId;
+      // UserMulti fields need allowMultiple flag
+      if (field.fieldType === SPFieldType.UserMulti) {
+        props.allowMultiple = true;
+      }
       break;
 
     case SPFieldType.Lookup:
+    case SPFieldType.LookupMulti:
       // Create proper dataSource object for SPLookupField
       props.dataSource = {
         listNameOrId: field.fieldConfig.lookupListId || '',
         displayField: field.fieldConfig.lookupField || 'Title',
       };
-      props.allowMultiple = field.fieldConfig.allowMultiple;
+      // LookupMulti or allowMultiple config
+      props.allowMultiple = field.fieldType === SPFieldType.LookupMulti || field.fieldConfig.allowMultiple;
       // Set display mode based on item count if available
       if (field.lookupItemCount && field.lookupItemCount > 100) {
         props.displayMode = 'searchable';
@@ -195,9 +202,14 @@ export function buildFieldProps(
       break;
 
     case SPFieldType.TaxonomyFieldType:
+    case SPFieldType.TaxonomyFieldTypeMulti:
       // Use columnName/listId pattern for auto-loading field configuration
       props.columnName = field.internalName;
       props.listId = listId;
+      // TaxonomyFieldTypeMulti needs allowMultiple flag
+      if (field.fieldType === SPFieldType.TaxonomyFieldTypeMulti) {
+        props.allowMultiple = true;
+      }
       break;
 
     default:

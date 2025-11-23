@@ -136,6 +136,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   const [error, setError] = React.useState<string | null>(null);
   const [itemCount, setItemCount] = React.useState<number>(0);
   const [actualDisplayMode, setActualDisplayMode] = React.useState<SPLookupDisplayMode>(displayMode);
+  const isInitialMount = React.useRef(true);
+  const lastValueRef = React.useRef<any>(null);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -164,11 +166,22 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   // Log component mount (simplified)
   React.useEffect(() => {
     SPContext.logger.info('SPLookupField: Initialized', {
+      name,
       list: dataSource.listNameOrId,
       displayMode,
       allowMultiple,
     });
   }, []); // Empty deps - only log on mount
+
+  // Removed verbose value change logging - uncomment for debugging
+  // React.useEffect(() => {
+  //   SPContext.logger.info(`🔍 SPLookupField [${name}]: Value changed`, {
+  //     currentValue,
+  //     valueType: typeof currentValue,
+  //     isArray: Array.isArray(currentValue),
+  //     allowMultiple
+  //   });
+  // }, [currentValue, name, allowMultiple]);
 
   // Create stable dataSource key to avoid re-fetches on object reference changes
   const dataSourceKey = React.useMemo(() => {
@@ -392,6 +405,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   // Handle lookup change
   const handleLookupChange = React.useCallback(
     (newValue: ISPLookupFieldValue | ISPLookupFieldValue[]) => {
+
       setInternalValue(newValue);
 
       if (onChange) {
@@ -604,14 +618,29 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
         {!isActuallyLoading && lookupItems.length >= 0 && (
           allowMultiple ? (
             <TagBox
-              key={`tagbox-${isActuallyLoading}-${lookupItems.length}`}
+              key={`tagbox-${name}`}
               {...commonProps}
               dataSource={lookupDataStore}
               value={Array.isArray(displayValue) ? displayValue : []}
               onValueChanged={(e: any) => {
                 const selectedIds = e.value || [];
+
+                // If no items selected, set to empty array
+                if (selectedIds.length === 0) {
+                  fieldOnChange([]);
+                  return;
+                }
+
+                // Find selected items in lookupItems
                 const selectedItems = lookupItems.filter(item => selectedIds.includes(item.Id));
-                fieldOnChange(selectedItems);
+
+                // Only update if we found all the items (prevents clearing during load)
+                if (selectedItems.length === selectedIds.length) {
+                  fieldOnChange(selectedItems);
+                } else {
+                  // Some items not found - preserve current value
+                  SPContext.logger.warn(`SPLookupField [${name}]: Not all selected items found in lookupItems. Found ${selectedItems.length} of ${selectedIds.length}. Preserving current value.`);
+                }
               }}
               maxDisplayedTags={maxDisplayedTags}
               isValid={!hasError}
@@ -627,14 +656,70 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             />
           ) : (
             <SelectBox
-              key={`selectbox-${isActuallyLoading}-${lookupItems.length}`}
+              key={`selectbox-${name}`}
               {...commonProps}
               dataSource={lookupDataStore}
               value={!Array.isArray(displayValue) ? displayValue : null}
               onValueChanged={(e: any) => {
                 const selectedId = e.value;
+                const previousValue = lastValueRef.current;
+                const currentDisplayValue = !Array.isArray(displayValue) ? displayValue : null;
+
+                // Removed verbose logging - uncomment for debugging
+                // SPContext.logger.info(`📋 SPLookupField [${name}]: SelectBox onValueChanged`, {
+                //   selectedId,
+                //   previousValue,
+                //   currentDisplayValue,
+                //   lookupItemsCount: lookupItems.length,
+                //   currentFieldValue: fieldValue,
+                //   isInitialMount: isInitialMount.current
+                // });
+
+                // Ignore if value matches current display value (DevExtreme initialization quirk)
+                if (selectedId === currentDisplayValue) {
+                  lastValueRef.current = selectedId;
+                  return;
+                }
+
+                // Prevent spurious onChange during mount/remount
+                if (isInitialMount.current) {
+                  isInitialMount.current = false;
+                  lastValueRef.current = selectedId;
+
+                  // Only call onChange if there's actually a value AND it differs from current
+                  if (selectedId !== null && selectedId !== undefined && selectedId !== currentDisplayValue) {
+                    const selectedItem = lookupItems.find(item => item.Id === selectedId);
+                    if (selectedItem) {
+                      fieldOnChange(selectedItem);
+                    }
+                  }
+                  return;
+                }
+
+                // Ignore if value hasn't actually changed
+                if (selectedId === previousValue) {
+                  return;
+                }
+
+                lastValueRef.current = selectedId;
+
+                // If no value selected, set to null
+                if (selectedId === null || selectedId === undefined) {
+                  fieldOnChange(null as any);
+                  return;
+                }
+
+                // Find the selected item in lookupItems
                 const selectedItem = lookupItems.find(item => item.Id === selectedId);
-                fieldOnChange(selectedItem || null as any);
+
+                // If item found in list, use it
+                if (selectedItem) {
+                  fieldOnChange(selectedItem);
+                } else {
+                  // Item NOT found (still loading) - DON'T call onChange
+                  // This preserves the current value!
+                  SPContext.logger.warn(`SPLookupField [${name}]: Item with Id ${selectedId} not found in lookupItems (${lookupItems.length} items loaded). Preserving current value.`);
+                }
               }}
               isValid={!hasError}
               validationStatus={hasError ? 'invalid' : 'valid'}
@@ -667,15 +752,18 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
         control={effectiveControl}
         rules={validationRules}
         defaultValue={defaultValue || (allowMultiple ? [] : null)}
-        render={({ field, fieldState }) => (
-          <>
-            {renderField(
-              field.value || (allowMultiple ? [] : null),
-              (val) => field.onChange(val),
-              fieldState.error?.message
-            )}
-          </>
-        )}
+        render={({ field, fieldState }) => {
+          // Removed verbose Controller render logging - uncomment for debugging
+          return (
+            <>
+              {renderField(
+                field.value || (allowMultiple ? [] : null),
+                (val) => field.onChange(val),
+                fieldState.error?.message
+              )}
+            </>
+          );
+        }}
       />
     );
   }

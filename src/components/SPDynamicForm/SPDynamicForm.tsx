@@ -163,11 +163,20 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     return defaults as T;
   }, [mode, fields, fieldOverrides]);
 
+  // Determine initial form values based on mode and data availability
+  const initialFormValues = React.useMemo(() => {
+    if (mode === 'new') {
+      return defaultValues;
+    }
+    // For edit/view modes, use itemData if available, otherwise empty object
+    return itemData || ({} as T);
+  }, [mode, defaultValues, itemData]);
+
   // Initialize react-hook-form
   const form = useForm<T>({
     mode: validationMode,
     reValidateMode: 'onChange',
-    defaultValues: (mode === 'new' ? defaultValues : itemData) as any,
+    defaultValues: initialFormValues as any,
   });
 
   const {
@@ -180,12 +189,23 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     clearErrors,
   } = form;
 
-  // Reset form when data loads
+  // Reset form when data loads - use keepDefaultValues to preserve unmodified fields
   React.useEffect(() => {
     if (mode === 'new' && Object.keys(defaultValues).length > 0) {
-      reset(defaultValues as any);
+      SPContext.logger.info('🔄 Resetting form for NEW mode', {
+        defaultValues,
+        fieldCount: Object.keys(defaultValues).length
+      });
+      reset(defaultValues as any, { keepDefaultValues: true });
     } else if (itemData && mode !== 'new') {
-      reset(itemData as any);
+      // For edit/view modes, reset with loaded data
+      SPContext.logger.info('🔄 Resetting form for EDIT/VIEW mode', {
+        mode,
+        itemData,
+        fieldCount: Object.keys(itemData).length,
+        fields: Object.keys(itemData)
+      });
+      reset(itemData as any, { keepDefaultValues: false });
     }
   }, [itemData, defaultValues, reset, mode]);
 

@@ -105,25 +105,144 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       setOriginalItem(item);
 
-      // Extract field values
+      // Extract field values using SPExtractor for consistent format
       const extractor = createSPExtractor(item);
       const formData: any = {};
 
+      SPContext.logger.info('🔍 SPDynamicForm: Starting field extraction', {
+        itemId,
+        fieldCount: fields.length,
+        fieldNames: fields.map(f => f.internalName)
+      });
+
       fields.forEach((field) => {
         try {
-          // Get raw value from item
-          let value = item[field.internalName];
+          let value: any;
+          const rawValue = item[field.internalName];
 
-          // Convert date strings to Date objects for DateTime fields
-          if (field.fieldType === 'DateTime' && value && typeof value === 'string') {
-            value = new Date(value);
+          SPContext.logger.info(`📝 Extracting field: ${field.internalName}`, {
+            fieldType: field.fieldType,
+            rawValueType: typeof rawValue,
+            rawValue: rawValue,
+            isArray: Array.isArray(rawValue)
+          });
+
+          // Use extractor methods based on field type for consistent formatting
+          switch (field.fieldType) {
+            case 'Text':
+              value = extractor.string(field.internalName);
+              break;
+
+            case 'Note':
+              value = extractor.string(field.internalName);
+              break;
+
+            case 'Number':
+            case 'Currency':
+            case 'Integer':
+            case 'Counter':
+              value = extractor.number(field.internalName);
+              break;
+
+            case 'Boolean':
+              value = extractor.boolean(field.internalName);
+              break;
+
+            case 'DateTime':
+              value = extractor.date(field.internalName);
+              break;
+
+            case 'Choice':
+              value = extractor.choice(field.internalName);
+              break;
+
+            case 'MultiChoice':
+              value = extractor.multiChoice(field.internalName);
+              break;
+
+            case 'User':
+              // Extract IPrincipal and convert to ID for SPUserField
+              const user = extractor.user(field.internalName);
+              value = user ? parseInt(user.id) : null;
+              break;
+
+            case 'UserMulti':
+              // Extract IPrincipal[] and convert to ID array for SPUserField
+              const users = extractor.userMulti(field.internalName);
+              value = users.map(u => parseInt(u.id));
+              break;
+
+            case 'Lookup':
+              // Extract SPLookup and convert to {Id, Title} for SPLookupField
+              const lookup = extractor.lookup(field.internalName);
+              value = lookup && lookup.id ? { Id: lookup.id, Title: lookup.title || '' } : null;
+              SPContext.logger.info(`🔗 Lookup field extracted: ${field.internalName}`, {
+                extractedLookup: lookup,
+                convertedValue: value
+              });
+              break;
+
+            case 'LookupMulti':
+              // Extract SPLookup[] and convert to {Id, Title}[] for SPLookupField
+              const lookups = extractor.lookupMulti(field.internalName);
+              value = lookups.map(l => ({ Id: l.id!, Title: l.title || '' }));
+              SPContext.logger.info(`🔗 LookupMulti field extracted: ${field.internalName}`, {
+                extractedLookups: lookups,
+                convertedValue: value
+              });
+              break;
+
+            case 'TaxonomyFieldType':
+              // Extract SPTaxonomy for SPTaxonomyField
+              const taxonomy = extractor.taxonomy(field.internalName);
+              value = taxonomy ? {
+                Label: taxonomy.label,
+                TermGuid: taxonomy.termId,
+                WssId: taxonomy.wssId
+              } : null;
+              break;
+
+            case 'TaxonomyFieldTypeMulti':
+              // Extract SPTaxonomy[] for SPTaxonomyField
+              const taxonomies = extractor.taxonomyMulti(field.internalName);
+              value = taxonomies.map(t => ({
+                Label: t.label,
+                TermGuid: t.termId,
+                WssId: t.wssId
+              }));
+              break;
+
+            case 'URL':
+              // Extract SPUrl and convert to {Url, Description} for SPUrlField
+              const urlObj = extractor.url(field.internalName);
+              value = urlObj ? { Url: urlObj.url || '', Description: urlObj.description || '' } : null;
+              break;
+
+            default:
+              // Fallback: get raw value
+              value = item[field.internalName];
+              SPContext.logger.warn(`Unsupported field type for extraction: ${field.fieldType}`, {
+                field: field.internalName
+              });
+              break;
           }
 
           formData[field.internalName] = value;
+
+          SPContext.logger.info(`✅ Field extracted successfully: ${field.internalName}`, {
+            fieldType: field.fieldType,
+            finalValue: value,
+            valueType: typeof value
+          });
         } catch (err) {
-          SPContext.logger.warn(`Failed to extract field "${field.internalName}"`, err);
+          SPContext.logger.error(`❌ Failed to extract field "${field.internalName}"`, err as Error);
           formData[field.internalName] = null;
         }
+      });
+
+      SPContext.logger.info('📦 Final form data prepared', {
+        formData,
+        fieldCount: Object.keys(formData).length
       });
 
       setData(formData as T);
