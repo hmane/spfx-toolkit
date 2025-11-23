@@ -7,7 +7,7 @@ import '@pnp/sp/fields';
 import { Popup } from 'devextreme-react/popup';
 import { ScrollView } from 'devextreme-react/scroll-view';
 import * as React from 'react';
-import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
+import '../../utilities/context/pnpImports/files';
 import { SPContext } from '../../utilities/context';
 import { VersionDetails } from './components/VersionDetails';
 import { VersionTimeline } from './components/VersionTimeline';
@@ -530,10 +530,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
   const loadItemInfo = async (itemType: 'document' | 'list'): Promise<IItemInfo> => {
     try {
-      console.log('[loadItemInfo] Start - itemType:', itemType);
-
       const list = await SPContext.sp.web.lists.getById(listId).select('Title')();
-      console.log('[loadItemInfo] List:', list);
 
       const item = await SPContext.sp.web.lists
         .getById(listId)
@@ -547,15 +544,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           'ContentType/Name'
         )
         .expand('File', 'ContentType')();
-
-      console.log('[loadItemInfo] Item details:', {
-        Title: item.Title,
-        FileRef: item.FileRef,
-        FileLeafRef: item.FileLeafRef,
-        UIVersionString: item._UIVersionString,
-        hasFile: !!item.File,
-        FileServerRelativeUrl: item.File?.ServerRelativeUrl,
-      });
 
       const fieldsList = SPContext.sp.web.lists.getById(listId).fields;
       const fields = await fieldsList.filter('Hidden eq false and ReadOnlyField eq false')();
@@ -581,10 +569,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         totalFieldCount: fields.filter(f => !isSystemField(f.InternalName)).length,
       };
 
-      console.log('[loadItemInfo] Final itemInfo:', itemInfo);
       return itemInfo;
     } catch (error) {
-      console.error('[loadItemInfo] Error:', error);
       SPContext.logger.error('Failed to load item info', error, { listId, itemId });
       throw error;
     }
@@ -597,22 +583,13 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     try {
       let versions: any[] = [];
 
-      console.log('[loadVersions] Starting - itemType:', itemType, 'itemUrl:', itemInfo.itemUrl);
-
       if (itemType === 'document') {
         if (itemInfo.itemUrl) {
-          console.log('[loadVersions] Fetching document versions from:', itemInfo.itemUrl);
-
           // Get historical versions with Author expanded
           const fileVersions = SPContext.sp.web.getFileByServerRelativePath(
             itemInfo.itemUrl
           ).versions;
           const historicalVersions = await fileVersions.select('*').expand('CreatedBy')();
-
-          console.log('[loadVersions] Historical versions:', historicalVersions?.length);
-          if (historicalVersions && historicalVersions.length > 0) {
-            console.log('[loadVersions] First historical version sample:', historicalVersions[0]);
-          }
 
           // Get current file info
           const currentFile = await SPContext.sp.web
@@ -642,10 +619,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             )
             .expand('Author', 'Editor')();
 
-          console.log('[loadVersions] Current file:', currentFile);
-          console.log('[loadVersions] List item Author:', listItem.Author);
-          console.log('[loadVersions] List item Editor:', listItem.Editor);
-
           // Build current version object to match version structure
           const currentVersion = {
             VersionLabel: currentFile.UIVersionLabel || '2.0',
@@ -668,8 +641,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           // Prepend current version to historical versions
           versions = [currentVersion, ...historicalVersions];
 
-          console.log('[loadVersions] Total versions (current + historical):', versions.length);
-
           // Ensure each version has the file URL set
           versions = versions.map(v => ({
             ...v,
@@ -685,14 +656,10 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           .getById(listId)
           .items.getById(itemId)
           .versions.expand('Editor', 'Author')();
-
-        console.log('[loadVersions] List item versions:', versions?.length);
       }
 
-      console.log('[loadVersions] Final versions array length:', versions?.length);
       return Array.isArray(versions) ? versions : [];
     } catch (error) {
-      console.error('[loadVersions] Error:', error);
       SPContext.logger.error('Failed to load versions', error, { listId, itemId, itemType });
       return [];
     }

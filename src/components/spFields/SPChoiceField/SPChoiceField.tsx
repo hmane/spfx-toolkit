@@ -9,12 +9,12 @@
 
 import { Label } from '@fluentui/react/lib/Label';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { Text } from '@fluentui/react/lib/Text';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { CheckBox } from 'devextreme-react/check-box';
-import { LoadPanel } from 'devextreme-react/load-panel';
 import { RadioGroup } from 'devextreme-react/radio-group';
 import { SelectBox } from 'devextreme-react/select-box';
 import { TagBox } from 'devextreme-react/tag-box';
@@ -112,6 +112,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     defaultValue || (allowMultiple ? emptyArray : emptyString)
   );
   const [invalidValueError, setInvalidValueError] = React.useState<string | null>(null);
+  const [isDOMReady, setIsDOMReady] = React.useState(false);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -133,6 +134,15 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       };
     }
   }, [name, label, required, formContext, fieldRef]);
+
+  // Wait for DOM to be fully ready before rendering DevExtreme components
+  // This prevents DevExtreme from trying to measure elements before they exist
+  React.useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      setIsDOMReady(true);
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, []);
 
   // Use the hook to load choices and manage "Other" option
   const {
@@ -169,8 +179,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     return metadata?.isMultiChoice || false;
   }, [allowMultiple, metadata]);
 
-  // Memoize transformed values to prevent infinite loops from array recreation
+  // LRU cache for transformed values to prevent infinite loops from array recreation
+  // Using Map which maintains insertion order for LRU eviction
   const transformedValuesCache = React.useRef<Map<string, string | string[]>>(new Map());
+  const MAX_CACHE_SIZE = 50; // Reduced size since values are typically stable
 
   // Helper function to transform value for dropdown display (convert custom values to "Other" if needed)
   const getDropdownValue = React.useCallback(
@@ -179,10 +191,15 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
       // Create a stable cache key
       const cacheKey = JSON.stringify({ val, otherEnabled, otherOptionText });
+      const cache = transformedValuesCache.current;
 
-      // Return cached result if available
-      if (transformedValuesCache.current.has(cacheKey)) {
-        return transformedValuesCache.current.get(cacheKey);
+      // Return cached result if available (LRU: move to end on access)
+      if (cache.has(cacheKey)) {
+        const cachedValue = cache.get(cacheKey)!;
+        // Move to end for LRU by delete + set
+        cache.delete(cacheKey);
+        cache.set(cacheKey, cachedValue);
+        return cachedValue;
       }
 
       let result: string | string[];
@@ -205,14 +222,18 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         }
       }
 
-      // Cache the result
-      transformedValuesCache.current.set(cacheKey, result);
-
-      // Limit cache size to prevent memory leaks
-      if (transformedValuesCache.current.size > 100) {
-        const firstKey = transformedValuesCache.current.keys().next().value;
-        transformedValuesCache.current.delete(firstKey);
+      // Evict oldest entries if at capacity (LRU eviction)
+      while (cache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey !== undefined) {
+          cache.delete(oldestKey);
+        } else {
+          break;
+        }
       }
+
+      // Cache the result
+      cache.set(cacheKey, result);
 
       return result;
     },
@@ -302,12 +323,17 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     [metadata, staticChoices, isMultiChoice, otherOptionText, otherState.customValue, onChange]
   );
 
+  // Ref to store the form field.onChange for use in handleCustomValueChange
+  const formOnChangeRef = React.useRef<((val: any) => void) | null>(null);
+
   // Handle custom value textbox change
   const handleCustomValueChange = React.useCallback(
     (newCustomValue: string) => {
       setCustomValue(newCustomValue);
 
       if (!metadata && !staticChoices) return;
+
+      let finalValue: string | string[];
 
       // Update the main value
       if (isMultiChoice) {
@@ -317,18 +343,22 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           v => v.toLowerCase() !== otherOptionText.toLowerCase() && !isOtherValue(v)
         );
 
-        const newArray = newCustomValue ? [...filteredArray, newCustomValue] : filteredArray;
-
-        setInternalValue(newArray);
-        if (onChange) {
-          onChange(newArray);
-        }
+        finalValue = newCustomValue ? [...filteredArray, newCustomValue] : filteredArray;
       } else {
         // Single-select: replace value with custom value
-        setInternalValue(newCustomValue);
-        if (onChange) {
-          onChange(newCustomValue);
-        }
+        finalValue = newCustomValue;
+      }
+
+      setInternalValue(finalValue);
+
+      // Call form field.onChange if available (for react-hook-form integration)
+      if (formOnChangeRef.current) {
+        formOnChangeRef.current(finalValue);
+      }
+
+      // Call standalone onChange prop
+      if (onChange) {
+        onChange(finalValue);
       }
     },
     [
@@ -417,19 +447,26 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       const hasError = !!fieldError;
 
       return (
-        <RadioGroup
-          key={`radiogroup-${loading}-${finalChoices.length}`}
-          dataSource={finalChoices}
-          value={!Array.isArray(fieldValue) ? fieldValue : undefined}
-          disabled={disabled || loading || readOnly}
-          readOnly={readOnly}
-          onValueChanged={(e: any) => fieldOnChange(e.value)}
-          layout="vertical"
-          isValid={!hasError}
-          validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-        />
+        <>
+          <RadioGroup
+            key={`radiogroup-${loading}-${finalChoices.length}`}
+            dataSource={finalChoices}
+            value={!Array.isArray(fieldValue) ? fieldValue : undefined}
+            disabled={disabled || loading || readOnly}
+            readOnly={readOnly}
+            onValueChanged={(e: any) => fieldOnChange(e.value)}
+            layout="vertical"
+            isValid={!hasError}
+            validationStatus={hasError ? 'invalid' : 'valid'}
+            validationError={fieldError}
+            className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+          />
+          {hasError && (
+            <Text className={errorClass} role="alert">
+              {fieldError}
+            </Text>
+          )}
+        </>
       );
     };
 
@@ -452,27 +489,37 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       };
 
       return (
-        <Stack tokens={{ childrenGap: 8 }}>
-          {finalChoices.map((choice) => (
-            <CheckBox
-              key={`checkbox-${choice}`}
-              text={choice}
-              value={currentValues.includes(choice)}
-              disabled={disabled || loading || readOnly}
-              readOnly={readOnly}
-              onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
-              isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-            />
-          ))}
-        </Stack>
+        <>
+          <Stack tokens={{ childrenGap: 8 }}>
+            {finalChoices.map((choice) => (
+              <CheckBox
+                key={`checkbox-${choice}`}
+                text={choice}
+                value={currentValues.includes(choice)}
+                disabled={disabled || loading || readOnly}
+                readOnly={readOnly}
+                onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
+                isValid={!hasError}
+                validationStatus={hasError ? 'invalid' : 'valid'}
+                validationError={fieldError}
+                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+              />
+            ))}
+          </Stack>
+          {hasError && (
+            <Text className={errorClass} role="alert">
+              {fieldError}
+            </Text>
+          )}
+        </>
       );
     };
 
     // Render dropdown mode
+    // Delay rendering until DOM is ready to prevent DevExtreme measurement errors
     const renderDropdown = () => {
+      if (!isDOMReady) return null;
+
       const hasError = !!fieldError;
 
       return isMultiChoice ? (
@@ -488,7 +535,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           validationError={fieldError}
           className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
-          fieldRender={renderValue ? (values: string[]) => renderValue(values) : undefined}
+          // Note: fieldRender in TagBox receives one item at a time, not all values
+          // For custom multi-value display, use tag template customization instead
         />
       ) : (
         <SelectBox
@@ -501,7 +549,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           validationError={fieldError}
           className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
-          fieldRender={renderValue ? (value: string) => renderValue(value) : undefined}
+          // fieldRender for single select receives the selected item data
+          fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
         />
       );
     };
@@ -534,13 +583,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         )}
 
         {loading && (
-          <div className='sp-choice-field-loading'>
-            <LoadPanel
-              visible={true}
-              message='Loading choices...'
-              position={{ of: '.sp-choice-field-control' }}
-            />
-          </div>
+          <Spinner size={SpinnerSize.small} label="Loading choices..." />
         )}
 
         <div className='sp-choice-field-control' ref={fieldRef as React.RefObject<HTMLDivElement>}>
@@ -572,6 +615,9 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         rules={validationRules}
         defaultValue={defaultValue || (isMultiChoice ? emptyArray : emptyString)}
         render={({ field, fieldState }) => {
+          // Store field.onChange ref for use in handleCustomValueChange
+          formOnChangeRef.current = field.onChange;
+
           // Transform field.value for dropdown display (replace custom values with "Other")
           const displayValue = getDropdownValue(field.value);
 

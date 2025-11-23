@@ -80,7 +80,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     timeFormat = '12',
     firstDayOfWeek = 0,
     showWeekNumbers = false,
-    showClearButton = true,
+    showClearButton: _showClearButton = true, // Prefixed - see showClearBtn workaround
     showTodayButton = true,
     timeInterval = 30,
     dateValidator,
@@ -115,19 +115,22 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     }
   }, [name, label, required, formContext, fieldRef]);
 
-  // Wait for DOM to be fully ready before showing clear button
-  React.useEffect(() => {
-    // Use multiple animation frames to ensure DevExtreme has fully rendered
+  // Delay mounting DevExtreme component to avoid measurement errors
+  // DevExtreme's _getClearButtonWidth can fail if called before DOM is ready
+  // Using useLayoutEffect + double RAF to ensure container is fully painted
+  React.useLayoutEffect(() => {
+    let mounted = true;
+    // Double RAF ensures we're past the paint cycle
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+        if (mounted) {
           setIsDOMReady(true);
-        });
+        }
       });
     });
 
     return () => {
-      setIsDOMReady(false);
+      mounted = false;
     };
   }, []);
 
@@ -224,52 +227,79 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     [disabledDates]
   );
 
+  // Memoize calendar options at component level (not inside render function)
+  const calendarOpts = React.useMemo(() => ({
+    firstDayOfWeek: firstDayOfWeek as any,
+    showWeekNumbers: showWeekNumbers,
+    disabledDates: disabledDates && (typeof disabledDates === 'function' ? undefined : disabledDates),
+  }), [firstDayOfWeek, showWeekNumbers, disabledDates]);
+
+  // Determine if field is active (editable)
+  const isActive = !disabled && !readOnly;
+  // WORKAROUND: DevExtreme's showClearButton causes getComputedStyle errors
+  // when measuring clear button width before elements are fully rendered.
+  // Disable clear button to avoid _getClearButtonWidth measurement errors.
+  // TODO: Find alternative way to provide clear functionality (custom button)
+  const showClearBtn = false; // showClearButton && isActive;
+
+  // Memoize buttons configuration - use stable reference without fieldOnChange dependency
+  // The Today button will use a ref to get the current onChange handler
+  const onChangeRef = React.useRef<(val: Date | undefined) => void>();
+
+  const dateBoxButtons = React.useMemo(() => {
+    const buttons: any[] = [];
+
+    if (showCalendarIcon) {
+      buttons.push('dropDown');
+    }
+
+    if (showTodayButton && isActive) {
+      buttons.push({
+        name: 'today',
+        location: 'after',
+        options: {
+          text: 'Today',
+          onClick: () => {
+            if (onChangeRef.current) {
+              onChangeRef.current(new Date());
+            }
+          },
+        },
+      });
+    }
+
+    return buttons;
+  }, [showCalendarIcon, showTodayButton, isActive]);
+
+  // Stable buttons array for readonly mode
+  const readOnlyButtons = React.useMemo((): any[] =>
+    showCalendarIcon ? ['dropDown'] : [],
+    [showCalendarIcon]
+  );
+
+  // Normalize value - handle string dates from SharePoint
+  const normalizeValue = React.useCallback((fieldValue: Date | undefined): Date | undefined => {
+    if (!fieldValue) return undefined;
+    if (fieldValue instanceof Date) return fieldValue;
+    if (typeof fieldValue === 'string') {
+      const parsed = new Date(fieldValue);
+      return isNaN(parsed.getTime()) ? undefined : parsed;
+    }
+    return undefined;
+  }, []);
+
   // Render field content
   const renderField = (
     fieldValue: Date | undefined,
     fieldOnChange: (val: Date | undefined) => void,
     fieldError?: string
   ) => {
-    // Defensive normalization: convert string dates to Date objects
-    // SharePoint may return ISO 8601 strings instead of Date objects
-    const normalizedValue = React.useMemo(() => {
-      if (!fieldValue) return undefined;
-      if (fieldValue instanceof Date) return fieldValue;
-      if (typeof fieldValue === 'string') {
-        const parsed = new Date(fieldValue);
-        return isNaN(parsed.getTime()) ? undefined : parsed;
-      }
-      return undefined;
-    }, [fieldValue]);
+    // Update the ref so Today button can access current onChange
+    onChangeRef.current = fieldOnChange;
 
-    // Memoize buttons configuration to prevent re-creation on every render
-    const dateBoxButtons = React.useMemo(() => {
-      const buttons: any[] = [];
-
-      if (showCalendarIcon) {
-        buttons.push('dropDown');
-      }
-
-      if (showTodayButton && !disabled && !readOnly) {
-        buttons.push({
-          name: 'today',
-          location: 'after',
-          options: {
-            text: 'Today',
-            onClick: () => fieldOnChange(new Date()),
-          },
-        });
-      }
-
-      return buttons;
-    }, [showCalendarIcon, showTodayButton, disabled, readOnly, fieldOnChange]);
-
-    // Memoize calendar options to prevent re-creation
-    const calendarOpts = React.useMemo(() => ({
-      firstDayOfWeek: firstDayOfWeek as any,
-      showWeekNumbers: showWeekNumbers,
-      disabledDates: disabledDates && (typeof disabledDates === 'function' ? undefined : disabledDates),
-    }), [firstDayOfWeek, showWeekNumbers, disabledDates]);
+    const normalizedValue = normalizeValue(fieldValue);
+    const hasError = !!fieldError;
+    const componentKey = `datebox-${isActive ? 'active' : 'readonly'}-${includeTime}`;
 
     return (
       <Stack className={`sp-date-field ${containerClass} ${className || ''}`}>
@@ -286,81 +316,70 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
         )}
 
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
-
-        {(() => {
-          const isActive = !disabled && !readOnly;
-          const hasError = !!fieldError;
-          // DevExtreme's DateBox has a bug with showClearButton during initialization
-          // Keep it permanently disabled to prevent getComputedStyle errors
-          const showClearBtn = false;
-          const componentKey = `datebox-${isActive ? 'active' : 'readonly'}-${includeTime}`;
-
-          if (isActive) {
-            return (
-              <DateBox
-                key={componentKey}
-                value={normalizedValue}
-                onValueChanged={(e: any) => {
-                  if (e.value !== undefined && e.value !== null) {
-                    fieldOnChange(e.value);
-                  } else {
-                    fieldOnChange(undefined);
-                  }
-                }}
-                type={includeTime ? 'datetime' : 'date'}
-                displayFormat={format}
-                disabled={false}
-                readOnly={false}
-                placeholder={placeholder}
-                showClearButton={showClearBtn}
-                stylingMode={stylingMode}
-                min={minDate}
-                max={maxDate}
-                pickerType="calendar"
-                useMaskBehavior={true}
-                openOnFieldClick={true}
-                showAnalogClock={false}
-                interval={timeInterval}
-                calendarOptions={calendarOpts}
-                buttons={dateBoxButtons}
-                onFocusIn={onFocus}
-                onFocusOut={onBlur}
-                isValid={!hasError}
-                validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-              />
-            );
-          } else {
-            return (
-              <DateBox
-                key={componentKey}
-                value={normalizedValue}
-                onValueChanged={(e: any) => fieldOnChange(e.value)}
-                type={includeTime ? 'datetime' : 'date'}
-                displayFormat={format}
-                disabled={disabled}
-                readOnly={readOnly}
-                placeholder={placeholder}
-                showClearButton={false}
-                stylingMode={stylingMode}
-                min={minDate}
-                max={maxDate}
-                pickerType="calendar"
-                useMaskBehavior={true}
-                openOnFieldClick={false}
-                showAnalogClock={false}
-                interval={timeInterval}
-                calendarOptions={calendarOpts}
-                buttons={showCalendarIcon ? ['dropDown'] : []}
-                isValid={!hasError}
-                validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-              />
-            );
-          }
-        })()}
+        {/* Delay rendering DevExtreme component until DOM is ready to prevent measurement errors */}
+        {isDOMReady && (
+          isActive ? (
+            <DateBox
+              key={componentKey}
+              value={normalizedValue}
+              onValueChanged={(e: any) => {
+                if (e.value !== undefined && e.value !== null) {
+                  fieldOnChange(e.value);
+                } else {
+                  fieldOnChange(undefined);
+                }
+              }}
+              type={includeTime ? 'datetime' : 'date'}
+              displayFormat={format}
+              disabled={false}
+              readOnly={false}
+              placeholder={placeholder}
+              showClearButton={showClearBtn}
+              stylingMode={stylingMode}
+              min={minDate}
+              max={maxDate}
+              pickerType="calendar"
+              useMaskBehavior={true}
+              openOnFieldClick={true}
+              showAnalogClock={false}
+              interval={timeInterval}
+              calendarOptions={calendarOpts}
+              buttons={dateBoxButtons}
+              onFocusIn={onFocus}
+              onFocusOut={onBlur}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              validationError={fieldError}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+            />
+          ) : (
+            <DateBox
+              key={componentKey}
+              value={normalizedValue}
+              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              type={includeTime ? 'datetime' : 'date'}
+              displayFormat={format}
+              disabled={disabled}
+              readOnly={readOnly}
+              placeholder={placeholder}
+              showClearButton={false}
+              stylingMode={stylingMode}
+              min={minDate}
+              max={maxDate}
+              pickerType="calendar"
+              useMaskBehavior={true}
+              openOnFieldClick={false}
+              showAnalogClock={false}
+              interval={timeInterval}
+              calendarOptions={calendarOpts}
+              buttons={readOnlyButtons}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              validationError={fieldError}
+              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+            />
+          )
+        )}
         </div>
       </Stack>
     );

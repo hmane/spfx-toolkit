@@ -175,9 +175,9 @@ const modified = extractor.date('Modified', new Date());
 
 #### User/People Fields
 
-##### `user(fieldName: string): IPrincipal | undefined`
+##### `user(fieldName: string): IPrincipal | null`
 
-Extract single user/person field.
+Extract single user/person field. Returns `null` if field is empty or not found.
 
 ```typescript
 const author = extractor.user('Author');
@@ -226,9 +226,9 @@ approvers.forEach(user => {
 
 #### Lookup Fields
 
-##### `lookup(fieldName: string): SPLookup | undefined`
+##### `lookup(fieldName: string): SPLookup | null`
 
-Extract single lookup field.
+Extract single lookup field. Returns `null` if field is empty or not found.
 
 ```typescript
 const project = extractor.lookup('Project');
@@ -267,9 +267,9 @@ relatedItems.forEach(item => {
 
 #### Taxonomy/Managed Metadata Fields
 
-##### `taxonomy(fieldName: string): SPTaxonomy | undefined`
+##### `taxonomy(fieldName: string): SPTaxonomy | null`
 
-Extract single taxonomy/managed metadata field.
+Extract single taxonomy/managed metadata field. Returns `null` if field is empty or not found.
 
 ```typescript
 const category = extractor.taxonomy('Category');
@@ -345,9 +345,9 @@ colors.forEach(color => {
 
 #### Modern SharePoint Fields
 
-##### `url(fieldName: string): SPUrl | undefined`
+##### `url(fieldName: string): SPUrl | null`
 
-Extract hyperlink/URL field.
+Extract hyperlink/URL field. Returns `null` if field is empty or not found.
 
 ```typescript
 const website = extractor.url('Website');
@@ -366,9 +366,9 @@ if (website) {
 
 ---
 
-##### `location(fieldName: string): SPLocation | undefined`
+##### `location(fieldName: string): SPLocation | null`
 
-Extract location field.
+Extract location field. Returns `null` if field is empty or not found.
 
 ```typescript
 const officeLocation = extractor.location('OfficeLocation');
@@ -390,9 +390,9 @@ if (officeLocation?.coordinates) {
 
 ---
 
-##### `image(fieldName: string): SPImage | undefined`
+##### `image(fieldName: string): SPImage | null`
 
-Extract image/thumbnail field.
+Extract image/thumbnail field. Returns `null` if field is empty or not found.
 
 ```typescript
 const thumbnail = extractor.image('Thumbnail');
@@ -508,38 +508,113 @@ console.log(rawItem.ID, rawItem.Title);
 
 ### SPUpdater API
 
-The `createSPUpdater()` function creates an updater object with intelligent change detection and SharePoint-compatible formatting.
+The `createSPUpdater()` function creates an updater object with intelligent change detection, **value-based type detection**, and SharePoint-compatible formatting.
 
-#### Core Methods
+**Two API Styles Available:**
+
+1. **Typed Setter Methods (Recommended)** - Explicit type safety and clarity
+2. **Auto-Detection with set()** - Convenient for simple cases
+
+---
+
+#### Typed Setter Methods (Recommended)
+
+Use explicit typed methods for better type safety and to handle empty arrays correctly:
+
+```typescript
+const updater = createSPUpdater()
+  .setText('Title', 'My Title', originalItem.Title)
+  .setNumber('Priority', 1, originalItem.Priority)
+  .setBoolean('IsActive', true, originalItem.IsActive)
+  .setDate('DueDate', new Date(), originalItem.DueDate)
+  .setChoice('Status', 'Active', originalItem.Status)
+  .setMultiChoice('Features', ['Feature1', 'Feature2'], originalItem.Features)
+  .setUser('AssignedTo', userPrincipal, originalItem.AssignedTo)
+  .setUserMulti('Reviewers', [user1, user2], originalItem.Reviewers)
+  .setLookup('Category', { Id: 1, Title: 'Category A' }, originalItem.Category)
+  .setLookupMulti('Tags', [{ Id: 1 }, { Id: 2 }], originalItem.Tags)
+  .setTaxonomy('Department', { Label: 'HR', TermGuid: '...' }, originalItem.Department)
+  .setTaxonomyMulti('Keywords', terms, originalItem.Keywords)
+  .setUrl('Website', { url: 'https://...', description: 'My Site' }, originalItem.Website);
+
+const updates = updater.getUpdates();
+```
+
+**Why Typed Methods?**
+- ✅ **Empty arrays handled correctly** - `setLookupMulti('Tags', [])` knows it's a lookup field
+- ✅ **Type safety** - TypeScript knows the expected value type
+- ✅ **Clarity** - Intent is explicit in the code
+- ✅ **No guessing** - Field type is guaranteed
+
+##### Typed Method Reference
+
+| Method | Value Type | SharePoint Format |
+|--------|------------|-------------------|
+| `setText(field, value, original?)` | `string` | Direct string |
+| `setNumber(field, value, original?)` | `number` | Direct number |
+| `setBoolean(field, value, original?)` | `boolean` | Direct boolean |
+| `setDate(field, value, original?)` | `Date` | ISO string |
+| `setChoice(field, value, original?)` | `string` | Direct string |
+| `setMultiChoice(field, values, original?)` | `string[]` | `{ results: [...] }` |
+| `setUser(field, user, original?)` | `IPrincipal` | `{ FieldNameId: number }` |
+| `setUserMulti(field, users, original?)` | `IPrincipal[]` | `{ FieldNameId: { results: [...] } }` |
+| `setLookup(field, lookup, original?)` | `{ Id, Title }` | `{ FieldNameId: number }` |
+| `setLookupMulti(field, lookups, original?)` | `{ Id, Title }[]` | `{ FieldNameId: { results: [...] } }` |
+| `setTaxonomy(field, term, original?)` | `{ Label, TermGuid }` | Taxonomy format |
+| `setTaxonomyMulti(field, terms, original?)` | `Array` | Multi-taxonomy format |
+| `setUrl(field, url, original?)` | `{ url, description? }` | URL format |
+
+---
+
+#### Auto-Detection with set()
+
+For simple cases, use `set()` which auto-detects type from value structure:
 
 ##### `set(fieldName: string, value: any, originalValue?: any): this`
-
-Set a field value with optional change detection.
 
 ```typescript
 const updater = createSPUpdater();
 
-// Without change detection (always marked as changed)
-updater.set('Title', 'New Title');
-
-// With change detection (only marked as changed if different)
+// Auto-detects string
 updater.set('Title', 'New Title', originalItem.Title);
-updater.set('Status', 'Completed', originalItem.Status);
 
-// Returns 'this' for method chaining
+// Auto-detects user (has email property)
+updater.set('AssignedTo', { id: '1', email: 'user@domain.com' }, originalItem.AssignedTo);
+
+// Auto-detects lookup (has Id + Title)
+updater.set('Category', { Id: 1, Title: 'Category A' }, originalItem.Category);
+
+// Auto-detects date
+updater.set('DueDate', new Date(), originalItem.DueDate);
+
+// Method chaining
 updater
   .set('Title', 'New Title', originalItem.Title)
   .set('Status', 'Completed', originalItem.Status)
   .set('Priority', 'High', originalItem.Priority);
 ```
 
-**Supported Value Types:**
-- Primitives: string, number, boolean, Date
-- User/People: `IPrincipal` or `IPrincipal[]`
-- Lookup: `{ id: number }` or array
-- Taxonomy: `{ label: string, termId: string }` or array
-- URL: `{ url: string, description?: string }`
-- Location, Image, etc.
+**⚠️ Important:** For empty arrays, use typed methods instead:
+```typescript
+// ❌ BAD: Auto-detection cannot infer type from empty array
+updater.set('Tags', []);
+
+// ✅ GOOD: Use typed method
+updater.setLookupMulti('Tags', []);
+```
+
+**Type Detection Rules:**
+- `string` → String field
+- `number` → Number field
+- `boolean` → Boolean field
+- `Date` → DateTime field
+- `{ email: ... }` or `{ loginName: ... }` → User field
+- `{ Id: ..., Title: ... }` (without email) → Lookup field
+- `{ termId: ... }` or `{ TermGuid: ... }` → Taxonomy field
+- `{ url: ... }` → URL field
+- `string[]` → Multi-choice field
+- `{ email }[]` → User multi field
+- `{ Id, Title }[]` → Lookup multi field
 
 ---
 

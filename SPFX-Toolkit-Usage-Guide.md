@@ -5032,6 +5032,27 @@ React.useEffect(() => {
 }, [loadData]);  // Include callback in dependencies
 ```
 
+### Issue: SPDateField Clear Button Not Showing
+
+**Symptoms:** The `showClearButton` prop on SPDateField doesn't display the clear button
+
+**Explanation:** Due to a DevExtreme initialization timing issue where `_getClearButtonWidth` is called before the DOM element exists, the clear button has been temporarily disabled. This is a known workaround to prevent `TypeError: Failed to execute 'getComputedStyle' on 'Window'` errors.
+
+**Workarounds:**
+1. Set the value to `undefined` or `null` programmatically to clear the field
+2. Add a separate clear button next to the field:
+
+```typescript
+<Stack horizontal tokens={{ childrenGap: 8 }}>
+  <SPDateField name="dueDate" label="Due Date" control={control} />
+  <IconButton
+    iconProps={{ iconName: 'Clear' }}
+    onClick={() => setValue('dueDate', null)}
+    title="Clear date"
+  />
+</Stack>
+```
+
 ---
 
 ## Best Practices

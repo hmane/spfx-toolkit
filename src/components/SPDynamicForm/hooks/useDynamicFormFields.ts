@@ -12,6 +12,15 @@ import { applyFieldOverrides } from '../utilities/fieldConfigBuilder';
 import { optimizeLookupFields } from '../utilities/lookupFieldOptimizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 
+/** Default cache TTL in milliseconds (5 minutes) */
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** Cache entry structure with timestamp */
+interface ICacheEntry {
+  fields: IFieldMetadata[];
+  timestamp: number;
+}
+
 export interface IUseDynamicFormFieldsOptions {
   listId: string;
   mode: 'new' | 'edit' | 'view';
@@ -26,6 +35,8 @@ export interface IUseDynamicFormFieldsOptions {
   lookupThreshold?: number;
   lookupFieldConfig?: ILookupFieldConfig[];
   cacheFields?: boolean;
+  /** Cache time-to-live in milliseconds (default: 5 minutes) */
+  cacheTTL?: number;
   onBeforeLoad?: () => Promise<void | boolean>;
   onAfterLoad?: (fields: IFieldMetadata[]) => void;
   onError?: (error: Error) => void;
@@ -61,6 +72,7 @@ export function useDynamicFormFields(
     lookupThreshold = 5000,
     lookupFieldConfig,
     cacheFields = true,
+    cacheTTL = DEFAULT_CACHE_TTL_MS,
     onBeforeLoad,
     onAfterLoad,
     onError,
@@ -137,22 +149,36 @@ export function useDynamicFormFields(
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
           try {
-            fields = JSON.parse(cached) as IFieldMetadata[];
-            SPContext.logger.info(`Loaded ${fields.length} fields from cache`);
+            const cacheEntry = JSON.parse(cached) as ICacheEntry;
+            const now = Date.now();
+            const cacheAge = now - cacheEntry.timestamp;
+
+            if (cacheAge < cacheTTL) {
+              fields = cacheEntry.fields;
+              SPContext.logger.info(`Loaded ${fields.length} fields from cache (age: ${Math.round(cacheAge / 1000)}s)`);
+            } else {
+              SPContext.logger.info(`Cache expired (age: ${Math.round(cacheAge / 1000)}s > TTL: ${Math.round(cacheTTL / 1000)}s), reloading`);
+              sessionStorage.removeItem(cacheKey);
+            }
           } catch (err) {
             SPContext.logger.warn('Failed to parse cached fields, reloading', err);
+            sessionStorage.removeItem(cacheKey);
           }
         }
       }
 
-      // Load fields if not cached
+      // Load fields if not cached or cache expired
       if (!fields) {
         fields = await resolveFieldOrder(listId, contentTypeId, useContentTypeOrder, fieldOrder);
 
-        // Cache the fields
+        // Cache the fields with timestamp
         if (cacheFields) {
           try {
-            sessionStorage.setItem(cacheKey, JSON.stringify(fields));
+            const cacheEntry: ICacheEntry = {
+              fields,
+              timestamp: Date.now(),
+            };
+            sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
           } catch (err) {
             SPContext.logger.warn('Failed to cache fields', err);
           }

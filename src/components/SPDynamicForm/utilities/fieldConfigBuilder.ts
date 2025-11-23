@@ -168,7 +168,13 @@ export function buildFieldProps(
     case SPFieldType.MultiChoice:
       props.choices = field.fieldConfig.choices;
       props.allowMultiple = field.fieldConfig.isMulti;
-      // Note: allowFillIn/fillInChoice is handled via otherConfig in SPChoiceField
+      // Enable "Other" option if field allows fill-in choices
+      if (field.fieldConfig.fillInChoice) {
+        props.otherConfig = {
+          enableOtherOption: true,
+          otherOptionText: 'Other',
+        };
+      }
       break;
 
     case SPFieldType.DateTime:

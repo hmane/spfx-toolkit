@@ -1,4 +1,4 @@
-# SPDateField Component =Å
+# SPDateField Component =ï¿½
 
 A comprehensive date and datetime field component that mirrors SharePoint's Date and DateTime fields. Supports date-only and date-time modes with extensive calendar customization, time picker, validation, and DevExtreme UI integration.
 
@@ -18,20 +18,20 @@ A comprehensive date and datetime field component that mirrors SharePoint's Date
 
 ## Features
 
-- =Å **Date & DateTime Modes** - Date-only or date with time
-- ð **Time Picker** - 12-hour or 24-hour format
+- =ï¿½ **Date & DateTime Modes** - Date-only or date with time
+- ï¿½ **Time Picker** - 12-hour or 24-hour format
 - = **Date Validation** - Min/max dates, custom validators
-- =« **Disabled Dates** - Block specific dates from selection
-- =Æ **Calendar Customization** - Week numbers, first day of week
-- <£ **React Hook Form** - Native integration with validation
-- <¨ **DevExtreme UI** - Consistent styling with spForm system
+- =ï¿½ **Disabled Dates** - Block specific dates from selection
+- =ï¿½ **Calendar Customization** - Week numbers, first day of week
+- <ï¿½ **React Hook Form** - Native integration with validation
+- <ï¿½ **DevExtreme UI** - Consistent styling with spForm system
 -  **Validation** - Built-in validation with custom rules
 - =P **Time Intervals** - Configurable time step intervals
 - = **Quick Buttons** - Today, clear buttons
-- <­ **Styling Modes** - Outlined, underlined, or filled styles
+- <ï¿½ **Styling Modes** - Outlined, underlined, or filled styles
 - = **Access Control** - Read-only and disabled states
-- =æ **Tree-Shakable** - Import only what you need
-- <¯ **TypeScript** - Full type safety
+- =ï¿½ **Tree-Shakable** - Import only what you need
+- <ï¿½ **TypeScript** - Full type safety
 
 ---
 
@@ -833,6 +833,37 @@ const disabledDates = (date: Date): boolean => {
   const day = date.getDay();
   return day === 0 || day === 6; // Weekend
 };
+```
+
+---
+
+## Known Limitations
+
+### Clear Button Temporarily Disabled
+
+Due to a DevExtreme timing issue where `_getClearButtonWidth` is called before DOM elements are ready, the `showClearButton` prop is currently disabled. This prevents a `TypeError: Failed to execute 'getComputedStyle' on 'Window'` error.
+
+**Workaround:**
+```typescript
+// Option 1: Clear programmatically
+const { control, setValue } = useForm();
+
+<Stack horizontal tokens={{ childrenGap: 8 }}>
+  <SPDateField name="dueDate" label="Due Date" control={control} />
+  <IconButton
+    iconProps={{ iconName: 'Clear' }}
+    onClick={() => setValue('dueDate', null)}
+    title="Clear date"
+  />
+</Stack>
+
+// Option 2: Use Today button (still works)
+<SPDateField
+  name="dueDate"
+  label="Due Date"
+  control={control}
+  showTodayButton  // This works
+/>
 ```
 
 ---

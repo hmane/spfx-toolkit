@@ -354,6 +354,32 @@ export interface IFormSubmitResult<T extends FieldValues = any> {
 
     /** File names to delete */
     filesToDelete: string[];
+
+    /**
+     * Helper to upload attachments after creating/updating an item.
+     * For new items: call this after creating the item with the new itemId.
+     * For edit mode: can also use to upload/delete attachments.
+     *
+     * @param targetItemId - The item ID to upload attachments to (required for new items)
+     * @returns Promise with upload results
+     *
+     * @example
+     * ```typescript
+     * // For new items:
+     * const handleSubmit = async (result: IFormSubmitResult) => {
+     *   // 1. Create the item
+     *   const newItem = await list.items.add(result.updates);
+     *
+     *   // 2. Upload attachments
+     *   await result.attachments.uploadAll(newItem.Id);
+     * };
+     * ```
+     */
+    uploadAll: (targetItemId?: number) => Promise<{
+      uploaded: string[];
+      deleted: string[];
+      errors: Array<{ fileName: string; error: string }>;
+    }>;
   };
 
   // ===== METADATA =====

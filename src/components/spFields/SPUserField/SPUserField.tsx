@@ -219,96 +219,6 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
 
-  // Debug logging - log current value changes
-  React.useEffect(() => {
-    if (SPContext.logger) {
-      SPContext.logger.info(`🔍 SPUserField[${name}] - Current Value:`, {
-        name,
-        currentValue,
-        hasValue: !!currentValue,
-        valueType: Array.isArray(currentValue) ? 'array' : typeof currentValue,
-        valueDetails: currentValue ? (Array.isArray(currentValue) ? currentValue : [currentValue]).map((v: any) => ({
-          id: normalizeToIPrincipal(v).id,
-          email: normalizeToIPrincipal(v).email,
-          title: normalizeToIPrincipal(v).title,
-        })) : null,
-      });
-    }
-  }, [currentValue, name]);
-
-  // Convert value to string[] (user IDs or emails) for PeoplePicker
-  // Filter out empty/invalid users
-  const selectedUsers = React.useMemo(() => {
-    if (!currentValue) return [];
-
-    const processUser = (user: SPUserFieldValue) => {
-      const principal = normalizeToIPrincipal(user);
-      // Skip users with no id or empty id
-      if (!principal.id || principal.id === '' || principal.id === '0') {
-        return null;
-      }
-      const formatted = principalToPeoplePickerFormat(principal);
-      // Skip if no valid identifier
-      if (!formatted || formatted === '') {
-        return null;
-      }
-      return formatted;
-    };
-
-    let result: string[];
-    if (Array.isArray(currentValue)) {
-      result = currentValue.map(processUser).filter((u): u is string => u !== null);
-    } else {
-      const formatted = processUser(currentValue);
-      result = formatted ? [formatted] : [];
-    }
-
-    // Log selectedUsers result
-    if (SPContext.logger && name) {
-      SPContext.logger.info(`🔍 SPUserField[${name}] - Selected Users:`, {
-        name,
-        selectedUsers: result,
-        count: result.length,
-      });
-    }
-
-    return result;
-  }, [currentValue, name]);
-
-  // Generate a key for PeoplePicker to force remount when value changes externally
-  // This is needed because PeoplePicker's defaultSelectedUsers only works on initial mount
-  // Use email/loginName instead of id for better stability (id can be empty on new users)
-  const peoplePickerKey = React.useMemo(() => {
-    if (!currentValue) return 'empty';
-
-    const getKey = (user: SPUserFieldValue) => {
-      const principal = normalizeToIPrincipal(user);
-      // Use email or loginName for key (more stable than id which can be empty)
-      return principal.email || principal.loginName || principal.id || 'unknown';
-    };
-
-    let result: string;
-    if (Array.isArray(currentValue)) {
-      const keys = currentValue
-        .map(getKey)
-        .filter(k => k && k !== 'unknown')
-        .join(',');
-      result = keys || 'empty-array';
-    } else {
-      const key = getKey(currentValue);
-      result = (key && key !== 'unknown') ? key : 'single-unknown';
-    }
-
-    // Log peoplePickerKey result
-    if (SPContext.logger && name) {
-      SPContext.logger.info(`🔍 SPUserField[${name}] - PeoplePicker Key:`, {
-        name,
-        peoplePickerKey: result,
-      });
-    }
-
-    return result;
-  }, [currentValue, name]);
 
   // Handle PeoplePicker change
   const handlePeoplePickerChange = React.useCallback(
@@ -434,64 +344,16 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         return formatted;
       };
 
-      let result: string[];
       if (Array.isArray(value)) {
-        result = value.map(processUser).filter((u): u is string => u !== null);
+        return value.map(processUser).filter((u): u is string => u !== null);
       } else {
         const formatted = processUser(value);
-        result = formatted ? [formatted] : [];
+        return formatted ? [formatted] : [];
       }
-
-      // Log selectedUsers result
-      if (SPContext.logger && name) {
-        SPContext.logger.info(`🔍 SPUserField[${name}] - Computed Selected Users from fieldValue:`, {
-          name,
-          fieldValue: value,
-          selectedUsers: result,
-          count: result.length,
-        });
-      }
-
-      return result;
-    };
-
-    // IMPORTANT: Compute peoplePickerKey from fieldValue (not from value prop!)
-    const computePeoplePickerKey = (value: SPUserFieldValue | SPUserFieldValue[]): string => {
-      if (!value) return 'empty';
-
-      const getKey = (user: SPUserFieldValue) => {
-        const principal = normalizeToIPrincipal(user);
-        // Use email or loginName for key (more stable than id which can be empty)
-        return principal.email || principal.loginName || principal.id || 'unknown';
-      };
-
-      let result: string;
-      if (Array.isArray(value)) {
-        const keys = value
-          .map(getKey)
-          .filter(k => k && k !== 'unknown')
-          .join(',');
-        result = keys || 'empty-array';
-      } else {
-        const key = getKey(value);
-        result = (key && key !== 'unknown') ? key : 'single';
-      }
-
-      // Log peoplePickerKey result
-      if (SPContext.logger && name) {
-        SPContext.logger.info(`🔍 SPUserField[${name}] - Computed PeoplePicker Key from fieldValue:`, {
-          name,
-          fieldValue: value,
-          peoplePickerKey: result,
-        });
-      }
-
-      return result;
     };
 
     // Use fieldValue (from Controller) to compute these, not the value prop!
     const fieldSelectedUsers = computeSelectedUsers(fieldValue);
-    const fieldPeoplePickerKey = computePeoplePickerKey(fieldValue);
 
     return (
       <Stack className={`sp-user-field ${containerClass} ${className || ''}`}>
@@ -515,7 +377,6 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             padding: fieldError ? '0' : '0'
           }}>
             <PeoplePicker
-              key={fieldPeoplePickerKey}
               context={SPContext.peoplepickerContext}
               personSelectionLimit={resolvedAllowMultiple ? maxSelections : 1}
               groupName={typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined}
@@ -523,58 +384,19 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
               required={required}
               disabled={disabled || readOnly || loading}
               onChange={(items: any[]) => {
-                // Log PeoplePicker onChange
-                if (SPContext.logger && name) {
-                  SPContext.logger.info(`🔍 SPUserField[${name}] - PeoplePicker onChange:`, {
-                    name,
-                    items,
-                    itemCount: items?.length || 0,
-                  });
-                }
-
                 // Convert PeoplePicker items to IPrincipal format
                 const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
                 const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
-
-                // Log converted value
-                if (SPContext.logger && name) {
-                  SPContext.logger.info(`🔍 SPUserField[${name}] - Converted Value:`, {
-                    name,
-                    principals,
-                    finalValue,
-                    finalValueDetails: finalValue ? (Array.isArray(finalValue) ? finalValue : [finalValue]).map((v: any) => ({
-                      id: v.id,
-                      email: v.email,
-                      title: v.title,
-                    })) : null,
-                  });
-                }
 
                 // Update internal state
                 setInternalValue(finalValue as any);
 
                 // Call fieldOnChange for React Hook Form
-                if (SPContext.logger && name) {
-                  SPContext.logger.info(`🔍 SPUserField[${name}] - Calling fieldOnChange:`, {
-                    name,
-                    finalValue,
-                  });
-                }
                 fieldOnChange(finalValue as any);
 
                 // Call onChange prop if provided
                 if (onChange) {
-                  if (SPContext.logger && name) {
-                    SPContext.logger.info(`🔍 SPUserField[${name}] - Calling onChange prop:`, {
-                      name,
-                      finalValue,
-                    });
-                  }
                   onChange(finalValue as any);
-                }
-
-                if (SPContext.logger && name) {
-                  SPContext.logger.success(`✅ SPUserField[${name}] - onChange complete`);
                 }
               }}
               defaultSelectedUsers={fieldSelectedUsers}

@@ -9,8 +9,6 @@
 
 import * as React from 'react';
 import { Controller, RegisterOptions } from 'react-hook-form';
-import { SelectBox } from 'devextreme-react/select-box';
-import { TagBox } from 'devextreme-react/tag-box';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
@@ -18,6 +16,21 @@ import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
+import { ModernTaxonomyPicker } from '@pnp/spfx-controls-react/lib/ModernTaxonomyPicker';
+
+/**
+ * Term info interface matching ModernTaxonomyPicker's expected format
+ */
+interface ITermInfoLabel {
+  name: string;
+  isDefault: boolean;
+  languageTag: string;
+}
+
+interface ITermInfo {
+  id: string;
+  labels: ITermInfoLabel[];
+}
 import { ISPTaxonomyFieldProps, ITaxonomyDataSource } from './SPTaxonomyField.types';
 import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
@@ -243,20 +256,19 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       }
 
       try {
-        // Note: This is a simplified implementation
-        // In a real-world scenario, you would use @pnp/sp-taxonomy or TaxonomyPicker
-        // from @pnp/spfx-controls-react for full taxonomy support
+        // Using ModernTaxonomyPicker from @pnp/spfx-controls-react
+        // No need to load terms manually - the picker handles this
 
-        SPContext.logger.warn('SPTaxonomyField: Simplified taxonomy loading', {
+        SPContext.logger.info('SPTaxonomyField: Ready to use ModernTaxonomyPicker', {
           termSetId: resolvedDataSource.termSetId,
-          message: 'Full taxonomy support requires @pnp/sp-taxonomy package'
+          anchorId: resolvedDataSource.anchorId
         });
 
         if (!isMounted) return;
 
-        // For now, return empty terms and show a message
-        setTerms([]);
-        setError('Taxonomy field requires additional configuration. Please use TaxonomyPicker from @pnp/spfx-controls-react for full support.');
+        // Clear any previous error and mark as ready
+        setTerms([]); // Terms not needed - ModernTaxonomyPicker loads them
+        setError(null);
       } catch (err: any) {
         if (!isMounted) return;
 
@@ -327,12 +339,52 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     return term.Label;
   }, [resolvedShowPath, pathSeparator]);
 
+  // Convert ISPTaxonomyFieldValue to ITermInfo format expected by ModernTaxonomyPicker
+  const convertToTermInfo = React.useCallback((val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[] | null): ITermInfo[] => {
+    if (!val) return [];
+    const values = Array.isArray(val) ? val : [val];
+    return values
+      .filter(v => v && v.TermGuid)
+      .map(v => ({
+        id: v.TermGuid,
+        labels: [{ name: v.Label, isDefault: true, languageTag: 'en-US' }],
+        // Add other required ITermInfo fields with default values
+      } as ITermInfo));
+  }, []);
+
+  // Convert ITermInfo[] back to ISPTaxonomyFieldValue or ISPTaxonomyFieldValue[]
+  const convertFromTermInfo = React.useCallback((terms: ITermInfo[]): ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[] => {
+    const converted = terms.map(term => ({
+      Label: term.labels?.find(l => l.isDefault)?.name || term.labels?.[0]?.name || '',
+      TermGuid: term.id,
+      WssId: -1, // WssId is not available from ITermInfo
+    }));
+
+    if (resolvedAllowMultiple) {
+      return converted;
+    } else {
+      return converted[0] || null;
+    }
+  }, [resolvedAllowMultiple]);
+
   // Render field content
   const renderField = (
     fieldValue: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[],
     fieldOnChange: (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]) => void,
     fieldError?: string
   ) => {
+    // Check if SPContext is available
+    if (!SPContext.spfxContext) {
+      return (
+        <Stack className={containerClass}>
+          {label && <Label required={required}>{label}</Label>}
+          <MessageBar messageBarType={MessageBarType.error}>
+            SPContext not initialized. Taxonomy field requires SPContext to be initialized with SPFx context.
+          </MessageBar>
+        </Stack>
+      );
+    }
+
     if (error) {
       return (
         <Stack className={containerClass}>
@@ -344,95 +396,57 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       );
     }
 
-    // IMPORTANT: Compute displayValue from fieldValue (not from value prop!)
-    // This is the data passed by Controller from React Hook Form
-    const computeDisplayValue = (value: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]): string | string[] | null => {
-      if (!value) return resolvedAllowMultiple ? [] : null;
-
-      if (resolvedAllowMultiple) {
-        return Array.isArray(value) ? value.map(v => v.TermGuid) : [];
-      } else {
-        return Array.isArray(value) ? value[0]?.TermGuid : (value as ISPTaxonomyFieldValue)?.TermGuid;
-      }
-    };
-
-    // Use fieldValue (from Controller) to compute displayValue, not the value prop!
-    const fieldDisplayValue = computeDisplayValue(fieldValue);
+    // Check if we have the required termSetId
+    if (!resolvedDataSource?.termSetId) {
+      return (
+        <Stack className={containerClass}>
+          {label && <Label required={required}>{label}</Label>}
+          {loading ? (
+            <Spinner size={SpinnerSize.small} label="Loading field configuration..." />
+          ) : (
+            <MessageBar messageBarType={MessageBarType.warning}>
+              Taxonomy field configuration missing. Provide either termSetId or columnName/listId.
+            </MessageBar>
+          )}
+        </Stack>
+      );
+    }
 
     const hasError = !!fieldError;
-
-    // Common props for both SelectBox and TagBox
-    const commonProps = {
-      dataSource: terms,
-      displayExpr: (item: ISPTaxonomyFieldValue) => getDisplayLabel(item),
-      valueExpr: 'TermGuid',
-      disabled: disabled || loading,
-      readOnly: readOnly,
-      placeholder: loading ? 'Loading terms...' : placeholder,
-      showClearButton: showClearButton && !readOnly && !loading,
-      stylingMode: stylingMode,
-      onFocusIn: onFocus,
-      onFocusOut: onBlur,
-    };
+    const initialTerms = convertToTermInfo(fieldValue);
 
     return (
       <Stack className={`sp-taxonomy-field ${containerClass} ${className || ''}`}>
-        {label && (
-          <Label required={required} disabled={disabled}>
-            {label}
-          </Label>
-        )}
-
         {description && (
           <Text variant="small" style={{ marginBottom: 4 }}>
             {description}
           </Text>
         )}
 
-        {loading && (
-          <Spinner size={SpinnerSize.small} label="Loading terms..." />
-        )}
-
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
-        {!loading && terms.length >= 0 && (
-          resolvedAllowMultiple ? (
-            <TagBox
-              key={`tagbox-${loading}-${terms.length}`}
-              {...commonProps}
-              value={Array.isArray(fieldDisplayValue) ? fieldDisplayValue : []}
-              onValueChanged={(e: any) => {
-                const selectedGuids = e.value || [];
-                const selectedTerms = terms.filter(term => selectedGuids.includes(term.TermGuid));
-                fieldOnChange(selectedTerms);
-              }}
-              maxDisplayedTags={maxDisplayedTags}
-              isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-              searchEnabled={showSearchBox}
-              searchTimeout={searchDelay}
-              minSearchLength={minSearchLength}
-            />
-          ) : (
-            <SelectBox
-              key={`selectbox-${loading}-${terms.length}`}
-              {...commonProps}
-              value={!Array.isArray(fieldDisplayValue) ? fieldDisplayValue : null}
-              onValueChanged={(e: any) => {
-                const selectedGuid = e.value;
-                const selectedTerm = terms.find(term => term.TermGuid === selectedGuid);
-                fieldOnChange(selectedTerm || null as any);
-              }}
-              isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-              searchEnabled={showSearchBox}
-            />
-          )
-        )}
+          <ModernTaxonomyPicker
+            context={SPContext.spfxContext}
+            termSetId={resolvedDataSource.termSetId}
+            anchorTermId={resolvedDataSource.anchorId}
+            label={label || ''}
+            panelTitle={`Select ${label || 'Terms'}`}
+            placeHolder={placeholder}
+            disabled={disabled || readOnly}
+            allowMultipleSelections={resolvedAllowMultiple || false}
+            required={required}
+            initialValues={initialTerms}
+            onChange={(terms) => {
+              const converted = convertFromTermInfo(terms || []);
+              fieldOnChange(converted);
+            }}
+          />
         </div>
+
+        {hasError && (
+          <Text className={errorClass} role="alert">
+            {fieldError}
+          </Text>
+        )}
       </Stack>
     );
   };

@@ -741,6 +741,9 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   }
 
   // Render form
+  // Two providers are required for full functionality:
+  // - FormProvider (react-hook-form): provides form methods (register, setValue, etc.) to children via useFormContext()
+  // - SPFormProvider (custom): provides field registry, error scroll handling, and SP-specific utilities
   return (
     <div className={`sp-dynamic-form sp-dynamic-form-${mode} ${className || ''}`}>
       <FormProvider {...form}>

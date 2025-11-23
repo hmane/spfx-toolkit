@@ -165,9 +165,26 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
         );
 
       case SPFieldType.Number:
-        // For currency fields, just use regular number field
-        // The formatting would need to be handled in a wrapper or custom field
         return <SPNumberField {...fieldPropsWithoutLabel} />;
+
+      case SPFieldType.Currency:
+        return (
+          <SPNumberField
+            {...fieldPropsWithoutLabel}
+            showCurrency={true}
+            currencySymbol={field.fieldConfig?.currencySymbol || '$'}
+          />
+        );
+
+      case SPFieldType.Integer:
+      case SPFieldType.Counter:
+        return (
+          <SPNumberField
+            {...fieldPropsWithoutLabel}
+            decimals={0}
+            step={1}
+          />
+        );
 
       case SPFieldType.Boolean:
         return <SPBooleanField {...fieldPropsWithoutLabel} />;
@@ -226,7 +243,8 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
       case SPFieldType.URL:
         return <SPUrlField {...fieldPropsWithoutLabel} />;
 
-      case SPFieldType.TaxonomyFieldType: {
+      case SPFieldType.TaxonomyFieldType:
+      case SPFieldType.TaxonomyFieldTypeMulti: {
         // Validate taxonomy configuration
         const termSetId = field.fieldConfig?.termSetId;
         if (!termSetId) {
@@ -237,7 +255,12 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
           );
         }
 
-        return <SPTaxonomyField {...fieldPropsWithoutLabel} />;
+        return (
+          <SPTaxonomyField
+            {...fieldPropsWithoutLabel}
+            allowMultiple={field.fieldType === SPFieldType.TaxonomyFieldTypeMulti}
+          />
+        );
       }
 
       default:

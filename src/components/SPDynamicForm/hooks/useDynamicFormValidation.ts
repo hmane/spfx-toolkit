@@ -2,6 +2,7 @@ import * as React from 'react';
 import { FieldValues } from 'react-hook-form';
 import { SPContext } from '../../../utilities/context';
 import { createSPUpdater } from '../../../utilities/listItemHelper';
+import { getListByNameOrId } from '../../../utilities/spHelper';
 import { IFormSubmitResult } from '../SPDynamicForm.types';
 
 export interface IUseDynamicFormValidationOptions<T extends FieldValues = any> {
@@ -79,6 +80,52 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
           }
         }
 
+        // Create uploadAll helper function
+        const uploadAllAttachments = async (targetItemId?: number) => {
+          const effectiveItemId = targetItemId || itemId;
+          const uploaded: string[] = [];
+          const deleted: string[] = [];
+          const errors: Array<{ fileName: string; error: string }> = [];
+
+          if (!effectiveItemId) {
+            throw new Error('Item ID is required to upload attachments. For new items, pass the new item ID.');
+          }
+
+          if (!SPContext.sp) {
+            throw new Error('SPContext not initialized');
+          }
+
+          const list = getListByNameOrId(SPContext.sp, listId);
+          const item = list.items.getById(effectiveItemId);
+
+          // Upload new files
+          for (const file of filesToAdd) {
+            try {
+              const buffer = await file.arrayBuffer();
+              await item.attachmentFiles.add(file.name, buffer);
+              uploaded.push(file.name);
+              SPContext.logger.info(`Attachment uploaded: ${file.name}`);
+            } catch (err: any) {
+              errors.push({ fileName: file.name, error: err?.message || 'Upload failed' });
+              SPContext.logger.error(`Failed to upload attachment: ${file.name}`, err);
+            }
+          }
+
+          // Delete files
+          for (const fileName of filesToDelete) {
+            try {
+              await item.attachmentFiles.getByName(fileName).delete();
+              deleted.push(fileName);
+              SPContext.logger.info(`Attachment deleted: ${fileName}`);
+            } catch (err: any) {
+              errors.push({ fileName, error: err?.message || 'Delete failed' });
+              SPContext.logger.error(`Failed to delete attachment: ${fileName}`, err);
+            }
+          }
+
+          return { uploaded, deleted, errors };
+        };
+
         // Build result object
         const result: IFormSubmitResult<T> = {
           formData,
@@ -89,6 +136,7 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
           attachments: {
             filesToAdd,
             filesToDelete,
+            uploadAll: uploadAllAttachments,
           },
           mode,
           itemId,

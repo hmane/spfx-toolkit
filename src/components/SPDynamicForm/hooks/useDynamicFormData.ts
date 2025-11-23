@@ -4,6 +4,7 @@ import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { createSPExtractor } from '../../../utilities/listItemHelper';
 import { IFieldMetadata } from '../types/fieldMetadata';
+import { SPFieldType } from '../../spFields/types';
 
 export interface IUseDynamicFormDataOptions<T extends FieldValues = any> {
   listId: string;
@@ -83,18 +84,62 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       const list = getListByNameOrId(SPContext.sp, listId);
 
-      // Build select fields
-      const selectFields = fields.map((f) => f.internalName);
-
-      // Add expand fields for complex types
+      // Build select and expand fields for complex types
+      // SharePoint REST API requires specific patterns for different field types:
+      // - User fields: select "FieldName/Id,FieldName/Title,FieldName/EMail", expand "FieldName"
+      // - Lookup fields: select "FieldName/Id,FieldName/Title", expand "FieldName"
+      // - Simple fields: just select "FieldName"
+      const selectFields: string[] = [];
       const expandFields: string[] = [];
+
       fields.forEach((field) => {
-        if (field.isLookup || field.fieldType === 'User') {
-          expandFields.push(field.internalName);
+        const fieldType = field.fieldType as SPFieldType | string;
+        const internalName = field.internalName;
+
+        switch (fieldType) {
+          case SPFieldType.User:
+          case SPFieldType.UserMulti:
+          case 'User':
+          case 'UserMulti':
+            // User fields need expanded properties for full user info
+            selectFields.push(
+              `${internalName}/Id`,
+              `${internalName}/Title`,
+              `${internalName}/EMail`,
+              `${internalName}/Name`
+            );
+            expandFields.push(internalName);
+            break;
+
+          case SPFieldType.Lookup:
+          case SPFieldType.LookupMulti:
+          case 'Lookup':
+          case 'LookupMulti':
+            // Lookup fields need Id and the display field (usually Title)
+            const displayField = field.fieldConfig?.lookupField || 'Title';
+            selectFields.push(
+              `${internalName}/Id`,
+              `${internalName}/${displayField}`
+            );
+            expandFields.push(internalName);
+            break;
+
+          case SPFieldType.TaxonomyFieldType:
+          case SPFieldType.TaxonomyFieldTypeMulti:
+          case 'TaxonomyFieldType':
+          case 'TaxonomyFieldTypeMulti':
+            // Taxonomy fields - just select the field, SharePoint returns the value directly
+            selectFields.push(internalName);
+            break;
+
+          default:
+            // Simple fields - just select by name
+            selectFields.push(internalName);
+            break;
         }
       });
 
-      // Load item
+      // Load item with proper select/expand
       let itemQuery = list.items.getById(itemId).select(...selectFields);
 
       if (expandFields.length > 0) {
@@ -161,15 +206,15 @@ export function useDynamicFormData<T extends FieldValues = any>(
               break;
 
             case 'User':
-              // Extract IPrincipal and convert to ID for SPUserField
-              const user = extractor.user(field.internalName);
-              value = user ? parseInt(user.id) : null;
+              // Extract full IPrincipal object for SPUserField
+              // SPUserField needs the full user object to display name, email, photo
+              value = extractor.user(field.internalName) || null;
               break;
 
             case 'UserMulti':
-              // Extract IPrincipal[] and convert to ID array for SPUserField
-              const users = extractor.userMulti(field.internalName);
-              value = users.map(u => parseInt(u.id));
+              // Extract IPrincipal[] for SPUserField
+              // SPUserField needs full user objects to display names, emails, photos
+              value = extractor.userMulti(field.internalName);
               break;
 
             case 'Lookup':

@@ -191,9 +191,11 @@ export interface ISPChoiceFieldProps
   renderItem?: (item: string) => React.ReactNode;
 
   /**
-   * Custom render function for selected value
+   * Custom render function for selected value display (single-select dropdown only).
+   * Note: For multi-select (TagBox), use renderItem for tag customization instead,
+   * as DevExtreme's fieldRender receives individual items, not all selected values.
    */
-  renderValue?: (value: string | string[]) => React.ReactNode;
+  renderValue?: (value: string) => React.ReactNode;
 }
 
 /**
