@@ -253,6 +253,8 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
   // Character count styles
   const charCountClass = mergeStyles({
+    display: 'block',
+    width: '100%',
     fontSize: 12,
     color: theme.palette.neutralSecondary,
     marginTop: 4,
@@ -346,7 +348,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
         {/* Input field (hidden when disabled in append-only mode) */}
         {shouldShowInput && (
-          <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+          <div ref={fieldRef as React.RefObject<HTMLDivElement>} style={{ width: '100%' }}>
             {isRichTextMode ? (
               <React.Suspense fallback={<Text>Loading rich text editor...</Text>}>
                 <RichText

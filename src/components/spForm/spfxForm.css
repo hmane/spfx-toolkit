@@ -1356,129 +1356,34 @@ button:active {
   font-size: 12px !important;
 }
 
-/* TagBox - Tags Styling */
-.dx-tagbox .dx-tag {
-  background-color: #edebe9 !important;
-  color: #323130 !important;
-  border: 1px solid #d2d0ce !important;
-  border-radius: 2px !important;
-  padding: 2px 6px !important;
-  margin: 2px !important;
-  font-size: 12px !important;
-}
+/* ============================================
+   DevExtreme Components - Minimal Overrides Only
+   NOTE: Let DevExtreme use its OOB (out-of-box) styles.
+   Only override where absolutely necessary for consistency.
+   ============================================ */
 
-.dx-tagbox .dx-tag-remove-button {
-  color: #605e5c !important;
-  font-size: 10px !important;
-  margin-left: 4px !important;
-}
-
-.dx-tagbox .dx-tag-remove-button:hover {
-  color: #323130 !important;
-}
-
-/* Input Text Styling */
-.dx-selectbox .dx-texteditor-input,
-.dx-tagbox .dx-texteditor-input {
-  min-height: 30px !important;
-  line-height: 30px !important;
-  font-size: 14px !important;
-  color: #323130 !important;
-  padding: 0 !important;
-}
-
-/* Placeholder Styling */
+/* Placeholder text color for consistency */
 .dx-selectbox .dx-placeholder,
 .dx-tagbox .dx-placeholder {
-  color: #605e5c !important;
-  font-size: 14px !important;
-}
-
-/* Dropdown List Styling */
-.dx-dropdowneditor-overlay .dx-list {
-  border: 1px solid #edebe9 !important;
-  border-radius: 2px !important;
-  box-shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.132), 0 1.2px 3.6px rgba(0, 0, 0, 0.108) !important;
-}
-
-.dx-dropdowneditor-overlay .dx-list-item {
-  padding: 8px 12px !important;
-  font-size: 14px !important;
-  color: #323130 !important;
-  border: none !important;
-}
-
-.dx-dropdowneditor-overlay .dx-list-item:hover {
-  background-color: #f3f2f1 !important;
-}
-
-.dx-dropdowneditor-overlay .dx-list-item.dx-state-focused {
-  background-color: #edebe9 !important;
-}
-
-.dx-dropdowneditor-overlay .dx-list-item.dx-state-selected {
-  background-color: #0078d4 !important;
-  color: #ffffff !important;
-}
-
-/* Search Box in Dropdown */
-.dx-dropdowneditor-overlay .dx-list-search {
-  padding: 8px !important;
-  border-bottom: 1px solid #edebe9 !important;
-}
-
-.dx-dropdowneditor-overlay .dx-list-search .dx-texteditor {
-  border: 1px solid #8a8886 !important;
-  border-radius: 2px !important;
-}
-
-/* Clear Button */
-.dx-selectbox .dx-clear-button-area,
-.dx-tagbox .dx-clear-button-area {
-  right: 32px !important;
-}
-
-.dx-selectbox .dx-icon-clear,
-.dx-tagbox .dx-icon-clear {
-  color: #605e5c !important;
-  font-size: 12px !important;
-}
-
-.dx-selectbox .dx-icon-clear:hover,
-.dx-tagbox .dx-icon-clear:hover {
-  color: #323130 !important;
-  background-color: #f3f2f1 !important;
-  border-radius: 50% !important;
+  color: #605e5c;
 }
 
 /* ============================================
-   DevExtreme TextBox/TextArea Character Counter
-   Move character counter to right side below field
+   PnP RichText Editor - Minimal Fixes Only
+   NOTE: The PnP RichText uses Quill editor internally.
+   We should NOT aggressively override Quill's default styles
+   as it may break the toolbar/editor functionality.
+   Only apply minimal, non-breaking enhancements.
    ============================================ */
 
-/* Reposition the character counter to the right side below the field */
-.dx-textbox .dx-texteditor-label,
-.dx-textarea .dx-texteditor-label {
-  position: absolute !important;
-  left: auto !important;
-  right: 0 !important;
-  bottom: -20px !important;
-  top: auto !important;
-  font-size: 12px !important;
-  color: #605e5c !important;
-  text-align: right !important;
-  margin: 0 !important;
-  padding: 2px 0 0 0 !important;
+/* Minimal font consistency - only apply to editor content, not toolbar */
+.ql-editor {
+  font-size: 14px;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Add margin to the text editor container to accommodate the counter below */
-.dx-textbox:has(.dx-texteditor-label),
-.dx-textarea:has(.dx-texteditor-label) {
-  margin-bottom: 20px !important;
-}
-
-/* Ensure the texteditor container is positioned relative */
-.dx-textbox .dx-texteditor-container,
-.dx-textarea .dx-texteditor-container {
-  position: relative;
+/* RichText placeholder styling */
+.ql-editor.ql-blank::before {
+  color: #605e5c;
+  font-style: normal;
 }
