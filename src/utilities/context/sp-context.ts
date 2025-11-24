@@ -487,6 +487,26 @@ export class SPContext {
   // UTILITY METHODS
   // ========================================
 
+  /**
+   * Check if SPContext has been initialized
+   *
+   * Use this method to verify context initialization before accessing SPContext properties.
+   * Particularly useful in components that may render before initialization completes.
+   *
+   * @returns True if context is initialized and ready to use, false otherwise
+   *
+   * @example
+   * ```typescript
+   * // Guard against uninitialized context
+   * if (!SPContext.isReady()) {
+   *   console.warn('SPContext not yet initialized');
+   *   return;
+   * }
+   *
+   * // Safe to use SPContext
+   * const user = await SPContext.sp.web.currentUser();
+   * ```
+   */
   static isReady(): boolean {
     try {
       return SPContext.contextModule?.Context?.isReady() ?? false;
@@ -495,6 +515,39 @@ export class SPContext {
     }
   }
 
+  /**
+   * Reset SPContext to allow reinitialization
+   *
+   * Cleans up all context resources including multi-site connections, cache, and modules.
+   * After calling reset(), you must call one of the initialization methods again before
+   * using SPContext.
+   *
+   * @remarks
+   * This method is primarily useful for:
+   * - Testing scenarios where you need to reinitialize with different configuration
+   * - Handling context errors that require full reinitialization
+   * - Cleaning up resources when unmounting root components
+   *
+   * @example
+   * ```typescript
+   * // Reinitialize with different configuration
+   * SPContext.reset();
+   * await SPContext.development(this.context, 'MyWebPart');
+   * ```
+   *
+   * @example Testing scenario
+   * ```typescript
+   * afterEach(() => {
+   *   // Clean up after each test
+   *   SPContext.reset();
+   * });
+   *
+   * it('should initialize in development mode', async () => {
+   *   await SPContext.development(mockContext, 'TestComponent');
+   *   expect(SPContext.isReady()).toBe(true);
+   * });
+   * ```
+   */
   static reset(): void {
     // Clean up multi-site connections
     if (SPContext.multiSiteManager) {

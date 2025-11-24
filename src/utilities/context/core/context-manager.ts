@@ -42,6 +42,15 @@ export class ContextManager {
 
   /**
    * Initialize context with focused configuration
+   *
+   * @param spfxContext - SPFx page context or web part context
+   * @param config - Optional configuration for logging, caching, and HTTP client
+   * @returns Promise resolving to initialized SPFx context
+   * @throws Error if context is already initialized (call reset() first to reinitialize)
+   *
+   * @remarks
+   * This method can only be called once per application lifecycle. If you need to
+   * reinitialize the context (e.g., for testing), call ContextManager.reset() first.
    */
   static async initialize(
     spfxContext: SPFxContextInput,
@@ -50,6 +59,12 @@ export class ContextManager {
     const manager = ContextManager.getInstance();
 
     if (manager.isInitialized) {
+      const componentName = config.componentName ?? 'unknown';
+      console.warn(
+        `[SPContext] Context already initialized. Returning existing context. ` +
+        `Component "${componentName}" attempted to reinitialize. ` +
+        `If you need to reinitialize, call SPContext.reset() first.`
+      );
       return manager.context!;
     }
 

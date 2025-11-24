@@ -24,15 +24,18 @@ import {
 import { DefaultGroupMappings, DefaultPermissionMappings } from './constants';
 
 import { getErrorMessage, getPermissionNames, isGroupNameMatch } from './utils';
+import { LRUCache } from './LRUCache';
 
 /**
  * Permission Helper Utility for SharePoint
  * Provides easy-to-use methods for checking permissions and roles using string-based group names
+ *
+ * Uses LRU (Least Recently Used) cache with configurable size limit to prevent unbounded memory growth.
  */
 export class PermissionHelper {
   private readonly sp: SPFI;
   private readonly config: Required<IPermissionHelperConfig>;
-  private readonly cache: Map<string, ICachedPermission> = new Map();
+  private readonly cache: LRUCache<string, ICachedPermission>;
   private currentUserCache?: ISPUser;
 
   constructor(sp: SPFI, config: IPermissionHelperConfig = {}) {
@@ -42,8 +45,12 @@ export class PermissionHelper {
       cacheTimeout: 300000, // 5 minutes default
       customGroupMappings: {},
       permissionLevelMappings: {},
+      cacheSize: 100, // Default cache size
       ...config,
     };
+
+    // Initialize LRU cache with configured size
+    this.cache = new LRUCache<string, ICachedPermission>(this.config.cacheSize || 100);
   }
 
   /**
@@ -480,11 +487,148 @@ export class PermissionHelper {
   }
 
   /**
-   * Clear the permission cache
+   * Clear the entire permission cache
+   *
+   * Removes all cached permission checks and user group memberships.
+   * Use after significant permission changes that affect multiple lists/items.
+   *
+   * @example
+   * ```typescript
+   * // After bulk permission changes
+   * await updateMultiplePermissions();
+   * permissionHelper.clearCache();
+   * ```
    */
   public clearCache(): void {
     this.cache.clear();
     this.currentUserCache = undefined;
+  }
+
+  /**
+   * Invalidate cache entries for a specific list
+   *
+   * Removes all cached permission checks related to the specified list.
+   * Use after permission changes on a specific list.
+   *
+   * @param listName - Title of the SharePoint list
+   * @returns Number of cache entries removed
+   *
+   * @example
+   * ```typescript
+   * // After modifying list permissions
+   * await updateListPermissions('Tasks');
+   * const removed = permissionHelper.invalidateList('Tasks');
+   * console.log(`Cleared ${removed} cache entries for Tasks list`);
+   * ```
+   */
+  public invalidateList(listName: string): number {
+    const prefix = `list_permission_${listName}_`;
+    const itemPrefix = `item_permission_${listName}_`;
+
+    return this.cache.deleteWhere(([key]) => {
+      return typeof key === 'string' && (key.startsWith(prefix) || key.startsWith(itemPrefix));
+    });
+  }
+
+  /**
+   * Invalidate cache entry for a specific list item
+   *
+   * Removes cached permission checks for the specified item.
+   * Use after permission changes on a specific item.
+   *
+   * @param listName - Title of the SharePoint list
+   * @param itemId - ID of the list item
+   * @returns True if a cache entry was removed, false otherwise
+   *
+   * @example
+   * ```typescript
+   * // After modifying item permissions
+   * await updateItemPermissions('Tasks', 10);
+   * const removed = permissionHelper.invalidateItem('Tasks', 10);
+   * ```
+   */
+  public invalidateItem(listName: string, itemId: number): boolean {
+    const prefix = `item_permission_${listName}_${itemId}_`;
+    let removed = false;
+
+    this.cache.deleteWhere(([key]) => {
+      if (typeof key === 'string' && key.startsWith(prefix)) {
+        removed = true;
+        return true;
+      }
+      return false;
+    });
+
+    return removed;
+  }
+
+  /**
+   * Invalidate user role cache
+   *
+   * Removes cached user group memberships and role checks.
+   * Use after user group membership changes.
+   *
+   * @param userId - Optional user ID. If not provided, clears current user's cache.
+   * @returns Number of cache entries removed
+   *
+   * @example
+   * ```typescript
+   * // After adding user to a group
+   * await addUserToGroup(userId, 'Owners');
+   * const removed = permissionHelper.invalidateUserRoles(userId);
+   * ```
+   */
+  public invalidateUserRoles(userId?: number): number {
+    const prefix = userId !== undefined ? `user_role_` : `user_role_`;
+    const groupPrefix = userId !== undefined ? `user_groups_${userId}` : `user_groups_`;
+
+    const removed = this.cache.deleteWhere(([key]) => {
+      if (typeof key !== 'string') return false;
+      if (userId === undefined) {
+        return key.startsWith(prefix) || key.startsWith(groupPrefix);
+      }
+      return key === `user_groups_${userId}` || key.startsWith(prefix);
+    });
+
+    // Also clear current user cache if no specific user provided
+    if (userId === undefined) {
+      this.currentUserCache = undefined;
+    }
+
+    return removed;
+  }
+
+  /**
+   * Get cache statistics
+   *
+   * Returns information about cache usage for monitoring and debugging.
+   *
+   * @returns Cache statistics object
+   *
+   * @example
+   * ```typescript
+   * const stats = permissionHelper.getCacheStats();
+   * console.log(`Cache: ${stats.size}/${stats.capacity} (${stats.utilizationPercent.toFixed(1)}%)`);
+   * if (stats.isFull) {
+   *   console.warn('Cache is full - oldest entries are being evicted');
+   * }
+   * ```
+   */
+  public getCacheStats(): {
+    size: number;
+    capacity: number;
+    utilizationPercent: number;
+    isFull: boolean;
+    cachingEnabled: boolean;
+    timeout: number;
+  } {
+    const lruStats = this.cache.getStats();
+
+    return {
+      ...lruStats,
+      cachingEnabled: this.config.enableCaching,
+      timeout: this.config.cacheTimeout,
+    };
   }
 
   // Private helper methods

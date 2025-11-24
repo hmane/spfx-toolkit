@@ -57,6 +57,7 @@ export interface IItemPermissions {
 export interface IPermissionHelperConfig {
   enableCaching?: boolean;
   cacheTimeout?: number; // in milliseconds
+  cacheSize?: number; // Maximum number of cache entries (default: 100)
   customGroupMappings?: Record<string, string>; // Map custom group names to standard roles
   permissionLevelMappings?: Record<string, PermissionKind>; // Map custom permission levels
 }

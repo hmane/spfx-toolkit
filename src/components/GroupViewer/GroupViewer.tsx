@@ -1,9 +1,9 @@
+import { Callout } from '@fluentui/react/lib/Callout';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { Persona, PersonaInitialsColor, PersonaSize } from '@fluentui/react/lib/Persona';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
-import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import * as React from 'react';
 import { DirectionalHint } from '../../types/fluentui-types';
@@ -40,14 +40,17 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const [groupInfo, setGroupInfo] = React.useState<IGroupInfo | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [isCalloutVisible, setIsCalloutVisible] = React.useState(false);
 
   // Refs and cache
   const loadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const loadingRef = React.useRef(false);
   const cacheRef = React.useRef<
     Map<string, { info: IGroupInfo; members: IGroupMember[]; ts: number }>
   >(new Map());
   const isMountedRef = React.useRef(true);
+  const targetElementRef = React.useRef<HTMLDivElement>(null);
 
   // Special SharePoint groups that should not show member details
   const specialGroups = React.useMemo(
@@ -139,6 +142,32 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     []
   );
 
+  // Reset state when group identifier changes (for dropdown scenarios)
+  React.useEffect(() => {
+    // Clear previous group data when groupId or groupName changes
+    setMembers([]);
+    setGroupInfo(null);
+    setError(null);
+    setIsLoading(false);
+
+    // Clear the cache for the previous group to prevent stale data
+    // This is important when switching groups in dropdown scenarios
+    cacheRef.current.clear();
+
+    // Cancel any pending operations
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    // Hide callout if visible
+    setIsCalloutVisible(false);
+  }, [groupId, groupName]);
+
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
@@ -147,11 +176,15 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         clearTimeout(loadTimeoutRef.current);
         loadTimeoutRef.current = null;
       }
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
     };
   }, []);
 
   // Load group data with SPContext integration
-  const loadGroupData = async (): Promise<void> => {
+  const loadGroupData = React.useCallback(async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
 
@@ -322,22 +355,55 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         setIsLoading(false);
       }
     }
-  };
+  }, [groupId, groupName, bustCache, nestLevel, maxNestLevel, onError]);
 
-  // Tooltip event handlers
-  const onTooltipShow = React.useCallback((): void => {
+  // Callout event handlers
+  const showCallout = React.useCallback((): void => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    // Clear previous group data to prevent showing stale data from different group
+    setMembers([]);
+    setGroupInfo(null);
+    setError(null);
+
+    // Show the callout immediately
+    setIsCalloutVisible(true);
+
+    // Start loading data with delay
     if (loadTimeoutRef.current) {
       clearTimeout(loadTimeoutRef.current);
     }
     loadTimeoutRef.current = setTimeout(() => {
       loadGroupData();
     }, CACHE_CONSTANTS.TOOLTIP_DELAY);
-  }, []);
+  }, [loadGroupData]);
 
-  const onTooltipHide = React.useCallback((): void => {
+  const hideCallout = React.useCallback((): void => {
+    // Cancel any pending data load
     if (loadTimeoutRef.current) {
       clearTimeout(loadTimeoutRef.current);
       loadTimeoutRef.current = null;
+    }
+
+    // Delay hiding to allow moving mouse to callout
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsCalloutVisible(false);
+      // Clear data when hiding to prevent stale data on next show
+      setMembers([]);
+      setGroupInfo(null);
+      setError(null);
+    }, 200);
+  }, []);
+
+  const keepCalloutVisible = React.useCallback((): void => {
+    // Clear hide timeout when mouse enters callout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
     }
   }, []);
 
@@ -574,43 +640,54 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                     fontSize: 20,
                     color: '#0078d4',
                     flexShrink: 0,
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   },
                 }}
               />
-              <span>{groupInfo?.Title || groupName}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
             </div>
-            <div className='group-viewer-subtitle'>SharePoint Group</div>
+            <div className='group-viewer-subtitle'>0 members</div>
             {groupInfo?.Description && (
               <div className='group-viewer-description'>{groupInfo.Description}</div>
             )}
           </div>
 
-          <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-            <Icon
-              iconName='People'
-              styles={{
-                root: {
-                  fontSize: 56,
-                  color: '#d1d1d1',
-                  marginBottom: '16px',
-                },
-              }}
-            />
-            <Text
-              block
-              variant='large'
-              style={{ fontWeight: 600, color: '#323130', marginBottom: '8px' }}
-            >
-              No Members
-            </Text>
-            <Text
-              block
-              variant='medium'
-              style={{ color: '#605e5c', lineHeight: 1.5, maxWidth: '300px', margin: '0 auto' }}
-            >
-              This group currently has no members, or you may not have permission to view the
-              membership.
-            </Text>
+          <div style={{ padding: '16px 20px' }}>
+            <Stack tokens={{ childrenGap: 12 }}>
+              <Stack
+                horizontal
+                tokens={{ childrenGap: 12 }}
+                verticalAlign='center'
+                style={{
+                  padding: '16px',
+                  background: '#f8f9fa',
+                  borderRadius: '6px',
+                  border: '1px solid #e9ecef',
+                }}
+              >
+                <Icon
+                  iconName='People'
+                  style={{
+                    fontSize: 32,
+                    color: '#0078d4',
+                    opacity: 0.5,
+                    flexShrink: 0,
+                  }}
+                />
+                <Stack style={{ flex: 1 }}>
+                  <Text variant='medium' style={{ fontWeight: 500, color: '#323130' }}>
+                    No Members
+                  </Text>
+                  <Text variant='small' style={{ color: '#605e5c', lineHeight: 1.4 }}>
+                    This group currently has no members, or you may not have permission to view the
+                    membership.
+                  </Text>
+                </Stack>
+              </Stack>
+            </Stack>
           </div>
         </div>
       );
@@ -767,50 +844,15 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     [onClick, size, displayMode]
   );
 
-  // Tooltip toggle handler
-  const onTooltipToggle = React.useCallback(
-    (visible: boolean) => {
-      if (visible) {
-        onTooltipShow();
-      } else {
-        onTooltipHide();
-      }
-    },
-    [onTooltipShow, onTooltipHide]
-  );
-
   return (
-    <TooltipHost
-      content={renderTooltipContent()}
-      directionalHint={DirectionalHint.bottomCenter}
-      delay={0}
-      onTooltipToggle={onTooltipToggle}
-      styles={{
-        root: {
-          display: 'inline-block',
-        },
-      }}
-      tooltipProps={{
-        styles: {
-          root: {
-            maxWidth: 380,
-            padding: 0,
-            filter: 'drop-shadow(0 8px 32px rgba(0, 0, 0, 0.12))',
-          },
-          content: {
-            padding: 0,
-            background: 'transparent',
-            border: 'none',
-            borderRadius: 8,
-            boxShadow: 'none',
-          },
-        },
-      }}
-    >
+    <>
       <div
+        ref={targetElementRef}
         className={`group-viewer ${className}`}
         style={containerStyle}
         onClick={handleClick}
+        onMouseEnter={showCallout}
+        onMouseLeave={hideCallout}
         onKeyDown={e => {
           if ((e.key === 'Enter' || e.key === ' ') && onClick) {
             e.preventDefault();
@@ -823,6 +865,34 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       >
         {renderDisplayContent()}
       </div>
-    </TooltipHost>
+
+      {isCalloutVisible && targetElementRef.current && (
+        <Callout
+          target={targetElementRef.current}
+          directionalHint={DirectionalHint.bottomCenter}
+          isBeakVisible={true}
+          gapSpace={8}
+          onDismiss={hideCallout}
+          onMouseEnter={keepCalloutVisible}
+          onMouseLeave={hideCallout}
+          styles={{
+            root: {
+              maxWidth: 380,
+              padding: 0,
+              filter: 'drop-shadow(0 8px 32px rgba(0, 0, 0, 0.12))',
+            },
+            calloutMain: {
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 8,
+              boxShadow: 'none',
+            },
+          }}
+        >
+          {renderTooltipContent()}
+        </Callout>
+      )}
+    </>
   );
 };

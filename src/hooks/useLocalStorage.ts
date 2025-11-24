@@ -99,21 +99,30 @@ export function useLocalStorage<T>(
       if (!isStorageAvailable) return;
 
       try {
-        let valueToStore = initialValue;
         setValue(prev => {
-          valueToStore =
+          const valueToStore =
             typeof newValue === 'function' ? (newValue as (prev: T) => T)(prev) : newValue;
+
+          // Write to localStorage inside setState to ensure we're using current state
+          try {
+            window.localStorage.setItem(key, serialize(valueToStore));
+            setError(null);
+          } catch (storageErr) {
+            const storageError =
+              storageErr instanceof Error ? storageErr : new Error('Failed to write to localStorage');
+            setError(storageError);
+            onError?.(storageError, 'write');
+          }
+
           return valueToStore;
         });
-        window.localStorage.setItem(key, serialize(valueToStore));
-        setError(null);
       } catch (err) {
-        const storageError = err instanceof Error ? err : new Error('Failed to write to localStorage');
+        const storageError = err instanceof Error ? err : new Error('Failed to update state');
         setError(storageError);
         onError?.(storageError, 'write');
       }
     },
-    [isStorageAvailable, key, serialize, onError, initialValue]
+    [isStorageAvailable, key, serialize, onError]
   );
 
   const removeValue = React.useCallback(() => {

@@ -71,7 +71,9 @@ export class BatchBuilder {
    * sequentially or concurrently. Returns detailed results including successes
    * and failures.
    *
+   * @param signal - Optional AbortSignal to cancel batch execution
    * @returns Promise resolving to batch execution results with operation counts and errors
+   * @throws Error if execution is cancelled via AbortSignal
    *
    * @example
    * ```typescript
@@ -84,8 +86,23 @@ export class BatchBuilder {
    *   result.errors.forEach(err => console.error(err.error));
    * }
    * ```
+   *
+   * @example With cancellation support
+   * ```typescript
+   * const controller = new AbortController();
+   * const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+   *
+   * try {
+   *   const result = await batch.execute(controller.signal);
+   *   clearTimeout(timeoutId);
+   * } catch (error) {
+   *   if (error.message.includes('cancelled')) {
+   *     console.log('Batch execution was cancelled');
+   *   }
+   * }
+   * ```
    */
-  async execute(): Promise<IBatchResult> {
+  async execute(signal?: AbortSignal): Promise<IBatchResult> {
     if (this.currentListBuilder) {
       this.operations.push(...this.currentListBuilder.getOperations());
       this.currentListBuilder = undefined;
@@ -103,6 +120,11 @@ export class BatchBuilder {
       };
     }
 
+    // Check for cancellation before starting
+    if (signal?.aborted) {
+      throw new Error('Batch execution cancelled before starting');
+    }
+
     const batches = splitIntoBatches(this.operations, this.config.batchSize || 100);
     const timer = SPContext.logger.startTimer('BatchBuilder.execute');
 
@@ -111,6 +133,7 @@ export class BatchBuilder {
       batchCount: batches.length,
       batchSize: this.config.batchSize || 100,
       concurrency: this.config.enableConcurrency || false,
+      cancellable: !!signal,
     });
 
     const allResults: IOperationResult[] = [];
@@ -148,6 +171,15 @@ export class BatchBuilder {
       });
     } else {
       for (const b of batches) {
+        // Check for cancellation before each batch
+        if (signal?.aborted) {
+          SPContext.logger.warn('BatchBuilder: Execution cancelled mid-operation', {
+            completedBatches: allResults.length > 0 ? Math.ceil(allResults.length / (this.config.batchSize || 100)) : 0,
+            totalBatches: batches.length,
+          });
+          throw new Error('Batch execution cancelled');
+        }
+
         try {
           const { results, errors } = await executeBatch(this.sp, b);
           allResults.push(...results);

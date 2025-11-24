@@ -89,7 +89,10 @@ export const useMaximize = (
   const restore = useCallback(async () => {
     if (!enabled || !isMaximized || isAnimating || isMaximizingRef.current) return false;
 
+    // Clear element ref to force fresh lookup
+    elementRef.current = undefined;
     const element = getCardElement();
+
     if (!element || !originalStyleRef.current) {
       console.warn(`[SpfxCard] Card element or original styles not found: ${cardId}`);
       return false;
@@ -112,22 +115,43 @@ export const useMaximize = (
       const original = originalStyleRef.current;
       const duration = getAnimationDuration(animation.duration || 350);
 
-      // Apply transition
-      element.style.transition = `all ${duration}ms ${
-        animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
-      }`;
+      // Wait for animation to complete using transitionend event
+      await new Promise<void>((resolve) => {
+        const handleTransitionEnd = (e: TransitionEvent) => {
+          // Only respond to transform/width/height transitions on the element itself
+          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
+            element.removeEventListener('transitionend', handleTransitionEnd);
 
-      // Animate back to original position
-      element.style.top = original.top;
-      element.style.left = original.left;
-      element.style.width = original.width;
-      element.style.height = original.height;
-      element.style.borderRadius = '8px';
+            // Restore all original styles after animation completes
+            element.style.position = original.position;
+            element.style.top = original.top;
+            element.style.left = original.left;
+            element.style.width = original.width;
+            element.style.height = original.height;
+            element.style.zIndex = original.zIndex;
+            element.style.transform = original.transform;
+            element.style.margin = '';
+            element.style.transition = '';
+            element.style.borderRadius = '';
 
-      // Wait for animation to complete
-      await new Promise<void>(resolve => {
-        setTimeout(() => {
-          // Restore all original styles
+            // Remove maximized class
+            element.classList.remove('spfx-card-maximized');
+
+            // Remove backdrop
+            removeBackdrop();
+
+            setIsMaximized(false);
+            setIsAnimating(false);
+            isMaximizingRef.current = false;
+            onRestore?.();
+            resolve();
+          }
+        };
+
+        // Fallback timeout in case transitionend doesn't fire
+        const fallbackTimeout = setTimeout(() => {
+          element.removeEventListener('transitionend', handleTransitionEnd);
+
           element.style.position = original.position;
           element.style.top = original.top;
           element.style.left = original.left;
@@ -137,11 +161,9 @@ export const useMaximize = (
           element.style.transform = original.transform;
           element.style.margin = '';
           element.style.transition = '';
-
-          // Remove maximized class
+          element.style.borderRadius = '';
           element.classList.remove('spfx-card-maximized');
 
-          // Remove backdrop
           removeBackdrop();
 
           setIsMaximized(false);
@@ -149,7 +171,23 @@ export const useMaximize = (
           isMaximizingRef.current = false;
           onRestore?.();
           resolve();
-        }, duration);
+        }, duration + 50); // Add small buffer
+
+        element.addEventListener('transitionend', handleTransitionEnd);
+
+        // Apply transition and animate back
+        element.style.transition = `all ${duration}ms ${
+          animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
+        }`;
+
+        // Trigger animation on next frame
+        requestAnimationFrame(() => {
+          element.style.top = original.top;
+          element.style.left = original.left;
+          element.style.width = original.width;
+          element.style.height = original.height;
+          element.style.borderRadius = '8px';
+        });
       });
 
       return true;
@@ -173,7 +211,10 @@ export const useMaximize = (
   const maximize = useCallback(async () => {
     if (!enabled || isMaximized || isAnimating || isMaximizingRef.current) return false;
 
+    // Clear element ref to force fresh lookup
+    elementRef.current = undefined;
     const element = getCardElement();
+
     if (!element) {
       console.warn(`[SpfxCard] Card element not found: ${cardId}`);
       return false;
@@ -226,20 +267,6 @@ export const useMaximize = (
 
       element.getBoundingClientRect();
 
-      // Enable transition and animate on next frame
-      requestAnimationFrame(() => {
-        element.style.transition = `all ${duration}ms ${
-          animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
-        }`;
-
-        // Animate to fullscreen
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.width = '100vw';
-        element.style.height = '100vh';
-        element.style.borderRadius = '0';
-      });
-
       // Handle backdrop click
       const handleBackdropClick = (event: MouseEvent) => {
         if (event.target === backdrop) {
@@ -249,15 +276,49 @@ export const useMaximize = (
       backdropClickHandlerRef.current = handleBackdropClick;
       backdrop.addEventListener('click', handleBackdropClick);
 
-      // Wait for animation to complete
-      await new Promise<void>(resolve => {
-        setTimeout(() => {
+      // Wait for animation to complete using transitionend event
+      await new Promise<void>((resolve) => {
+        const handleTransitionEnd = (e: TransitionEvent) => {
+          // Only respond to width/height transitions on the element itself
+          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
+            element.removeEventListener('transitionend', handleTransitionEnd);
+
+            setIsMaximized(true);
+            setIsAnimating(false);
+            isMaximizingRef.current = false;
+            onMaximize?.();
+            resolve();
+          }
+        };
+
+        // Fallback timeout in case transitionend doesn't fire
+        const fallbackTimeout = setTimeout(() => {
+          element.removeEventListener('transitionend', handleTransitionEnd);
+
           setIsMaximized(true);
           setIsAnimating(false);
           isMaximizingRef.current = false;
           onMaximize?.();
           resolve();
-        }, duration);
+        }, duration + 50); // Add small buffer
+
+        element.addEventListener('transitionend', handleTransitionEnd);
+
+        // Enable transition and animate on next frame
+        requestAnimationFrame(() => {
+          element.style.transition = `all ${duration}ms ${
+            animation.easing || 'cubic-bezier(0.4, 0, 0.2, 1)'
+          }`;
+
+          // Animate to fullscreen on next frame
+          requestAnimationFrame(() => {
+            element.style.top = '0';
+            element.style.left = '0';
+            element.style.width = '100vw';
+            element.style.height = '100vh';
+            element.style.borderRadius = '0';
+          });
+        });
       });
 
       return true;

@@ -2,6 +2,7 @@
 export { BatchPermissionChecker } from './BatchPermissionChecker';
 export { PermissionError } from './PermissionError';
 export { PermissionHelper } from './PermissionHelper';
+export { LRUCache } from './LRUCache';
 
 
 

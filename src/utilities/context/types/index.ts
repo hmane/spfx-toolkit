@@ -99,11 +99,46 @@ export interface SPFxContext {
 
 // Logger interface
 export interface Logger {
+  /**
+   * Log debug message (verbose level)
+   * Only shown when log level is set to Verbose (0)
+   */
+  debug(message: string, data?: any): void;
+
+  /**
+   * Log informational message (info level)
+   */
   info(message: string, data?: any): void;
+
+  /**
+   * Log warning message (warning level)
+   */
   warn(message: string, data?: any): void;
+
+  /**
+   * Log error message (error level)
+   */
   error(message: string, error?: any, data?: any): void;
+
+  /**
+   * Log success message (info level with ✅ prefix)
+   */
   success(message: string, data?: any): void;
+
+  /**
+   * Start a performance timer
+   */
   startTimer(name: string): () => number;
+
+  /**
+   * Set log level at runtime
+   */
+  setLevel?(level: LogLevel): void;
+
+  /**
+   * Get current log level
+   */
+  getLevel?(): LogLevel;
 
   // Log management
   getEntries?(): LogEntry[];

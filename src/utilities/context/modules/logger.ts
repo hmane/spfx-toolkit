@@ -39,6 +39,22 @@ export class SimpleLogger implements Logger {
     };
   }
 
+  /**
+   * Log debug message (verbose level)
+   * Only shown when log level is set to Verbose (0)
+   *
+   * @param message - Debug message
+   * @param data - Optional debug data
+   *
+   * @example
+   * ```typescript
+   * SPContext.logger.debug('Processing item', { itemId: 123, fields: ['Title', 'Status'] });
+   * ```
+   */
+  debug(message: string, data?: any): void {
+    this.log(LogLevel.Verbose, message, data);
+  }
+
   info(message: string, data?: any): void {
     this.log(LogLevel.Info, message, data);
   }
@@ -54,6 +70,23 @@ export class SimpleLogger implements Logger {
 
   success(message: string, data?: any): void {
     this.log(LogLevel.Info, `✅ ${message}`, data);
+  }
+
+  /**
+   * Update the log level at runtime
+   * Useful for enabling debug mode via URL parameters
+   *
+   * @param level - New log level
+   */
+  setLevel(level: LogLevel): void {
+    (this.config as any).level = level;
+  }
+
+  /**
+   * Get current log level
+   */
+  getLevel(): LogLevel {
+    return this.config.level;
   }
 
   startTimer(name: string): () => number {
