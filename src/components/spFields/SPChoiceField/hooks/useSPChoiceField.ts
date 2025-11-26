@@ -170,13 +170,15 @@ export function useSPChoiceField(
   }, [dataSourceKey, useCache, retryCount, staticChoices]);
 
   // Determine if "Other" option should be enabled
+  // Note: We return true early if explicitly configured, even before metadata loads
   const otherEnabled = React.useMemo(() => {
-    if (!metadata) return false;
-
-    // Force enable if configured
+    // Force enable if explicitly configured (works even before metadata loads)
     if (otherConfig.enableOtherOption) {
       return true;
     }
+
+    // Need metadata for auto-detection
+    if (!metadata) return false;
 
     // Auto-detect from field metadata
     return shouldEnableOtherOption(metadata, otherOptionText);
@@ -212,7 +214,8 @@ export function useSPChoiceField(
 
   // Handle value changes to detect "Other" selection
   React.useEffect(() => {
-    if (!metadata || !otherEnabled) {
+    // If "Other" is not enabled at all, reset state
+    if (!otherEnabled) {
       setOtherState({
         isOtherSelected: false,
         customValue: '',
@@ -233,8 +236,8 @@ export function useSPChoiceField(
 
       if (otherIndex !== -1) {
         isOtherSelected = true;
-      } else {
-        // Check if any value is not in original choices (indicates custom value)
+      } else if (metadata) {
+        // Only check for custom values if metadata is loaded (we need choices to compare)
         const otherValues = value.filter(v => isOtherValue(v));
         if (otherValues.length > 0) {
           isOtherSelected = true;
@@ -245,7 +248,8 @@ export function useSPChoiceField(
       // Single-select: check if value is "Other" or not in choices
       if (value.toLowerCase() === otherOptionText.toLowerCase()) {
         isOtherSelected = true;
-      } else if (isOtherValue(value)) {
+      } else if (metadata && isOtherValue(value)) {
+        // Only check against choices if metadata is loaded
         isOtherSelected = true;
         customValue = value;
       }
