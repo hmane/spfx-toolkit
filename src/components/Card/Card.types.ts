@@ -109,12 +109,15 @@ export interface CardContextType {
   disabled: boolean;
   loading: boolean;
   loadingType: LoadingType;
+  loadingMessage: string;
   variant: CardVariant;
   size: CardSize;
   customHeaderColor?: string;
   lazyLoad: boolean;
   hasContentLoaded: boolean;
   headerSize: HeaderSize;
+  maximizeIcon: string;
+  restoreIcon: string;
   accessibility?: {
     expandButtonLabel?: string;
     collapseButtonLabel?: string;
@@ -241,14 +244,6 @@ export interface CardProps {
     region?: boolean;
     labelledBy?: string;
     describedBy?: string;
-  };
-
-  /** Performance options */
-  performance?: {
-    debounceToggle?: number;
-    virtualizeContent?: boolean;
-    preloadThreshold?: number;
-    memoizeContent?: boolean;
   };
 
   /** Children components */

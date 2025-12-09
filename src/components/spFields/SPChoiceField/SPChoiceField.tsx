@@ -189,8 +189,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     (val: string | string[] | undefined | null) => {
       if (!val) return isMultiChoice ? emptyArray : undefined;
 
-      // Create a stable cache key
-      const cacheKey = JSON.stringify({ val, otherEnabled, otherOptionText });
+      // Create a stable cache key - include otherState to detect when "Other" is selected
+      const cacheKey = JSON.stringify({ val, otherEnabled, otherOptionText, isOtherSelected: otherState.isOtherSelected, customValue: otherState.customValue });
       const cache = transformedValuesCache.current;
 
       // Return cached result if available (LRU: move to end on access)
@@ -207,7 +207,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       if (Array.isArray(val)) {
         // Multi-select: replace custom values with "Other"
         const mapped = val.map(v => {
-          if (otherEnabled && isOtherValue(v)) {
+          // Check if this is a known "Other" value from state or detected by isOtherValue
+          if (otherEnabled && (isOtherValue(v) || (otherState.isOtherSelected && v === otherState.customValue))) {
             return otherOptionText;
           }
           return v;
@@ -215,7 +216,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
         result = mapped;
       } else {
         // Single-select: replace custom value with "Other"
-        if (otherEnabled && isOtherValue(val)) {
+        // Use both isOtherValue check AND check against known otherState.customValue
+        if (otherEnabled && (isOtherValue(val) || (otherState.isOtherSelected && val === otherState.customValue))) {
           result = otherOptionText;
         } else {
           result = val;
@@ -237,7 +239,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
       return result;
     },
-    [otherEnabled, isOtherValue, otherOptionText, isMultiChoice, emptyArray]
+    [otherEnabled, isOtherValue, otherOptionText, isMultiChoice, emptyArray, otherState.isOtherSelected, otherState.customValue]
   );
 
   // Determine dropdown value for standalone mode (convert custom values to "Other" if needed)

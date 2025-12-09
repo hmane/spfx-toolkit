@@ -40,6 +40,8 @@ export const ActionButtons = memo<ActionButtonsProps>(
       disabled,
       accessibility = {},
       size,
+      maximizeIcon: contextMaximizeIcon,
+      restoreIcon: contextRestoreIcon,
     } = cardContext;
 
     // Button size based on card size
@@ -182,7 +184,9 @@ export const ActionButtons = memo<ActionButtonsProps>(
     const maximizeButton = useMemo(() => {
       if (!allowMaximize || hideMaximizeButton) return null;
 
-      const maximizeIcon = isMaximized ? DEFAULT_ICONS.RESTORE : DEFAULT_ICONS.MAXIMIZE;
+      const maximizeIcon = isMaximized
+        ? (contextRestoreIcon || DEFAULT_ICONS.RESTORE)
+        : (contextMaximizeIcon || DEFAULT_ICONS.MAXIMIZE);
       const maximizeLabel = isMaximized
         ? accessibility.restoreButtonLabel || 'Restore card'
         : accessibility.maximizeButtonLabel || 'Maximize card';
@@ -242,6 +246,8 @@ export const ActionButtons = memo<ActionButtonsProps>(
       disabled,
       showTooltips,
       buttonConfig,
+      contextMaximizeIcon,
+      contextRestoreIcon,
     ]);
 
     // Expand/Collapse button

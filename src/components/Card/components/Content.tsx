@@ -119,6 +119,7 @@ export const Content = memo<ContentProps>(
       hasContentLoaded,
       loading,
       loadingType,
+      loadingMessage,
       onContentLoad,
       size,
     } = cardContext;
@@ -198,7 +199,7 @@ export const Content = memo<ContentProps>(
       if (loading && loadingType !== 'none') {
         return (
           loadingPlaceholder || (
-            <CardLoading type={loadingType as any} message='Loading content...' />
+            <CardLoading type={loadingType as any} message={loadingMessage} />
           )
         );
       }
@@ -216,6 +217,7 @@ export const Content = memo<ContentProps>(
       isExpanded,
       loading,
       loadingType,
+      loadingMessage,
       shouldRenderContent,
       isContentFunction,
       children,

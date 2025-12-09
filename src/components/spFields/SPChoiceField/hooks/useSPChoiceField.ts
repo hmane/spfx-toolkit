@@ -237,19 +237,36 @@ export function useSPChoiceField(
       if (otherIndex !== -1) {
         isOtherSelected = true;
       } else if (metadata) {
-        // Only check for custom values if metadata is loaded (we need choices to compare)
+        // Check for custom values if metadata is loaded (we need choices to compare)
         const otherValues = value.filter(v => isOtherValue(v));
         if (otherValues.length > 0) {
           isOtherSelected = true;
           customValue = otherValues[0]; // Use first custom value
+        }
+      } else if (value.length > 0) {
+        // Metadata not loaded yet but we have a value - preserve it as potential "Other"
+        // This will be re-evaluated once metadata loads
+        // If otherEnabled is explicitly set, assume non-empty values could be "Other"
+        if (otherConfig.enableOtherOption) {
+          // Keep the current otherState if it has a customValue to avoid flickering
+          setOtherState(prev => prev);
+          return;
         }
       }
     } else if (value) {
       // Single-select: check if value is "Other" or not in choices
       if (value.toLowerCase() === otherOptionText.toLowerCase()) {
         isOtherSelected = true;
-      } else if (metadata && isOtherValue(value)) {
-        // Only check against choices if metadata is loaded
+      } else if (metadata) {
+        // Check against choices if metadata is loaded
+        if (isOtherValue(value)) {
+          isOtherSelected = true;
+          customValue = value;
+        }
+      } else if (otherConfig.enableOtherOption) {
+        // Metadata not loaded yet but otherEnabled is explicitly set
+        // Assume the value could be an "Other" value and preserve it
+        // This will be re-evaluated once metadata loads
         isOtherSelected = true;
         customValue = value;
       }
@@ -260,7 +277,7 @@ export function useSPChoiceField(
       isOtherSelected,
       customValue,
     }));
-  }, [value, metadata, otherEnabled, otherOptionText, isOtherValue]);
+  }, [value, metadata, otherEnabled, otherOptionText, isOtherValue, otherConfig.enableOtherOption]);
 
   // Update custom value
   const setCustomValue = React.useCallback(

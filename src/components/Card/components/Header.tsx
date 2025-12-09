@@ -49,6 +49,8 @@ export const Header = memo<HeaderProps>(
       isMaximized,
       id,
       headerSize,
+      maximizeIcon: contextMaximizeIcon,
+      restoreIcon: contextRestoreIcon,
       accessibility = {},
     } = cardContext;
 
@@ -298,7 +300,7 @@ export const Header = memo<HeaderProps>(
     const renderMaximizeButton = useMemo(() => {
       if (!allowMaximize || hideMaximizeButton || isMaximized) return null;
 
-      const maximizeIcon = DEFAULT_ICONS.MAXIMIZE;
+      const maximizeIcon = contextMaximizeIcon || DEFAULT_ICONS.MAXIMIZE;
       const maximizeLabel = accessibility.maximizeButtonLabel || 'Maximize';
 
       const button = (
@@ -330,12 +332,13 @@ export const Header = memo<HeaderProps>(
       disabled,
       showTooltips,
       buttonStyles,
+      contextMaximizeIcon,
     ]);
 
     const renderRestoreButton = useMemo(() => {
       if (!allowMaximize || hideMaximizeButton || !isMaximized) return null;
 
-      const restoreIcon = DEFAULT_ICONS.RESTORE;
+      const restoreIcon = contextRestoreIcon || DEFAULT_ICONS.RESTORE;
       const restoreLabel = accessibility.restoreButtonLabel || 'Restore';
 
       const button = (
@@ -367,6 +370,7 @@ export const Header = memo<HeaderProps>(
       disabled,
       showTooltips,
       buttonStyles,
+      contextRestoreIcon,
     ]);
 
     const renderExpandButton = useMemo(() => {

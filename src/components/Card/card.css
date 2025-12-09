@@ -251,8 +251,9 @@
   opacity: 0;
 }
 .spfx-card-content.expanded {
-  max-height: 2000px;
+  max-height: none;
   opacity: 1;
+  height: auto;
 }
 .spfx-card-content .spfx-card-body {
   padding: 16px;
@@ -1053,14 +1054,14 @@
     transform: scaleY(0.95);
   }
   to {
-    max-height: 2000px;
+    max-height: 10000px;
     opacity: 1;
     transform: scaleY(1);
   }
 }
 @keyframes accordionCollapse {
   from {
-    max-height: 2000px;
+    max-height: 10000px;
     opacity: 1;
     transform: scaleY(1);
   }
@@ -1255,14 +1256,14 @@
     transform: scaleY(0.95);
   }
   to {
-    max-height: 2000px;
+    max-height: 10000px;
     opacity: 1;
     transform: scaleY(1);
   }
 }
 @keyframes accordionCollapse {
   from {
-    max-height: 2000px;
+    max-height: 10000px;
     opacity: 1;
     transform: scaleY(1);
   }
