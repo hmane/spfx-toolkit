@@ -91,13 +91,61 @@ export function useSPChoiceField(
   const [error, setError] = React.useState<string | null>(null);
   const [retryCount, setRetryCount] = React.useState<number>(0);
 
-  const [otherState, setOtherState] = React.useState<IOtherOptionState>({
-    isOtherSelected: false,
-    customValue: '',
-    customValueError: undefined,
-  });
-
   const otherOptionText = otherConfig.otherOptionText || 'Other';
+
+  // Helper to check if a value is in the available choices
+  const isValueInAvailableChoices = (val: string, choices: string[] | undefined): boolean => {
+    if (!choices) return false;
+    return choices.some(choice => choice.toLowerCase() === val.toLowerCase());
+  };
+
+  // Initialize otherState - if enableOtherOption is set and we have a value that's not in choices,
+  // assume it's an "Other" value
+  const getInitialOtherState = (): IOtherOptionState => {
+    if (!otherConfig.enableOtherOption || !value) {
+      return { isOtherSelected: false, customValue: '', customValueError: undefined };
+    }
+
+    // Get available choices from staticChoices or dataSource.choices
+    const availableChoices = staticChoices || (dataSource?.type === 'static' ? dataSource.choices : undefined);
+
+    if (Array.isArray(value)) {
+      // Multi-select: check if "Other" text is in array or if any value is not in choices
+      const hasOtherText = value.some(v => v.toLowerCase() === otherOptionText.toLowerCase());
+      if (hasOtherText) {
+        return { isOtherSelected: true, customValue: '', customValueError: undefined };
+      }
+
+      if (availableChoices) {
+        const otherValues = value.filter(v => !isValueInAvailableChoices(v, availableChoices));
+        if (otherValues.length > 0) {
+          return { isOtherSelected: true, customValue: otherValues[0], customValueError: undefined };
+        }
+      }
+      return { isOtherSelected: false, customValue: '', customValueError: undefined };
+    } else {
+      // Single-select: check if value is "Other" text or not in choices
+      if (value.toLowerCase() === otherOptionText.toLowerCase()) {
+        return { isOtherSelected: true, customValue: '', customValueError: undefined };
+      }
+
+      // If we have choices available, check if value is in them
+      if (availableChoices) {
+        if (!isValueInAvailableChoices(value, availableChoices)) {
+          // Value is not in choices - it's an "Other" value
+          return { isOtherSelected: true, customValue: value, customValueError: undefined };
+        }
+        // Value is in choices - not an "Other" value
+        return { isOtherSelected: false, customValue: '', customValueError: undefined };
+      }
+
+      // No choices available yet (async loading) - assume it could be "Other"
+      // This will be corrected once metadata loads
+      return { isOtherSelected: true, customValue: value, customValueError: undefined };
+    }
+  };
+
+  const [otherState, setOtherState] = React.useState<IOtherOptionState>(getInitialOtherState);
 
   // Create stable dataSource key for comparison (avoid re-fetching on object reference changes)
   const dataSourceKey = React.useMemo(() => {
