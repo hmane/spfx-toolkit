@@ -89,7 +89,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     choices: staticChoices,
     displayType = DefaultSPChoiceFieldProps.displayType,
     allowMultiple = DefaultSPChoiceFieldProps.allowMultiple,
-    otherConfig = DefaultSPChoiceFieldProps.otherConfig,
+    otherConfig: userOtherConfig,
     useCache = DefaultSPChoiceFieldProps.useCache,
     maxDisplayedTags = DefaultSPChoiceFieldProps.maxDisplayedTags,
     showMultiTagOnly = DefaultSPChoiceFieldProps.showMultiTagOnly,
@@ -103,6 +103,12 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   } = props;
 
   const theme = useTheme();
+
+  // Merge user's otherConfig with defaults to ensure all properties have values
+  const otherConfig = React.useMemo(() => ({
+    ...DefaultSPChoiceFieldProps.otherConfig,
+    ...userOtherConfig,
+  }), [userOtherConfig]);
 
   // Create stable references to prevent infinite loops
   const emptyArray = React.useRef<string[]>([]).current;

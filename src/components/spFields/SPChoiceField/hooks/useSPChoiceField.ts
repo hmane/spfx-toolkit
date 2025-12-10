@@ -99,10 +99,10 @@ export function useSPChoiceField(
     return choices.some(choice => choice.toLowerCase() === val.toLowerCase());
   };
 
-  // Initialize otherState - if enableOtherOption is set and we have a value that's not in choices,
-  // assume it's an "Other" value
+  // Initialize otherState - detect "Other" values even without explicit enableOtherOption
+  // This handles loading saved "Other" values from SharePoint fields with allowFillIn
   const getInitialOtherState = (): IOtherOptionState => {
-    if (!otherConfig.enableOtherOption || !value) {
+    if (!value) {
       return { isOtherSelected: false, customValue: '', customValueError: undefined };
     }
 
@@ -122,6 +122,11 @@ export function useSPChoiceField(
           return { isOtherSelected: true, customValue: otherValues[0], customValueError: undefined };
         }
       }
+      // If no choices available and enableOtherOption is set, check values
+      if (!availableChoices && otherConfig.enableOtherOption && value.length > 0) {
+        // Can't determine - will be corrected once metadata loads
+        return { isOtherSelected: false, customValue: '', customValueError: undefined };
+      }
       return { isOtherSelected: false, customValue: '', customValueError: undefined };
     } else {
       // Single-select: check if value is "Other" text or not in choices
@@ -139,9 +144,15 @@ export function useSPChoiceField(
         return { isOtherSelected: false, customValue: '', customValueError: undefined };
       }
 
-      // No choices available yet (async loading) - assume it could be "Other"
-      // This will be corrected once metadata loads
-      return { isOtherSelected: true, customValue: value, customValueError: undefined };
+      // No choices available yet (async loading from SharePoint)
+      // If enableOtherOption is explicitly set, assume it could be "Other"
+      if (otherConfig.enableOtherOption) {
+        return { isOtherSelected: true, customValue: value, customValueError: undefined };
+      }
+
+      // Without explicit config, we can't determine until metadata loads
+      // Return false initially - the effect will update once metadata loads
+      return { isOtherSelected: false, customValue: '', customValueError: undefined };
     }
   };
 
@@ -225,12 +236,18 @@ export function useSPChoiceField(
       return true;
     }
 
+    // If we already detected an "Other" value (from initial state), keep it enabled
+    // This handles the case where a saved "Other" value is loaded before metadata
+    if (otherState.isOtherSelected && otherState.customValue) {
+      return true;
+    }
+
     // Need metadata for auto-detection
     if (!metadata) return false;
 
     // Auto-detect from field metadata
     return shouldEnableOtherOption(metadata, otherOptionText);
-  }, [metadata, otherConfig.enableOtherOption, otherOptionText]);
+  }, [metadata, otherConfig.enableOtherOption, otherOptionText, otherState.isOtherSelected, otherState.customValue]);
 
   // Build final choices array (inject "Other" if needed)
   const choices = React.useMemo(() => {
