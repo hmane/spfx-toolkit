@@ -20,7 +20,7 @@ import { SelectBox } from 'devextreme-react/select-box';
 import { TagBox } from 'devextreme-react/tag-box';
 import TextBox from 'devextreme-react/text-box';
 import * as React from 'react';
-import { Controller, RegisterOptions } from 'react-hook-form';
+import { Controller, RegisterOptions, useWatch } from 'react-hook-form';
 import {
   DefaultSPChoiceFieldProps,
   ISPChoiceFieldProps,
@@ -124,6 +124,23 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   const internalRef = React.useRef<HTMLDivElement>(null);
   const fieldRef = inputRef || internalRef;
 
+  // Watch form value when using react-hook-form (to detect "Other" values on load)
+  // This ensures the hook receives the actual form value, not just the initial/empty value
+  const watchedFormValue = useWatch({
+    control: effectiveControl,
+    name: name as string,
+    defaultValue: defaultValue,
+    disabled: !effectiveControl || !name,
+  });
+
+  // Determine the actual current value for the hook
+  // Priority: standalone value prop > watched form value > internal state
+  const hookValue = React.useMemo(() => {
+    if (value !== undefined) return value;
+    if (effectiveControl && name && watchedFormValue !== undefined) return watchedFormValue;
+    return internalValue;
+  }, [value, effectiveControl, name, watchedFormValue, internalValue]);
+
   // Register field with FormContext for scroll-to-error functionality
   React.useEffect(() => {
     if (name && formContext?.registry) {
@@ -162,7 +179,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     otherState,
     setCustomValue,
     isOtherValue,
-  } = useSPChoiceField(dataSource, staticChoices, value || internalValue, otherConfig, useCache);
+  } = useSPChoiceField(dataSource, staticChoices, hookValue, otherConfig, useCache);
 
   // Sort choices if requested
   const finalChoices = React.useMemo(() => {
