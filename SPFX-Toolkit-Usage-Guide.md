@@ -942,103 +942,142 @@ const MyComponent: React.FC = () => {
 
 ### 6. ConflictDetector - Concurrent Editing Protection
 
-**Bundle Impact:** Medium (~200KB)
+**Bundle Impact:** Medium (~100-150KB)
 **Use Case:** Forms, document editing, multi-user scenarios
 
-#### Basic Usage
+#### Basic Usage with Hook
 
 ```typescript
-import { ConflictDetector } from 'spfx-toolkit/lib/components/ConflictDetector';
+import {
+  useConflictDetection,
+  ConflictNotificationBar
+} from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
-const MyComponent: React.FC = () => {
-  return (
-    <ConflictDetector
-      listTitle="Tasks"
-      itemId={101}
-      checkInterval={30000}  // Check every 30 seconds
-      onConflictDetected={(conflict) => {
-        alert(`Conflict detected! Modified by: ${conflict.modifiedBy}`);
-      }}
-    >
-      {/* Your form or editable content */}
-      <TaskEditForm itemId={101} />
-    </ConflictDetector>
-  );
-};
-```
-
-#### Advanced Features
-
-```typescript
-import { ConflictDetector, useConflictDetection } from 'spfx-toolkit/lib/components/ConflictDetector';
-
-const MyFormComponent: React.FC<{ itemId: number }> = ({ itemId }) => {
-  const [formData, setFormData] = React.useState({});
-
-  // Custom hook for conflict management
+const MyFormComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
   const {
     hasConflict,
     conflictInfo,
-    startMonitoring,
-    stopMonitoring,
-    resolveConflict
-  } = useConflictDetection('Tasks', itemId, 30000);
-
-  React.useEffect(() => {
-    startMonitoring();
-    return () => stopMonitoring();
-  }, []);
+    isChecking,
+    error,
+    checkForConflicts,
+    updateSnapshot
+  } = useConflictDetection({
+    sp: SPContext.sp,
+    listId,
+    itemId,
+    options: {
+      checkOnSave: true,
+      showNotification: true,
+      blockSave: false,
+    },
+  });
 
   const handleSave = async () => {
+    // Check for conflicts before saving
+    const hasConflict = await checkForConflicts();
     if (hasConflict) {
-      const userChoice = confirm(
-        `This item was modified by ${conflictInfo?.modifiedBy} at ${conflictInfo?.modifiedDate}. Continue?`
-      );
-
-      if (!userChoice) return;
-      resolveConflict();  // Mark conflict as resolved
+      // Let user decide via notification bar
+      return;
     }
 
-    // Save form data...
+    await saveData();
+    await updateSnapshot(); // Update snapshot after save
   };
 
   return (
     <div>
-      {hasConflict && (
-        <MessageBar messageBarType={MessageBarType.warning}>
-          Conflict detected! Modified by {conflictInfo?.modifiedBy}
-        </MessageBar>
-      )}
-      <form onSubmit={handleSave}>
+      <ConflictNotificationBar
+        conflictInfo={conflictInfo}
+        isChecking={isChecking}
+        error={error}
+        onRefresh={() => window.location.reload()}
+        onOverwrite={handleSave}
+      />
+      <form>
         {/* Form fields */}
+        <button onClick={handleSave}>Save</button>
       </form>
     </div>
   );
 };
 ```
 
-#### Props Reference
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `listTitle` | `string` | Required | SharePoint list name |
-| `itemId` | `number` | Required | List item ID |
-| `checkInterval` | `number` | `30000` | Check interval (ms) |
-| `onConflictDetected` | `(conflict) => void` | - | Conflict callback |
-| `onConflictResolved` | `() => void` | - | Resolution callback |
-| `children` | `ReactNode` | - | Child components to protect |
-
-**useConflictDetection Hook:**
+#### Pre-Save Conflict Check
 
 ```typescript
-const {
+import { usePreSaveConflictCheck } from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+const MyComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
+  const { checkBeforeSave, hasConflict, updateSnapshot } = usePreSaveConflictCheck(
+    SPContext.sp,
+    listId,
+    itemId,
+    { blockSave: true }
+  );
+
+  const handleSave = async () => {
+    const { canSave } = await checkBeforeSave();
+    if (!canSave) {
+      alert('Cannot save due to conflicts. Please refresh first.');
+      return;
+    }
+
+    await saveData();
+    await updateSnapshot();
+  };
+
+  return <button onClick={handleSave} disabled={hasConflict}>Save</button>;
+};
+```
+
+#### Using Preset Configurations
+
+```typescript
+import {
+  useConflictDetection,
+  CONFLICT_DETECTION_PRESETS
+} from 'spfx-toolkit/lib/components/ConflictDetector';
+
+// Available presets:
+// - silent: Logs conflicts but no UI
+// - notify: Shows notifications but doesn't block
+// - strict: Blocks saves on conflicts
+// - realtime: 30s polling with notifications
+// - formCustomizer: Inline notifications
+
+const { hasConflict } = useConflictDetection({
+  sp: SPContext.sp,
+  listId,
+  itemId,
+  options: CONFLICT_DETECTION_PRESETS.strict,
+});
+```
+
+#### Available Hooks
+
+| Hook | Purpose |
+|------|---------|
+| `useConflictDetection` | Full-featured conflict detection with manual control |
+| `usePreSaveConflictCheck` | Simple pre-save validation |
+| `useConflictMonitor` | Lightweight background monitoring |
+| `useFormConflictDetection` | Form-optimized with validation helpers |
+
+#### ConflictInfo Interface
+
+```typescript
+interface ConflictInfo {
   hasConflict: boolean;
-  conflictInfo: IConflictInfo | null;
-  startMonitoring: () => void;
-  stopMonitoring: () => void;
-  resolveConflict: () => void;
-  checkNow: () => Promise<void>;
-} = useConflictDetection(listTitle, itemId, checkInterval);
+  originalVersion: string;      // ETag when editing started
+  currentVersion: string;       // Current ETag
+  lastModifiedBy: string;       // Display name
+  lastModifiedByEmail?: string; // Email address
+  lastModified: Date;
+  originalModified: Date;
+  itemId: number;
+  listId: string;
+}
 ```
 
 ---

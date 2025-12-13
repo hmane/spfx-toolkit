@@ -8,30 +8,48 @@ A comprehensive SharePoint Framework (SPFx) utility for detecting and handling c
 - ⚛️ **Multiple integration patterns** - Hooks, Context Provider, and imperative API
 - 🎨 **Fluent UI v8 components** - Ready-to-use notification bars and dialogs
 - 🔧 **Flexible configuration** - Silent monitoring, notifications, or strict blocking
-- 📦 **NPM ready** - Designed for reuse across multiple SPFx solutions
+- 📦 **Tree-shakable** - Import only what you need for minimal bundle size
 - 🧪 **TypeScript support** - Fully typed with comprehensive interfaces
+- 📧 **Enhanced conflict info** - Includes modifier's email for better identification
 
 ## Installation
 
 ```bash
-# Install the utility in your SPFx project
-npm install @pnp/sp  # Required dependency
+# Install spfx-toolkit (ConflictDetector is included)
+npm install spfx-toolkit
+
+# Ensure peer dependencies are installed
+npm install @pnp/sp@^3.20.1 @fluentui/react@8.106.4
 ```
 
-Copy the `conflictDetector` folder to your SPFx project source directory.
+## Prerequisites
+
+**SPContext must be initialized** before using ConflictDetector:
+
+```typescript
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+
+// In your web part's onInit
+await SPContext.smart(this.context, 'MyWebPart');
+```
 
 ## Quick Start
 
 ### 1. Hook-based Approach (Function Components)
 
 ```typescript
-import { useConflictDetection, ConflictNotificationBar } from './conflictDetector';
+import {
+  useConflictDetection,
+  ConflictNotificationBar
+} from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
-const MyFormComponent: React.FC = () => {
+const MyFormComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
   const { hasConflict, conflictInfo, isChecking, error, checkForConflicts, updateSnapshot } =
     useConflictDetection({
-      listId: 'your-list-id',
-      itemId: 123,
+      sp: SPContext.sp,  // Required: PnP SP instance
+      listId,
+      itemId,
       options: {
         checkOnSave: true,
         showNotification: true,
@@ -76,62 +94,70 @@ const MyFormComponent: React.FC = () => {
 ### 2. Provider-based Approach (Class Components)
 
 ```typescript
-import { ConflictDetectionProvider, ConflictHandler } from './conflictDetector';
+import {
+  ConflictDetectionProvider,
+  ConflictHandler,
+  useConflictContext
+} from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 // Wrap your application
-const App: React.FC = () => (
+const App: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => (
   <ConflictDetectionProvider
-    listId='your-list-id'
-    itemId={123}
+    sp={SPContext.sp}  // Required: PnP SP instance
+    listId={listId}
+    itemId={itemId}
     options={{
       checkOnSave: true,
       showNotification: true,
       notificationPosition: 'top',
     }}
   >
-    <MyClassComponent />
+    <MyFormContent />
   </ConflictDetectionProvider>
 );
 
-// Use in class component
-class MyClassComponent extends React.Component {
-  static contextType = ConflictContext;
+// Use context in child component
+const MyFormContent: React.FC = () => {
+  const { checkForConflicts, updateSnapshot, getState } = useConflictContext();
+  const state = getState();
 
-  handleSave = async () => {
-    const { checkForConflicts, updateSnapshot } = this.context;
-
+  const handleSave = async () => {
     await checkForConflicts();
     // Handle conflicts through UI components
 
-    await this.saveData();
+    await saveData();
     await updateSnapshot();
   };
 
-  render() {
-    return (
-      <div>
-        <ConflictHandler
-          {...this.context.getState()}
-          onRefresh={() => window.location.reload()}
-          onOverwrite={this.handleSave}
-        />
+  return (
+    <div>
+      <ConflictHandler
+        conflictInfo={state.conflictInfo}
+        isChecking={state.isChecking}
+        error={state.error}
+        showNotification={true}
+        onRefresh={() => window.location.reload()}
+        onOverwrite={handleSave}
+      />
 
-        {/* Your form content */}
-      </div>
-    );
-  }
-}
+      {/* Your form content */}
+    </div>
+  );
+};
 ```
 
 ### 3. Pre-save Conflict Checking
 
 ```typescript
-import { usePreSaveConflictCheck } from './conflictDetector';
+import { usePreSaveConflictCheck } from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
-const MyComponent: React.FC = () => {
-  const { checkBeforeSave, hasConflict, conflictInfo } = usePreSaveConflictCheck(
-    'list-id',
-    123,
+const MyComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
+  const { checkBeforeSave, hasConflict, conflictInfo, updateSnapshot } = usePreSaveConflictCheck(
+    SPContext.sp,  // Required: PnP SP instance
+    listId,
+    itemId,
     { blockSave: true } // Will prevent save if conflict detected
   );
 
@@ -145,6 +171,9 @@ const MyComponent: React.FC = () => {
 
     // Proceed with save
     await saveData();
+
+    // Update snapshot after successful save
+    await updateSnapshot();
   };
 
   return (
@@ -179,22 +208,22 @@ interface ConflictDetectionOptions {
 ## Preset Configurations
 
 ```typescript
-import { ConflictDetectionPresets } from './conflictDetector';
+import { CONFLICT_DETECTION_PRESETS } from 'spfx-toolkit/lib/components/ConflictDetector';
 
-// Silent monitoring
-const silentOptions = ConflictDetectionPresets.silent;
+// Silent monitoring - logs conflicts but no UI
+const silentOptions = CONFLICT_DETECTION_PRESETS.silent;
 
-// Show notifications but don't block
-const notifyOptions = ConflictDetectionPresets.notify;
+// Show notifications but don't block saves
+const notifyOptions = CONFLICT_DETECTION_PRESETS.notify;
 
-// Block saves on conflicts
-const strictOptions = ConflictDetectionPresets.strict;
+// Strict mode - block saves on conflicts
+const strictOptions = CONFLICT_DETECTION_PRESETS.strict;
 
 // Real-time monitoring with 30s polling
-const realtimeOptions = ConflictDetectionPresets.realtime;
+const realtimeOptions = CONFLICT_DETECTION_PRESETS.realtime;
 
-// Optimized for form customizers
-const formOptions = ConflictDetectionPresets.formCustomizer;
+// Optimized for form customizers (inline notifications)
+const formOptions = CONFLICT_DETECTION_PRESETS.formCustomizer;
 ```
 
 ## UI Components
@@ -251,9 +280,16 @@ Combined notification and dialog:
 ### ConflictDetector Class
 
 ```typescript
-import { ConflictDetector } from './conflictDetector';
+import { ConflictDetector } from 'spfx-toolkit/lib/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
-const detector = new ConflictDetector(listId, itemId, options);
+// Create detector with SP instance
+const detector = new ConflictDetector(
+  SPContext.sp,  // Required: PnP SP instance
+  listId,
+  itemId,
+  options
+);
 
 // Initialize and take snapshot
 await detector.initialize();
@@ -262,16 +298,23 @@ await detector.initialize();
 const result = await detector.checkForConflicts();
 if (result.success && result.conflictInfo?.hasConflict) {
   console.log('Conflict detected!');
+  console.log('Modified by:', result.conflictInfo.lastModifiedBy);
+  console.log('Email:', result.conflictInfo.lastModifiedByEmail);
 }
 
 // Update snapshot after save
 await detector.updateSnapshot();
 
-// Start/stop polling
+// Polling control
 detector.startPolling();
-detector.stopPolling();
+detector.pausePolling();   // Temporarily pause
+detector.resumePolling();  // Resume polling
+detector.stopPolling();    // Stop completely
 
-// Cleanup
+// Check polling status
+const isActive = detector.isPollingActive();
+
+// Cleanup when done
 detector.dispose();
 ```
 
@@ -348,11 +391,12 @@ const { conflictInfo } = useConflictDetection({
 ```typescript
 interface ConflictInfo {
   hasConflict: boolean;
-  originalVersion: string; // ETag when editing started
-  currentVersion: string; // Current ETag
-  lastModifiedBy: string; // Who modified the record
-  lastModified: Date; // When it was modified
-  originalModified: Date; // When editing session started
+  originalVersion: string;    // ETag when editing started
+  currentVersion: string;     // Current ETag
+  lastModifiedBy: string;     // Display name of who modified the record
+  lastModifiedByEmail?: string; // Email of who modified the record (NEW)
+  lastModified: Date;         // When it was modified
+  originalModified: Date;     // When editing session started
   itemId: number;
   listId: string;
 }
@@ -360,6 +404,18 @@ interface ConflictInfo {
 interface ConflictResolutionAction {
   type: 'refresh' | 'overwrite' | 'cancel';
   message: string;
+}
+
+interface ConflictDetectionOptions {
+  checkOnSave: boolean;           // Check before save operations
+  checkInterval?: number;         // Polling interval in ms (5000-300000)
+  showNotification: boolean;      // Show UI notifications
+  blockSave: boolean;             // Prevent saves on conflict
+  logConflicts: boolean;          // Log to console
+  notificationPosition: 'top' | 'bottom' | 'inline';
+  customMessage?: string;
+  onConflictDetected?: (conflict: ConflictInfo) => void;
+  onConflictResolved?: () => void;
 }
 ```
 
@@ -462,9 +518,40 @@ const options = {
 };
 ```
 
+## Available Hooks
+
+| Hook | Purpose | Use Case |
+|------|---------|----------|
+| `useConflictDetection` | Full-featured conflict detection | Forms with manual control |
+| `usePreSaveConflictCheck` | Pre-save validation | Simple save blocking |
+| `useConflictMonitor` | Lightweight background monitoring | Dashboard monitoring |
+| `useFormConflictDetection` | Form-optimized with validation | React Hook Form integration |
+
+## Available Components
+
+| Component | Purpose |
+|-----------|---------|
+| `ConflictNotificationBar` | Inline notification bar |
+| `ConflictNotification` | Enhanced notification with auto-hide |
+| `ConflictResolutionDialog` | Modal dialog for resolution |
+| `EnhancedConflictResolutionDialog` | Dialog with confirmation |
+| `ConflictHandler` | Combined notification + dialog |
+| `ConflictToast` | Toast-style notification |
+| `SimpleConflictNotification` | Minimal notification |
+
 ## Dependencies
 
-- `@pnp/sp` - SharePoint API integration
-- `@fluentui/react@^8.*` - UI components
-- `react` - React framework
-- `typescript` - Type definitions
+- `@pnp/sp@^3.20.1` - SharePoint API integration
+- `@fluentui/react@8.106.4` - UI components (tree-shakable imports)
+- `react@^17.0.1` - React framework
+- `typescript@^4.7` - Type definitions
+
+## Bundle Size
+
+- **Full import**: ~100-150KB
+- **Lazy import**: ~3KB wrapper (loads on demand)
+
+```typescript
+// For optimal bundle size, use lazy loading
+import { LazyConflictDetector } from 'spfx-toolkit/lib/components/lazy';
+```
