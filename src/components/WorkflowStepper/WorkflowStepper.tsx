@@ -4,9 +4,12 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SPContext } from '../../utilities/context';
+import { CardStepItem } from './CardStepItem';
 import { ContentArea } from './ContentArea';
+import { MinimalStepItem } from './MinimalStepItem';
 import { StepItem } from './StepItem';
-import { StepData, WorkflowStepperProps } from './types';
+import { TimelineStepItem } from './TimelineStepItem';
+import { StepData, StepperVariant, WorkflowStepperProps } from './types';
 import {
   findAutoSelectStep,
   getFirstClickableStepId,
@@ -17,11 +20,17 @@ import {
   isStepClickable,
   validateStepIds,
 } from './utils';
-import { getStepperStyles } from './WorkflowStepper.styles';
+import {
+  getCardsStyles,
+  getMinimalStyles,
+  getStepperStyles,
+  getTimelineStyles,
+} from './WorkflowStepper.styles';
 
 export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   steps,
   mode = 'fullSteps',
+  variant = 'arrow',
   selectedStepId,
   onStepClick,
   minStepWidth,
@@ -177,9 +186,24 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         stepCount: steps.length,
         minStepWidth,
         mode,
+        variant,
       }),
-    [theme, steps.length, minStepWidth, mode]
+    [theme, steps.length, minStepWidth, mode, variant]
   );
+
+  // Get variant-specific styles
+  const variantStyles = useMemo(() => {
+    switch (variant) {
+      case 'timeline':
+        return getTimelineStyles(theme);
+      case 'minimal':
+        return getMinimalStyles(theme);
+      case 'cards':
+        return getCardsStyles(theme);
+      default:
+        return null;
+    }
+  }, [theme, variant]);
 
   // Enhanced step click handler with loading state
   const handleStepClick = useCallback(
@@ -218,7 +242,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     (event: React.KeyboardEvent) => {
       if (!selectedStep || isLoading) return;
 
-      let targetStepId: string | null = null;
+      let targetStepId: string | undefined = undefined;
 
       switch (event.key) {
         case 'ArrowRight':
@@ -258,30 +282,105 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     [selectedStep, steps, mode, handleStepClick, isLoading]
   );
 
-  // Enhanced step rendering with icons
+  // Enhanced step rendering with variant support
   const renderSteps = () => {
     return steps.map((step, index) => {
       const isSelected = selectedStep?.id === step.id;
       const clickable = isStepClickable(step, mode);
+      const isFirst = index === 0;
+      const isLast = index === steps.length - 1;
 
-      return (
-        <StepItem
-          key={step.id}
-          step={step}
-          isSelected={isSelected}
-          isClickable={clickable}
-          onStepClick={handleStepClick}
-          isLast={index === steps.length - 1}
-          isFirst={index === 0}
-          totalSteps={steps.length}
-          stepIndex={index}
-          minWidth={minStepWidth}
-          descriptionStyles={descriptionStyles}
-          mode={mode}
-          fullWidth={false}
-        />
-      );
+      // Render based on variant
+      switch (variant) {
+        case 'timeline':
+          return (
+            <TimelineStepItem
+              key={step.id}
+              step={step}
+              isSelected={isSelected}
+              isClickable={clickable}
+              onStepClick={handleStepClick}
+              isLast={isLast}
+              isFirst={isFirst}
+              totalSteps={steps.length}
+              stepIndex={index}
+              descriptionStyles={descriptionStyles}
+              mode={mode}
+            />
+          );
+
+        case 'minimal':
+          return (
+            <MinimalStepItem
+              key={step.id}
+              step={step}
+              isSelected={isSelected}
+              isClickable={clickable}
+              onStepClick={handleStepClick}
+              isLast={isLast}
+              isFirst={isFirst}
+              totalSteps={steps.length}
+              stepIndex={index}
+              descriptionStyles={descriptionStyles}
+              mode={mode}
+              previousStepCompleted={index > 0 && steps[index - 1].status === 'completed'}
+            />
+          );
+
+        case 'cards':
+          return (
+            <CardStepItem
+              key={step.id}
+              step={step}
+              isSelected={isSelected}
+              isClickable={clickable}
+              onStepClick={handleStepClick}
+              isLast={isLast}
+              isFirst={isFirst}
+              totalSteps={steps.length}
+              stepIndex={index}
+              descriptionStyles={descriptionStyles}
+              mode={mode}
+            />
+          );
+
+        case 'arrow':
+        default:
+          return (
+            <StepItem
+              key={step.id}
+              step={step}
+              isSelected={isSelected}
+              isClickable={clickable}
+              onStepClick={handleStepClick}
+              isLast={isLast}
+              isFirst={isFirst}
+              totalSteps={steps.length}
+              stepIndex={index}
+              minWidth={minStepWidth}
+              descriptionStyles={descriptionStyles}
+              mode={mode}
+              fullWidth={false}
+            />
+          );
+      }
     });
+  };
+
+  // Get the container class for variant-specific layouts
+  const getVariantContainerClass = (): string => {
+    if (!variantStyles) return '';
+
+    switch (variant) {
+      case 'timeline':
+        return (variantStyles as ReturnType<typeof getTimelineStyles>).container;
+      case 'minimal':
+        return (variantStyles as ReturnType<typeof getMinimalStyles>).container;
+      case 'cards':
+        return (variantStyles as ReturnType<typeof getCardsStyles>).container;
+      default:
+        return '';
+    }
   };
 
   // Enhanced scroll handlers with smooth animation
@@ -372,6 +471,56 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     }. Use arrow keys to navigate, Enter to select.`;
   };
 
+  // Render variant-specific layout or default arrow layout
+  const renderVariantLayout = () => {
+    // For non-arrow variants, use a simpler container structure
+    if (variant !== 'arrow') {
+      const variantContainerClass = getVariantContainerClass();
+
+      return (
+        <div
+          className={variantContainerClass}
+          role='tablist'
+          aria-label='Workflow step navigation'
+          aria-orientation={variant === 'timeline' ? 'vertical' : 'horizontal'}
+          data-variant={variant}
+        >
+          {renderSteps()}
+        </div>
+      );
+    }
+
+    // Default arrow variant layout with scroll hints
+    return (
+      <div
+        className={styles.stepperContainer}
+        data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
+      >
+        {/* Scrollable steps container */}
+        <div
+          ref={stepsWrapperRef}
+          className={styles.stepsWrapper}
+          role='region'
+          aria-label='Workflow steps'
+          data-has-content={mode === 'fullSteps' ? 'true' : 'false'}
+          data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
+        >
+          <div
+            className={styles.stepsContainer}
+            role='tablist'
+            aria-label='Workflow step navigation'
+            aria-orientation='horizontal'
+          >
+            {renderSteps()}
+          </div>
+        </div>
+
+        {/* Enhanced scroll hints - only for arrow variant */}
+        {renderScrollHints()}
+      </div>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -380,6 +529,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
       role='application'
       aria-label={getAriaLabel()}
       data-testid='workflow-stepper'
+      data-variant={variant}
     >
       {/* Enhanced screen reader announcements */}
       <div className={styles.srOnly} aria-live='polite' aria-atomic='true' role='status'>
@@ -416,36 +566,13 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         </div>
       )}
 
-      {/* Enhanced stepper container */}
-      <div
-        className={styles.stepperContainer}
-        data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
-      >
-        {/* Scrollable steps container */}
-        <div
-          ref={stepsWrapperRef}
-          className={styles.stepsWrapper}
-          role='region'
-          aria-label='Workflow steps'
-          data-has-content={mode === 'fullSteps' ? 'true' : 'false'}
-          data-standalone={mode !== 'fullSteps' ? 'true' : 'false'}
-        >
-          <div
-            className={styles.stepsContainer}
-            role='tablist'
-            aria-label='Workflow step navigation'
-            aria-orientation='horizontal'
-          >
-            {renderSteps()}
-          </div>
-        </div>
+      {/* Render the appropriate layout based on variant */}
+      {renderVariantLayout()}
 
-        {/* Enhanced scroll hints */}
-        {renderScrollHints()}
-      </div>
-
-      {/* Enhanced content area - ONLY shows step content */}
-      {mode === 'fullSteps' && <ContentArea selectedStep={selectedStep} isVisible={true} />}
+      {/* Enhanced content area - ONLY shows step content (for arrow variant with fullSteps mode) */}
+      {variant === 'arrow' && mode === 'fullSteps' && (
+        <ContentArea selectedStep={selectedStep} isVisible={true} />
+      )}
     </div>
   );
 };

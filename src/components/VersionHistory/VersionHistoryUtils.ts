@@ -327,9 +327,6 @@ export function compareVersions(
     fields.forEach(field => {
       if (!field || isSystemField(field.InternalName)) return;
 
-      // Add this debug line
-      console.log('[compareVersions] Processing field:', field.InternalName, field.Title);
-
       const value = getVersionFieldValue(currentVersion, field.InternalName);
       if (value === null || value === undefined || value === '') return;
 

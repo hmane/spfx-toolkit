@@ -1,3 +1,49 @@
+/* ============================================
+   CSS Variables - Modern SaaS Palette
+   ============================================ */
+:root {
+  /* Primary gradients */
+  --spfx-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --spfx-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  --spfx-gradient-warning: linear-gradient(135deg, #fdbb2d 0%, #f5576c 100%);
+  --spfx-gradient-error: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  --spfx-gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+  /* Shadows */
+  --spfx-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --spfx-shadow-md: 0 4px 20px rgba(102, 126, 234, 0.15);
+  --spfx-shadow-lg: 0 8px 30px rgba(102, 126, 234, 0.25);
+
+  /* Transitions */
+  --spfx-transition-fast: 0.15s ease;
+  --spfx-transition-normal: 0.25s ease;
+
+  /* Colors */
+  --spfx-primary: #667eea;
+  --spfx-primary-dark: #5a67d8;
+  --spfx-success: #11998e;
+  --spfx-error: #eb3349;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes spfx-slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spfx-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* FormContainer Styles - FIXED for percentage width support */
 .spfx-form-container {
   --label-width: var(--default-label-width, 140px);
@@ -17,14 +63,35 @@
 .spfx-form-section-header {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #323130;
   margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: spfx-slideIn 0.3s ease-out;
+}
+
+.spfx-form-section-header::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--spfx-gradient-primary);
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .spfx-form-section-header::after {
-  width: 40px; /* Shorter accent line */
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: var(--spfx-gradient-primary);
+  border-radius: 2px;
 }
 
 /* FormItem Styles - FIXED to inherit container width */
@@ -124,17 +191,17 @@
   }
 }
 
-/* FormLabel Styles - Enhanced */
+/* FormLabel Styles - Enhanced with Modern SaaS */
 .spfx-form-label {
   min-width: var(--label-width, 140px);
   flex-shrink: 0;
   padding-top: 8px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: rgba(0, 0, 0, 0.87);
+  color: #323130;
   line-height: 1.4;
   font-size: 14px;
-  transition: color 0.2s ease;
+  transition: color var(--spfx-transition-fast);
 }
 
 .spfx-form-label-text {
@@ -152,7 +219,7 @@
 }
 
 .spfx-form-label-required {
-  color: #d32f2f;
+  color: var(--spfx-error);
   font-weight: bold;
   margin-right: 2px;
   animation: pulse-required 2s ease-in-out infinite;
@@ -163,32 +230,34 @@
   0%,
   100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
     opacity: 0.7;
+    transform: scale(1.1);
   }
 }
 
 .spfx-form-label-info-icon {
-  color: #1976d2;
+  color: var(--spfx-primary);
   cursor: pointer;
   font-size: 12px;
-  padding: 2px;
-  border-radius: 2px;
-  transition: all 0.2s ease;
+  padding: 3px;
+  border-radius: 50%;
+  transition: all var(--spfx-transition-fast);
   vertical-align: baseline;
 }
 
 .spfx-form-label-info-icon:hover {
-  background-color: rgba(25, 118, 210, 0.08);
-  color: #1565c0;
-  transform: scale(1.1);
+  background: rgba(102, 126, 234, 0.12);
+  color: var(--spfx-primary-dark);
+  transform: scale(1.15);
 }
 
 .spfx-form-label-info-icon:focus {
-  outline: 1px solid #1976d2;
-  outline-offset: 1px;
-  background-color: rgba(25, 118, 210, 0.12);
+  outline: 2px solid var(--spfx-primary);
+  outline-offset: 2px;
+  background: rgba(102, 126, 234, 0.15);
 }
 
 @media (max-width: 768px) {
@@ -231,25 +300,27 @@
   display: inline-block;
 }
 
-/* Enhanced DevExtreme focus and hover states */
+/* Enhanced DevExtreme focus and hover states - Modern SaaS */
 .spfx-form-value-control-container .dx-textbox:hover,
 .spfx-form-value-control-container .dx-selectbox:hover,
 .spfx-form-value-control-container .dx-numberbox:hover,
 .spfx-form-value-control-container .dx-datebox:hover {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
+  border-color: rgba(102, 126, 234, 0.4) !important;
 }
 
 .spfx-form-value-control-container .dx-textbox.dx-state-focused,
 .spfx-form-value-control-container .dx-selectbox.dx-state-focused,
 .spfx-form-value-control-container .dx-numberbox.dx-state-focused,
 .spfx-form-value-control-container .dx-datebox.dx-state-focused {
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+  border-color: var(--spfx-primary) !important;
 }
 
-/* Invalid state styling - Enhanced */
+/* Invalid state styling - Enhanced with Modern SaaS */
 .spfx-form-value-control-container .dx-invalid {
-  border-color: #d32f2f !important;
-  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2) !important;
+  border-color: var(--spfx-error) !important;
+  box-shadow: 0 0 0 3px rgba(235, 51, 73, 0.15) !important;
   animation: shake-error 0.5s ease-in-out;
 }
 
@@ -263,13 +334,13 @@
   50%,
   70%,
   90% {
-    transform: translateX(-2px);
+    transform: translateX(-3px);
   }
   20%,
   40%,
   60%,
   80% {
-    transform: translateX(2px);
+    transform: translateX(3px);
   }
 }
 
@@ -734,10 +805,10 @@ button:active {
   border-color: #3b82f6;
 }
 
-/* Invalid state styling - Enhanced */
+/* Invalid state styling - Enhanced with Modern SaaS */
 .spfx-form-value-control-container .dx-invalid {
-  border-color: #d32f2f !important;
-  box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2) !important;
+  border-color: var(--spfx-error) !important;
+  box-shadow: 0 0 0 3px rgba(235, 51, 73, 0.15) !important;
   animation: shake-error 0.5s ease-in-out;
 }
 
@@ -751,13 +822,13 @@ button:active {
   50%,
   70%,
   90% {
-    transform: translateX(-2px);
+    transform: translateX(-3px);
   }
   20%,
   40%,
   60%,
   80% {
-    transform: translateX(2px);
+    transform: translateX(3px);
   }
 }
 
@@ -1386,4 +1457,66 @@ button:active {
 .ql-editor.ql-blank::before {
   color: #605e5c;
   font-style: normal;
+}
+
+/* ============================================
+   Accessibility - High Contrast Mode
+   ============================================ */
+@media (prefers-contrast: high) {
+  .spfx-form-section-header {
+    border-bottom: 2px solid;
+  }
+
+  .spfx-form-section-header::before,
+  .spfx-form-section-header::after {
+    background: currentColor;
+  }
+
+  .spfx-form-value-control-container .dx-textbox,
+  .spfx-form-value-control-container .dx-selectbox,
+  .spfx-form-value-control-container .dx-numberbox,
+  .spfx-form-value-control-container .dx-datebox {
+    border: 2px solid !important;
+  }
+
+  .spfx-form-label-info-icon:focus {
+    outline-width: 3px;
+  }
+}
+
+/* ============================================
+   Accessibility - Reduced Motion
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .spfx-form-section-header,
+  .spfx-form-label,
+  .spfx-form-label-info-icon,
+  .spfx-form-value-control-container .dx-textbox,
+  .spfx-form-value-control-container .dx-selectbox,
+  .spfx-form-value-control-container .dx-numberbox,
+  .spfx-form-value-control-container .dx-datebox {
+    transition: none;
+    animation: none;
+  }
+
+  .spfx-form-label-required {
+    animation: none;
+  }
+
+  .spfx-form-value-control-container .dx-invalid {
+    animation: none;
+  }
+
+  @keyframes shake-error {
+    0%, 100% {
+      transform: none;
+    }
+  }
+
+  @keyframes pulse-required {
+    0%, 100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }

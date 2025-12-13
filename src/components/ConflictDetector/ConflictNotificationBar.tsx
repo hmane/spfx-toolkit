@@ -152,67 +152,68 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
     );
   }
 
+  // Build conflict message - computed outside conditional for hooks compliance
+  const conflictMessage = useMemo(() => {
+    if (!conflictInfo?.hasConflict) return '';
+    if (customMessage) return customMessage;
+
+    try {
+      return `This record was modified by ${conflictInfo.lastModifiedBy} on ${formatDateTime(
+        conflictInfo.lastModified
+      )}. Your changes might overwrite their updates.`;
+    } catch (messageError) {
+      console.error('Error creating conflict message:', messageError);
+      return 'This record has been modified by another user. Your changes might overwrite their updates.';
+    }
+  }, [customMessage, conflictInfo?.hasConflict, conflictInfo?.lastModifiedBy, conflictInfo?.lastModified, formatDateTime]);
+
+  // Build action buttons - computed outside conditional for hooks compliance
+  const actionButtons = useMemo(() => {
+    if (!showActions || !conflictInfo?.hasConflict) {
+      return undefined;
+    }
+
+    const buttons: React.ReactNode[] = [];
+
+    // Add refresh action
+    if (onRefresh || onAction) {
+      buttons.push(
+        <MessageBarButton
+          key='refresh'
+          onClick={() =>
+            handleAction({
+              type: 'refresh',
+              message: 'User chose to refresh and reload the form',
+            })
+          }
+        >
+          Refresh & Reload
+        </MessageBarButton>
+      );
+    }
+
+    // Add overwrite action
+    if (onOverwrite || onAction) {
+      buttons.push(
+        <MessageBarButton
+          key='overwrite'
+          onClick={() =>
+            handleAction({
+              type: 'overwrite',
+              message: 'User chose to continue and overwrite changes',
+            })
+          }
+        >
+          Continue Anyway
+        </MessageBarButton>
+      );
+    }
+
+    return buttons.length > 0 ? <div>{buttons}</div> : undefined;
+  }, [showActions, conflictInfo?.hasConflict, onRefresh, onAction, onOverwrite, handleAction]);
+
   // Conflict detected state
   if (conflictInfo?.hasConflict) {
-    const conflictMessage = useMemo(() => {
-      if (customMessage) {
-        return customMessage;
-      }
-
-      try {
-        return `This record was modified by ${conflictInfo.lastModifiedBy} on ${formatDateTime(
-          conflictInfo.lastModified
-        )}. Your changes might overwrite their updates.`;
-      } catch (messageError) {
-        console.error('Error creating conflict message:', messageError);
-        return 'This record has been modified by another user. Your changes might overwrite their updates.';
-      }
-    }, [customMessage, conflictInfo.lastModifiedBy, conflictInfo.lastModified, formatDateTime]);
-
-    const actionButtons = useMemo(() => {
-      if (!showActions) {
-        return undefined;
-      }
-
-      const buttons: React.ReactNode[] = [];
-
-      // Add refresh action
-      if (onRefresh || onAction) {
-        buttons.push(
-          <MessageBarButton
-            key='refresh'
-            onClick={() =>
-              handleAction({
-                type: 'refresh',
-                message: 'User chose to refresh and reload the form',
-              })
-            }
-          >
-            Refresh & Reload
-          </MessageBarButton>
-        );
-      }
-
-      // Add overwrite action
-      if (onOverwrite || onAction) {
-        buttons.push(
-          <MessageBarButton
-            key='overwrite'
-            onClick={() =>
-              handleAction({
-                type: 'overwrite',
-                message: 'User chose to continue and overwrite changes',
-              })
-            }
-          >
-            Continue Anyway
-          </MessageBarButton>
-        );
-      }
-
-      return buttons.length > 0 ? <div>{buttons}</div> : undefined;
-    }, [showActions, onRefresh, onAction, onOverwrite, handleAction]);
-
     return (
       <div style={positionStyles}>
         <MessageBar

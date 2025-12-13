@@ -559,6 +559,10 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
     // Special group handling
     if (isSpecialGroup(currentGroupName)) {
+      // Don't show description if it matches the group name
+      const showSpecialDescription = groupInfo?.Description &&
+        groupInfo.Description.toLowerCase().trim() !== currentGroupName.toLowerCase().trim();
+
       return (
         <div className='group-viewer-tooltip special-group'>
           <div className='group-viewer-tooltip-header'>
@@ -578,9 +582,9 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                 }}
               />
               <span style={{ flex: 1, minWidth: 0 }}>{currentGroupName}</span>
+              <span className='group-viewer-member-count group-viewer-special-badge'>Special Group</span>
             </div>
-            <div className='group-viewer-subtitle'>Special SharePoint Group</div>
-            {groupInfo?.Description && (
+            {showSpecialDescription && (
               <div className='group-viewer-description'>{groupInfo.Description}</div>
             )}
           </div>
@@ -629,6 +633,11 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
 
     // Empty group
     if (users.length === 0 && nestedGroups.length === 0) {
+      const emptyGroupTitle = groupInfo?.Title || groupName;
+      // Don't show description if it matches the group name
+      const showEmptyDescription = groupInfo?.Description &&
+        groupInfo.Description.toLowerCase().trim() !== emptyGroupTitle.toLowerCase().trim();
+
       return (
         <div className='group-viewer-tooltip empty'>
           <div className='group-viewer-tooltip-header'>
@@ -647,10 +656,10 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                   },
                 }}
               />
-              <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{emptyGroupTitle}</span>
+              <span className='group-viewer-member-count'>0 members</span>
             </div>
-            <div className='group-viewer-subtitle'>0 members</div>
-            {groupInfo?.Description && (
+            {showEmptyDescription && (
               <div className='group-viewer-description'>{groupInfo.Description}</div>
             )}
           </div>
@@ -694,6 +703,12 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     }
 
     // Regular group with members
+    const memberCount = users.length + nestedGroups.length;
+    const regularGroupTitle = groupInfo?.Title || groupName;
+    // Don't show description if it matches the group name
+    const showDescription = groupInfo?.Description &&
+      groupInfo.Description.toLowerCase().trim() !== regularGroupTitle.toLowerCase().trim();
+
     return (
       <div className='group-viewer-tooltip'>
         <div className='group-viewer-tooltip-header'>
@@ -712,13 +727,12 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
                 },
               }}
             />
-            <span style={{ flex: 1, minWidth: 0 }}>{groupInfo?.Title || groupName}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>{regularGroupTitle}</span>
+            <span className='group-viewer-member-count'>
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
+            </span>
           </div>
-          <div className='group-viewer-subtitle'>
-            {users.length + nestedGroups.length}{' '}
-            {users.length + nestedGroups.length === 1 ? 'member' : 'members'}
-          </div>
-          {groupInfo?.Description && (
+          {showDescription && (
             <div className='group-viewer-description'>{groupInfo.Description}</div>
           )}
         </div>

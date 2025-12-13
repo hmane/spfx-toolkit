@@ -1,5 +1,19 @@
+/* SPDynamicForm Styles - Modern SaaS Design */
+
 .sp-dynamic-form {
   width: 100%;
+  animation: spdf-fadeIn 0.3s ease-out;
+}
+
+@keyframes spdf-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sp-dynamic-form-new {
@@ -16,4 +30,11 @@
 
 .sp-dynamic-form form {
   width: 100%;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .sp-dynamic-form {
+    animation: none;
+  }
 }

@@ -585,11 +585,17 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
       if (itemType === 'document') {
         if (itemInfo.itemUrl) {
-          // Get historical versions with Author expanded
+          // Get historical file versions with Author expanded
           const fileVersions = SPContext.sp.web.getFileByServerRelativePath(
             itemInfo.itemUrl
           ).versions;
-          const historicalVersions = await fileVersions.select('*').expand('CreatedBy')();
+          const historicalFileVersions = await fileVersions.select('*').expand('CreatedBy')();
+
+          // Get list item versions to capture metadata changes (Title, custom fields, etc.)
+          const listItemVersions = await SPContext.sp.web.lists
+            .getById(listId)
+            .items.getById(itemId)
+            .versions.expand('Editor', 'Author')();
 
           // Get current file info
           const currentFile = await SPContext.sp.web
@@ -619,7 +625,17 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             )
             .expand('Author', 'Editor')();
 
-          // Build current version object to match version structure
+          // Create a map of list item versions by version label for quick lookup
+          const listVersionMap = new Map<string, any>();
+          listItemVersions.forEach((v: any) => {
+            const label = v.VersionLabel || v.OData__UIVersionString || v._UIVersionString;
+            if (label) {
+              listVersionMap.set(label, v);
+            }
+          });
+
+          // Build current version object with both file and list item data
+          const currentListVersion = listVersionMap.get(currentFile.UIVersionLabel) || listItem;
           const currentVersion = {
             VersionLabel: currentFile.UIVersionLabel || '2.0',
             ID: 0,
@@ -635,11 +651,28 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             },
             Author: listItem.Author,
             Editor: listItem.Editor,
-            CreatedBy: listItem.Author, // Add for consistency
+            CreatedBy: listItem.Author,
+            // Merge list item field values for metadata comparison
+            ...currentListVersion,
           };
 
+          // Merge file versions with list item versions to include metadata changes
+          const mergedHistoricalVersions = historicalFileVersions.map((fileVersion: any) => {
+            const versionLabel = fileVersion.VersionLabel || '';
+            const listVersion = listVersionMap.get(versionLabel) || {};
+
+            return {
+              ...listVersion, // List item fields first (Title, custom columns, etc.)
+              ...fileVersion, // File version fields override (Size, CheckInComment, etc.)
+              File: {
+                ...fileVersion.File,
+                ServerRelativeUrl: itemInfo.itemUrl,
+              },
+            };
+          });
+
           // Prepend current version to historical versions
-          versions = [currentVersion, ...historicalVersions];
+          versions = [currentVersion, ...mergedHistoricalVersions];
 
           // Ensure each version has the file URL set
           versions = versions.map(v => ({
@@ -671,42 +704,24 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     itemType: 'document' | 'list'
   ): Promise<IVersionInfo[]> => {
     try {
-      console.log('[VersionHistory] processVersions - Start', {
-        versionCount: versions?.length,
-        itemInfo,
-      });
-
       const fieldsList = SPContext.sp.web.lists.getById(listId).fields;
       const fields = await fieldsList
         .filter('Hidden eq false')
         .select('InternalName', 'Title', 'TypeAsString')();
 
-      console.log('[VersionHistory] processVersions - Fields loaded', {
-        count: fields?.length,
-        isArray: Array.isArray(fields),
-      });
-
       if (!fields || !Array.isArray(fields)) {
-        console.error('[VersionHistory] processVersions - Fields invalid!', { fields });
         SPContext.logger.warn('No fields returned from SharePoint', { listId });
         return [];
       }
 
       const currentItem = await SPContext.sp.web.lists.getById(listId).items.getById(itemId)();
-      console.log('[VersionHistory] processVersions - Current item loaded');
 
       if (!currentItem) {
-        console.error('[VersionHistory] processVersions - Current item is null!');
         SPContext.logger.warn('Current item not found', { listId, itemId });
         return [];
       }
 
       const allVersionsData = versions;
-
-      console.log(
-        '[VersionHistory] processVersions - Total versions to process',
-        allVersionsData.length
-      );
 
       const processedVersions: IVersionInfo[] = [];
 
@@ -715,7 +730,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         const previousVersion = allVersionsData[i + 1] || null;
 
         if (!version) {
-          console.warn('[VersionHistory] processVersions - Skipping null version at index', i);
           continue;
         }
 
@@ -727,13 +741,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         const isCurrentVersion = i === 0;
         const modifiedDate = new Date(version.Modified || version.Created || Date.now());
 
-        console.log(`[VersionHistory] Processing version ${i}: ${versionLabel}`, {
-          isCurrentVersion,
-          hasEditor: !!version.Editor,
-          hasAuthor: !!version.Author,
-          hasCreatedBy: !!version.CreatedBy,
-        });
-
         // Extract user info
         let modifiedBy = '';
         let modifiedByName = 'Unknown User';
@@ -744,29 +751,17 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           modifiedBy = editor.EMail || editor.Email || editor.Name || '';
           modifiedByName = editor.Title || 'Unknown User';
           modifiedByEmail = editor.Email || editor.EMail || '';
-
-          console.log(`[VersionHistory] Using Editor for v${versionLabel}:`, editor);
         } else if (version.CreatedBy && typeof version.CreatedBy === 'object') {
           const createdBy = version.CreatedBy;
           modifiedBy = createdBy.EMail || createdBy.Email || createdBy.LoginName || '';
           modifiedByName = createdBy.Title || 'Unknown User';
           modifiedByEmail = createdBy.Email || createdBy.EMail || '';
-
-          console.log(`[VersionHistory] Using CreatedBy for v${versionLabel}:`, createdBy);
         } else if (version.Author && typeof version.Author === 'object') {
           const author = version.Author;
           modifiedBy = author.EMail || author.Email || author.Name || '';
           modifiedByName = author.Title || 'Unknown User';
           modifiedByEmail = author.Email || author.EMail || '';
-
-          console.log(`[VersionHistory] Using Author for v${versionLabel}:`, author);
         }
-
-        console.log(`[VersionHistory] Final user info for v${versionLabel}:`, {
-          modifiedBy,
-          modifiedByName,
-          modifiedByEmail,
-        });
 
         const checkInComment = version.CheckInComment || version._CheckinComment || null;
 
@@ -779,20 +774,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           null;
         const sizeDelta = size !== null && previousSize !== null ? size - previousSize : null;
 
-        console.log(`[VersionHistory] Size info for v${versionLabel}:`, {
-          size,
-          previousSize,
-          sizeDelta,
-        });
-
-        console.log(`[VersionHistory] Comparing v${versionLabel} with previous`);
-        if (previousVersion) {
-          const prevLabel = previousVersion.VersionLabel || previousVersion.OData__UIVersionString;
-          console.log(`[VersionHistory] Previous version: ${prevLabel}`);
-        }
-
         const changedFields = compareVersions(version, previousVersion, fields);
-        console.log(`[VersionHistory] Version ${versionLabel} has ${changedFields.length} changes`);
 
         let fileUrl: string | null = null;
         if (version.Url) {
@@ -821,13 +803,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         });
       }
 
-      console.log('[VersionHistory] processVersions - Complete', {
-        processedCount: processedVersions.length,
-      });
-
       return processedVersions;
     } catch (error) {
-      console.error('[VersionHistory] processVersions - Error', error);
       SPContext.logger.error('Failed to process versions', error, { listId, itemId });
       throw error;
     }

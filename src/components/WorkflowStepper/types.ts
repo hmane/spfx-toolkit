@@ -4,6 +4,15 @@ export type StepStatus = 'completed' | 'current' | 'pending' | 'warning' | 'erro
 
 export type StepperMode = 'fullSteps' | 'progress' | 'compact';
 
+/**
+ * Visual variant for the WorkflowStepper component
+ * - 'arrow': Default arrow-based horizontal design (current behavior)
+ * - 'timeline': Vertical layout with animated progress line and circular nodes
+ * - 'minimal': Ultra-clean horizontal dots connected by thin lines
+ * - 'cards': Elevated card design with hover lift effects
+ */
+export type StepperVariant = 'arrow' | 'timeline' | 'minimal' | 'cards';
+
 export interface StepData {
   id: string;
   title: string;
@@ -22,6 +31,11 @@ export interface StepDescriptionStyles {
 export interface WorkflowStepperProps {
   steps: StepData[];
   mode?: StepperMode;
+  /**
+   * Visual variant for the stepper
+   * @default 'arrow'
+   */
+  variant?: StepperVariant;
   selectedStepId?: string;
   onStepClick?: (step: StepData) => void;
   minStepWidth?: number;
@@ -31,7 +45,7 @@ export interface WorkflowStepperProps {
 }
 
 export interface ContentAreaProps {
-  selectedStep: StepData | null;
+  selectedStep?: StepData;
   isVisible: boolean;
 }
 
@@ -49,4 +63,5 @@ export interface StepperStyleProps {
   stepCount: number;
   minStepWidth?: number;
   mode: StepperMode;
+  variant?: StepperVariant;
 }

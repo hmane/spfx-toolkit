@@ -8,6 +8,7 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ConflictNotificationBar } from './ConflictNotificationBar';
 import { ConflictInfo, ConflictResolutionAction } from './types';
 
 interface ConflictResolutionDialogProps {
@@ -535,28 +536,19 @@ export const ConflictHandler: React.FC<ConflictHandlerProps> = ({
     [onAction, onRefresh, onOverwrite, onDismiss, setProcessing, showDialog, closeDialog]
   );
 
-  // Only import the notification component when needed to avoid circular dependencies
-  const NotificationComponent = React.lazy(() =>
-    import(/* webpackChunkName: 'conflict-notification-bar' */ './ConflictNotificationBar').then(module => ({
-      default: module.ConflictNotificationBar,
-    }))
-  );
-
   return (
     <>
       {/* Notification Bar */}
       {showNotification && (
-        <React.Suspense fallback={<div>Loading...</div>}>
-          <NotificationComponent
-            conflictInfo={conflictInfo}
-            isChecking={isChecking}
-            error={error}
-            onRefresh={onRefresh}
-            onOverwrite={onOverwrite}
-            onDismiss={onDismiss}
-            onAction={onAction}
-          />
-        </React.Suspense>
+        <ConflictNotificationBar
+          conflictInfo={conflictInfo}
+          isChecking={isChecking}
+          error={error}
+          onRefresh={onRefresh}
+          onOverwrite={onOverwrite}
+          onDismiss={onDismiss}
+          onAction={onAction}
+        />
       )}
 
       {/* Resolution Dialog */}

@@ -20,6 +20,7 @@ export interface ConflictInfo {
   originalVersion: string;
   currentVersion: string;
   lastModifiedBy: string;
+  lastModifiedByEmail?: string;
   lastModified: Date;
   originalModified: Date;
   itemId: number;
@@ -214,6 +215,7 @@ export const isConflictInfo = (obj: unknown): obj is ConflictInfo => {
     obj !== undefined &&
     obj !== null &&
     'hasConflict' in obj &&
+    typeof (obj as ConflictInfo).hasConflict === 'boolean' &&
     'originalVersion' in obj &&
     'currentVersion' in obj &&
     'lastModifiedBy' in obj &&

@@ -60,7 +60,7 @@ export class PersonaUtils {
   /**
    * Get best UPN for LivePersona from user object
    */
-  static getBestUpn(user: IGroupMember): string | null {
+  static getBestUpn(user: IGroupMember): string | undefined {
     // Try email first (most reliable)
     if (user.Email && user.Email.includes('@')) {
       return user.Email.toLowerCase().trim();
@@ -85,7 +85,7 @@ export class PersonaUtils {
       }
     }
 
-    return null;
+    return undefined;
   }
 
   /**
@@ -93,7 +93,7 @@ export class PersonaUtils {
    */
   static canShowLivePersona(user: IGroupMember): boolean {
     const upn = PersonaUtils.getBestUpn(user);
-    return upn !== null && upn.includes('@');
+    return upn !== undefined && upn.includes('@');
   }
 
   /**

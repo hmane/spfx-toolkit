@@ -26,16 +26,16 @@ const CACHE_TIMEOUT = 60 * 60 * 1000;
 /**
  * Get user profile from cache
  */
-export function getCachedProfile(userIdentifier: string): IProfileCache | null {
+export function getCachedProfile(userIdentifier: string): IProfileCache | undefined {
   const cached = profileCache.get(userIdentifier.toLowerCase());
 
   if (!cached) {
-    return null;
+    return undefined;
   }
 
   if (Date.now() - cached.timestamp > CACHE_TIMEOUT) {
     profileCache.delete(userIdentifier.toLowerCase());
-    return null;
+    return undefined;
   }
 
   return cached;

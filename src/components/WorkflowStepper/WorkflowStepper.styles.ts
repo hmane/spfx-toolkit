@@ -1,6 +1,36 @@
 import { ITheme } from '@fluentui/react/lib/Styling';
 import { keyframes, mergeStyles } from '@fluentui/react/lib/Styling';
-import { StepStatus, StepperStyleProps, StepColors, StepperMode } from './types';
+import { StepStatus, StepperStyleProps, StepColors, StepperMode, StepperVariant } from './types';
+
+// ============================================================================
+// MODERN SAAS DESIGN SYSTEM
+// ============================================================================
+
+// Gradient definitions for Modern SaaS style
+export const SAAS_GRADIENTS = {
+  primary: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  success: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+  warning: 'linear-gradient(135deg, #fdbb2d 0%, #f5576c 100%)',
+  error: 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)',
+  info: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  pending: 'linear-gradient(135deg, #e0e5ec 0%, #c9d1d9 100%)',
+};
+
+// Shadow definitions
+export const SAAS_SHADOWS = {
+  sm: '0 2px 8px rgba(0, 0, 0, 0.08)',
+  md: '0 4px 20px rgba(102, 126, 234, 0.15)',
+  lg: '0 8px 30px rgba(102, 126, 234, 0.25)',
+  glow: '0 0 20px rgba(102, 126, 234, 0.4)',
+  hoverLift: '0 12px 35px rgba(102, 126, 234, 0.3)',
+};
+
+// Transition definitions
+export const SAAS_TRANSITIONS = {
+  fast: '0.15s ease',
+  normal: '0.25s ease',
+  slow: '0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+};
 
 // Animation keyframes
 const slideIn = keyframes({
@@ -499,4 +529,573 @@ export const getStepItemStyles = (
         }
       : {},
   });
+};
+
+// ============================================================================
+// TIMELINE VARIANT STYLES
+// ============================================================================
+
+// Animation for timeline progress line
+const timelineProgressAnimation = keyframes({
+  '0%': { height: '0%' },
+  '100%': { height: '100%' },
+});
+
+// Animation for timeline node pulse
+const timelineNodePulse = keyframes({
+  '0%, 100%': { boxShadow: '0 0 0 0 rgba(102, 126, 234, 0.4)' },
+  '50%': { boxShadow: '0 0 0 8px rgba(102, 126, 234, 0)' },
+});
+
+// Animation for content slide in
+const timelineSlideIn = keyframes({
+  '0%': { opacity: 0, transform: 'translateX(-10px)' },
+  '100%': { opacity: 1, transform: 'translateX(0)' },
+});
+
+export const getTimelineStyles = (theme: ITheme) => ({
+  container: mergeStyles({
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
+    padding: '16px 0',
+  }),
+
+  stepItem: mergeStyles({
+    display: 'flex',
+    alignItems: 'flex-start',
+    position: 'relative',
+    minHeight: '80px',
+    paddingLeft: '48px',
+    marginBottom: '8px',
+
+    // Timeline connector line
+    '::before': {
+      content: '""',
+      position: 'absolute',
+      left: '11px',
+      top: '24px',
+      bottom: '-8px',
+      width: '2px',
+      background: `linear-gradient(180deg, ${theme.palette.themePrimary} 0%, ${theme.palette.themeLight} 100%)`,
+      opacity: 0.3,
+    },
+
+    ':last-child::before': {
+      display: 'none',
+    },
+  }),
+
+  node: mergeStyles({
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    transition: `all ${SAAS_TRANSITIONS.normal}`,
+    boxShadow: SAAS_SHADOWS.md,
+  }),
+
+  nodeCompleted: mergeStyles({
+    background: SAAS_GRADIENTS.success,
+    color: '#ffffff',
+  }),
+
+  nodeCurrent: mergeStyles({
+    background: SAAS_GRADIENTS.primary,
+    color: '#ffffff',
+    animation: `${timelineNodePulse} 2s ease-in-out infinite`,
+  }),
+
+  nodePending: mergeStyles({
+    background: SAAS_GRADIENTS.pending,
+    color: theme.palette.neutralSecondary,
+  }),
+
+  nodeWarning: mergeStyles({
+    background: SAAS_GRADIENTS.warning,
+    color: '#ffffff',
+  }),
+
+  nodeError: mergeStyles({
+    background: SAAS_GRADIENTS.error,
+    color: '#ffffff',
+  }),
+
+  nodeBlocked: mergeStyles({
+    background: 'linear-gradient(135deg, #ff9500 0%, #ff8c00 100%)',
+    color: '#ffffff',
+  }),
+
+  nodeSelected: mergeStyles({
+    transform: 'scale(1.2)',
+    boxShadow: SAAS_SHADOWS.glow,
+  }),
+
+  content: mergeStyles({
+    flex: 1,
+    paddingLeft: '16px',
+    animation: `${timelineSlideIn} 0.4s ease-out`,
+  }),
+
+  title: mergeStyles({
+    fontSize: theme.fonts.mediumPlus.fontSize,
+    fontWeight: 600,
+    color: theme.palette.neutralPrimary,
+    marginBottom: '4px',
+    lineHeight: 1.3,
+  }),
+
+  titleSelected: mergeStyles({
+    background: SAAS_GRADIENTS.primary,
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  }),
+
+  description: mergeStyles({
+    fontSize: theme.fonts.small.fontSize,
+    color: theme.palette.neutralSecondary,
+    lineHeight: 1.5,
+  }),
+
+  progressLine: mergeStyles({
+    position: 'absolute',
+    left: '11px',
+    top: '24px',
+    width: '2px',
+    background: SAAS_GRADIENTS.success,
+    animation: `${timelineProgressAnimation} 0.6s ease-out forwards`,
+    zIndex: 1,
+  }),
+});
+
+// ============================================================================
+// MINIMAL VARIANT STYLES
+// ============================================================================
+
+// Animation for minimal dot glow
+const minimalDotGlow = keyframes({
+  '0%, 100%': { boxShadow: '0 0 0 0 rgba(102, 126, 234, 0.3)' },
+  '50%': { boxShadow: '0 0 12px 4px rgba(102, 126, 234, 0.2)' },
+});
+
+export const getMinimalStyles = (theme: ITheme) => ({
+  container: mergeStyles({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px 16px',
+    gap: '0',
+  }),
+
+  stepWrapper: mergeStyles({
+    display: 'flex',
+    alignItems: 'center',
+    position: 'relative',
+  }),
+
+  stepItem: mergeStyles({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    cursor: 'pointer',
+    padding: '8px 16px',
+    transition: `all ${SAAS_TRANSITIONS.normal}`,
+
+    ':hover': {
+      transform: 'translateY(-2px)',
+    },
+  }),
+
+  dot: mergeStyles({
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    transition: `all ${SAAS_TRANSITIONS.normal}`,
+    marginBottom: '8px',
+  }),
+
+  dotCompleted: mergeStyles({
+    background: SAAS_GRADIENTS.success,
+    boxShadow: '0 2px 8px rgba(17, 153, 142, 0.4)',
+  }),
+
+  dotCurrent: mergeStyles({
+    background: SAAS_GRADIENTS.primary,
+    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.4)',
+    animation: `${minimalDotGlow} 2s ease-in-out infinite`,
+  }),
+
+  dotPending: mergeStyles({
+    background: theme.palette.neutralLight,
+    boxShadow: 'none',
+  }),
+
+  dotWarning: mergeStyles({
+    background: SAAS_GRADIENTS.warning,
+    boxShadow: '0 2px 8px rgba(253, 187, 45, 0.4)',
+  }),
+
+  dotError: mergeStyles({
+    background: SAAS_GRADIENTS.error,
+    boxShadow: '0 2px 8px rgba(235, 51, 73, 0.4)',
+  }),
+
+  dotBlocked: mergeStyles({
+    background: 'linear-gradient(135deg, #ff9500 0%, #ff8c00 100%)',
+    boxShadow: '0 2px 8px rgba(255, 149, 0, 0.4)',
+  }),
+
+  dotSelected: mergeStyles({
+    transform: 'scale(1.5)',
+    boxShadow: SAAS_SHADOWS.glow,
+  }),
+
+  connector: mergeStyles({
+    width: '40px',
+    height: '1px',
+    background: theme.palette.neutralLight,
+    position: 'relative',
+    overflow: 'hidden',
+
+    '::after': {
+      content: '""',
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      height: '100%',
+      width: '0%',
+      background: SAAS_GRADIENTS.success,
+      transition: `width ${SAAS_TRANSITIONS.slow}`,
+    },
+  }),
+
+  connectorCompleted: mergeStyles({
+    '::after': {
+      width: '100%',
+    },
+  }),
+
+  label: mergeStyles({
+    fontSize: theme.fonts.small.fontSize,
+    color: theme.palette.neutralSecondary,
+    textAlign: 'center',
+    maxWidth: '80px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    transition: `all ${SAAS_TRANSITIONS.fast}`,
+  }),
+
+  labelSelected: mergeStyles({
+    color: theme.palette.themePrimary,
+    fontWeight: 600,
+  }),
+
+  tooltip: mergeStyles({
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(0, 0, 0, 0.85)',
+    color: '#ffffff',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    fontSize: theme.fonts.small.fontSize,
+    whiteSpace: 'nowrap',
+    opacity: 0,
+    visibility: 'hidden',
+    transition: `all ${SAAS_TRANSITIONS.fast}`,
+    marginBottom: '8px',
+    zIndex: 100,
+
+    '::after': {
+      content: '""',
+      position: 'absolute',
+      top: '100%',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      border: '6px solid transparent',
+      borderTopColor: 'rgba(0, 0, 0, 0.85)',
+    },
+  }),
+
+  tooltipVisible: mergeStyles({
+    opacity: 1,
+    visibility: 'visible',
+  }),
+});
+
+// ============================================================================
+// CARDS VARIANT STYLES
+// ============================================================================
+
+// Animation for card entrance
+const cardSlideUp = keyframes({
+  '0%': { opacity: 0, transform: 'translateY(20px)' },
+  '100%': { opacity: 1, transform: 'translateY(0)' },
+});
+
+// Animation for checkmark
+const checkmarkDraw = keyframes({
+  '0%': { strokeDashoffset: '24' },
+  '100%': { strokeDashoffset: '0' },
+});
+
+export const getCardsStyles = (theme: ITheme) => ({
+  container: mergeStyles({
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    padding: '16px',
+
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr',
+    },
+  }),
+
+  card: mergeStyles({
+    position: 'relative',
+    background: theme.palette.white,
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: SAAS_SHADOWS.sm,
+    border: `1px solid ${theme.palette.neutralLighter}`,
+    cursor: 'pointer',
+    transition: `all ${SAAS_TRANSITIONS.normal}`,
+    overflow: 'hidden',
+    animation: `${cardSlideUp} 0.4s ease-out backwards`,
+
+    // Left border indicator (gradient based on status)
+    '::before': {
+      content: '""',
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      bottom: '0',
+      width: '4px',
+      borderRadius: '12px 0 0 12px',
+      transition: `all ${SAAS_TRANSITIONS.fast}`,
+    },
+
+    ':hover': {
+      transform: 'translateY(-4px)',
+      boxShadow: SAAS_SHADOWS.hoverLift,
+    },
+  }),
+
+  cardCompleted: mergeStyles({
+    '::before': {
+      background: SAAS_GRADIENTS.success,
+    },
+  }),
+
+  cardCurrent: mergeStyles({
+    '::before': {
+      background: SAAS_GRADIENTS.primary,
+    },
+    boxShadow: `${SAAS_SHADOWS.md}, inset 0 0 0 1px rgba(102, 126, 234, 0.1)`,
+  }),
+
+  cardPending: mergeStyles({
+    '::before': {
+      background: theme.palette.neutralLight,
+    },
+    opacity: 0.7,
+
+    ':hover': {
+      opacity: 1,
+    },
+  }),
+
+  cardWarning: mergeStyles({
+    '::before': {
+      background: SAAS_GRADIENTS.warning,
+    },
+  }),
+
+  cardError: mergeStyles({
+    '::before': {
+      background: SAAS_GRADIENTS.error,
+    },
+  }),
+
+  cardBlocked: mergeStyles({
+    '::before': {
+      background: 'linear-gradient(135deg, #ff9500 0%, #ff8c00 100%)',
+    },
+  }),
+
+  cardSelected: mergeStyles({
+    boxShadow: `${SAAS_SHADOWS.lg}, 0 0 0 2px ${theme.palette.themePrimary}`,
+    transform: 'translateY(-2px)',
+
+    '::before': {
+      width: '6px',
+    },
+  }),
+
+  cardHeader: mergeStyles({
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: '12px',
+  }),
+
+  cardIcon: mergeStyles({
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px',
+    transition: `all ${SAAS_TRANSITIONS.fast}`,
+  }),
+
+  cardIconCompleted: mergeStyles({
+    background: 'rgba(17, 153, 142, 0.1)',
+    color: '#11998e',
+  }),
+
+  cardIconCurrent: mergeStyles({
+    background: 'rgba(102, 126, 234, 0.1)',
+    color: '#667eea',
+  }),
+
+  cardIconPending: mergeStyles({
+    background: theme.palette.neutralLighter,
+    color: theme.palette.neutralSecondary,
+  }),
+
+  cardIconWarning: mergeStyles({
+    background: 'rgba(253, 187, 45, 0.1)',
+    color: '#f5576c',
+  }),
+
+  cardIconError: mergeStyles({
+    background: 'rgba(235, 51, 73, 0.1)',
+    color: '#eb3349',
+  }),
+
+  cardIconBlocked: mergeStyles({
+    background: 'rgba(255, 149, 0, 0.1)',
+    color: '#ff9500',
+  }),
+
+  statusBadge: mergeStyles({
+    padding: '4px 10px',
+    borderRadius: '12px',
+    fontSize: '10px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  }),
+
+  badgeCompleted: mergeStyles({
+    background: 'rgba(17, 153, 142, 0.1)',
+    color: '#11998e',
+  }),
+
+  badgeCurrent: mergeStyles({
+    background: 'rgba(102, 126, 234, 0.1)',
+    color: '#667eea',
+  }),
+
+  badgePending: mergeStyles({
+    background: theme.palette.neutralLighter,
+    color: theme.palette.neutralSecondary,
+  }),
+
+  badgeWarning: mergeStyles({
+    background: 'rgba(253, 187, 45, 0.1)',
+    color: '#f5576c',
+  }),
+
+  badgeError: mergeStyles({
+    background: 'rgba(235, 51, 73, 0.1)',
+    color: '#eb3349',
+  }),
+
+  badgeBlocked: mergeStyles({
+    background: 'rgba(255, 149, 0, 0.1)',
+    color: '#ff9500',
+  }),
+
+  cardTitle: mergeStyles({
+    fontSize: theme.fonts.mediumPlus.fontSize,
+    fontWeight: 600,
+    color: theme.palette.neutralPrimary,
+    marginBottom: '8px',
+    lineHeight: 1.3,
+  }),
+
+  cardDescription: mergeStyles({
+    fontSize: theme.fonts.small.fontSize,
+    color: theme.palette.neutralSecondary,
+    lineHeight: 1.5,
+  }),
+
+  cardFooter: mergeStyles({
+    marginTop: '16px',
+    paddingTop: '12px',
+    borderTop: `1px solid ${theme.palette.neutralLighter}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    fontSize: theme.fonts.small.fontSize,
+    color: theme.palette.neutralTertiary,
+  }),
+
+  stepNumber: mergeStyles({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  }),
+});
+
+// ============================================================================
+// VARIANT STATUS COLORS - Modern SaaS Gradients
+// ============================================================================
+
+export const getVariantStatusGradient = (status: StepStatus): string => {
+  switch (status) {
+    case 'completed':
+      return SAAS_GRADIENTS.success;
+    case 'current':
+      return SAAS_GRADIENTS.primary;
+    case 'warning':
+      return SAAS_GRADIENTS.warning;
+    case 'error':
+      return SAAS_GRADIENTS.error;
+    case 'blocked':
+      return 'linear-gradient(135deg, #ff9500 0%, #ff8c00 100%)';
+    case 'pending':
+    default:
+      return SAAS_GRADIENTS.pending;
+  }
+};
+
+export const getVariantStatusColor = (status: StepStatus): string => {
+  switch (status) {
+    case 'completed':
+      return '#11998e';
+    case 'current':
+      return '#667eea';
+    case 'warning':
+      return '#f5576c';
+    case 'error':
+      return '#eb3349';
+    case 'blocked':
+      return '#ff9500';
+    case 'pending':
+    default:
+      return '#6b7280';
+  }
 };

@@ -677,9 +677,9 @@ export class PermissionHelper {
     return DefaultGroupMappings[groupName] || groupName;
   }
 
-  private getCachedData<T>(key: string): T | null {
+  private getCachedData<T>(key: string): T | undefined {
     if (!this.config.enableCaching) {
-      return null;
+      return undefined;
     }
 
     const cached = this.cache.get(key);
@@ -691,7 +691,7 @@ export class PermissionHelper {
       this.cache.delete(key); // Remove expired cache
     }
 
-    return null;
+    return undefined;
   }
 
   private setCachedData(key: string, data: unknown): void {

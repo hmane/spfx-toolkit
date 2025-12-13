@@ -46,14 +46,14 @@ export function createSPExtractor(item: any) {
 
     // Complex field types - return full objects
 
-    user: (fieldName: string): IPrincipal | null => {
-      if (!item || !fieldName) return null;
+    user: (fieldName: string): IPrincipal | undefined => {
+      if (!item || !fieldName) return undefined;
       const userObj = item[fieldName];
-      if (!userObj || typeof userObj !== 'object') return null;
+      if (!userObj || typeof userObj !== 'object') return undefined;
 
       // SharePoint sometimes returns array even for single user field
       if (Array.isArray(userObj)) {
-        if (userObj.length === 0) return null;
+        if (userObj.length === 0) return undefined;
         // Extract first user from array and map to IPrincipal
         const firstUser = userObj[0];
         const mapped: IPrincipal = {
@@ -67,7 +67,7 @@ export function createSPExtractor(item: any) {
           sip: firstUser.SIP || firstUser.sip || undefined,
           picture: firstUser.Picture || firstUser.picture || undefined,
         };
-        return mapped.id !== '' ? mapped : null;
+        return mapped.id !== '' ? mapped : undefined;
       }
 
       // Normal user object (non-array)
@@ -82,7 +82,7 @@ export function createSPExtractor(item: any) {
         sip: userObj.SIP || userObj.sip || undefined,
         picture: userObj.Picture || userObj.picture || undefined,
       };
-      return mapped.id !== '' ? mapped : null;
+      return mapped.id !== '' ? mapped : undefined;
     },
 
     userMulti: (fieldName: string): IPrincipal[] => {
@@ -111,14 +111,14 @@ export function createSPExtractor(item: any) {
         .filter(user => user.id !== '');
     },
 
-    lookup: (fieldName: string): SPLookup | null => {
-      if (!item || !fieldName) return null;
+    lookup: (fieldName: string): SPLookup | undefined => {
+      if (!item || !fieldName) return undefined;
       const lookupObj = item[fieldName];
-      if (!lookupObj || typeof lookupObj !== 'object') return null;
+      if (!lookupObj || typeof lookupObj !== 'object') return undefined;
 
       const id = lookupObj.ID || lookupObj.id;
-      // Return null if no valid ID (required for a valid lookup)
-      if (id === undefined || id === null) return null;
+      // Return undefined if no valid ID (required for a valid lookup)
+      if (id === undefined || id === null) return undefined;
 
       return {
         id: id,
@@ -150,14 +150,14 @@ export function createSPExtractor(item: any) {
         .filter(lookup => lookup.id !== undefined);
     },
 
-    taxonomy: (fieldName: string): SPTaxonomy | null => {
-      if (!item || !fieldName) return null;
+    taxonomy: (fieldName: string): SPTaxonomy | undefined => {
+      if (!item || !fieldName) return undefined;
       const taxObj = item[fieldName];
-      if (!taxObj || typeof taxObj !== 'object') return null;
+      if (!taxObj || typeof taxObj !== 'object') return undefined;
 
       const termId = taxObj.TermGuid || taxObj.TermID || taxObj.termId;
-      // Return null if no valid termId (required for a valid taxonomy value)
-      if (!termId) return null;
+      // Return undefined if no valid termId (required for a valid taxonomy value)
+      if (!termId) return undefined;
 
       return {
         label: taxObj.Label || taxObj.label || undefined,
@@ -224,14 +224,14 @@ export function createSPExtractor(item: any) {
       return [];
     },
 
-    url: (fieldName: string): SPUrl | null => {
-      if (!item || !fieldName) return null;
+    url: (fieldName: string): SPUrl | undefined => {
+      if (!item || !fieldName) return undefined;
       const urlObj = item[fieldName];
-      if (!urlObj || typeof urlObj !== 'object') return null;
+      if (!urlObj || typeof urlObj !== 'object') return undefined;
 
       const url = urlObj.Url || urlObj.url;
-      // Return null if no valid url (required for a valid URL value)
-      if (!url) return null;
+      // Return undefined if no valid url (required for a valid URL value)
+      if (!url) return undefined;
 
       return {
         url: url,
@@ -241,10 +241,10 @@ export function createSPExtractor(item: any) {
 
     // Modern SharePoint field types
 
-    location: (fieldName: string): SPLocation | null => {
-      if (!item || !fieldName) return null;
+    location: (fieldName: string): SPLocation | undefined => {
+      if (!item || !fieldName) return undefined;
       const locationObj = item[fieldName];
-      if (!locationObj || typeof locationObj !== 'object') return null;
+      if (!locationObj || typeof locationObj !== 'object') return undefined;
 
       return {
         displayName: locationObj.DisplayName || locationObj.displayName || undefined,
@@ -258,10 +258,10 @@ export function createSPExtractor(item: any) {
       };
     },
 
-    image: (fieldName: string): SPImage | null => {
-      if (!item || !fieldName) return null;
+    image: (fieldName: string): SPImage | undefined => {
+      if (!item || !fieldName) return undefined;
       const imageObj = item[fieldName];
-      if (!imageObj || typeof imageObj !== 'object') return null;
+      if (!imageObj || typeof imageObj !== 'object') return undefined;
 
       return {
         serverUrl: imageObj.ServerUrl || imageObj.serverUrl || undefined,

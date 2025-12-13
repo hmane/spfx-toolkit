@@ -73,6 +73,18 @@ export function useScrollToError(
     focusDelay = 300,
   } = options || {};
 
+  // Track pending focus timeout for cleanup
+  const focusTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const getFirstErrorField = React.useCallback((): string | undefined => {
     if (!formState.errors) return undefined;
     const errorKeys = Object.keys(formState.errors);
@@ -107,7 +119,12 @@ export function useScrollToError(
 
         // Focus if requested
         if (focusAfterScroll) {
-          setTimeout(() => {
+          // Clear any pending focus timeout
+          if (focusTimeoutRef.current) {
+            clearTimeout(focusTimeoutRef.current);
+          }
+
+          focusTimeoutRef.current = setTimeout(() => {
             // Find focusable element
             let focusTarget = element;
             if (!element.matches('input, textarea, select, button')) {
@@ -119,6 +136,7 @@ export function useScrollToError(
               }
             }
             focusTarget?.focus();
+            focusTimeoutRef.current = null;
           }, focusDelay);
         }
       }

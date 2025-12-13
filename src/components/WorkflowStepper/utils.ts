@@ -3,15 +3,15 @@ import { StepData, StepStatus, StepperMode } from './types';
 /**
  * Finds the first step with 'current' status, or the last completed step if none are current
  */
-export const findAutoSelectStep = (steps: StepData[]): StepData | null => {
-  if (!steps || steps.length === 0) return null;
+export const findAutoSelectStep = (steps: StepData[]): StepData | undefined => {
+  if (!steps || steps.length === 0) return undefined;
 
   // First, look for a step with 'current' status
   const currentStep = steps.find(step => step.status === 'current');
   if (currentStep) return currentStep;
 
   // If no current step, find the last completed step
-  let lastCompletedStep: StepData | null = null;
+  let lastCompletedStep: StepData | undefined = undefined;
   for (const step of steps) {
     if (step.status === 'completed') {
       lastCompletedStep = step;
@@ -58,8 +58,8 @@ export const isStepClickable = (step: StepData, mode: StepperMode): boolean => {
 /**
  * Gets the step by ID from the steps array
  */
-export const getStepById = (steps: StepData[], stepId: string): StepData | null => {
-  return steps.find(step => step.id === stepId) || null;
+export const getStepById = (steps: StepData[], stepId: string): StepData | undefined => {
+  return steps.find(step => step.id === stepId);
 };
 
 /**
@@ -78,9 +78,9 @@ export const getNextClickableStepId = (
   steps: StepData[],
   currentStepId: string,
   mode: StepperMode
-): string | null => {
+): string | undefined => {
   const currentIndex = steps.findIndex(step => step.id === currentStepId);
-  if (currentIndex === -1) return null;
+  if (currentIndex === -1) return undefined;
 
   for (let i = currentIndex + 1; i < steps.length; i++) {
     const step = steps[i];
@@ -89,7 +89,7 @@ export const getNextClickableStepId = (
     }
   }
 
-  return null;
+  return undefined;
 };
 
 /**
@@ -99,9 +99,9 @@ export const getPrevClickableStepId = (
   steps: StepData[],
   currentStepId: string,
   mode: StepperMode
-): string | null => {
+): string | undefined => {
   const currentIndex = steps.findIndex(step => step.id === currentStepId);
-  if (currentIndex === -1) return null;
+  if (currentIndex === -1) return undefined;
 
   for (let i = currentIndex - 1; i >= 0; i--) {
     const step = steps[i];
@@ -110,23 +110,23 @@ export const getPrevClickableStepId = (
     }
   }
 
-  return null;
+  return undefined;
 };
 
 /**
  * Gets the first clickable step ID
  */
-export const getFirstClickableStepId = (steps: StepData[], mode: StepperMode): string | null => {
+export const getFirstClickableStepId = (steps: StepData[], mode: StepperMode): string | undefined => {
   const clickableStep = steps.find(step => isStepClickable(step, mode));
-  return clickableStep ? clickableStep.id : null;
+  return clickableStep?.id;
 };
 
 /**
  * Gets the last clickable step ID
  */
-export const getLastClickableStepId = (steps: StepData[], mode: StepperMode): string | null => {
+export const getLastClickableStepId = (steps: StepData[], mode: StepperMode): string | undefined => {
   const clickableSteps = steps.filter(step => isStepClickable(step, mode));
-  return clickableSteps.length > 0 ? clickableSteps[clickableSteps.length - 1].id : null;
+  return clickableSteps.length > 0 ? clickableSteps[clickableSteps.length - 1].id : undefined;
 };
 
 /**

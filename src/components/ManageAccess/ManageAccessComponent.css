@@ -1,4 +1,42 @@
-/* ManageAccess Main Component Styles */
+/* ManageAccess Main Component Styles - Modern SaaS Design */
+
+/* ============================================
+   CSS Variables - Modern SaaS Palette
+   ============================================ */
+:root {
+  --ma-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --ma-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  --ma-gradient-error: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  --ma-primary: #667eea;
+  --ma-primary-dark: #5a67d8;
+  --ma-success: #11998e;
+  --ma-error: #eb3349;
+  --ma-shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
+  --ma-shadow-md: 0 4px 20px rgba(102, 126, 234, 0.2);
+  --ma-shadow-lg: 0 8px 32px rgba(102, 126, 234, 0.25);
+  --ma-transition-fast: 0.15s ease;
+  --ma-transition-normal: 0.25s ease;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes ma-slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ma-fadeOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(20px); }
+}
+
+@keyframes ma-checkmark {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
 .manage-access-component {
   display: inline-block;
 }
@@ -15,11 +53,13 @@
 
 .manage-access-avatar {
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all var(--ma-transition-normal);
+  border-radius: 50%;
 }
 
 .manage-access-avatar:hover {
-  transform: scale(1.05);
+  transform: scale(1.08);
+  box-shadow: var(--ma-shadow-md);
 }
 
 /* Permission Indicator Styles */
@@ -27,22 +67,31 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #f3f2f1;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e1dfdd;
+  border: 1px solid rgba(102, 126, 234, 0.2);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--ma-transition-normal);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .manage-access-permission-indicator:hover {
-  background-color: #edebe9;
+  background: var(--ma-gradient-primary);
+  border-color: transparent;
+  transform: scale(1.08);
+  box-shadow: var(--ma-shadow-md);
+}
+
+.manage-access-permission-indicator:hover i {
+  color: #ffffff;
 }
 
 .manage-access-permission-indicator i {
   font-size: 14px;
-  color: #605e5c;
+  color: var(--ma-primary);
+  transition: color var(--ma-transition-fast);
 }
 
 /* Remaining Count Styles */
@@ -50,30 +99,53 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #f3f2f1;
+  background: var(--ma-gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e1dfdd;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--ma-transition-normal);
+  box-shadow: var(--ma-shadow-sm);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .manage-access-remaining:hover {
-  background-color: #edebe9;
+  transform: scale(1.1);
+  box-shadow: var(--ma-shadow-md);
 }
 
 /* Link Styles */
 .manage-access-link {
   font-size: 14px;
   text-decoration: none;
-  color: #0078d4;
+  color: var(--ma-primary);
   cursor: pointer;
   margin-left: 8px;
+  font-weight: 500;
+  transition: all var(--ma-transition-fast);
+  position: relative;
+}
+
+.manage-access-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--ma-gradient-primary);
+  transition: width var(--ma-transition-normal);
 }
 
 .manage-access-link:hover {
-  text-decoration: underline;
+  color: var(--ma-primary-dark);
+}
+
+.manage-access-link:hover::after {
+  width: 100%;
 }
 
 /* Panel Styles */
@@ -81,17 +153,46 @@
   z-index: 1000;
 }
 
+.manage-access-panel .ms-Panel-main {
+  box-shadow: var(--ma-shadow-lg);
+}
+
 .manage-access-panel .ms-Panel-content {
   padding: 0;
 }
 
+.manage-access-panel .ms-Panel-header {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+  border-bottom: 3px solid;
+  border-image: var(--ma-gradient-primary) 1;
+  padding: 16px 24px;
+}
+
+.manage-access-panel .ms-Panel-headerText {
+  color: #323130;
+  font-weight: 600;
+}
+
 .manage-access-panel .ms-Panel-scrollableContent {
   padding: 20px;
+  background: #fafbfc;
 }
 
 /* Inline Message Styles */
 .manage-access-inline-message {
   margin: 8px 0;
+  border-radius: 8px;
+  animation: ma-slideIn 0.3s ease-out;
+}
+
+.manage-access-inline-message.ms-MessageBar--success {
+  background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%);
+  border-left: 3px solid var(--ma-success);
+}
+
+.manage-access-inline-message.ms-MessageBar--error {
+  background: linear-gradient(135deg, rgba(235, 51, 73, 0.1) 0%, rgba(244, 92, 67, 0.1) 100%);
+  border-left: 3px solid var(--ma-error);
 }
 
 /* Permission Dropdown Styles */
@@ -100,17 +201,43 @@
   min-width: 160px;
 }
 
+.manage-access-permission-dropdown .ms-Dropdown-title {
+  border-radius: 6px;
+  border-color: rgba(102, 126, 234, 0.3);
+  transition: all var(--ma-transition-fast);
+}
+
+.manage-access-permission-dropdown .ms-Dropdown-title:hover {
+  border-color: var(--ma-primary);
+}
+
 /* Section Header Styles */
 .manage-access-section-header {
   font-weight: 600;
   color: #323130;
-  margin-bottom: 8px;
-  font-size: 13px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manage-access-section-header::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--ma-gradient-primary);
+  border-radius: 2px;
 }
 
 /* Grant Access Section */
 .manage-access-grant-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: var(--ma-shadow-sm);
+  border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .manage-access-grant-buttons {
@@ -119,24 +246,40 @@
   align-items: center;
 }
 
+.manage-access-grant-buttons .ms-Button--primary {
+  background: var(--ma-gradient-primary);
+  border: none;
+  border-radius: 6px;
+  transition: all var(--ma-transition-normal);
+  box-shadow: var(--ma-shadow-sm);
+}
+
+.manage-access-grant-buttons .ms-Button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--ma-shadow-md);
+}
+
 /* People Picker Styles - Fix border to match other components */
 .manage-access-panel .ms-BasePicker {
-  border: 1px solid #8a8886 !important;
-  border-radius: 2px !important;
+  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+  border-radius: 8px !important;
   min-height: 32px !important;
   box-sizing: border-box !important;
+  transition: all var(--ma-transition-fast) !important;
+  background: #ffffff !important;
 }
 
 .manage-access-panel .ms-BasePicker:hover {
-  border-color: #323130 !important;
+  border-color: var(--ma-primary) !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
 }
 
 .manage-access-panel .ms-BasePicker.is-active,
 .manage-access-panel .ms-BasePicker:focus-within {
-  border-color: #0078d4 !important;
+  border-color: var(--ma-primary) !important;
   border-width: 1px !important;
   outline: none !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
 }
 
 .manage-access-panel .ms-BasePicker-text {
@@ -163,22 +306,27 @@
 
 /* COMPACT Permission Item Styles */
 .manage-access-permission-item {
-  padding: 8px 12px;
-  border: 1px solid #e1dfdd;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
   background-color: #ffffff;
-  transition: background-color 0.2s ease;
-  margin-bottom: 4px;
+  transition: all var(--ma-transition-normal);
+  margin-bottom: 8px;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   grid-template-areas: "avatar info permission delete";
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  min-height: 48px;
+  min-height: 52px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  animation: ma-slideIn 0.3s ease-out;
 }
 
 .manage-access-permission-item:hover {
-  background-color: #f8f8f8;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-color: rgba(102, 126, 234, 0.25);
+  box-shadow: var(--ma-shadow-sm);
+  transform: translateY(-1px);
 }
 
 /* Permission Avatar */
@@ -239,28 +387,39 @@
   grid-area: permission;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 11px;
-  color: #605e5c;
-  background: #f3f2f1;
-  padding: 4px 8px;
-  border-radius: 10px;
+  font-weight: 500;
+  color: #ffffff;
+  background: var(--ma-gradient-primary);
+  padding: 5px 12px;
+  border-radius: 20px;
   white-space: nowrap;
   justify-self: end;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+  transition: all var(--ma-transition-fast);
+}
+
+.manage-access-permission-level:hover {
+  transform: scale(1.02);
+  box-shadow: 0 3px 8px rgba(102, 126, 234, 0.35);
 }
 
 .manage-access-permission-level.with-badge {
-  gap: 6px;
+  gap: 8px;
 }
 
 .manage-access-shared-badge {
-  color: #0078d4;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 10px;
   font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
 }
 
 .manage-access-permission-icon {
-  color: #605e5c;
+  color: #ffffff;
   font-size: 12px;
 }
 
@@ -268,11 +427,14 @@
 .manage-access-remove-button {
   grid-area: delete;
   opacity: 0;
-  transition: opacity 0.2s ease;
-  color: #d13438;
-  min-width: 28px;
-  height: 28px;
+  transition: all var(--ma-transition-normal);
+  color: var(--ma-error);
+  min-width: 32px;
+  height: 32px;
   padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
 }
 
 .manage-access-permission-item:hover .manage-access-remove-button {
@@ -280,31 +442,46 @@
 }
 
 .manage-access-remove-button:hover {
-  background-color: rgba(209, 52, 56, 0.1);
+  background: var(--ma-gradient-error);
+  color: #ffffff;
+  border-color: transparent;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(235, 51, 73, 0.3);
 }
 
 .manage-access-remove-button:focus {
   opacity: 1;
+  outline: 2px solid rgba(235, 51, 73, 0.5);
+  outline-offset: 2px;
 }
 
 /* No Permissions Styles */
 .manage-access-no-permissions {
   text-align: center;
   color: #605e5c;
-  font-style: italic;
-  padding: 32px 20px;
-  background: #faf9f8;
-  border-radius: 6px;
-  border: 2px dashed #e1dfdd;
+  font-style: normal;
+  padding: 40px 24px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  border-radius: 16px;
+  border: 2px dashed rgba(102, 126, 234, 0.3);
+  animation: ma-slideIn 0.4s ease-out;
+}
+
+.manage-access-no-permissions::before {
+  content: '👥';
+  display: block;
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.6;
 }
 
 /* Focus Styles for Accessibility */
 .manage-access-permission-indicator:focus,
 .manage-access-remaining:focus,
-.manage-access-link:focus,
-.manage-access-remove-button:focus {
-  outline: 2px solid #0078d4;
+.manage-access-link:focus {
+  outline: 2px solid var(--ma-primary);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
 }
 
 /* MOBILE RESPONSIVE STYLES */
@@ -313,14 +490,20 @@
     padding: 16px;
   }
 
+  .manage-access-grant-section {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
   /* Mobile: Stack layout */
   .manage-access-permission-item {
     grid-template-columns: auto 1fr;
     grid-template-areas:
       "avatar info"
       "actions actions";
-    padding: 10px;
-    gap: 8px;
+    padding: 12px;
+    gap: 10px;
+    border-radius: 10px;
   }
 
   /* Row 1: Avatar + Name/Email */
@@ -356,6 +539,11 @@
     flex-direction: column;
     width: 100%;
   }
+
+  .manage-access-grant-buttons .ms-Button--primary {
+    width: 100%;
+    padding: 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -364,7 +552,8 @@
   }
 
   .manage-access-permission-item {
-    padding: 8px;
+    padding: 10px;
+    border-radius: 8px;
   }
 
   .manage-access-permission-name {
@@ -377,12 +566,22 @@
 
   .manage-access-permission-level {
     font-size: 10px;
-    padding: 3px 6px;
+    padding: 4px 8px;
+    border-radius: 12px;
   }
 
   .manage-access-remove-button {
-    min-width: 24px;
-    height: 24px;
+    min-width: 28px;
+    height: 28px;
+  }
+
+  .manage-access-no-permissions {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .manage-access-no-permissions::before {
+    font-size: 24px;
   }
 }
 
@@ -400,11 +599,34 @@
   .manage-access-remove-button {
     opacity: 1;
   }
+
+  .manage-access-permission-level {
+    background: #0078d4;
+    border: 1px solid #ffffff;
+  }
+
+  .manage-access-grant-section {
+    border: 2px solid;
+  }
 }
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
-  .manage-access-permission-item {
+  .manage-access-permission-item,
+  .manage-access-permission-indicator,
+  .manage-access-remaining,
+  .manage-access-link,
+  .manage-access-remove-button,
+  .manage-access-permission-level,
+  .manage-access-avatar {
     transition: none;
+    animation: none;
+  }
+
+  .manage-access-permission-item:hover,
+  .manage-access-permission-indicator:hover,
+  .manage-access-remaining:hover,
+  .manage-access-remove-button:hover {
+    transform: none;
   }
 }

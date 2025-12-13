@@ -51,6 +51,17 @@ export function useDocumentMetadata(
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<Error | null>(null);
 
+  // Track mounted state to prevent state updates after unmount
+  const isMountedRef = React.useRef<boolean>(true);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Generate cache key - use useMemo instead of useCallback
   const cacheKey = React.useMemo((): string => {
     if (documentUrl) return `url:${documentUrl}`;
@@ -62,6 +73,8 @@ export function useDocumentMetadata(
   // Fetch document metadata
   const fetchDocument = React.useCallback(async (): Promise<void> => {
     try {
+      if (!isMountedRef.current) return;
+
       setLoading(true);
       setError(null);
 
@@ -76,8 +89,10 @@ export function useDocumentMetadata(
       // Check cache first
       if (enableCache && cacheKey && documentCache.has(cacheKey)) {
         const cachedDoc = documentCache.get(cacheKey)!;
-        setDocument(cachedDoc);
-        setLoading(false);
+        if (isMountedRef.current) {
+          setDocument(cachedDoc);
+          setLoading(false);
+        }
         return;
       }
 
@@ -104,6 +119,9 @@ export function useDocumentMetadata(
         fileData = await fetchByIdAndLibrary(documentId, libraryName);
       }
 
+      // Check if still mounted before updating state
+      if (!isMountedRef.current) return;
+
       // Transform to IDocumentInfo
       const docInfo = transformToDocumentInfo(fileData);
 
@@ -114,6 +132,8 @@ export function useDocumentMetadata(
 
       setDocument(docInfo);
     } catch (err: any) {
+      if (!isMountedRef.current) return;
+
       const error =
         err instanceof DocumentLinkError
           ? err
@@ -125,7 +145,9 @@ export function useDocumentMetadata(
       setError(error);
       SPContext.logger?.error('useDocumentMetadata: Failed to fetch document', error);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [documentUrl, documentId, documentUniqueId, libraryName, enableCache, cacheKey]);
 

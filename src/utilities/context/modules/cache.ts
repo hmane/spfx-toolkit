@@ -39,7 +39,7 @@ export class CacheModule implements ContextModule {
   private getCacheConfig(
     strategy: CacheStrategy,
     ttl?: number
-  ): { store: 'local' | 'session'; ttl: number } | null {
+  ): { store: 'local' | 'session'; ttl: number } | undefined {
     const cacheTtl = ttl || this.defaultTtl;
 
     switch (strategy) {
@@ -55,7 +55,7 @@ export class CacheModule implements ContextModule {
         };
       case 'none':
       default:
-        return null;
+        return undefined;
     }
   }
 
@@ -112,25 +112,25 @@ export class CacheModule implements ContextModule {
  */
 export class MemoryCacheProvider {
   private cache = new Map<string, { value: any; expiry: number }>();
-  private cleanupInterval: number;
+  private cleanupInterval?: ReturnType<typeof setInterval>;
 
   constructor(cleanupIntervalMs: number = 60000) {
     // Cleanup expired entries every minute
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
-    }, cleanupIntervalMs) as any;
+    }, cleanupIntervalMs);
   }
 
-  async get<T>(key: string): Promise<T | null> {
+  async get<T>(key: string): Promise<T | undefined> {
     const entry = this.cache.get(key);
 
     if (!entry) {
-      return null;
+      return undefined;
     }
 
     if (Date.now() > entry.expiry) {
       this.cache.delete(key);
-      return null;
+      return undefined;
     }
 
     return entry.value as T;

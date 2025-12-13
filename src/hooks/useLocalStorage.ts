@@ -24,7 +24,7 @@ export interface UseLocalStorageReturn<T> {
   setValue: React.Dispatch<React.SetStateAction<T>>;
   removeValue: () => void;
   isLoading: boolean;
-  error: Error | null;
+  error?: Error;
 }
 
 /**
@@ -43,7 +43,7 @@ export function useLocalStorage<T>(
   } = options;
 
   const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
+  const [error, setError] = React.useState<Error | undefined>(undefined);
 
   // Check if localStorage is available (useful for SPFx scenarios)
   const isStorageAvailable = React.useMemo(() => {
@@ -74,7 +74,7 @@ export function useLocalStorage<T>(
       const result = stored ? deserialize(stored) : initialValue;
       if (!isCancelled) {
         setValue(result);
-        setError(null);
+        setError(undefined);
       }
     } catch (err) {
       const storageError = err instanceof Error ? err : new Error('Failed to read from localStorage');
@@ -106,7 +106,7 @@ export function useLocalStorage<T>(
           // Write to localStorage inside setState to ensure we're using current state
           try {
             window.localStorage.setItem(key, serialize(valueToStore));
-            setError(null);
+            setError(undefined);
           } catch (storageErr) {
             const storageError =
               storageErr instanceof Error ? storageErr : new Error('Failed to write to localStorage');
@@ -131,7 +131,7 @@ export function useLocalStorage<T>(
     try {
       window.localStorage.removeItem(key);
       setValue(initialValue);
-      setError(null);
+      setError(undefined);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to remove from localStorage');
       setError(error);
@@ -148,7 +148,7 @@ export function useLocalStorage<T>(
         try {
           const newValue = deserialize(e.newValue);
           setValue(newValue);
-          setError(null);
+          setError(undefined);
         } catch (err) {
           const error = err instanceof Error ? err : new Error('Failed to sync from storage event');
           setError(error);

@@ -302,9 +302,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   }, [currentValue, metadata, finalChoices, loading, otherEnabled, isOtherValue]);
 
   // Handle dropdown selection change
+  // Returns the processed final value (with "Other" replaced by custom value if applicable)
   const handleDropdownChange = React.useCallback(
-    (newValue: string | string[]) => {
-      if (!metadata && !staticChoices) return;
+    (newValue: string | string[]): string | string[] => {
+      if (!metadata && !staticChoices) return newValue;
 
       let finalValue: string | string[];
 
@@ -344,6 +345,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       if (onChange) {
         onChange(finalValue);
       }
+
+      return finalValue;
     },
     [metadata, staticChoices, isMultiChoice, otherOptionText, otherState.customValue, onChange]
   );
@@ -360,10 +363,15 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
       let finalValue: string | string[];
 
+      // For multi-select, use hookValue (which includes watchedFormValue) to get actual current selections
+      // This ensures we're working with the form's actual value, not stale internalValue
+      const actualCurrentValue = isMultiChoice ? hookValue : currentValue;
+
       // Update the main value
       if (isMultiChoice) {
         // Multi-select: replace "Other" in array with custom value
-        const currentArray = Array.isArray(currentValue) ? currentValue : [];
+        const currentArray = Array.isArray(actualCurrentValue) ? actualCurrentValue : [];
+        // Filter out "Other" text and any previously set custom values
         const filteredArray = currentArray.filter(
           v => v.toLowerCase() !== otherOptionText.toLowerCase() && !isOtherValue(v)
         );
@@ -390,6 +398,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       metadata,
       staticChoices,
       currentValue,
+      hookValue,
       isMultiChoice,
       otherOptionText,
       isOtherValue,
@@ -442,6 +451,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     );
   }
 
+  // Combine all error sources - use for standalone mode validation display
   const displayErrorMessage = errorMessage || invalidValueError || otherState.customValueError;
 
   // Common props for both SelectBox and TagBox
@@ -547,36 +557,38 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
       const hasError = !!fieldError;
 
-      return isMultiChoice ? (
-        <TagBox
-          key={`tagbox-${loading}-${finalChoices.length}`}
-          {...commonProps}
-          value={Array.isArray(fieldValue) ? fieldValue : undefined}
-          maxDisplayedTags={maxDisplayedTags}
-          showMultiTagOnly={showMultiTagOnly}
-          onValueChanged={(e: any) => fieldOnChange(e.value)}
-          isValid={!hasError}
-          validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-          itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
-          // Note: fieldRender in TagBox receives one item at a time, not all values
-          // For custom multi-value display, use tag template customization instead
-        />
-      ) : (
-        <SelectBox
-          key={`selectbox-${loading}-${finalChoices.length}`}
-          {...commonProps}
-          value={!Array.isArray(fieldValue) ? fieldValue : undefined}
-          onValueChanged={(e: any) => fieldOnChange(e.value)}
-          isValid={!hasError}
-          validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-          className={`${hasError ? 'dx-invalid' : ''}`.trim()}
-          itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
-          // fieldRender for single select receives the selected item data
-          fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
-        />
+      return (
+        <>
+          {isMultiChoice ? (
+            <TagBox
+              key={`tagbox-${loading}-${finalChoices.length}`}
+              {...commonProps}
+              value={Array.isArray(fieldValue) ? fieldValue : undefined}
+              maxDisplayedTags={maxDisplayedTags}
+              showMultiTagOnly={showMultiTagOnly}
+              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
+            />
+          ) : (
+            <SelectBox
+              key={`selectbox-${loading}-${finalChoices.length}`}
+              {...commonProps}
+              value={!Array.isArray(fieldValue) ? fieldValue : undefined}
+              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              isValid={!hasError}
+              validationStatus={hasError ? 'invalid' : 'valid'}
+              itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
+              fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
+            />
+          )}
+          {hasError && (
+            <Text className={errorClass} role="alert">
+              {fieldError}
+            </Text>
+          )}
+        </>
       );
     };
 
@@ -651,8 +663,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               {renderField(
                 displayValue || (isMultiChoice ? emptyArray : emptyString),
                 val => {
-                  field.onChange(val);
-                  handleDropdownChange(val || (isMultiChoice ? emptyArray : emptyString));
+                  // Process the value through handleDropdownChange which replaces "Other" with custom value
+                  const processedValue = handleDropdownChange(val || (isMultiChoice ? emptyArray : emptyString));
+                  // Update react-hook-form with the processed value (not the raw display value)
+                  field.onChange(processedValue);
                 },
                 fieldState.error?.message
               )}
@@ -663,8 +677,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     );
   }
 
-  // Standalone mode
-  return renderField(dropdownValue || (isMultiChoice ? emptyArray : emptyString), handleDropdownChange);
+  // Standalone mode - pass displayErrorMessage for validation feedback
+  return renderField(dropdownValue || (isMultiChoice ? emptyArray : emptyString), handleDropdownChange, displayErrorMessage || undefined);
 };
 
 export default SPChoiceField;

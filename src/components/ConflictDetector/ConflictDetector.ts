@@ -16,7 +16,7 @@ export class ConflictDetector {
   private readonly itemId: number;
   private options: ConflictDetectionOptions;
   private originalSnapshot: ConflictInfo | undefined = undefined;
-  private pollingInterval: ReturnType<typeof setInterval> | null = null;
+  private pollingInterval: ReturnType<typeof setInterval> | undefined = undefined;
   private isPollingPaused = false;
   private isDisposed = false;
   private readonly sp: SPFI;
@@ -299,7 +299,7 @@ export class ConflictDetector {
   public stopPolling(): void {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
+      this.pollingInterval = undefined;
       this.isPollingPaused = false;
 
       if (this.options.logConflicts && !this.isDisposed) {
@@ -338,7 +338,7 @@ export class ConflictDetector {
    * Check if polling is currently active
    */
   public isPollingActive(): boolean {
-    return this.pollingInterval !== null && this.pollingInterval !== undefined && !this.isPollingPaused;
+    return this.pollingInterval !== undefined && !this.isPollingPaused;
   }
 
   /**
@@ -455,6 +455,7 @@ export class ConflictDetector {
       originalVersion: etag,
       currentVersion: etag,
       lastModifiedBy: item.Editor?.Title || 'Unknown',
+      lastModifiedByEmail: item.Editor?.Email,
       lastModified: new Date(item.Modified),
       originalModified: new Date(item.Modified),
       itemId: this.itemId,
