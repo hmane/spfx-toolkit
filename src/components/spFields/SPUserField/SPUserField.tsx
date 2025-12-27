@@ -8,12 +8,21 @@
  */
 
 import { Label } from '@fluentui/react/lib/Label';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { Text } from '@fluentui/react/lib/Text';
 import { useTheme } from '@fluentui/react/lib/Theme';
-import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+// Import PrincipalType enum directly to avoid CSS side effects
+import { PrincipalType } from '@pnp/spfx-controls-react/lib/controls/peoplepicker/PrincipalType';
 import * as React from 'react';
+
+// Lazy load PeoplePicker to prevent PnP controls CSS from being bundled when not used
+const PeoplePicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/PeoplePicker').then((module) => ({
+    default: module.PeoplePicker,
+  }))
+);
 import { Controller, RegisterOptions } from 'react-hook-form';
 import { IPrincipal } from '../../../types';
 import { SPContext } from '../../../utilities/context';
@@ -376,38 +385,40 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             borderRadius: fieldError ? '2px' : '0',
             padding: fieldError ? '0' : '0'
           }}>
-            <PeoplePicker
-              context={SPContext.peoplepickerContext}
-              personSelectionLimit={resolvedAllowMultiple ? maxSelections : 1}
-              groupName={typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined}
-              showtooltip={true}
-              required={required}
-              disabled={disabled || readOnly || loading}
-              onChange={(items: any[]) => {
-                // Convert PeoplePicker items to IPrincipal format
-                const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
-                const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
+            <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
+              <PeoplePicker
+                context={SPContext.peoplepickerContext}
+                personSelectionLimit={resolvedAllowMultiple ? maxSelections : 1}
+                groupName={typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined}
+                showtooltip={true}
+                required={required}
+                disabled={disabled || readOnly || loading}
+                onChange={(items: any[]) => {
+                  // Convert PeoplePicker items to IPrincipal format
+                  const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
+                  const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
 
-                // Update internal state
-                setInternalValue(finalValue as any);
+                  // Update internal state
+                  setInternalValue(finalValue as any);
 
-                // Call fieldOnChange for React Hook Form
-                fieldOnChange(finalValue as any);
+                  // Call fieldOnChange for React Hook Form
+                  fieldOnChange(finalValue as any);
 
-                // Call onChange prop if provided
-                if (onChange) {
-                  onChange(finalValue as any);
-                }
-              }}
-              defaultSelectedUsers={fieldSelectedUsers}
-              principalTypes={principalTypes}
-              resolveDelay={resolveDelay}
-              ensureUser={true}
-              showHiddenInUI={false}
-              suggestionsLimit={suggestionLimit}
-              placeholder={placeholder}
-              webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
-            />
+                  // Call onChange prop if provided
+                  if (onChange) {
+                    onChange(finalValue as any);
+                  }
+                }}
+                defaultSelectedUsers={fieldSelectedUsers}
+                principalTypes={principalTypes}
+                resolveDelay={resolveDelay}
+                ensureUser={true}
+                showHiddenInUI={false}
+                suggestionsLimit={suggestionLimit}
+                placeholder={placeholder}
+                webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
+              />
+            </React.Suspense>
           </div>
         ) : displayMode === SPUserFieldDisplayMode.Compact ? (
           <Stack horizontal tokens={{ childrenGap: 8 }} wrap>

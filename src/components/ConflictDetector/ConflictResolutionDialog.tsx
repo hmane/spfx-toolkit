@@ -141,7 +141,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
       title: title,
       styles: {
         innerContent: {
-          minWidth: '500px',
+          minWidth: '300px',
           maxWidth,
         },
       },
@@ -220,7 +220,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
     const isButtonDisabled = isProcessing || processingAction !== undefined;
 
     return (
-      <Stack horizontal tokens={{ childrenGap: 8 }}>
+      <Stack horizontal wrap tokens={{ childrenGap: 8 }}>
         {/* Refresh button */}
         {showRefreshOption && (
           <PrimaryButton
@@ -228,7 +228,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
             disabled={isButtonDisabled}
             iconProps={{ iconName: 'Refresh' }}
           >
-            Refresh & Reload
+            Refresh
           </PrimaryButton>
         )}
 
@@ -248,7 +248,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
               },
             }}
           >
-            Continue Anyway
+            Overwrite
           </DefaultButton>
         )}
 

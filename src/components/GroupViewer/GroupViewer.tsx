@@ -4,8 +4,14 @@ import { Persona, PersonaInitialsColor, PersonaSize } from '@fluentui/react/lib/
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
-import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import * as React from 'react';
+
+// Lazy load LivePersona to prevent PnP controls CSS from being bundled when not used
+const LivePersona = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/LivePersona').then((module) => ({
+    default: module.LivePersona,
+  }))
+);
 import { DirectionalHint } from '../../types/fluentui-types';
 import { SPContext } from '../../utilities/context';
 import { UserPersona } from '../UserPersona';
@@ -493,11 +499,21 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
           <div className='group-viewer-live-persona-container'>
             {canShowLivePersona && upn ? (
-              <LivePersona
-                upn={upn}
-                disableHover={false}
-                serviceScope={SPContext.spfxContext.serviceScope}
-              />
+              <React.Suspense fallback={
+                <Persona
+                  size={PersonaSize.size28}
+                  text=''
+                  initialsColor={getPersonaColor(member.Title)}
+                  imageInitials={PersonaUtils.getInitials(member.Title)}
+                  className='group-viewer-fallback-persona'
+                />
+              }>
+                <LivePersona
+                  upn={upn}
+                  disableHover={false}
+                  serviceScope={SPContext.spfxContext.serviceScope}
+                />
+              </React.Suspense>
             ) : (
               <Persona
                 size={PersonaSize.size28}

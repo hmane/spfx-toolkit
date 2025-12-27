@@ -50,6 +50,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     filterByUser: null,
     filterDateRange: 'all',
     showMajorOnly: false,
+    showUpdatesOnly: false,
     filtersExpanded: false,
     customDateStart: null,
     customDateEnd: null,
@@ -65,6 +66,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: state.filterByUser,
       filterDateRange: state.filterDateRange,
       showMajorOnly: state.showMajorOnly,
+      showUpdatesOnly: state.showUpdatesOnly,
       customDateStart: state.customDateStart,
       customDateEnd: state.customDateEnd,
     }),
@@ -73,6 +75,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       state.filterByUser,
       state.filterDateRange,
       state.showMajorOnly,
+      state.showUpdatesOnly,
       state.customDateStart,
       state.customDateEnd,
     ]
@@ -95,6 +98,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           filterByUser: parsed.filterByUser ?? prev.filterByUser,
           filterDateRange: parsed.filterDateRange ?? prev.filterDateRange,
           showMajorOnly: parsed.showMajorOnly ?? prev.showMajorOnly,
+          showUpdatesOnly: parsed.showUpdatesOnly ?? prev.showUpdatesOnly,
           customDateStart: parsed.customDateStart ? new Date(parsed.customDateStart) : null,
           customDateEnd: parsed.customDateEnd ? new Date(parsed.customDateEnd) : null,
           filtersExpanded: parsed.filtersExpanded ?? prev.filtersExpanded,
@@ -128,6 +132,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: state.filterByUser,
       filterDateRange: state.filterDateRange,
       showMajorOnly: state.showMajorOnly,
+      showUpdatesOnly: state.showUpdatesOnly,
       customDateStart: state.customDateStart ? state.customDateStart.toISOString() : null,
       customDateEnd: state.customDateEnd ? state.customDateEnd.toISOString() : null,
       filtersExpanded: state.filtersExpanded,
@@ -148,6 +153,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     state.filterByUser,
     state.filterDateRange,
     state.showMajorOnly,
+    state.showUpdatesOnly,
     state.customDateStart,
     state.customDateEnd,
     state.filtersExpanded,
@@ -721,7 +727,19 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         return [];
       }
 
-      const allVersionsData = versions;
+      // Sort versions by version label in descending order (newest first)
+      // Version labels are like "5.0", "4.0", "3.1", etc.
+      const allVersionsData = [...versions].sort((a, b) => {
+        const labelA = a.VersionLabel || a.OData__UIVersionString || a._UIVersionString || '0.0';
+        const labelB = b.VersionLabel || b.OData__UIVersionString || b._UIVersionString || '0.0';
+
+        const [majorA, minorA] = labelA.split('.').map(Number);
+        const [majorB, minorB] = labelB.split('.').map(Number);
+
+        // Sort descending (newest first)
+        if (majorB !== majorA) return majorB - majorA;
+        return (minorB || 0) - (minorA || 0);
+      });
 
       const processedVersions: IVersionInfo[] = [];
 
@@ -833,6 +851,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     state.filterByUser,
     state.filterDateRange,
     state.showMajorOnly,
+    state.showUpdatesOnly,
     state.customDateStart,
     state.customDateEnd,
     applyFilters,
@@ -849,6 +868,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: updates.filterByUser ?? prev.filterByUser,
       filterDateRange: updates.filterDateRange ?? prev.filterDateRange,
       showMajorOnly: updates.showMajorOnly ?? prev.showMajorOnly,
+      showUpdatesOnly: updates.showUpdatesOnly ?? prev.showUpdatesOnly,
       customDateStart:
         updates.customDateStart !== undefined ? updates.customDateStart : prev.customDateStart,
       customDateEnd:
@@ -867,6 +887,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       filterByUser: null,
       filterDateRange: 'all',
       showMajorOnly: false,
+      showUpdatesOnly: false,
       customDateStart: null,
       customDateEnd: null,
       statusMessage: {

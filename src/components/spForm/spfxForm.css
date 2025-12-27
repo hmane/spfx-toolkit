@@ -565,14 +565,16 @@
   }
 }
 
-/* Enhanced button hover effects */
-button:hover {
+/* Enhanced button hover effects - SCOPED to prevent affecting DevExtreme/other components */
+.spfx-form-container button.enhanced-button:hover,
+.spfx-form-container .spfx-form-submit-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
 }
 
-button:active {
+.spfx-form-container button.enhanced-button:active,
+.spfx-form-container .spfx-form-submit-btn:active {
   transform: translateY(0);
   transition: all 0.1s ease;
 }
@@ -1347,97 +1349,11 @@ button:active {
 }
 
 /* ============================================
-   DevExtreme Component Overrides
-   To match Fluent UI Design System
+   DevExtreme Components - OOB Styles
+   NOTE: Let DevExtreme use its out-of-box (OOB) styles.
+   Previous overrides were causing conflicts with hover, focus,
+   and checkbox states. DevExtreme handles these correctly by default.
    ============================================ */
-
-/* SelectBox & TagBox - Base Styling */
-.dx-selectbox,
-.dx-tagbox {
-  min-height: 32px !important;
-}
-
-/* SelectBox & TagBox - Input Wrapper */
-.dx-selectbox .dx-texteditor-input-container,
-.dx-tagbox .dx-texteditor-input-container {
-  min-height: 30px !important;
-  padding: 0 8px !important;
-}
-
-/* SelectBox & TagBox - Border Styling to Match Fluent UI */
-.dx-selectbox.dx-textbox.dx-editor-outlined,
-.dx-tagbox.dx-textbox.dx-editor-outlined {
-  border: 1px solid #8a8886 !important;
-  border-radius: 2px !important;
-  background-color: #ffffff !important;
-  transition: border-color 0.15s ease-in-out !important;
-}
-
-/* Hover State */
-.dx-selectbox.dx-textbox.dx-editor-outlined:hover,
-.dx-tagbox.dx-textbox.dx-editor-outlined:hover {
-  border-color: #323130 !important;
-}
-
-/* Focus State */
-.dx-selectbox.dx-textbox.dx-editor-outlined.dx-state-focused,
-.dx-tagbox.dx-textbox.dx-editor-outlined.dx-state-focused {
-  border-color: #0078d4 !important;
-  border-width: 1px !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Disabled State */
-.dx-selectbox.dx-textbox.dx-editor-outlined.dx-state-disabled,
-.dx-tagbox.dx-textbox.dx-editor-outlined.dx-state-disabled {
-  background-color: #f3f2f1 !important;
-  border-color: #c8c6c4 !important;
-  opacity: 1 !important;
-}
-
-/* Error/Invalid State */
-.dx-selectbox.dx-textbox.dx-editor-outlined.dx-invalid,
-.dx-tagbox.dx-textbox.dx-editor-outlined.dx-invalid {
-  border-color: #a4262c !important;
-}
-
-.dx-selectbox.dx-textbox.dx-editor-outlined.dx-invalid.dx-state-focused,
-.dx-tagbox.dx-textbox.dx-editor-outlined.dx-invalid.dx-state-focused {
-  border-color: #a4262c !important;
-  box-shadow: 0 0 0 1px #a4262c !important;
-}
-
-/* Dropdown Button Styling */
-.dx-selectbox .dx-dropdowneditor-button,
-.dx-tagbox .dx-dropdowneditor-button {
-  border-left: 1px solid #edebe9 !important;
-  background-color: transparent !important;
-  width: 30px !important;
-}
-
-.dx-selectbox .dx-dropdowneditor-button:hover,
-.dx-tagbox .dx-dropdowneditor-button:hover {
-  background-color: #f3f2f1 !important;
-}
-
-.dx-selectbox .dx-dropdowneditor-button .dx-dropdowneditor-icon,
-.dx-tagbox .dx-dropdowneditor-button .dx-dropdowneditor-icon {
-  color: #605e5c !important;
-  font-size: 12px !important;
-}
-
-/* ============================================
-   DevExtreme Components - Minimal Overrides Only
-   NOTE: Let DevExtreme use its OOB (out-of-box) styles.
-   Only override where absolutely necessary for consistency.
-   ============================================ */
-
-/* Placeholder text color for consistency */
-.dx-selectbox .dx-placeholder,
-.dx-tagbox .dx-placeholder {
-  color: #605e5c;
-}
 
 /* ============================================
    PnP RichText Editor - Minimal Fixes Only

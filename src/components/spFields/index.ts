@@ -35,11 +35,11 @@ export { SPBooleanDisplayType } from './SPBooleanField';
 export { SPUrlField } from './SPUrlField';
 export type { ISPUrlFieldProps } from './SPUrlField';
 
-export { SPLookupField, SPLookupDisplayMode } from './SPLookupField';
-export type { ISPLookupFieldProps, ILookupDataSource } from './SPLookupField';
-
-export { SPTaxonomyField } from './SPTaxonomyField';
-export type { ISPTaxonomyFieldProps, ITaxonomyDataSource } from './SPTaxonomyField';
+// SPLookupField and SPTaxonomyField are NOT exported from this barrel
+// to prevent their PnP control CSS from being bundled when not used.
+// Import them directly from their subfolders:
+//   import { SPLookupField } from 'spfx-toolkit/lib/components/spFields/SPLookupField';
+//   import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields/SPTaxonomyField';
 
 export { SPField } from './SPField';
 export type {

@@ -10,8 +10,16 @@ import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
-import { PeoplePicker, PrincipalType } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+// Import PrincipalType enum directly to avoid CSS side effects
+import { PrincipalType } from '@pnp/spfx-controls-react/lib/controls/peoplepicker/PrincipalType';
 import * as React from 'react';
+
+// Lazy load PeoplePicker to prevent PnP controls CSS from being bundled when not used
+const PeoplePicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/PeoplePicker').then((module) => ({
+    default: module.PeoplePicker,
+  }))
+);
 import { SPContext } from '../../utilities/context';
 import { GroupViewer } from '../GroupViewer';
 import { UserPersona } from '../UserPersona';
@@ -369,20 +377,22 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
                   )}
 
                   <Stack tokens={{ childrenGap: 10 }}>
-                    <PeoplePicker
-                      context={SPContext.spfxContext as any}
-                      titleText=''
-                      personSelectionLimit={10}
-                      groupName=''
-                      showtooltip={true}
-                      disabled={false}
-                      onChange={handlePeoplePickerChange}
-                      showHiddenInUI={false}
-                      principalTypes={[PrincipalType.User, PrincipalType.SharePointGroup]}
-                      resolveDelay={300}
-                      placeholder='Enter names or email addresses'
-                      key={peoplePickerKey}
-                    />
+                    <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
+                      <PeoplePicker
+                        context={SPContext.spfxContext as any}
+                        titleText=''
+                        personSelectionLimit={10}
+                        groupName=''
+                        showtooltip={true}
+                        disabled={false}
+                        onChange={handlePeoplePickerChange}
+                        showHiddenInUI={false}
+                        principalTypes={[PrincipalType.User, PrincipalType.SharePointGroup]}
+                        resolveDelay={300}
+                        placeholder='Enter names or email addresses'
+                        key={peoplePickerKey}
+                      />
+                    </React.Suspense>
 
                     {isValidatingUsers && (
                       <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>

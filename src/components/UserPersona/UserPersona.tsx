@@ -1,9 +1,16 @@
 import { Persona, PersonaSize } from '@fluentui/react/lib/Persona';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { CachingPessimisticRefresh } from '@pnp/queryable';
-import { LivePersona } from '@pnp/spfx-controls-react/lib/LivePersona';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
+
+// Lazy load LivePersona to prevent PnP controls CSS from being bundled when not used
+const LivePersona = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/LivePersona').then((module) => ({
+    default: module.LivePersona,
+  }))
+);
 import { getUserPhoto, pixelSizeToPhotoSize } from '../../utilities/userPhotoHelper';
 import { DefaultUserPersonaProps, IUserPersonaProps, IUserProfile, UserPersonaSize } from './types';
 import './UserPersona.css';
@@ -230,11 +237,13 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
   // Wrap entire container with LivePersona if enabled
   const contentWithLivePersona =
     showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
-      <LivePersona
-        upn={normalizedIdentifier}
-        template={content}
-        serviceScope={SPContext.spfxContext.serviceScope}
-      />
+      <React.Suspense fallback={content}>
+        <LivePersona
+          upn={normalizedIdentifier}
+          template={content}
+          serviceScope={SPContext.spfxContext.serviceScope}
+        />
+      </React.Suspense>
     ) : (
       content
     );

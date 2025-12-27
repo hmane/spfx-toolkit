@@ -149,9 +149,19 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
         }),
     });
 
+    // Add "Updates only" filter to show only versions with actual changes
+    chips.push({
+      key: 'updates',
+      label: 'Updates only',
+      active: filterState.showUpdatesOnly,
+      description: 'Show only versions with metadata or content changes',
+      onClick: () => onFilterChange({ showUpdatesOnly: !filterState.showUpdatesOnly }),
+    });
+
     return chips;
   }, [
     filterState.showMajorOnly,
+    filterState.showUpdatesOnly,
     filterState.filterDateRange,
     isMineActive,
     isRecentActive,
@@ -217,6 +227,10 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
 
     if (filterState.showMajorOnly && showMajorFilter) {
       labels.push('Major versions');
+    }
+
+    if (filterState.showUpdatesOnly) {
+      labels.push('Updates only');
     }
 
     return labels;

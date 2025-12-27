@@ -196,6 +196,29 @@ export function formatFieldValue(value: any, fieldType: string): string {
 }
 
 /**
+ * Extract comparable ID from User/Lookup field value
+ * Handles various SharePoint return formats
+ */
+function extractLookupId(value: any): string | null {
+  if (value === null || value === undefined) return null;
+
+  // Handle primitive values
+  if (typeof value === 'number' || typeof value === 'string') {
+    return String(value);
+  }
+
+  // Handle object values - try various property names SharePoint uses
+  if (typeof value === 'object') {
+    const id = value.LookupId ?? value.Id ?? value.id ?? value.ID;
+    if (id !== undefined && id !== null) {
+      return String(id);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Compare two field values to detect changes
  */
 export function compareFieldValues(
@@ -211,10 +234,12 @@ export function compareFieldValues(
   const normalizedOld = normalizeEmpty(oldValue);
   const normalizedNew = normalizeEmpty(newValue);
 
+  // Both empty = no change
   if (normalizedOld === null && normalizedNew === null) {
     return { hasChanged: false, isSignificant: false };
   }
 
+  // One empty, one not = change
   if (normalizedOld === null || normalizedNew === null) {
     return { hasChanged: true, isSignificant: true };
   }
@@ -223,22 +248,56 @@ export function compareFieldValues(
 
   switch (type) {
     case FieldType.User:
-    case FieldType.UserMulti:
-    case FieldType.Lookup:
-    case FieldType.LookupMulti:
-      const oldId = normalizedOld.LookupId || normalizedOld.Id || normalizedOld;
-      const newId = normalizedNew.LookupId || normalizedNew.Id || normalizedNew;
+    case FieldType.Lookup: {
+      const oldId = extractLookupId(normalizedOld);
+      const newId = extractLookupId(normalizedNew);
+
+      // If we can't extract IDs, fall back to string comparison
+      if (oldId === null && newId === null) {
+        return {
+          hasChanged: String(normalizedOld) !== String(normalizedNew),
+          isSignificant: true,
+        };
+      }
+
       return {
-        hasChanged: String(oldId) !== String(newId),
+        hasChanged: oldId !== newId,
         isSignificant: true,
       };
+    }
+
+    case FieldType.UserMulti:
+    case FieldType.LookupMulti: {
+      // Handle multi-value fields
+      const getIds = (val: any): string[] => {
+        if (Array.isArray(val)) {
+          return val.map(v => extractLookupId(v)).filter((id): id is string => id !== null).sort();
+        }
+        const singleId = extractLookupId(val);
+        return singleId ? [singleId] : [];
+      };
+
+      const oldIds = getIds(normalizedOld);
+      const newIds = getIds(normalizedNew);
+
+      return {
+        hasChanged: JSON.stringify(oldIds) !== JSON.stringify(newIds),
+        isSignificant: true,
+      };
+    }
 
     case FieldType.DateTime:
       try {
-        const oldDate = new Date(normalizedOld).toISOString();
-        const newDate = new Date(normalizedNew).toISOString();
+        // Normalize dates to ISO strings for comparison (ignore milliseconds differences)
+        const oldDate = new Date(normalizedOld);
+        const newDate = new Date(normalizedNew);
+
+        // Compare at minute precision to avoid false positives from timezone/format differences
+        const oldMinute = Math.floor(oldDate.getTime() / 60000);
+        const newMinute = Math.floor(newDate.getTime() / 60000);
+
         return {
-          hasChanged: oldDate !== newDate,
+          hasChanged: oldMinute !== newMinute,
           isSignificant: true,
         };
       } catch {
@@ -250,30 +309,85 @@ export function compareFieldValues(
 
     case FieldType.Number:
     case FieldType.Currency:
-    case FieldType.Integer:
+    case FieldType.Integer: {
+      const oldNum = Number(normalizedOld);
+      const newNum = Number(normalizedNew);
+
+      // Handle NaN cases
+      if (isNaN(oldNum) && isNaN(newNum)) {
+        return { hasChanged: false, isSignificant: false };
+      }
+
       return {
-        hasChanged: Number(normalizedOld) !== Number(normalizedNew),
+        hasChanged: oldNum !== newNum,
         isSignificant: true,
       };
+    }
 
-    case FieldType.Boolean:
-      return {
-        hasChanged: Boolean(normalizedOld) !== Boolean(normalizedNew),
-        isSignificant: true,
+    case FieldType.Boolean: {
+      // Normalize various boolean representations
+      const toBool = (val: any): boolean => {
+        if (typeof val === 'boolean') return val;
+        if (typeof val === 'string') {
+          return val.toLowerCase() === 'true' || val === '1';
+        }
+        return Boolean(val);
       };
 
-    case FieldType.MultiChoice:
-      const oldArray = Array.isArray(normalizedOld) ? normalizedOld : [normalizedOld];
-      const newArray = Array.isArray(normalizedNew) ? normalizedNew : [normalizedNew];
       return {
-        hasChanged: JSON.stringify(oldArray.sort()) !== JSON.stringify(newArray.sort()),
+        hasChanged: toBool(normalizedOld) !== toBool(normalizedNew),
         isSignificant: true,
       };
+    }
 
-    default:
+    case FieldType.MultiChoice: {
+      // Normalize to sorted arrays for comparison
+      const toArray = (val: any): string[] => {
+        if (Array.isArray(val)) {
+          return val.map(String).sort();
+        }
+        if (typeof val === 'string' && val.includes(';#')) {
+          return val.split(';#').filter(v => v).sort();
+        }
+        return [String(val)];
+      };
+
+      const oldArray = toArray(normalizedOld);
+      const newArray = toArray(normalizedNew);
+
+      return {
+        hasChanged: JSON.stringify(oldArray) !== JSON.stringify(newArray),
+        isSignificant: true,
+      };
+    }
+
+    case FieldType.TaxonomyFieldType:
+    case FieldType.TaxonomyFieldTypeMulti: {
+      // Extract term IDs for comparison
+      const getTermIds = (val: any): string[] => {
+        if (Array.isArray(val)) {
+          return val.map(v => v.TermGuid || v.WssId || String(v)).sort();
+        }
+        if (typeof val === 'object' && val !== null) {
+          return [val.TermGuid || val.WssId || JSON.stringify(val)];
+        }
+        return [String(val)];
+      };
+
+      const oldTerms = getTermIds(normalizedOld);
+      const newTerms = getTermIds(normalizedNew);
+
+      return {
+        hasChanged: JSON.stringify(oldTerms) !== JSON.stringify(newTerms),
+        isSignificant: true,
+      };
+    }
+
+    default: {
       const hasChanged = String(normalizedOld).trim() !== String(normalizedNew).trim();
       const isSignificant = type !== FieldType.Note || hasChanged;
       return { hasChanged, isSignificant };
+    }
   }
 }
 
@@ -556,6 +670,19 @@ export function filterVersions(
     filtered = filtered.filter(version => {
       const versionParts = version.versionLabel.split('.');
       return versionParts[1] === '0';
+    });
+  }
+
+  // Filter to show only versions with changes (metadata or size changes)
+  if (filterState.showUpdatesOnly) {
+    filtered = filtered.filter(version => {
+      // Has field changes
+      if (version.hasChanges) return true;
+      // Has file size change (for documents)
+      if (version.sizeDelta !== null && version.sizeDelta !== 0) return true;
+      // Has check-in comment (indicates intentional update)
+      if (version.checkInComment) return true;
+      return false;
     });
   }
 

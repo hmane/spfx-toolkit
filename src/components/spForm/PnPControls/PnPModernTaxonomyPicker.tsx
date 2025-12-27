@@ -1,7 +1,14 @@
 import { BaseComponentContext } from '@microsoft/sp-component-base';
 import { isEqual } from '@microsoft/sp-lodash-subset';
-import { ModernTaxonomyPicker } from '@pnp/spfx-controls-react/lib/ModernTaxonomyPicker';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import * as React from 'react';
+
+// Lazy load ModernTaxonomyPicker to avoid loading its CSS (TaxonomyTree.module.scss) when not used
+const ModernTaxonomyPicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/ModernTaxonomyPicker').then((module) => ({
+    default: module.ModernTaxonomyPicker,
+  }))
+);
 import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
 
 export interface IPnPModernTaxonomyPickerProps<T extends FieldValues> {
@@ -48,25 +55,27 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
           <div
             className={`modern-taxonomy-picker-wrapper ${className} ${hasError ? 'has-error' : ''}`}
           >
-            <ModernTaxonomyPicker
-              context={context}
-              termSetId={termSetId}
-              anchorTermId={anchorTermId}
-              label={label}
-              panelTitle={panelTitle}
-              placeHolder={placeHolder}
-              disabled={disabled}
-              allowMultipleSelections={allowMultipleSelections}
-              required={required}
-              customPanelWidth={customPanelWidth}
-              initialValues={value ? (Array.isArray(value) ? value : [value]) : []}
-              onChange={terms => {
-                if (!isEqual(value, terms)) {
-                  onChange(terms);
-                  onTermsChanged?.(terms || []);
-                }
-              }}
-            />
+            <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
+              <ModernTaxonomyPicker
+                context={context}
+                termSetId={termSetId}
+                anchorTermId={anchorTermId}
+                label={label}
+                panelTitle={panelTitle}
+                placeHolder={placeHolder}
+                disabled={disabled}
+                allowMultipleSelections={allowMultipleSelections}
+                required={required}
+                customPanelWidth={customPanelWidth}
+                initialValues={value ? (Array.isArray(value) ? value : [value]) : []}
+                onChange={terms => {
+                  if (!isEqual(value, terms)) {
+                    onChange(terms);
+                    onTermsChanged?.(terms || []);
+                  }
+                }}
+              />
+            </React.Suspense>
             {hasError && (
               <div className='field-error-message'>{(error as FieldError)?.message}</div>
             )}

@@ -18,8 +18,16 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { Link } from '@fluentui/react/lib/Link';
-import { FileTypeIcon, ApplicationType, IconType } from '@pnp/spfx-controls-react/lib/FileTypeIcon';
+// Import enums directly from IFileTypeIcon to avoid CSS side effects
+import { IconType, ImageSize } from '@pnp/spfx-controls-react/lib/controls/fileTypeIcon/IFileTypeIcon';
 import { ISPListItemAttachmentsProps, AttachmentDisplayMode, IAttachmentFile } from './SPListItemAttachments.types';
+
+// Lazy load FileTypeIcon to prevent PnP controls CSS from being bundled when not used
+const FileTypeIcon = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/FileTypeIcon').then((module) => ({
+    default: module.FileTypeIcon,
+  }))
+);
 import { SPContext } from '../../utilities/context';
 import { getListByNameOrId } from '../../utilities/spHelper';
 import './SPListItemAttachments.css';
@@ -506,7 +514,9 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
             }}
           />
         ) : (
-          <FileTypeIcon type={IconType.image} path={fileName} size={displayMode === AttachmentDisplayMode.Grid ? 48 : 32} />
+          <React.Suspense fallback={<Spinner size={SpinnerSize.xSmall} />}>
+            <FileTypeIcon type={IconType.image} path={fileName} size={displayMode === AttachmentDisplayMode.Grid ? ImageSize.large : ImageSize.medium} />
+          </React.Suspense>
         )}
 
         <Stack styles={{ root: { flex: 1 } }} tokens={{ childrenGap: 4 }}>

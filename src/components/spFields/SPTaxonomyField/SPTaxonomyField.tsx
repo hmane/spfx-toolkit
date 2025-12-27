@@ -16,7 +16,13 @@ import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
-import { ModernTaxonomyPicker } from '@pnp/spfx-controls-react/lib/ModernTaxonomyPicker';
+
+// Lazy load ModernTaxonomyPicker to avoid loading its CSS (TaxonomyTree.module.scss) when not used
+const ModernTaxonomyPicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/ModernTaxonomyPicker').then((module) => ({
+    default: module.ModernTaxonomyPicker,
+  }))
+);
 
 /**
  * Term info interface matching ModernTaxonomyPicker's expected format
@@ -424,22 +430,24 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         )}
 
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
-          <ModernTaxonomyPicker
-            context={SPContext.spfxContext}
-            termSetId={resolvedDataSource.termSetId}
-            anchorTermId={resolvedDataSource.anchorId}
-            label={label || ''}
-            panelTitle={`Select ${label || 'Terms'}`}
-            placeHolder={placeholder}
-            disabled={disabled || readOnly}
-            allowMultipleSelections={resolvedAllowMultiple || false}
-            required={required}
-            initialValues={initialTerms}
-            onChange={(terms) => {
-              const converted = convertFromTermInfo(terms || []);
-              fieldOnChange(converted);
-            }}
-          />
+          <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
+            <ModernTaxonomyPicker
+              context={SPContext.spfxContext}
+              termSetId={resolvedDataSource.termSetId}
+              anchorTermId={resolvedDataSource.anchorId}
+              label={label || ''}
+              panelTitle={`Select ${label || 'Terms'}`}
+              placeHolder={placeholder}
+              disabled={disabled || readOnly}
+              allowMultipleSelections={resolvedAllowMultiple || false}
+              required={required}
+              initialValues={initialTerms}
+              onChange={(terms) => {
+                const converted = convertFromTermInfo(terms || []);
+                fieldOnChange(converted);
+              }}
+            />
+          </React.Suspense>
         </div>
 
         {hasError && (

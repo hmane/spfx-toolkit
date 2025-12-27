@@ -1,7 +1,15 @@
 import { IPersonaProps } from '@fluentui/react/lib/Persona';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { isEqual } from '@microsoft/sp-lodash-subset';
-import { IPeoplePickerContext, PeoplePicker } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
+
+// Lazy load PeoplePicker to prevent PnP controls CSS from being bundled when not used
+const PeoplePicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/PeoplePicker').then((module) => ({
+    default: module.PeoplePicker,
+  }))
+);
 import { Controller, FieldValues, Path } from 'react-hook-form';
 import { DirectionalHint } from '../../../types/fluentui-types';
 import './PnPPeoplePicker.css';
@@ -71,38 +79,40 @@ const PnPPeoplePicker = <T extends FieldValues>({
         const hasError = !!error;
 
         return (
-          <PeoplePicker
-            context={context}
-            titleText={titleText}
-            personSelectionLimit={personSelectionLimit}
-            groupName={groupName}
-            showtooltip={showtooltip}
-            required={required}
-            disabled={disabled}
-            onChange={items => {
-              if (!isEqual(value, items)) {
-                fieldOnChange(items);
-                onChange?.(items);
-              }
-            }}
-            defaultSelectedUsers={defaultSelectedUsers}
-            showHiddenInUI={showHiddenInUI}
-            principalTypes={principalTypes}
-            resolveDelay={resolveDelay}
-            ensureUser={ensureUser}
-            suggestionsLimit={suggestionsLimit}
-            webAbsoluteUrl={webAbsoluteUrl}
-            placeholder={placeholder}
-            errorMessage={hasError ? error.message : errorMessage}
-            errorMessageClassName={errorMessageClassName}
-            tooltipMessage={tooltipMessage}
-            tooltipDirectional={tooltipDirectional}
-            peoplePickerWPclassName={peoplePickerWPclassName}
-            peoplePickerCntrlclassName={`${peoplePickerCntrlclassName} ${className} ${
-              hasError ? 'error' : ''
-            }`}
-            onGetErrorMessage={onGetErrorMessage}
-          />
+          <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
+            <PeoplePicker
+              context={context}
+              titleText={titleText}
+              personSelectionLimit={personSelectionLimit}
+              groupName={groupName}
+              showtooltip={showtooltip}
+              required={required}
+              disabled={disabled}
+              onChange={items => {
+                if (!isEqual(value, items)) {
+                  fieldOnChange(items);
+                  onChange?.(items);
+                }
+              }}
+              defaultSelectedUsers={defaultSelectedUsers}
+              showHiddenInUI={showHiddenInUI}
+              principalTypes={principalTypes}
+              resolveDelay={resolveDelay}
+              ensureUser={ensureUser}
+              suggestionsLimit={suggestionsLimit}
+              webAbsoluteUrl={webAbsoluteUrl}
+              placeholder={placeholder}
+              errorMessage={hasError ? error.message : errorMessage}
+              errorMessageClassName={errorMessageClassName}
+              tooltipMessage={tooltipMessage}
+              tooltipDirectional={tooltipDirectional}
+              peoplePickerWPclassName={peoplePickerWPclassName}
+              peoplePickerCntrlclassName={`${peoplePickerCntrlclassName} ${className} ${
+                hasError ? 'error' : ''
+              }`}
+              onGetErrorMessage={onGetErrorMessage}
+            />
+          </React.Suspense>
         );
       }}
     />

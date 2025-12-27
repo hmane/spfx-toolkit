@@ -24,8 +24,15 @@ import { ISPLookupFieldProps, SPLookupDisplayMode } from './SPLookupField.types'
 import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
-import { ListItemPicker } from '@pnp/spfx-controls-react/lib/ListItemPicker';
 import { useFormContext } from '../../spForm/context/FormContext';
+
+// Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
+// This prevents ComboBoxListItemPicker.module.scss from being bundled when not needed
+const ListItemPicker = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/ListItemPicker').then((module) => ({
+    default: module.ListItemPicker,
+  }))
+);
 
 /**
  * Enhanced SPLookupField component with smart threshold-based mode switching
@@ -592,39 +599,41 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           )}
 
           <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
-          <ListItemPicker
-            listId={dataSource.listNameOrId}
-            columnInternalName={dataSource.displayField || 'Title'}
-            keyColumnInternalName="Id"
-            itemLimit={allowMultiple ? 100 : 1}
-            filter={dataSource.filter}
-            defaultSelectedItems={Array.isArray(fieldValue) ? fieldValue.map(v => v.Id) : (fieldValue ? [fieldValue.Id] : [])}
-            onSelectedItem={(items) => {
-              if (allowMultiple) {
-                const selectedItems: ISPLookupFieldValue[] = items.map((item: any) => ({
-                  Id: item.Id,
-                  Title: item[dataSource.displayField || 'Title'],
-                }));
-                fieldOnChange(selectedItems);
-              } else {
-                if (items && items.length > 0) {
-                  const item = items[0];
-                  fieldOnChange({
-                    Id: item.Id,
-                    Title: item[dataSource.displayField || 'Title'],
-                  });
-                } else {
-                  fieldOnChange(null as any);
-                }
-              }
-            }}
-            context={SPContext.spfxContext}
-            disabled={disabled || readOnly}
-            placeholder={placeholder || `Type to search (${itemCount} items available)`}
-            noResultsFoundText="No items found matching your search"
-            suggestionsHeaderText="Suggested items"
-            className={className}
-          />
+            <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading picker..." />}>
+              <ListItemPicker
+                listId={dataSource.listNameOrId}
+                columnInternalName={dataSource.displayField || 'Title'}
+                keyColumnInternalName="Id"
+                itemLimit={allowMultiple ? 100 : 1}
+                filter={dataSource.filter}
+                defaultSelectedItems={Array.isArray(fieldValue) ? fieldValue.map(v => v.Id) : (fieldValue ? [fieldValue.Id] : [])}
+                onSelectedItem={(items) => {
+                  if (allowMultiple) {
+                    const selectedItems: ISPLookupFieldValue[] = items.map((item: any) => ({
+                      Id: item.Id,
+                      Title: item[dataSource.displayField || 'Title'],
+                    }));
+                    fieldOnChange(selectedItems);
+                  } else {
+                    if (items && items.length > 0) {
+                      const item = items[0];
+                      fieldOnChange({
+                        Id: item.Id,
+                        Title: item[dataSource.displayField || 'Title'],
+                      });
+                    } else {
+                      fieldOnChange(null as any);
+                    }
+                  }
+                }}
+                context={SPContext.spfxContext}
+                disabled={disabled || readOnly}
+                placeholder={placeholder || `Type to search (${itemCount} items available)`}
+                noResultsFoundText="No items found matching your search"
+                suggestionsHeaderText="Suggested items"
+                className={className}
+              />
+            </React.Suspense>
           </div>
 
           {/* Show error with MessageBar for PnP control */}

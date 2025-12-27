@@ -881,9 +881,8 @@
 .version-details-no-changes {
   padding: 24px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
 /* ========================================

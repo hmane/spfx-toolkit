@@ -99,6 +99,11 @@ export interface IVersionHistoryState {
   showMajorOnly: boolean;
 
   /**
+   * Filter: Show only versions with changes
+   */
+  showUpdatesOnly: boolean;
+
+  /**
    * Whether filters panel is expanded
    */
   filtersExpanded: boolean;
@@ -300,6 +305,7 @@ export interface IFilterState {
   filterByUser: string | null;
   filterDateRange: DateRangeFilter;
   showMajorOnly: boolean;
+  showUpdatesOnly: boolean;
   customDateStart: Date | null;
   customDateEnd: Date | null;
 }

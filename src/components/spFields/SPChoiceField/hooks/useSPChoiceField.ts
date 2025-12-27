@@ -93,10 +93,18 @@ export function useSPChoiceField(
 
   const otherOptionText = otherConfig.otherOptionText || 'Other';
 
+  // Helper to safely convert value to string
+  const toSafeString = (val: unknown): string => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    return String(val);
+  };
+
   // Helper to check if a value is in the available choices
   const isValueInAvailableChoices = (val: string, choices: string[] | undefined): boolean => {
     if (!choices) return false;
-    return choices.some(choice => choice.toLowerCase() === val.toLowerCase());
+    const safeVal = toSafeString(val);
+    return choices.some(choice => toSafeString(choice).toLowerCase() === safeVal.toLowerCase());
   };
 
   // Initialize otherState - detect "Other" values even without explicit enableOtherOption
@@ -111,15 +119,15 @@ export function useSPChoiceField(
 
     if (Array.isArray(value)) {
       // Multi-select: check if "Other" text is in array or if any value is not in choices
-      const hasOtherText = value.some(v => v.toLowerCase() === otherOptionText.toLowerCase());
+      const hasOtherText = value.some(v => toSafeString(v).toLowerCase() === otherOptionText.toLowerCase());
       if (hasOtherText) {
         return { isOtherSelected: true, customValue: '', customValueError: undefined };
       }
 
       if (availableChoices) {
-        const otherValues = value.filter(v => !isValueInAvailableChoices(v, availableChoices));
+        const otherValues = value.filter(v => !isValueInAvailableChoices(toSafeString(v), availableChoices));
         if (otherValues.length > 0) {
-          return { isOtherSelected: true, customValue: otherValues[0], customValueError: undefined };
+          return { isOtherSelected: true, customValue: toSafeString(otherValues[0]), customValueError: undefined };
         }
       }
       // If no choices available and enableOtherOption is set, check values
@@ -130,15 +138,16 @@ export function useSPChoiceField(
       return { isOtherSelected: false, customValue: '', customValueError: undefined };
     } else {
       // Single-select: check if value is "Other" text or not in choices
-      if (value.toLowerCase() === otherOptionText.toLowerCase()) {
+      const safeValue = toSafeString(value);
+      if (safeValue.toLowerCase() === otherOptionText.toLowerCase()) {
         return { isOtherSelected: true, customValue: '', customValueError: undefined };
       }
 
       // If we have choices available, check if value is in them
       if (availableChoices) {
-        if (!isValueInAvailableChoices(value, availableChoices)) {
+        if (!isValueInAvailableChoices(safeValue, availableChoices)) {
           // Value is not in choices - it's an "Other" value
-          return { isOtherSelected: true, customValue: value, customValueError: undefined };
+          return { isOtherSelected: true, customValue: safeValue, customValueError: undefined };
         }
         // Value is in choices - not an "Other" value
         return { isOtherSelected: false, customValue: '', customValueError: undefined };
@@ -147,7 +156,7 @@ export function useSPChoiceField(
       // No choices available yet (async loading from SharePoint)
       // If enableOtherOption is explicitly set, assume it could be "Other"
       if (otherConfig.enableOtherOption) {
-        return { isOtherSelected: true, customValue: value, customValueError: undefined };
+        return { isOtherSelected: true, customValue: safeValue, customValueError: undefined };
       }
 
       // Without explicit config, we can't determine until metadata loads
@@ -296,17 +305,17 @@ export function useSPChoiceField(
     if (Array.isArray(value)) {
       // Multi-select: check if "Other" is in array or if any value is not in choices
       const otherIndex = value.findIndex(
-        v => v.toLowerCase() === otherOptionText.toLowerCase()
+        v => toSafeString(v).toLowerCase() === otherOptionText.toLowerCase()
       );
 
       if (otherIndex !== -1) {
         isOtherSelected = true;
       } else if (metadata) {
         // Check for custom values if metadata is loaded (we need choices to compare)
-        const otherValues = value.filter(v => isOtherValue(v));
+        const otherValues = value.filter(v => isOtherValue(toSafeString(v)));
         if (otherValues.length > 0) {
           isOtherSelected = true;
-          customValue = otherValues[0]; // Use first custom value
+          customValue = toSafeString(otherValues[0]); // Use first custom value
         }
       } else if (value.length > 0) {
         // Metadata not loaded yet but we have a value - preserve it as potential "Other"
@@ -320,20 +329,21 @@ export function useSPChoiceField(
       }
     } else if (value) {
       // Single-select: check if value is "Other" or not in choices
-      if (value.toLowerCase() === otherOptionText.toLowerCase()) {
+      const safeValue = toSafeString(value);
+      if (safeValue.toLowerCase() === otherOptionText.toLowerCase()) {
         isOtherSelected = true;
       } else if (metadata) {
         // Check against choices if metadata is loaded
-        if (isOtherValue(value)) {
+        if (isOtherValue(safeValue)) {
           isOtherSelected = true;
-          customValue = value;
+          customValue = safeValue;
         }
       } else if (otherConfig.enableOtherOption) {
         // Metadata not loaded yet but otherEnabled is explicitly set
         // Assume the value could be an "Other" value and preserve it
         // This will be re-evaluated once metadata loads
         isOtherSelected = true;
-        customValue = value;
+        customValue = safeValue;
       }
     }
 

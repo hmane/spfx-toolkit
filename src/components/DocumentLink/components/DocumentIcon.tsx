@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { FileTypeIcon, IconType, ApplicationType } from '@pnp/spfx-controls-react/lib/FileTypeIcon';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+// Import enums directly from IFileTypeIcon to avoid CSS side effects
+import { IconType, ApplicationType } from '@pnp/spfx-controls-react/lib/controls/fileTypeIcon/IFileTypeIcon';
+
+// Lazy load FileTypeIcon to prevent PnP controls CSS from being bundled when not used
+const FileTypeIcon = React.lazy(() =>
+  import('@pnp/spfx-controls-react/lib/FileTypeIcon').then((module) => ({
+    default: module.FileTypeIcon,
+  }))
+);
 
 /**
  * Props for DocumentIcon component
@@ -66,12 +75,14 @@ export const DocumentIcon: React.FC<IDocumentIconProps> = React.memo(
 
     return (
       <span className={className} style={{ display: 'inline-flex', alignItems: 'center' }}>
-        <FileTypeIcon
-          type={IconType.image}
-          application={applicationType}
-          path={path}
-          size={size}
-        />
+        <React.Suspense fallback={<Spinner size={SpinnerSize.xSmall} />}>
+          <FileTypeIcon
+            type={IconType.image}
+            application={applicationType}
+            path={path}
+            size={size}
+          />
+        </React.Suspense>
       </span>
     );
   }

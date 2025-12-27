@@ -3,12 +3,11 @@ import { HoverCard, HoverCardType } from '@fluentui/react/lib/HoverCard';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { IconButton } from '@fluentui/react/lib/Button';
-import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
-import { Persona, PersonaSize } from '@fluentui/react/lib/Persona';
 import { IDocumentInfo } from '../DocumentLink.types';
 import { formatFileSize } from '../utils';
 import { DocumentIcon } from './DocumentIcon';
 import { downloadDocument } from './DocumentActions';
+import { UserPersona } from '../../UserPersona';
 
 /**
  * Props for DocumentHoverCard component
@@ -79,15 +78,6 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
         minute: '2-digit',
       });
       return `${dateStr} at ${timeStr}`;
-    };
-
-    // Get user photo URL using SharePoint UserPhoto.aspx
-    const getUserPhotoUrl = (email: string): string => {
-      if (!email) return '';
-      const siteUrl = window.location.origin;
-      return `${siteUrl}/_layouts/15/userphoto.aspx?size=M&accountname=${encodeURIComponent(
-        email
-      )}`;
     };
 
     return (
@@ -164,17 +154,14 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
 
           {/* Created by - Compact layout */}
           <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="start">
-            <Persona
-              imageUrl={getUserPhotoUrl(document.createdBy.email)}
-              text={document.createdBy.title}
-              size={PersonaSize.size40}
-              hidePersonaDetails={true}
-              styles={{
-                root: {
-                  flexShrink: 0,
-                },
-              }}
-            />
+            <div style={{ flexShrink: 0 }}>
+              <UserPersona
+                userIdentifier={document.createdBy.email || document.createdBy.loginName}
+                displayName={document.createdBy.title}
+                size={40}
+                displayMode="avatar"
+              />
+            </div>
             <Stack tokens={{ childrenGap: 2 }} style={{ flex: 1, minWidth: 0 }}>
               <Text
                 variant="small"
@@ -206,17 +193,14 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
 
           {/* Modified by - Compact layout */}
           <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="start">
-            <Persona
-              imageUrl={getUserPhotoUrl(document.modifiedBy.email)}
-              text={document.modifiedBy.title}
-              size={PersonaSize.size40}
-              hidePersonaDetails={true}
-              styles={{
-                root: {
-                  flexShrink: 0,
-                },
-              }}
-            />
+            <div style={{ flexShrink: 0 }}>
+              <UserPersona
+                userIdentifier={document.modifiedBy.email || document.modifiedBy.loginName}
+                displayName={document.modifiedBy.title}
+                size={40}
+                displayMode="avatar"
+              />
+            </div>
             <Stack tokens={{ childrenGap: 2 }} style={{ flex: 1, minWidth: 0 }}>
               <Text
                 variant="small"
