@@ -103,6 +103,11 @@ const getMd5HashForUrl = async (value: string): Promise<string> => {
 };
 
 /**
+ * Pending photo requests to deduplicate concurrent fetches
+ */
+const pendingPhotoRequests = new Map<string, Promise<string | undefined>>();
+
+/**
  * Fetch user photo and check if it's a default SharePoint image
  * @param siteUrl - SharePoint site URL
  * @param userIdentifier - User email or UPN
@@ -114,27 +119,54 @@ export const getUserPhoto = async (
   userIdentifier: string,
   size: PhotoSize
 ): Promise<string | undefined> => {
-  try {
-    const personaImgUrl = `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
-      userIdentifier
-    )}`;
+  const cacheKey = `${userIdentifier.toLowerCase()}_${size}`;
 
-    const base64 = await getImageBase64(personaImgUrl);
-    if (!base64) {
-      return undefined;
-    }
-
-    // Check if the photo is a default SharePoint image
-    const hash = await getMd5HashForUrl(base64);
-    if (DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64)) {
-      return undefined;
-    }
-
-    return `data:image/png;base64,${base64}`;
-  } catch (error) {
-    SPContext.logger.warn('Failed to get user photo', { userIdentifier, size, error });
-    return undefined;
+  // Check cache first
+  const cached = photoCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PHOTO_CACHE_DURATION) {
+    return cached.photo;
   }
+
+  // Check for pending request to deduplicate
+  const pending = pendingPhotoRequests.get(cacheKey);
+  if (pending) {
+    return pending;
+  }
+
+  // Create the fetch promise
+  const fetchPromise = (async (): Promise<string | undefined> => {
+    try {
+      const personaImgUrl = `${siteUrl}/_layouts/15/userphoto.aspx?size=${size}&accountname=${encodeURIComponent(
+        userIdentifier
+      )}`;
+
+      const base64 = await getImageBase64(personaImgUrl);
+      if (!base64) {
+        photoCache.set(cacheKey, { photo: undefined, timestamp: Date.now() });
+        return undefined;
+      }
+
+      // Check if the photo is a default SharePoint image
+      const hash = await getMd5HashForUrl(base64);
+      if (DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64)) {
+        photoCache.set(cacheKey, { photo: undefined, timestamp: Date.now() });
+        return undefined;
+      }
+
+      const photo = `data:image/png;base64,${base64}`;
+      photoCache.set(cacheKey, { photo, timestamp: Date.now() });
+      return photo;
+    } catch (error) {
+      SPContext.logger.warn('Failed to get user photo', { userIdentifier, size, error });
+      photoCache.set(cacheKey, { photo: undefined, timestamp: Date.now() });
+      return undefined;
+    } finally {
+      pendingPhotoRequests.delete(cacheKey);
+    }
+  })();
+
+  pendingPhotoRequests.set(cacheKey, fetchPromise);
+  return fetchPromise;
 };
 
 /**

@@ -19,6 +19,11 @@ export {
 const profileCache = new Map<string, IProfileCache>();
 
 /**
+ * Pending profile requests for deduplication
+ */
+const pendingProfileRequests = new Map<string, Promise<IProfileCache['profile'] | undefined>>();
+
+/**
  * Cache timeout - 1 hour
  */
 const CACHE_TIMEOUT = 60 * 60 * 1000;
@@ -49,6 +54,27 @@ export function cacheProfile(userIdentifier: string, profile: IProfileCache['pro
     profile,
     timestamp: Date.now(),
   });
+}
+
+/**
+ * Get pending profile request if one exists
+ */
+export function getPendingProfileRequest(userIdentifier: string): Promise<IProfileCache['profile'] | undefined> | undefined {
+  return pendingProfileRequests.get(userIdentifier.toLowerCase());
+}
+
+/**
+ * Set pending profile request
+ */
+export function setPendingProfileRequest(userIdentifier: string, promise: Promise<IProfileCache['profile'] | undefined>): void {
+  pendingProfileRequests.set(userIdentifier.toLowerCase(), promise);
+}
+
+/**
+ * Clear pending profile request
+ */
+export function clearPendingProfileRequest(userIdentifier: string): void {
+  pendingProfileRequests.delete(userIdentifier.toLowerCase());
 }
 
 /**

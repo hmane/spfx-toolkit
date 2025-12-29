@@ -16,11 +16,14 @@ import { DefaultUserPersonaProps, IUserPersonaProps, IUserProfile, UserPersonaSi
 import './UserPersona.css';
 import {
   cacheProfile,
+  clearPendingProfileRequest,
   getCachedProfile,
   getInitials,
   getPersonaColor,
+  getPendingProfileRequest,
   isValidUserIdentifier,
   normalizeUserIdentifier,
+  setPendingProfileRequest,
 } from './UserPersonaUtils';
 
 export const UserPersona: React.FC<IUserPersonaProps> = props => {
@@ -60,6 +63,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         return;
       }
 
+      // Check cache first
       const cached = getCachedProfile(normalizedIdentifier);
       if (cached) {
         if (isMounted) {
@@ -69,36 +73,75 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         return;
       }
 
+      // Check for pending request to deduplicate
+      const pendingRequest = getPendingProfileRequest(normalizedIdentifier);
+      if (pendingRequest) {
+        try {
+          const profile = await pendingRequest;
+          if (isMounted && profile) {
+            setDisplayName(profile.displayName);
+            setEmail(profile.email);
+          }
+        } catch {
+          // Pending request failed, use fallback
+          if (isMounted) {
+            setDisplayName(providedDisplayName || '');
+            setEmail(providedEmail || normalizedIdentifier);
+          }
+        }
+        return;
+      }
+
+      // Create new request with deduplication
+      const fetchPromise = (async (): Promise<IUserProfile | undefined> => {
+        try {
+          const user = await SPContext.sp
+            .using(CachingPessimisticRefresh())
+            .web.ensureUser(normalizedIdentifier);
+
+          const profile: IUserProfile = {
+            displayName: user.data.Title || providedDisplayName || '',
+            email: user.data.Email || providedEmail || normalizedIdentifier,
+            loginName: user.data.LoginName || normalizedIdentifier,
+          };
+
+          cacheProfile(normalizedIdentifier, profile);
+
+          SPContext.logger.info('UserPersona profile loaded', {
+            userIdentifier,
+            displayName: profile.displayName,
+          });
+
+          return profile;
+        } catch (error) {
+          SPContext.logger.warn('UserPersona failed to load profile', {
+            error,
+            userIdentifier,
+          });
+          return undefined;
+        } finally {
+          clearPendingProfileRequest(normalizedIdentifier);
+        }
+      })();
+
+      setPendingProfileRequest(normalizedIdentifier, fetchPromise);
+
       try {
-        const user = await SPContext.sp
-          .using(CachingPessimisticRefresh())
-          .web.ensureUser(normalizedIdentifier);
-
-        if (!isMounted) return;
-
-        const profile: IUserProfile = {
-          displayName: user.data.Title || providedDisplayName || '',
-          email: user.data.Email || providedEmail || normalizedIdentifier,
-          loginName: user.data.LoginName || normalizedIdentifier,
-        };
-
-        cacheProfile(normalizedIdentifier, profile);
-        setDisplayName(profile.displayName);
-        setEmail(profile.email);
-
-        SPContext.logger.info('UserPersona profile loaded', {
-          userIdentifier,
-          displayName: profile.displayName,
-        });
-      } catch (error) {
-        if (!isMounted) return;
-
-        SPContext.logger.warn('UserPersona failed to load profile', {
-          error,
-          userIdentifier,
-        });
-        setDisplayName(providedDisplayName || '');
-        setEmail(providedEmail || normalizedIdentifier);
+        const profile = await fetchPromise;
+        if (isMounted) {
+          if (profile) {
+            setDisplayName(profile.displayName);
+            setEmail(profile.email);
+          } else {
+            setDisplayName(providedDisplayName || '');
+            setEmail(providedEmail || normalizedIdentifier);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setDisplayName(providedDisplayName || '');
+          setEmail(providedEmail || normalizedIdentifier);
+        }
       }
     };
 
