@@ -37,6 +37,13 @@ export type SPUserFieldValue = IPrincipal | ISPUserFieldValue;
  */
 export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | SPUserFieldValue[]> {
   /**
+   * Override to show error state (red border) even when no internal validation error
+   * Use this when validation happens outside react-hook-form (e.g., in Zod superRefine)
+   * @optional
+   */
+  hasError?: boolean;
+
+  /**
    * SharePoint column/field name to auto-load configuration from
    * When provided, the component will read column metadata to get allowMultiple and allowGroups settings
    * @optional

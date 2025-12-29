@@ -116,6 +116,13 @@ export interface IGroupUsersPickerProps {
   errorMessage?: string;
 
   /**
+   * Whether the field is valid (controls DevExtreme isValid styling)
+   * When false, shows red border on the control
+   * @default true
+   */
+  isValid?: boolean;
+
+  /**
    * Show clear button
    * @default true
    */
@@ -152,6 +159,14 @@ export interface IRHFGroupUsersPickerProps
    * Validation rules for React Hook Form
    */
   rules?: RegisterOptions;
+
+  /**
+   * Whether to show inline error message inside the component.
+   * Set to false when using inside FormValue with autoShowErrors=true
+   * to avoid duplicate error display.
+   * @default false
+   */
+  showInlineError?: boolean;
 }
 
 /**

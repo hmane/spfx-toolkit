@@ -110,27 +110,24 @@ export function useViewport(options: UseViewportOptions = {}): ViewportInfo {
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    let rafId = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const handleResize = () => {
       // Clear previous timeout
       if (timeoutId) clearTimeout(timeoutId);
 
-      // Debounce the resize handler
+      // Single debounce - RAF inside setTimeout adds unnecessary delay
       timeoutId = setTimeout(() => {
-        cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          setSize(getViewportSize());
-        });
+        setSize(getViewportSize());
       }, debounceMs);
     };
 
     window.addEventListener('resize', handleResize, { passive: true });
 
-    // Initial size check in case of layout shifts after mount
-    handleResize();
+    // Initial size check - use RAF to batch with paint frame
+    const rafId = requestAnimationFrame(() => {
+      setSize(getViewportSize());
+    });
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);

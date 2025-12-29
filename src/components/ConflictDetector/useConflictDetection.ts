@@ -226,6 +226,7 @@ export const useConflictDetection = ({
   }, [state]);
 
   // Auto-initialize when parameters change
+  // Using initialize in deps is safe because it's memoized with useCallback
   useEffect(() => {
     if (enabled && listId && itemId && sp) {
       initialize().catch(error => {
@@ -236,8 +237,7 @@ export const useConflictDetection = ({
     return () => {
       dispose();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId, itemId, enabled, sp]);
+  }, [listId, itemId, enabled, sp, initialize, dispose]);
 
   // Update options when they change
   useEffect(() => {

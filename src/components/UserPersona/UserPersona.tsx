@@ -177,6 +177,14 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
       return <div className='user-persona-name'>{displayName}</div>;
     }
 
+    // Styles to make Persona text inherit all styles from parent container
+    const personaStyles = {
+      root: { font: 'inherit', color: 'inherit' },
+      details: { font: 'inherit', color: 'inherit' },
+      primaryText: { font: 'inherit', color: 'inherit' },
+      secondaryText: { font: 'inherit', color: 'inherit', opacity: 0.7 },
+    };
+
     const personaElement = (
       <Persona
         size={getFluentPersonaSize(size)}
@@ -187,6 +195,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
         initialsColor={colorToUse}
         hidePersonaDetails={displayMode === 'avatar'}
         coinSize={size}
+        styles={personaStyles}
       />
     );
 

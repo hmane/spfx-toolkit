@@ -124,6 +124,10 @@ export const StepItem: React.FC<StepItemProps> = ({
 
   // Enhanced step text rendering without icons
   const renderStepText = () => {
+    // Only set title attribute if description is a string (not a React node)
+    const desc1Title = typeof step.description1 === 'string' ? step.description1 : undefined;
+    const desc2Title = typeof step.description2 === 'string' ? step.description2 : undefined;
+
     return (
       <div className={styles.stepText}>
         <div className={styles.stepTitle} title={step.title}>
@@ -134,7 +138,7 @@ export const StepItem: React.FC<StepItemProps> = ({
           <div
             className={styles.stepDescription1}
             style={defaultStyles.description1}
-            title={step.description1}
+            title={desc1Title}
           >
             {step.description1}
           </div>
@@ -144,7 +148,7 @@ export const StepItem: React.FC<StepItemProps> = ({
           <div
             className={styles.stepDescription2}
             style={defaultStyles.description2}
-            title={step.description2}
+            title={desc2Title}
           >
             {step.description2}
           </div>
@@ -219,9 +223,10 @@ export const StepItem: React.FC<StepItemProps> = ({
   };
 
   const getAriaDescription = () => {
-    const descriptions = [];
-    if (step.description1) descriptions.push(step.description1);
-    if (step.description2) descriptions.push(step.description2);
+    const descriptions: string[] = [];
+    // Only include string descriptions for aria (not React nodes)
+    if (typeof step.description1 === 'string') descriptions.push(step.description1);
+    if (typeof step.description2 === 'string') descriptions.push(step.description2);
     return descriptions.join(', ');
   };
 

@@ -60,6 +60,18 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
   const [isDownloading, setIsDownloading] = React.useState(false);
 
+  // Track mounted state to prevent setState after unmount
+  const isMountedRef = React.useRef(true);
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Request ID ref to handle "latest request wins" pattern
+  const loadRequestIdRef = React.useRef(0);
+
   const filterState: IFilterState = React.useMemo(
     () => ({
       searchQuery: state.searchQuery,
@@ -426,11 +438,16 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
   }, [state.statusMessage]);
 
   const loadVersionHistory = React.useCallback(async (): Promise<void> => {
+    const currentRequestId = ++loadRequestIdRef.current;
+
+    if (!isMountedRef.current) return;
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // Check permissions
       const hasPermission = await checkPermissions();
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
+
       if (!hasPermission) {
         setState(prev => ({
           ...prev,
@@ -449,15 +466,19 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
       // Detect item type
       const detectedItemType = await detectItemType();
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       // Load item info
       const itemInfo = await loadItemInfo(detectedItemType);
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       // Load versions
       const versions = await loadVersions(detectedItemType, itemInfo);
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       // Process versions
       const processedVersions = await processVersions(versions, itemInfo, detectedItemType);
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       setState(prev => ({
         ...prev,
@@ -485,6 +506,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         itemType: detectedItemType,
       });
     } catch (error) {
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
+
       SPContext.logger.error('Failed to load version history', error, { listId, itemId });
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -499,11 +522,12 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         },
       }));
     }
-  }, [listId, itemId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [listId, itemId]);
 
+  // Load version history when listId or itemId changes
   React.useEffect(() => {
     loadVersionHistory();
-  }, [listId, itemId, loadVersionHistory]);
+  }, [loadVersionHistory]);
 
   const checkPermissions = async (): Promise<boolean> => {
     try {

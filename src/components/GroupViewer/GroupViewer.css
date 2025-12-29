@@ -14,6 +14,24 @@
   --gv-shadow-lg: 0 8px 32px rgba(102, 126, 234, 0.25);
   --gv-transition-fast: 0.15s ease;
   --gv-transition-normal: 0.25s ease;
+
+  /* C-7: Fluent UI neutral palette */
+  --gv-neutral-primary: var(--neutralPrimary, #323130);
+  --gv-neutral-secondary: var(--neutralSecondary, #605e5c);
+  --gv-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --gv-neutral-lighter: var(--neutralLighter, #f3f2f1);
+  --gv-white: var(--white, #ffffff);
+  --gv-error: var(--red, #d13438);
+
+  /* C-7: Backgrounds */
+  --gv-bg-container: linear-gradient(180deg, var(--gv-white) 0%, #fafbfc 100%);
+  --gv-bg-error: linear-gradient(135deg, #fef7f7 0%, var(--gv-white) 100%);
+  --gv-bg-empty: linear-gradient(135deg, #f8f8f8 0%, var(--gv-white) 100%);
+  --gv-bg-info: linear-gradient(135deg, #f0f9ff 0%, var(--gv-white) 100%);
+  --gv-bg-hover: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, var(--gv-white) 100%);
+
+  /* C-7: High contrast */
+  --gv-hc-border: #000000;
 }
 
 /* ============================================
@@ -74,8 +92,8 @@
   min-width: 300px;
   max-width: 400px;
   font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
-  color: #323130;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  color: var(--gv-neutral-primary);
+  background: var(--gv-bg-container);
   border-radius: 16px;
   box-shadow: var(--gv-shadow-lg);
   border: 1px solid rgba(102, 126, 234, 0.1);
@@ -83,30 +101,40 @@
   animation: gv-fadeIn 0.3s ease-out;
 }
 
+/* Compact state styles - loading, error, empty */
 .group-viewer-tooltip.loading,
 .group-viewer-tooltip.error,
 .group-viewer-tooltip.empty {
-  min-width: 220px;
+  min-width: 240px;
+  max-width: 280px;
+  min-height: 120px;
   text-align: center;
-  padding: 20px;
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
 }
 
 .group-viewer-tooltip.error {
-  border-left: 4px solid #d13438;
-  background: linear-gradient(135deg, #fef7f7 0%, #ffffff 100%);
-}
-
-.group-viewer-tooltip.error .ms-Icon {
-  color: #d13438 !important;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+  border: 1px solid rgba(209, 52, 56, 0.2);
 }
 
 .group-viewer-tooltip.empty {
-  opacity: 0.8;
-  background: linear-gradient(135deg, #f8f8f8 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border: 1px solid rgba(102, 126, 234, 0.15);
 }
 
 .group-viewer-tooltip.loading {
-  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+  border: 1px solid rgba(102, 126, 234, 0.15);
+}
+
+/* Remove the ::before pseudo-elements for compact states */
+.group-viewer-tooltip.empty::before,
+.group-viewer-tooltip.error::before {
+  display: none;
 }
 
 /* Enhanced Member Item Styles - Modern SaaS */
@@ -138,9 +166,10 @@
 }
 
 /* LivePersona wrapper - no constraints */
+/* C-2: Use CSS variable for z-index to allow host page to customize */
 .group-viewer-live-persona-container > div {
   position: relative;
-  z-index: 100;
+  z-index: var(--spfx-gv-persona-zindex, 10);
 }
 
 /* Only constrain the coin/avatar, not the card */
@@ -176,7 +205,7 @@
   justify-content: center;
   font-size: 11px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--gv-white);
   flex-shrink: 0;
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -206,7 +235,7 @@
 }
 
 .group-viewer-nested-group-icon i {
-  color: #ffffff;
+  color: var(--gv-white);
   font-size: 13px;
   font-weight: 600;
 }
@@ -221,14 +250,14 @@
 }
 
 .group-viewer-nested-group-item:hover {
-  background-color: #f3f2f1;
+  background-color: var(--gv-neutral-lighter);
 }
 
 /* Enhanced Icon-Only Mode - Modern SaaS */
 .group-viewer-icon-only {
   background: var(--gv-gradient-primary);
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--gv-white);
   box-shadow: var(--gv-shadow-md);
   transition: all var(--gv-transition-normal);
 }
@@ -262,7 +291,7 @@
 .group-viewer-tooltip-header .group-viewer-title {
   font-weight: 700;
   font-size: 16px;
-  color: #323130;
+  color: var(--gv-neutral-primary);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -271,7 +300,7 @@
 
 /* Member count badge - inline with title */
 .group-viewer-member-count {
-  color: #605e5c;
+  color: var(--gv-neutral-secondary);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -289,7 +318,7 @@
 }
 
 .group-viewer-tooltip-header .group-viewer-description {
-  color: #605e5c;
+  color: var(--gv-neutral-secondary);
   font-size: 12px;
   font-style: normal;
   margin-top: 10px;
@@ -304,11 +333,11 @@
 .group-viewer-section-header {
   font-weight: 700;
   font-size: 13px;
-  color: #323130;
+  color: var(--gv-neutral-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 8px 0 4px 0;
-  border-bottom: 1px solid #f3f2f1;
+  border-bottom: 1px solid var(--gv-neutral-lighter);
   margin-bottom: 8px;
 }
 
@@ -316,19 +345,19 @@
 .group-viewer-member-name {
   font-weight: 600;
   font-size: 13px;
-  color: #323130;
+  color: var(--gv-neutral-primary);
   line-height: 1.3;
 }
 
 .group-viewer-member-email {
-  color: #605e5c;
+  color: var(--gv-neutral-secondary);
   font-size: 11px;
   margin-top: 2px;
   line-height: 1.2;
 }
 
 .group-viewer-member-type {
-  color: #8a8886;
+  color: var(--gv-neutral-tertiary-alt);
   font-size: 10px;
   font-style: italic;
   margin-top: 1px;
@@ -366,8 +395,9 @@
 }
 
 /* Enhanced Tooltip Z-Index and Positioning */
-.ms-Tooltip {
-  z-index: 1002;
+/* C-3: Scoped to .group-viewer to avoid global Fluent UI conflicts */
+.group-viewer .ms-Tooltip {
+  z-index: var(--spfx-gv-tooltip-zindex, 1000002);
 }
 
 .group-viewer-tooltip .ms-Stack {
@@ -415,7 +445,7 @@
 .group-viewer-tooltip.special-group {
   min-width: 340px;
   max-width: 440px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, #ffffff 100%);
+  background: var(--gv-bg-hover);
   border-left: 4px solid var(--gv-primary);
 }
 
@@ -435,7 +465,7 @@
   margin-top: 10px;
   border-left: 3px solid var(--gv-primary);
   font-style: normal;
-  color: #605e5c;
+  color: var(--gv-neutral-secondary);
 }
 
 /* Responsive Styles */
@@ -522,24 +552,24 @@
 /* High Contrast Mode Support */
 @media (prefers-contrast: high) {
   .group-viewer-tooltip {
-    border: 2px solid #000000;
-    background: #ffffff;
+    border: 2px solid var(--gv-hc-border);
+    background: var(--gv-white);
     backdrop-filter: none;
     box-shadow: none;
   }
 
   .group-viewer-member-item {
-    border-bottom: 2px solid #000000;
+    border-bottom: 2px solid var(--gv-hc-border);
   }
 
   .group-viewer-nested-group-icon {
-    border: 2px solid #000000;
-    background: #000000;
+    border: 2px solid var(--gv-hc-border);
+    background: var(--gv-hc-border);
   }
 
   .group-viewer-icon-only {
-    border: 2px solid #000000;
-    background: #000000;
+    border: 2px solid var(--gv-hc-border);
+    background: var(--gv-hc-border);
   }
 }
 
@@ -570,7 +600,7 @@
   }
 
   .group-viewer {
-    color: #000000 !important;
+    color: var(--gv-hc-border) !important;
     background: transparent !important;
   }
 }

@@ -2,6 +2,11 @@
  * Styles for SPListItemAttachments component
  */
 
+/* C-7: CSS Variables */
+:root {
+  --slia-focus-color: var(--themePrimary, #0078d4);
+}
+
 .sp-list-item-attachments {
   position: relative;
 }
@@ -40,7 +45,7 @@
 /* Upload progress indicator */
 .sp-list-item-attachments .upload-progress {
   height: 4px;
-  background-color: #0078d4;
+  background-color: var(--slia-focus-color);
   transition: width 0.3s ease;
 }
 

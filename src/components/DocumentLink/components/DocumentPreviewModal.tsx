@@ -15,7 +15,9 @@ interface IDocumentPreviewModalProps {
 }
 
 /**
- * DocumentPreviewModal renders an iframe-based preview inside a Fluent UI Modal
+ * DocumentPreviewModal renders a preview inside a Fluent UI Modal
+ * - Office documents: Uses WOPI iframe
+ * - All other files (PDF, images, etc.): Uses iframe with direct URL + web=1
  */
 export const DocumentPreviewModal: React.FC<IDocumentPreviewModalProps> = ({
   document,
@@ -50,7 +52,7 @@ export const DocumentPreviewModal: React.FC<IDocumentPreviewModalProps> = ({
     }
   }, [previewUrl, document.url, mode, onError]);
 
-  const handleIframeLoad = React.useCallback(() => {
+  const handleLoad = React.useCallback(() => {
     setIsLoading(false);
   }, []);
 
@@ -114,7 +116,7 @@ export const DocumentPreviewModal: React.FC<IDocumentPreviewModalProps> = ({
               src={previewUrl}
               title={`Preview of ${document.name}`}
               className="document-preview-modal__iframe"
-              onLoad={handleIframeLoad}
+              onLoad={handleLoad}
               allowFullScreen
             />
           </div>

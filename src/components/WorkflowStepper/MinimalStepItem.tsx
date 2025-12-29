@@ -109,11 +109,11 @@ export const MinimalStepItem: React.FC<MinimalStepItemProps> = ({
     return `${position}: ${step.title}, status: ${status}`;
   };
 
-  // Get tooltip content
-  const getTooltipContent = () => {
-    const parts = [step.title];
-    if (step.description1) parts.push(step.description1);
-    if (step.description2) parts.push(step.description2);
+  // Get tooltip content (only uses string descriptions, not React nodes)
+  const getTooltipContent = (): string => {
+    const parts: string[] = [step.title];
+    if (step.description1 && typeof step.description1 === 'string') parts.push(step.description1);
+    if (step.description2 && typeof step.description2 === 'string') parts.push(step.description2);
     return parts.join(' - ');
   };
 

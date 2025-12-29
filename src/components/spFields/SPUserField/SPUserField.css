@@ -1,4 +1,14 @@
 /* SPUserField Component Styles */
+
+/* C-7: CSS Variables */
+:root {
+  --suf-neutral-primary: var(--neutralPrimary, #323130);
+  --suf-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --suf-focus-color: var(--themePrimary, #0078d4);
+  --suf-error-color: #a4262c;
+  --suf-background-color: #ffffff;
+}
+
 .sp-user-field {
   display: flex;
   flex-direction: column;
@@ -8,37 +18,167 @@
 /* PnP People Picker - Minimal border styling to match Fluent UI controls */
 /* NOTE: Let PnP PeoplePicker use its OOB styles for personas/tags */
 .sp-user-field .ms-BasePicker {
-  border: 1px solid #8a8886;
+  border: 1px solid var(--suf-neutral-tertiary-alt);
   border-radius: 2px;
   min-height: 32px;
   transition: border-color 0.15s ease-in-out;
   box-sizing: border-box;
+  background-color: var(--suf-background-color);
 }
 
-.sp-user-field .ms-BasePicker:hover {
-  border-color: #323130;
-}
-
-.sp-user-field .ms-BasePicker.is-active,
-.sp-user-field .ms-BasePicker:focus-within {
-  border-color: #0078d4;
-}
-
+/* Ensure PeoplePicker text area has white background */
 .sp-user-field .ms-BasePicker-text {
   border: none;
   min-height: 30px;
   box-shadow: none;
   outline: none;
+  background-color: var(--suf-background-color);
 }
 
+/* PeoplePicker input field white background */
 .sp-user-field .ms-BasePicker-input {
   border: none;
   outline: none;
   box-shadow: none;
+  background-color: var(--suf-background-color);
+}
+
+.sp-user-field .ms-BasePicker:hover {
+  border-color: var(--suf-neutral-primary);
+}
+
+.sp-user-field .ms-BasePicker.is-active,
+.sp-user-field .ms-BasePicker:focus-within {
+  border-color: var(--suf-focus-color);
 }
 
 .sp-user-field .ms-BasePicker-input:focus {
   border: none;
   outline: none;
   box-shadow: none;
+}
+
+/* =====================================================
+   ERROR STATE STYLING
+   Using high specificity selectors to override PnP defaults
+   ===================================================== */
+
+/* Picker wrapper - direct parent of PeoplePicker */
+.sp-user-field-picker-wrapper {
+  width: 100%;
+}
+
+/* Error state on the wrapper - use CSS variable for border color */
+.sp-user-field-picker-wrapper.has-error {
+  --picker-border-color: var(--suf-error-color);
+}
+
+/* Error state - red border on the picker container */
+.sp-user-field.has-error .ms-BasePicker,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker,
+.sp-user-field.has-error .ms-BasePicker-text,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker-text {
+  border-color: var(--suf-error-color) !important;
+  border: 1px solid var(--suf-error-color) !important;
+}
+
+/* Override hover state when in error */
+.sp-user-field.has-error .ms-BasePicker:hover,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker:hover {
+  border-color: var(--suf-error-color) !important;
+}
+
+/* Override focus/active state when in error */
+.sp-user-field.has-error .ms-BasePicker.is-active,
+.sp-user-field.has-error .ms-BasePicker:focus-within,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker.is-active,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker:focus-within {
+  border-color: var(--suf-error-color) !important;
+}
+
+/* Alternative selector targeting PnP PeoplePicker wrapper */
+.sp-user-field.has-error [class*="peoplePicker"],
+.sp-user-field.has-error [class*="PeoplePicker"],
+.sp-user-field-picker-wrapper.has-error [class*="peoplePicker"],
+.sp-user-field-picker-wrapper.has-error [class*="PeoplePicker"] {
+  border-color: var(--suf-error-color) !important;
+}
+
+/* Target the actual input wrapper div that PnP creates */
+.sp-user-field.has-error > div > div,
+.sp-user-field-picker-wrapper.has-error > div {
+  border-color: var(--suf-error-color) !important;
+}
+
+/* Ensure all nested borders show error state */
+.sp-user-field.has-error .ms-BasePicker *,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker * {
+  border-color: var(--suf-error-color);
+}
+
+/* Target PnP specific classes with maximum specificity */
+.sp-user-field-picker-wrapper.has-error div[class*="ms-BasePicker"] {
+  border: 1px solid var(--suf-error-color) !important;
+}
+
+/* Force error border using attribute selector for any element with border */
+.sp-user-field-picker-wrapper.has-error [style*="border"] {
+  border-color: var(--suf-error-color) !important;
+}
+
+/* Ultra high specificity selectors for PnP PeoplePicker error state */
+/* Target through the entire DOM path to override any inline styles */
+/* Using #d9534f to match DevExtreme error color */
+.sp-user-field-picker-wrapper.has-error .ms-TooltipHost .ms-BasePicker,
+.sp-user-field-picker-wrapper.has-error [class*="defaultClass"] .ms-BasePicker,
+.sp-user-field-picker-wrapper.has-error div div div .ms-BasePicker,
+.sp-user-field-picker-wrapper.has-error > div .ms-BasePicker {
+  border: 1px solid #d9534f !important;
+  box-shadow: none !important;
+}
+
+/* Target the text wrapper inside BasePicker */
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker .ms-BasePicker-text,
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker-text {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure the outer picker wrapper shows the error border */
+.sp-user-field-picker-wrapper.has-error .ms-BasePicker.ms-PeoplePicker {
+  border: 1px solid #d9534f !important;
+}
+
+/* =====================================================
+   ERROR ICON - Match DevExtreme exclamation icon style
+   Red circle with white "!" inside
+   ===================================================== */
+
+/* Position the picker wrapper relative for icon placement */
+.sp-user-field-picker-wrapper {
+  position: relative;
+}
+
+/* Error icon - CSS-based to match DevExtreme exactly */
+.sp-user-field-error-icon {
+  pointer-events: none;
+  font-weight: 700;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  margin-top: -9px;
+  width: 18px;
+  height: 18px;
+  text-align: center;
+  line-height: 18px;
+  font-size: 13px;
+  background-color: #d9534f;
+  color: #fff;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Add the exclamation mark via ::after pseudo-element */
+.sp-user-field-error-icon::after {
+  content: "!";
 }

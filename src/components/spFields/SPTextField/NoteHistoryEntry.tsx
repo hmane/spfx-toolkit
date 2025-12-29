@@ -1,16 +1,15 @@
 /**
  * NoteHistoryEntry - Component for displaying a single note history entry
  *
+ * Refined card design with timeline integration, smooth hover effects,
+ * and elevated typography hierarchy for enterprise workflows.
+ *
  * @packageDocumentation
  */
 
 import * as React from 'react';
 import { INoteHistoryEntry, INoteHistoryConfig } from './SPTextField.types';
-import { Stack } from '@fluentui/react/lib/Stack';
-import { Text } from '@fluentui/react/lib/Text';
-import { IconButton } from '@fluentui/react/lib/Button';
-import { mergeStyles, mergeStyleSets } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
+import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { UserPersona } from '../../UserPersona';
 import { DateUtils } from '../../../utilities/dateUtils';
 
@@ -29,15 +28,10 @@ export interface INoteHistoryEntryProps {
   config?: INoteHistoryConfig;
 
   /**
-   * Whether to show the copy button
-   * @default true
+   * Whether this is the first/most recent entry
+   * @default false
    */
-  showCopyButton?: boolean;
-
-  /**
-   * Callback when copy button is clicked
-   */
-  onCopy?: (entry: INoteHistoryEntry) => void;
+  isFirst?: boolean;
 
   /**
    * Custom CSS class
@@ -53,72 +47,14 @@ export const NoteHistoryEntry: React.FC<INoteHistoryEntryProps> = (props) => {
   const {
     entry,
     config,
-    showCopyButton = true,
-    onCopy,
+    isFirst = false,
     className,
   } = props;
-
-  const theme = useTheme();
 
   // Default config values
   const timeFormat = config?.timeFormat || 'relative';
   const showVersionLabel = config?.showVersionLabel || false;
   const showUserPhoto = config?.showUserPhoto !== false; // Default true
-  const enableCopyPrevious = config?.enableCopyPrevious !== false; // Default true
-
-  // Styles
-  const styles = mergeStyleSets({
-    container: {
-      padding: 12,
-      marginBottom: 8,
-      backgroundColor: theme.palette.neutralLighterAlt,
-      borderRadius: 4,
-      border: `1px solid ${theme.palette.neutralQuaternaryAlt}`,
-      transition: 'all 0.2s ease',
-      selectors: {
-        ':hover': {
-          backgroundColor: theme.palette.neutralLighter,
-          borderColor: theme.palette.neutralTertiaryAlt,
-        },
-      },
-    },
-    header: {
-      marginBottom: 8,
-    },
-    userInfo: {
-      flex: 1,
-    },
-    content: {
-      color: theme.palette.neutralPrimary,
-      fontSize: 14,
-      lineHeight: '20px',
-      wordBreak: 'break-word',
-      whiteSpace: 'pre-wrap',
-    },
-    richContent: {
-      color: theme.palette.neutralPrimary,
-      fontSize: 14,
-      lineHeight: '20px',
-      wordBreak: 'break-word',
-      selectors: {
-        '& p': {
-          margin: '0 0 8px 0',
-        },
-        '& p:last-child': {
-          marginBottom: 0,
-        },
-      },
-    },
-    versionLabel: {
-      fontSize: 12,
-      color: theme.palette.neutralSecondary,
-      marginLeft: 8,
-      fontWeight: 600,
-    },
-    copyButton: {
-      marginLeft: 8,
-    },
-  });
 
   // Simple relative time formatter
   const getRelativeTime = (date: Date): string => {
@@ -133,12 +69,12 @@ export const NoteHistoryEntry: React.FC<INoteHistoryEntryProps> = (props) => {
     const diffYear = Math.floor(diffDay / 365);
 
     if (diffSec < 60) return 'just now';
-    if (diffMin < 60) return `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`;
-    if (diffHour < 24) return `${diffHour} hour${diffHour !== 1 ? 's' : ''} ago`;
-    if (diffDay < 7) return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`;
-    if (diffWeek < 4) return `${diffWeek} week${diffWeek !== 1 ? 's' : ''} ago`;
-    if (diffMonth < 12) return `${diffMonth} month${diffMonth !== 1 ? 's' : ''} ago`;
-    return `${diffYear} year${diffYear !== 1 ? 's' : ''} ago`;
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+    if (diffWeek < 4) return `${diffWeek}w ago`;
+    if (diffMonth < 12) return `${diffMonth}mo ago`;
+    return `${diffYear}y ago`;
   };
 
   // Format date based on config
@@ -149,16 +85,9 @@ export const NoteHistoryEntry: React.FC<INoteHistoryEntryProps> = (props) => {
       case 'absolute':
         return DateUtils.format(date, 'MMM dd, yyyy HH:mm');
       case 'both':
-        return `${getRelativeTime(date)} (${DateUtils.format(date, 'MMM dd, yyyy HH:mm')})`;
+        return `${getRelativeTime(date)} · ${DateUtils.format(date, 'MMM dd')}`;
       default:
         return getRelativeTime(date);
-    }
-  };
-
-  // Handle copy button click
-  const handleCopy = () => {
-    if (onCopy) {
-      onCopy(entry);
     }
   };
 
@@ -167,54 +96,68 @@ export const NoteHistoryEntry: React.FC<INoteHistoryEntryProps> = (props) => {
     return <>{config.renderHistoryEntry(entry)}</>;
   }
 
-  // Build secondary text for persona
-  const secondaryText = formatDate(entry.created);
-  const fullSecondaryText = showVersionLabel && entry.versionLabel
-    ? `${secondaryText} · v${entry.versionLabel}`
-    : secondaryText;
+  // Build timestamp text
+  const timestampText = formatDate(entry.created);
+
+  // Determine the best user identifier to use
+  // Priority: email > loginName > id (if numeric, skip as it's just a version ID)
+  const userIdentifier = entry.author.email || entry.author.loginName ||
+    (entry.author.id && !isNaN(Number(entry.author.id)) ? '' : entry.author.id);
+
+  // Only show UserPersona if we have a valid user identifier
+  const hasValidUserIdentifier = !!userIdentifier;
+
+  // Entry classes
+  const entryClass = [
+    'note-history__entry',
+    isFirst ? 'note-history__entry--first' : '',
+    className,
+  ].filter(Boolean).join(' ');
 
   return (
-    <Stack className={mergeStyles(styles.container, className)}>
-      {/* Header with user and actions */}
-      <Stack horizontal verticalAlign="center" className={styles.header}>
-        <div className={styles.userInfo}>
-          <UserPersona
-            userIdentifier={entry.author.email || entry.author.loginName || entry.author.id}
-            displayName={entry.author.title}
-            email={entry.author.email}
-            displayMode={showUserPhoto ? 'avatarAndName' : 'nameOnly'}
-            size={28}
-            showSecondaryText={true}
-          />
-          {fullSecondaryText && (
-            <Text variant="small" style={{ marginLeft: showUserPhoto ? 38 : 0, color: theme.palette.neutralSecondary }}>
-              {fullSecondaryText}
-            </Text>
-          )}
+    <article className={entryClass}>
+      {/* Header with user info and timestamp on the right */}
+      <header className="note-history__entry-header">
+        <div className="note-history__author-section">
+          <div className="note-history__author-row">
+            {hasValidUserIdentifier ? (
+              <UserPersona
+                userIdentifier={userIdentifier}
+                displayName={entry.author.title || undefined}
+                email={entry.author.email}
+                displayMode={showUserPhoto ? 'avatarAndName' : 'nameOnly'}
+                size={28}
+                showSecondaryText={false}
+              />
+            ) : (
+              <span className="note-history__author-name">
+                {entry.author.title || 'System'}
+              </span>
+            )}
+            {showVersionLabel && entry.versionLabel && (
+              <span className="note-history__version-badge">v{entry.versionLabel}</span>
+            )}
+          </div>
         </div>
 
-        {/* Copy button */}
-        {showCopyButton && enableCopyPrevious && (
-          <IconButton
-            iconProps={{ iconName: 'Copy' }}
-            title="Copy this note"
-            ariaLabel="Copy this note"
-            onClick={handleCopy}
-            className={styles.copyButton}
-          />
-        )}
-      </Stack>
+        {/* Timestamp on the right */}
+        <TooltipHost content={DateUtils.format(entry.created, 'MMM dd, yyyy HH:mm')}>
+          <time className="note-history__timestamp" dateTime={entry.created.toISOString()}>
+            {timestampText}
+          </time>
+        </TooltipHost>
+      </header>
 
       {/* Note content */}
       {entry.isRichText ? (
         <div
-          className={styles.richContent}
+          className="note-history__content note-history__content--rich"
           dangerouslySetInnerHTML={{ __html: entry.text }}
         />
       ) : (
-        <Text className={styles.content}>{entry.text}</Text>
+        <p className="note-history__content">{entry.text}</p>
       )}
-    </Stack>
+    </article>
   );
 };
 

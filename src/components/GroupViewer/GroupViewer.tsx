@@ -47,6 +47,8 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isCalloutVisible, setIsCalloutVisible] = React.useState(false);
+  // Track if data has been loaded at least once for this group
+  const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false);
 
   // Refs and cache
   const loadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -155,6 +157,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     setGroupInfo(null);
     setError(null);
     setIsLoading(false);
+    setHasLoadedOnce(false);
 
     // Clear the cache for the previous group to prevent stale data
     // This is important when switching groups in dropdown scenarios
@@ -207,6 +210,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
               setGroupInfo(cached.info);
               setMembers(cached.members);
               setIsLoading(false);
+              setHasLoadedOnce(true);
             }
             return;
           }
@@ -251,6 +255,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
             setGroupInfo(groupData as IGroupInfo);
             setMembers([]);
             setIsLoading(false);
+            setHasLoadedOnce(true);
           }
           loadingRef.current = false;
           return;
@@ -288,6 +293,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
             setGroupInfo(groupData as IGroupInfo);
             setMembers([]);
             setIsLoading(false);
+            setHasLoadedOnce(true);
           }
           loadingRef.current = false;
           return;
@@ -339,6 +345,7 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
         if (isMountedRef.current) {
           setGroupInfo(info);
           setMembers(sanitizedMembers);
+          setHasLoadedOnce(true);
         }
       });
     } catch (err) {
@@ -371,22 +378,25 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
       hideTimeoutRef.current = null;
     }
 
-    // Clear previous group data to prevent showing stale data from different group
-    setMembers([]);
-    setGroupInfo(null);
-    setError(null);
-
     // Show the callout immediately
     setIsCalloutVisible(true);
 
-    // Start loading data with delay
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
+    // If data hasn't been loaded yet, start loading
+    // If already loaded, just show the cached data
+    if (!hasLoadedOnce) {
+      // Set loading state immediately for first load
+      setIsLoading(true);
+      setError(null);
+
+      // Start loading data with small delay to debounce rapid hover
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+      loadTimeoutRef.current = setTimeout(() => {
+        loadGroupData();
+      }, CACHE_CONSTANTS.TOOLTIP_DELAY);
     }
-    loadTimeoutRef.current = setTimeout(() => {
-      loadGroupData();
-    }, CACHE_CONSTANTS.TOOLTIP_DELAY);
-  }, [loadGroupData]);
+  }, [loadGroupData, hasLoadedOnce]);
 
   const hideCallout = React.useCallback((): void => {
     // Cancel any pending data load
@@ -398,10 +408,8 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     // Delay hiding to allow moving mouse to callout
     hideTimeoutRef.current = setTimeout(() => {
       setIsCalloutVisible(false);
-      // Clear data when hiding to prevent stale data on next show
-      setMembers([]);
-      setGroupInfo(null);
-      setError(null);
+      // Don't clear data - keep it cached for subsequent hovers
+      // Data is only cleared when groupId/groupName changes (handled in useEffect)
     }, 200);
   }, []);
 
@@ -538,16 +546,14 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     if (isLoading) {
       return (
         <div className='group-viewer-tooltip loading'>
-          <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign='center'>
-            <Spinner size={SpinnerSize.small} />
-            <Stack>
-              <Text variant='medium' style={{ fontWeight: 600 }}>
-                Loading {groupName}
-              </Text>
-              <Text variant='small' style={{ color: '#605e5c' }}>
-                Fetching group information...
-              </Text>
-            </Stack>
+          <Stack tokens={{ childrenGap: 10 }} horizontalAlign='center'>
+            <Spinner size={SpinnerSize.medium} />
+            <Text variant='medium' style={{ fontWeight: 600, color: '#323130', textAlign: 'center' }}>
+              {groupName}
+            </Text>
+            <Text variant='small' style={{ color: '#605e5c', textAlign: 'center' }}>
+              Loading members...
+            </Text>
           </Stack>
         </div>
       );
@@ -556,15 +562,21 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     if (error) {
       return (
         <div className='group-viewer-tooltip error'>
-          <Stack tokens={{ childrenGap: 12 }}>
-            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign='center'>
-              <Icon iconName='Error' style={{ color: '#d13438', fontSize: 20 }} />
-              <Text variant='medium' className='group-viewer-member-name'>
-                {groupInfo?.Title || groupName}
-              </Text>
-            </Stack>
-            <Text variant='small' style={{ color: '#d13438', lineHeight: 1.4 }}>
-              {error.includes('404') ? 'Group not found or access denied' : error}
+          <Stack tokens={{ childrenGap: 8 }} horizontalAlign='center'>
+            <Icon iconName='ErrorBadge' style={{ color: '#d13438', fontSize: 28 }} />
+            <Text variant='medium' style={{ fontWeight: 600, color: '#323130', textAlign: 'center' }}>
+              {groupInfo?.Title || groupName}
+            </Text>
+            <Text
+              variant='small'
+              style={{
+                color: '#d13438',
+                textAlign: 'center',
+                lineHeight: 1.4,
+                maxWidth: 220,
+              }}
+            >
+              {error.includes('404') ? 'Group not found or access denied' : 'Failed to load group'}
             </Text>
           </Stack>
         </div>
@@ -647,73 +659,42 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     const users = members.filter(m => m.PrincipalType === SPPrincipalType.User);
     const nestedGroups = members.filter(m => m.PrincipalType === SPPrincipalType.SharePointGroup);
 
-    // Empty group
+    // Empty group - compact unified design
     if (users.length === 0 && nestedGroups.length === 0) {
       const emptyGroupTitle = groupInfo?.Title || groupName;
-      // Don't show description if it matches the group name
-      const showEmptyDescription = groupInfo?.Description &&
-        groupInfo.Description.toLowerCase().trim() !== emptyGroupTitle.toLowerCase().trim();
 
       return (
         <div className='group-viewer-tooltip empty'>
-          <div className='group-viewer-tooltip-header'>
-            <div className='group-viewer-title'>
-              <Icon
-                iconName={iconName}
-                styles={{
-                  root: {
-                    fontSize: 20,
-                    color: '#0078d4',
-                    flexShrink: 0,
-                    lineHeight: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  },
-                }}
-              />
-              <span style={{ flex: 1, minWidth: 0 }}>{emptyGroupTitle}</span>
-              <span className='group-viewer-member-count'>0 members</span>
-            </div>
-            {showEmptyDescription && (
-              <div className='group-viewer-description'>{groupInfo.Description}</div>
-            )}
-          </div>
-
-          <div style={{ padding: '16px 20px' }}>
-            <Stack tokens={{ childrenGap: 12 }}>
-              <Stack
-                horizontal
-                tokens={{ childrenGap: 12 }}
-                verticalAlign='center'
-                style={{
-                  padding: '16px',
-                  background: '#f8f9fa',
-                  borderRadius: '6px',
-                  border: '1px solid #e9ecef',
-                }}
-              >
-                <Icon
-                  iconName='People'
-                  style={{
-                    fontSize: 32,
-                    color: '#0078d4',
-                    opacity: 0.5,
-                    flexShrink: 0,
-                  }}
-                />
-                <Stack style={{ flex: 1 }}>
-                  <Text variant='medium' style={{ fontWeight: 500, color: '#323130' }}>
-                    No Members
-                  </Text>
-                  <Text variant='small' style={{ color: '#605e5c', lineHeight: 1.4 }}>
-                    This group currently has no members, or you may not have permission to view the
-                    membership.
-                  </Text>
-                </Stack>
-              </Stack>
-            </Stack>
-          </div>
+          <Stack tokens={{ childrenGap: 8 }} horizontalAlign='center'>
+            <Icon
+              iconName={iconName}
+              styles={{
+                root: {
+                  fontSize: 28,
+                  color: '#667eea',
+                  opacity: 0.8,
+                },
+              }}
+            />
+            <Text variant='medium' style={{ fontWeight: 600, color: '#323130', textAlign: 'center' }}>
+              {emptyGroupTitle}
+            </Text>
+            <Text variant='small' style={{ color: '#8a8886', textAlign: 'center' }}>
+              0 members
+            </Text>
+            <Text
+              variant='small'
+              style={{
+                color: '#605e5c',
+                textAlign: 'center',
+                lineHeight: 1.4,
+                marginTop: 4,
+                maxWidth: 220,
+              }}
+            >
+              This group has no members or you don't have permission to view them.
+            </Text>
+          </Stack>
         </div>
       );
     }

@@ -3,10 +3,10 @@
   "version": "1.0.0-alpha.0",
   "description": "Reusable components, hooks, and utilities for SharePoint Framework (SPFx) >= 1.21.1",
   "private": false,
-  "homepage": "",
+  "homepage": "https://github.com/hmane/spfx-toolkit#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://your.repo.url/spfx-toolkit.git"
+    "url": "git+https://github.com/hmane/spfx-toolkit.git"
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -36,11 +36,18 @@
       "import": "./lib/utilities/index.js",
       "require": "./lib/utilities/index.js"
     },
+    "./types": {
+      "types": "./lib/types/index.d.ts",
+      "import": "./lib/types/index.js",
+      "require": "./lib/types/index.js"
+    },
     "./lib/*": "./lib/*"
   },
+  "license": "MIT",
   "files": [
     "lib/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": [
     "**/*.css",

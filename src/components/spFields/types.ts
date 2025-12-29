@@ -1,6 +1,42 @@
 /**
  * Common types and interfaces for SPField components
  *
+ * ## Empty/Null Value Behavior (F-7 Standardization)
+ *
+ * Each field component has standardized behavior for empty/null values:
+ *
+ * | Field Type | Empty Value (Single) | Empty Value (Multi) | Notes |
+ * |------------|---------------------|---------------------|-------|
+ * | SPTextField | `''` (empty string) | N/A | Always uses empty string |
+ * | SPNumberField | `undefined` | N/A | Undefined for empty numbers |
+ * | SPBooleanField | `false` | N/A | Boolean always defaults to false |
+ * | SPDateField | `undefined` | N/A | Undefined for empty dates |
+ * | SPChoiceField | `''` (empty string) | `[]` (empty array) | String for single, array for multi |
+ * | SPLookupField | `null` | `[]` (empty array) | Null for single object, array for multi |
+ * | SPUserField | `null` | `[]` (empty array) | Null for single object, array for multi |
+ * | SPTaxonomyField | `null` | `[]` (empty array) | Null for single object, array for multi |
+ * | SPUrlField | `{ Url: '', Description: '' }` | N/A | Object with empty strings |
+ *
+ * ### Best Practices for Checking Empty Values
+ *
+ * @example
+ * ```typescript
+ * // Text field - check for empty string
+ * const isTextEmpty = !value || value === '';
+ *
+ * // Number/Date field - check for undefined
+ * const isNumberEmpty = value === undefined || value === null;
+ *
+ * // Lookup/User/Taxonomy (single) - check for null
+ * const isLookupEmpty = value === null || value === undefined;
+ *
+ * // Multi-select fields - check for empty array
+ * const isMultiEmpty = !value || (Array.isArray(value) && value.length === 0);
+ *
+ * // URL field - check for empty Url property
+ * const isUrlEmpty = !value?.Url;
+ * ```
+ *
  * @packageDocumentation
  */
 

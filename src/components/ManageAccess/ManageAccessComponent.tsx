@@ -43,6 +43,8 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
 
   const inlineMessageTimeoutRef = React.useRef<number | null>(null);
   const permissionHelperRef = React.useRef(createPermissionHelper(SPContext.sp));
+  // R-4: Request deduplication - track ongoing requests to prevent race conditions
+  const loadRequestIdRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     return () => {
@@ -423,6 +425,9 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
   }, []);
 
   const loadPermissions = React.useCallback(async (): Promise<void> => {
+    // R-4: Request deduplication - increment request ID to invalidate stale responses
+    const currentRequestId = ++loadRequestIdRef.current;
+
     try {
       setIsLoading(true);
 
@@ -431,6 +436,15 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
           getEnhancedItemPermissions(),
           getCurrentUserPermissions(),
         ]);
+
+        // R-4: Only update state if this is still the latest request
+        if (currentRequestId !== loadRequestIdRef.current) {
+          SPContext.logger.info('ManageAccess ignoring stale permission response', {
+            requestId: currentRequestId,
+            latestRequestId: loadRequestIdRef.current,
+          });
+          return;
+        }
 
         const canManage = checkManagePermissions(userPerms);
 
@@ -445,6 +459,10 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         });
       });
     } catch (error) {
+      // R-4: Only update error state if this is still the latest request
+      if (currentRequestId !== loadRequestIdRef.current) {
+        return;
+      }
       SPContext.logger.error('ManageAccess failed to load permissions', error, {
         itemId,
         listId,

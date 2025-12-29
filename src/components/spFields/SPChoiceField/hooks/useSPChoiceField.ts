@@ -287,13 +287,33 @@ export function useSPChoiceField(
   );
 
   // Handle value changes to detect "Other" selection
+  // Use a ref to track previous values and avoid unnecessary state updates
+  const prevValueRef = React.useRef<{ value: typeof value; metadata: typeof metadata }>({ value: undefined, metadata: null });
+
   React.useEffect(() => {
+    // Skip if nothing has changed (prevents flicker on re-renders)
+    const prevValue = prevValueRef.current.value;
+    const prevMetadata = prevValueRef.current.metadata;
+    const valueChanged = JSON.stringify(value) !== JSON.stringify(prevValue);
+    const metadataChanged = metadata !== prevMetadata;
+
+    if (!valueChanged && !metadataChanged) {
+      return;
+    }
+
+    prevValueRef.current = { value, metadata };
+
     // If "Other" is not enabled at all, reset state
     if (!otherEnabled) {
-      setOtherState({
-        isOtherSelected: false,
-        customValue: '',
-        customValueError: undefined,
+      setOtherState(prev => {
+        if (!prev.isOtherSelected && !prev.customValue && !prev.customValueError) {
+          return prev; // No change needed
+        }
+        return {
+          isOtherSelected: false,
+          customValue: '',
+          customValueError: undefined,
+        };
       });
       return;
     }
@@ -323,7 +343,6 @@ export function useSPChoiceField(
         // If otherEnabled is explicitly set, assume non-empty values could be "Other"
         if (otherConfig.enableOtherOption) {
           // Keep the current otherState if it has a customValue to avoid flickering
-          setOtherState(prev => prev);
           return;
         }
       }
@@ -347,18 +366,41 @@ export function useSPChoiceField(
       }
     }
 
-    setOtherState(prev => ({
-      ...prev,
-      isOtherSelected,
-      customValue,
-    }));
+    // Only update state if values actually changed
+    setOtherState(prev => {
+      if (prev.isOtherSelected === isOtherSelected && prev.customValue === customValue) {
+        return prev; // No change needed
+      }
+      return {
+        ...prev,
+        isOtherSelected,
+        customValue,
+      };
+    });
   }, [value, metadata, otherEnabled, otherOptionText, isOtherValue, otherConfig.enableOtherOption]);
 
   // Update custom value
   const setCustomValue = React.useCallback(
     (newValue: string) => {
       // Validate the custom value
-      const validationError = validateCustomValue(newValue, otherConfig.otherValidation);
+      let validationError = validateCustomValue(newValue, otherConfig.otherValidation);
+
+      // BLOCKER FIX F-1: Validate allowFillIn before accepting custom "Other" values
+      // This prevents data loss when SharePoint field doesn't support fill-in choices
+      if (newValue && newValue.trim().length > 0 && metadata && !metadata.allowFillIn && !otherConfig.enableOtherOption) {
+        // allowFillIn is false and user is trying to enter custom value
+        // This will fail when saving to SharePoint
+        validationError = 'This field does not allow custom values. The SharePoint column has "Allow fill-in choices" disabled.';
+
+        // Log warning for debugging
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn(
+            '[SPChoiceField] Custom "Other" value rejected: SharePoint field does not have allowFillIn=true. ' +
+            'The value will not be saved correctly to SharePoint. ' +
+            'Either enable "Allow fill-in choices" in the SharePoint column settings, or use enableOtherOption prop to override.'
+          );
+        }
+      }
 
       setOtherState(prev => ({
         ...prev,
@@ -366,7 +408,7 @@ export function useSPChoiceField(
         customValueError: validationError,
       }));
     },
-    [otherConfig.otherValidation]
+    [otherConfig.otherValidation, otherConfig.enableOtherOption, metadata]
   );
 
   // Retry function

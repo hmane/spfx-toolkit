@@ -1,0 +1,126 @@
+/**
+ * SP Fields - Shared Styles
+ *
+ * Common styles for SPTextField, SPChoiceField, and other SP field components
+ * to ensure consistent error display, character counts, and validation feedback.
+ */
+
+/* Error and meta info container - error left, char count right */
+/* IMPORTANT: margin-top: 4px matches .spfx-form-value-description-error-container for consistency */
+.sp-field-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px 12px;
+  margin-top: 4px;
+  min-height: 18px;
+}
+
+/* When only error or only char count, let it fill appropriately */
+.sp-field-meta-row > *:only-child.sp-field-error {
+  width: 100%;
+}
+
+.sp-field-meta-row > *:only-child.sp-field-char-count {
+  margin-left: auto;
+}
+
+/* Error message styling - matches .spfx-form-error-text for consistency */
+.sp-field-error {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #a4262c; /* Fluent UI error color - same as var(--spfx-red-600) */
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.sp-field-error-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+.sp-field-error-text {
+  word-wrap: break-word;
+  font-weight: 400;
+}
+
+/* Character count styling */
+.sp-field-char-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #605e5c; /* Fluent UI neutral secondary */
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sp-field-char-count.warning {
+  color: #d83b01; /* Warning when approaching limit */
+}
+
+.sp-field-char-count.error {
+  color: #a4262c; /* Error when at/over limit */
+}
+
+/* ============================================
+   SP Fields inside spForm - Consistent spacing
+   When SP fields are used inside spForm, the form controls spacing.
+   Remove the field's own bottom margin to prevent inconsistent gaps.
+   ============================================ */
+
+/* Target SP fields inside spForm value area - remove bottom margin */
+.spfx-form-item-value-area .sp-text-field,
+.spfx-form-item-value-area .sp-choice-field,
+.spfx-form-item-value-area .sp-date-field,
+.spfx-form-item-value-area .sp-number-field,
+.spfx-form-item-value-area .sp-boolean-field,
+.spfx-form-item-value-area .sp-url-field,
+.spfx-form-item-value-area .sp-user-field,
+.spfx-form-item-value-area .sp-taxonomy-field,
+.spfx-form-item-value-area .sp-lookup-field,
+.spfx-form-value-control-container .sp-text-field,
+.spfx-form-value-control-container .sp-choice-field,
+.spfx-form-value-control-container .sp-date-field,
+.spfx-form-value-control-container .sp-number-field,
+.spfx-form-value-control-container .sp-boolean-field,
+.spfx-form-value-control-container .sp-url-field,
+.spfx-form-value-control-container .sp-user-field,
+.spfx-form-value-control-container .sp-taxonomy-field,
+.spfx-form-value-control-container .sp-lookup-field {
+  margin-bottom: 0 !important;
+}
+
+/* When inside spForm with autoShowErrors, SP fields don't render sp-field-meta-row
+   So there's no need for special positioning. If sp-field-meta-row somehow appears
+   (e.g., standalone field nested inside spForm accidentally), hide it completely
+   since spForm handles error and char count display via FormValue. */
+.spfx-form-value-control-container .sp-field-meta-row {
+  display: none !important;
+}
+
+/* Hide DevExtreme's built-in validation messages for SP fields */
+/* Target all DevExtreme invalid messages within any container */
+.sp-choice-field .dx-invalid-message,
+.sp-choice-field .dx-invalid-message-auto,
+.sp-choice-field .dx-invalid-message-always,
+.sp-text-field .dx-invalid-message,
+.sp-text-field .dx-invalid-message-auto,
+.sp-text-field .dx-invalid-message-always,
+/* Also target DevExtreme overlay messages which appear as floating tooltips */
+.dx-invalid-message.dx-overlay,
+.dx-invalid-message-auto.dx-overlay-wrapper,
+.dx-invalid-message .dx-overlay-content,
+/* Global selector for any DevExtreme invalid message when we render our own */
+.sp-field-meta-row ~ .dx-invalid-message,
+.ms-Stack .dx-invalid-message,
+.ms-Stack .dx-invalid-message.dx-overlay {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

@@ -23,6 +23,46 @@
   --spfx-primary-dark: #5a67d8;
   --spfx-success: #11998e;
   --spfx-error: #eb3349;
+
+  /* C-7: Fluent UI neutral palette */
+  --spfx-neutral-primary: var(--neutralPrimary, #323130);
+  --spfx-neutral-secondary: var(--neutralSecondary, #605e5c);
+  --spfx-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --spfx-neutral-light: var(--neutralLight, #edebe9);
+  --spfx-neutral-lighter: var(--neutralLighter, #f3f2f1);
+  --spfx-focus-color: var(--themePrimary, #0078d4);
+
+  /* C-7: Semantic colors */
+  --spfx-semantic-success: #28a745;
+  --spfx-semantic-success-dark: #155724;
+  --spfx-semantic-error: #dc3545;
+  --spfx-semantic-error-dark: #721c24;
+  --spfx-semantic-info: #007bff;
+  --spfx-semantic-info-dark: #0056b3;
+
+  /* C-7: Tailwind-style grays */
+  --spfx-gray-100: #f3f4f6;
+  --spfx-gray-200: #e9ecef;
+  --spfx-gray-300: #dee2e6;
+  --spfx-gray-400: #6b7280;
+  --spfx-gray-500: #4b5563;
+  --spfx-gray-600: #374151;
+  --spfx-gray-700: #495057;
+  --spfx-blue-500: #3b82f6;
+  --spfx-blue-700: #1d4ed8;
+  --spfx-red-500: #ef4444;
+  --spfx-red-600: #dc2626;
+
+  /* C-7: Button gradients */
+  --spfx-btn-primary: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  --spfx-btn-success: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+  --spfx-btn-info: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+  --spfx-btn-danger: linear-gradient(90deg, #dc3545 0%, #fd7e14 100%);
+  --spfx-btn-purple: linear-gradient(90deg, #6f42c1 0%, #e83e8c 100%);
+  --spfx-btn-teal: linear-gradient(90deg, #20c997 0%, #17a2b8 100%);
+  --spfx-btn-outline: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  --spfx-btn-secondary: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  --spfx-spinner-track: #f3f3f3;
 }
 
 /* ============================================
@@ -63,7 +103,7 @@
 .spfx-form-section-header {
   font-size: 18px;
   font-weight: 600;
-  color: #323130;
+  color: var(--spfx-neutral-primary);
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(102, 126, 234, 0.15);
@@ -198,7 +238,7 @@
   padding-top: 8px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: #323130;
+  color: var(--spfx-neutral-primary);
   line-height: 1.4;
   font-size: 14px;
   transition: color var(--spfx-transition-fast);
@@ -300,27 +340,15 @@
   display: inline-block;
 }
 
-/* Enhanced DevExtreme focus and hover states - Modern SaaS */
-.spfx-form-value-control-container .dx-textbox:hover,
-.spfx-form-value-control-container .dx-selectbox:hover,
-.spfx-form-value-control-container .dx-numberbox:hover,
-.spfx-form-value-control-container .dx-datebox:hover {
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
-  border-color: rgba(102, 126, 234, 0.4) !important;
-}
+/* ============================================
+   DevExtreme Focus and Hover States
+   NOTE: Removed custom hover/focus styling to use DevExtreme's OOB (out-of-box) styles.
+   Previous overrides were causing double-border issues by adding box-shadow rings
+   on top of DevExtreme's native border styling.
+   ============================================ */
 
-.spfx-form-value-control-container .dx-textbox.dx-state-focused,
-.spfx-form-value-control-container .dx-selectbox.dx-state-focused,
-.spfx-form-value-control-container .dx-numberbox.dx-state-focused,
-.spfx-form-value-control-container .dx-datebox.dx-state-focused {
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-  border-color: var(--spfx-primary) !important;
-}
-
-/* Invalid state styling - Enhanced with Modern SaaS */
+/* Invalid state styling - only add animation, let DevExtreme handle border */
 .spfx-form-value-control-container .dx-invalid {
-  border-color: var(--spfx-error) !important;
-  box-shadow: 0 0 0 3px rgba(235, 51, 73, 0.15) !important;
   animation: shake-error 0.5s ease-in-out;
 }
 
@@ -353,19 +381,71 @@
 }
 
 .spfx-form-value-description-error-container {
-  margin-top: 4px;
+  margin-top: 4px; /* Consistent with .sp-field-meta-row */
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px 12px;
+}
+
+/* When only one child (error or description), let it take full width */
+.spfx-form-value-description-error-container > *:only-child {
+  width: 100%;
+}
+
+/* New layout: Description container (above), Error+CharCount row (below) */
+.spfx-form-value-description-container {
+  margin-top: 4px;
+}
+
+/* Error and CharCount share a row - error left, char count right */
+/* Row is only rendered by React when there's actual content */
+.spfx-form-value-error-charcount-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px 12px;
+  min-height: 18px;
+  margin-top: 4px;
+}
+
+.spfx-form-value-error-container {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.spfx-form-value-charcount-container {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* FormCharCount Styles */
+.spfx-form-char-count {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #605e5c; /* Fluent UI neutral secondary */
+  text-align: right;
+  white-space: nowrap;
+}
+
+.spfx-form-char-count.warning {
+  color: #d83b01; /* Warning when approaching limit */
+}
+
+.spfx-form-char-count.error {
+  color: #a4262c; /* Error when at/over limit */
 }
 
 /* FormDescription Styles - Enhanced */
 /* Clean FormDescription Styles - Override existing styles */
 .spfx-form-description {
   font-size: 12px !important;
-  color: #6b7280 !important;
+  color: var(--spfx-gray-400) !important;
   line-height: 1.4 !important;
-  margin-top: 4px !important;
+  margin-top: 0 !important;
   padding: 0 !important;
   background: none !important;
   border: none !important;
@@ -373,10 +453,12 @@
   border-radius: 0 !important;
   box-shadow: none !important;
   transition: color 0.2s ease !important;
+  flex-shrink: 0;
+  text-align: right;
 }
 
 .spfx-form-description:hover {
-  color: #374151 !important;
+  color: var(--spfx-gray-600) !important;
   background: none !important;
   border-left-color: transparent !important;
   transform: none !important;
@@ -408,7 +490,7 @@
 
 .spfx-form-description strong {
   font-weight: 600 !important;
-  color: #374151 !important;
+  color: var(--spfx-gray-600) !important;
   background: none !important;
   padding: 0 !important;
   border-radius: 0 !important;
@@ -416,12 +498,12 @@
 
 .spfx-form-description em {
   font-style: italic;
-  color: #4b5563;
+  color: var(--spfx-gray-500);
 }
 
 .spfx-form-description code {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+  background: var(--spfx-gray-100) !important;
+  color: var(--spfx-gray-600) !important;
   padding: 1px 4px !important;
   border-radius: 3px !important;
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
@@ -430,7 +512,7 @@
 }
 
 .spfx-form-description a {
-  color: #3b82f6 !important;
+  color: var(--spfx-blue-500) !important;
   text-decoration: none !important;
   font-weight: 500;
   border-bottom: 1px solid transparent;
@@ -438,14 +520,14 @@
 }
 
 .spfx-form-description a:hover {
-  color: #1d4ed8 !important;
-  border-bottom-color: #3b82f6;
+  color: var(--spfx-blue-700) !important;
+  border-bottom-color: var(--spfx-blue-500);
   text-decoration: underline !important;
 }
 
 /* Clean FormError Styles - Override existing styles */
 .spfx-form-error {
-  margin-top: 6px !important;
+  margin-top: 0; /* Row handles margin, not the error itself */
   padding: 0 !important;
   background: none !important;
   border: none !important;
@@ -453,6 +535,8 @@
   border-radius: 0 !important;
   box-shadow: none !important;
   animation: spfx-slide-in-error-clean 0.3s ease-out !important;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .spfx-form-error-list {
@@ -473,7 +557,7 @@
 }
 
 .spfx-form-error-icon {
-  color: #ef4444 !important;
+  color: var(--spfx-red-500) !important;
   font-size: 14px !important;
   margin-top: 1px !important;
   flex-shrink: 0 !important;
@@ -488,13 +572,12 @@
 }
 
 .spfx-form-error-text {
-  font-size: 13px !important;
-  color: #dc2626 !important;
+  font-size: 12px !important;
+  color: #a4262c !important; /* Consistent error color across all fields */
   line-height: 1.4 !important;
   word-wrap: break-word !important;
   flex: 1 !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.005em;
+  font-weight: 400 !important;
 }
 
 @keyframes spfx-slide-in-error-clean {
@@ -511,7 +594,7 @@
 /* Enhanced UX Additions */
 .form-section-divider {
   height: 2px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--spfx-btn-primary);
   border: none;
   margin: 24px 0;
   border-radius: 1px;
@@ -535,23 +618,23 @@
 }
 
 .form-validation-status.valid {
-  border-color: #28a745;
+  border-color: var(--spfx-semantic-success);
   background: linear-gradient(135deg, rgba(40, 167, 69, 0.1), rgba(32, 201, 151, 0.05));
-  color: #155724;
+  color: var(--spfx-semantic-success-dark);
 }
 
 .form-validation-status.invalid {
-  border-color: #dc3545;
+  border-color: var(--spfx-semantic-error);
   background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(253, 126, 20, 0.05));
-  color: #721c24;
+  color: var(--spfx-semantic-error-dark);
 }
 
 /* Loading spinner enhancement */
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #667eea;
+  border: 3px solid var(--spfx-spinner-track);
+  border-top: 3px solid var(--spfx-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -588,396 +671,7 @@
     text-align: center;
   }
 }
-/* SPFx Form Components - Enhanced CSS with Fixed FormContainer */
-
-/* FormContainer Styles - FIXED for percentage width support */
-.spfx-form-container {
-  --label-width: var(--default-label-width, 140px);
-  --label-gap: 16px;
-  width: 100%;
-}
-
-/* CRITICAL FIX: Handle both pixel and percentage widths */
-@media (min-width: 769px) {
-  .spfx-form-container .spfx-form-item {
-    grid-template-columns: var(--label-width) 1fr;
-    grid-template-areas: 'label value';
-    align-items: start;
-  }
-
-  /* Special handling for form rows with percentage widths */
-  .spfx-form-container .form-row {
-    /* Reset individual item grid to use inherited container width */
-    --computed-label-width: var(--label-width);
-  }
-
-  .spfx-form-container .form-row .spfx-form-item {
-    /* In form rows, ensure percentage widths are computed relative to row item width */
-    grid-template-columns: var(--computed-label-width) 1fr;
-    /* For percentage widths, we need to ensure proper calculation */
-    min-width: 0; /* Allow flex shrinking */
-  }
-
-  /* Fix for percentage widths in form rows */
-  .spfx-form-container:has([style*='%']) .form-row .spfx-form-item {
-    grid-template-columns: min(var(--label-width), 200px) 1fr;
-  }
-
-  /* Alternative approach using CSS custom property calculation */
-  .spfx-form-container .form-row .spfx-form-item {
-    grid-template-columns: minmax(120px, var(--label-width)) 1fr;
-  }
-}
-
-.spfx-form-item-label-area {
-  grid-area: label;
-}
-
-.spfx-form-item-value-area {
-  grid-area: value;
-}
-
-/* Custom label width override - FIXED */
-.spfx-form-item.spfx-form-item-custom-label-width {
-  @media (min-width: 769px) {
-    grid-template-columns: var(--custom-label-width) 1fr;
-  }
-}
-
-.spfx-form-item.spfx-form-item-full-width {
-  width: 100%;
-}
-
-.spfx-form-item.spfx-form-item-inline {
-  display: inline-grid;
-  margin-right: 16px;
-  margin-bottom: 8px;
-}
-
-/* Form Row Responsive Layout - Enhanced */
-.form-row {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 16px !important;
-  margin-bottom: 8px !important;
-}
-
-.form-row .spfx-form-item {
-  flex: 1 1 300px !important;
-  min-width: 300px !important;
-  max-width: 100% !important;
-  margin-bottom: 8px !important;
-}
-
-@media (min-width: 1400px) {
-  .form-row .spfx-form-item {
-    flex: 1 1 400px !important;
-    max-width: 500px !important;
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1200px) {
-  .form-row .spfx-form-item {
-    flex: 1 1 calc(50% - 8px) !important;
-    min-width: 280px !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .form-row .spfx-form-item {
-    flex: 1 1 100% !important;
-    min-width: 0 !important;
-  }
-}
-
-/* FormLabel Styles - Enhanced */
-.spfx-form-label {
-  min-width: var(--label-width, 140px);
-  flex-shrink: 0;
-  padding-top: 8px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.87);
-  line-height: 1.4;
-  font-size: 14px;
-  transition: color 0.2s ease;
-}
-
-.spfx-form-label-text {
-  display: inline;
-}
-
-.spfx-form-label-content {
-  display: inline;
-}
-
-.spfx-form-label-suffix {
-  display: inline;
-  white-space: nowrap;
-  margin-left: 4px;
-}
-
-.spfx-form-label-required {
-  color: #d32f2f;
-  font-weight: bold;
-  margin-right: 2px;
-  animation: pulse-required 2s ease-in-out infinite;
-}
-
-@keyframes pulse-required {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.spfx-form-label-info-icon {
-  color: #1976d2;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px;
-  border-radius: 2px;
-  transition: all 0.2s ease;
-  vertical-align: baseline;
-}
-
-.spfx-form-label-info-icon:hover {
-  background-color: rgba(25, 118, 210, 0.08);
-  color: #1565c0;
-  transform: scale(1.1);
-}
-
-.spfx-form-label-info-icon:focus {
-  outline: 1px solid #1976d2;
-  outline-offset: 1px;
-  background-color: rgba(25, 118, 210, 0.12);
-}
-
-@media (max-width: 768px) {
-  .spfx-form-label {
-    min-width: auto;
-    padding-top: 0;
-    margin-bottom: 8px;
-  }
-}
-
-/* FormValue Styles - Enhanced */
-.spfx-form-value {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-}
-
-.spfx-form-value-control-container {
-  width: 100%;
-  position: relative;
-}
-
-/* DevExtreme Control Styling - Enhanced */
-.spfx-form-value-control-container .dx-textbox,
-.spfx-form-value-control-container .dx-selectbox,
-.spfx-form-value-control-container .dx-numberbox,
-.spfx-form-value-control-container .dx-datebox,
-.spfx-form-value-control-container .dx-textarea,
-.spfx-form-value-control-container .dx-autocomplete,
-.spfx-form-value-control-container .dx-lookup,
-.spfx-form-value-control-container .dx-tagbox,
-.spfx-form-value-control-container .dx-switch,
-.spfx-form-value-control-container .dx-checkbox,
-.spfx-form-value-control-container .dx-radiogroup {
-  width: 100%;
-  transition: all 0.2s ease;
-}
-
-/* Enhanced DevExtreme focus and hover states */
-.spfx-form-value-control-container .dx-textbox:hover,
-.spfx-form-value-control-container .dx-selectbox:hover,
-.spfx-form-value-control-container .dx-numberbox:hover,
-.spfx-form-value-control-container .dx-datebox:hover {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.spfx-form-value-control-container .dx-textbox.dx-state-focused,
-.spfx-form-value-control-container .dx-selectbox.dx-state-focused,
-.spfx-form-value-control-container .dx-numberbox.dx-state-focused,
-.spfx-form-value-control-container .dx-datebox.dx-state-focused {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-  border-color: #3b82f6;
-}
-
-/* Invalid state styling - Enhanced with Modern SaaS */
-.spfx-form-value-control-container .dx-invalid {
-  border-color: var(--spfx-error) !important;
-  box-shadow: 0 0 0 3px rgba(235, 51, 73, 0.15) !important;
-  animation: shake-error 0.5s ease-in-out;
-}
-
-@keyframes shake-error {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  10%,
-  30%,
-  50%,
-  70%,
-  90% {
-    transform: translateX(-3px);
-  }
-  20%,
-  40%,
-  60%,
-  80% {
-    transform: translateX(3px);
-  }
-}
-
-.spfx-form-value-control-container > * {
-  width: 100%;
-}
-
-.spfx-form-value-control-container > * + * {
-  margin-top: 8px;
-}
-
-.spfx-form-value-description-error-container {
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* FormDescription Styles - Enhanced */
-.spfx-form-description {
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.6);
-  line-height: 1.4;
-  margin-top: 4px;
-  padding-left: 0;
-  background: rgba(0, 0, 0, 0.02);
-  padding: 6px 8px;
-  border-radius: 4px;
-  border-left: 3px solid #e0e0e0;
-  transition: all 0.2s ease;
-}
-
-.spfx-form-description:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-left-color: #1976d2;
-}
-
-.spfx-form-description p {
-  margin: 0 0 8px 0;
-}
-
-.spfx-form-description p:last-child {
-  margin-bottom: 0;
-}
-
-.spfx-form-description ul,
-.spfx-form-description ol {
-  margin: 4px 0 8px 16px;
-  padding: 0;
-}
-
-.spfx-form-description li {
-  margin-bottom: 2px;
-}
-
-.spfx-form-description ul:last-child,
-.spfx-form-description ol:last-child {
-  margin-bottom: 0;
-}
-
-.spfx-form-description strong {
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.75);
-}
-
-.spfx-form-description em {
-  font-style: italic;
-}
-
-.spfx-form-description code {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 2px 4px;
-  border-radius: 2px;
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-}
-
-.spfx-form-description a {
-  color: #1976d2;
-  text-decoration: none;
-}
-
-.spfx-form-description a:hover {
-  text-decoration: underline;
-}
-
-/* FormError Styles - FIXED: Proper red error styling */
-.spfx-form-error {
-  margin-top: 6px;
-  padding: 8px 12px;
-  background: #ffeaea; /* Light red background */
-  border: 1px solid #ffcdd2; /* Light red border */
-  border-left: 4px solid #d32f2f; /* Strong red left border */
-  border-radius: 4px;
-  animation: spfx-slide-in-error 0.3s ease-out;
-}
-
-.spfx-form-error-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.spfx-form-error-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.spfx-form-error-item:last-child {
-  margin-bottom: 0;
-}
-
-.spfx-form-error-icon {
-  color: #d32f2f; /* Strong red */
-  font-size: 14px;
-  margin-top: 1px;
-  flex-shrink: 0;
-  font-weight: bold;
-}
-
-.spfx-form-error-text {
-  font-size: 13px;
-  color: #b71c1c; /* Dark red for text */
-  line-height: 1.4;
-  word-wrap: break-word;
-  flex: 1;
-  font-weight: 500;
-}
-
-@keyframes spfx-slide-in-error {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    max-height: 100px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-}
+/* C-5: Removed duplicate CSS block - all styles above already defined */
 
 /* Enhanced Section Styling */
 .form-demo-section {
@@ -999,7 +693,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--spfx-btn-primary);
 }
 
 .form-demo-section:hover {
@@ -1008,28 +702,28 @@
 }
 
 .form-demo-section.basic-form::before {
-  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+  background: var(--spfx-btn-success);
 }
 
 .form-demo-section.advanced-form::before {
-  background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+  background: var(--spfx-btn-info);
 }
 
 .form-demo-section.validation-form::before {
-  background: linear-gradient(90deg, #dc3545 0%, #fd7e14 100%);
+  background: var(--spfx-btn-danger);
 }
 
 .form-demo-section.responsive-test::before {
-  background: linear-gradient(90deg, #6f42c1 0%, #e83e8c 100%);
+  background: var(--spfx-btn-purple);
 }
 
 .form-demo-section.container-demo::before {
-  background: linear-gradient(90deg, #20c997 0%, #17a2b8 100%);
+  background: var(--spfx-btn-teal);
 }
 
 /* Enhanced Control Panel */
 .control-panel {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--spfx-btn-outline);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
@@ -1060,7 +754,7 @@
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #495057;
+  color: var(--spfx-gray-700);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1070,7 +764,7 @@
   content: '';
   width: 4px;
   height: 16px;
-  background: linear-gradient(45deg, #667eea, #764ba2);
+  background: var(--spfx-btn-primary);
   border-radius: 2px;
 }
 
@@ -1093,19 +787,19 @@
   width: 16px;
   height: 16px;
   border-radius: 3px;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--spfx-gray-300);
   background: white;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .control-checkbox input[type='checkbox']:checked {
-  background: #667eea;
-  border-color: #667eea;
+  background: var(--spfx-primary);
+  border-color: var(--spfx-primary);
 }
 
 .control-checkbox input[type='checkbox']:hover {
-  border-color: #667eea;
+  border-color: var(--spfx-primary);
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
@@ -1152,33 +846,33 @@
 }
 
 .enhanced-button.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--spfx-gradient-primary);
   color: white;
 }
 
 .enhanced-button.success {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  background: var(--spfx-btn-success);
   color: white;
 }
 
 .enhanced-button.info {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: var(--spfx-btn-info);
   color: white;
 }
 
 .enhanced-button.secondary {
-  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  background: var(--spfx-btn-secondary);
   color: white;
 }
 
 /* Form Section Headers */
 .form-section-header {
   margin: 24px 0 16px 0;
-  color: #495057;
+  color: var(--spfx-gray-700);
   font-size: 18px;
   font-weight: 600;
   padding-bottom: 8px;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--spfx-gray-200);
   position: relative;
 }
 
@@ -1189,7 +883,7 @@
   left: 0;
   width: 60px;
   height: 2px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--spfx-btn-primary);
 }
 
 /* Enhanced Status Indicators */
@@ -1207,12 +901,12 @@
 
 .status-indicator.valid {
   background: rgba(40, 167, 69, 0.1);
-  color: #155724;
+  color: var(--spfx-semantic-success-dark);
 }
 
 .status-indicator.invalid {
   background: rgba(220, 53, 69, 0.1);
-  color: #721c24;
+  color: var(--spfx-semantic-error-dark);
 }
 
 .status-indicator::before {
@@ -1240,20 +934,13 @@
 .loading-spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid #e9ecef;
-  border-top: 2px solid #667eea;
+  border: 2px solid var(--spfx-gray-200);
+  border-top: 2px solid var(--spfx-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
+/* C-5: @keyframes spin already defined above at line 559 */
 
 /* Mobile Optimizations */
 @media (max-width: 768px) {
@@ -1307,7 +994,7 @@
 
 /* PnP People Picker - Fix border to match Fluent UI controls */
 .ms-BasePicker {
-  border: 1px solid #8a8886 !important;
+  border: 1px solid var(--spfx-neutral-tertiary-alt) !important;
   border-radius: 2px !important;
   min-height: 32px !important;
   transition: border-color 0.15s ease-in-out !important;
@@ -1315,12 +1002,12 @@
 }
 
 .ms-BasePicker:hover {
-  border-color: #323130 !important;
+  border-color: var(--spfx-neutral-primary) !important;
 }
 
 .ms-BasePicker.is-active,
 .ms-BasePicker:focus-within {
-  border-color: #0078d4 !important;
+  border-color: var(--spfx-focus-color) !important;
   border-width: 1px !important;
   outline: none !important;
   box-shadow: none !important;
@@ -1355,6 +1042,22 @@
    and checkbox states. DevExtreme handles these correctly by default.
    ============================================ */
 
+/* Hide DevExtreme's built-in validation message when using FormError */
+.spfx-form-value-control-container .dx-invalid-message,
+.spfx-form-value-control-container .dx-invalid-message-auto,
+.spfx-form-value-control-container .dx-invalid-message-always {
+  display: none !important;
+}
+
+/* Ensure DevExtreme checkbox doesn't show validation styling that looks odd */
+.spfx-form-value-control-container .dx-checkbox.dx-invalid .dx-checkbox-icon {
+  border-color: var(--spfx-neutral-tertiary-alt) !important;
+}
+
+.spfx-form-value-control-container .dx-checkbox.dx-invalid.dx-state-hover .dx-checkbox-icon {
+  border-color: var(--spfx-neutral-primary) !important;
+}
+
 /* ============================================
    PnP RichText Editor - Minimal Fixes Only
    NOTE: The PnP RichText uses Quill editor internally.
@@ -1371,7 +1074,7 @@
 
 /* RichText placeholder styling */
 .ql-editor.ql-blank::before {
-  color: #605e5c;
+  color: var(--spfx-neutral-secondary);
   font-style: normal;
 }
 

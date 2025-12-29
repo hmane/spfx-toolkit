@@ -15,9 +15,9 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPBooleanField component for boolean (Yes/No) input
@@ -77,7 +77,6 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     inputRef,
   } = props;
 
-  const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<boolean>(defaultValue || false);
 
   // Create internal ref if not provided
@@ -133,12 +132,6 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
-
   // Render field content
   const renderField = (
     fieldValue: boolean,
@@ -174,9 +167,6 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   readOnly={readOnly}
                   text={showText ? displayText : ''}
                   isValid={!hasError}
-                  validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               ) : (
                 <Switch
@@ -185,9 +175,6 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   disabled={disabled}
                   readOnly={readOnly}
                   isValid={!hasError}
-                  validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               )}
               {showText && displayType === SPBooleanDisplayType.Toggle && (
@@ -197,6 +184,15 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
           );
         })()}
         </div>
+
+        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
+        {fieldError && !formContext?.autoShowErrors && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
       </Stack>
     );
   };

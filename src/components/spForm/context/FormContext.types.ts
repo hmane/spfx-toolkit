@@ -41,6 +41,51 @@ export interface IFormFieldMetadata {
 }
 
 /**
+ * Character count data for a field
+ */
+export interface ICharCountData {
+  /**
+   * Current character count
+   */
+  current: number;
+
+  /**
+   * Maximum allowed characters (optional)
+   */
+  max?: number;
+
+  /**
+   * Warning threshold percentage (0-1). Default is 0.9 (90%)
+   */
+  warningThreshold?: number;
+}
+
+/**
+ * Character count registry for tracking field char counts
+ */
+export interface ICharCountRegistry {
+  /**
+   * Register/update char count for a field
+   */
+  set(fieldName: string, data: ICharCountData): void;
+
+  /**
+   * Get char count data for a field
+   */
+  get(fieldName: string): ICharCountData | undefined;
+
+  /**
+   * Remove char count for a field
+   */
+  remove(fieldName: string): void;
+
+  /**
+   * Subscribe to changes for a specific field
+   */
+  subscribe(fieldName: string, callback: (data: ICharCountData | undefined) => void): () => void;
+}
+
+/**
  * Field registry for tracking all form fields
  */
 export interface IFieldRegistry {
@@ -88,6 +133,11 @@ export interface IFormContextValue<TFormData extends FieldValues = any> {
    * Field registry
    */
   registry: IFieldRegistry;
+
+  /**
+   * Character count registry for SP fields
+   */
+  charCountRegistry: ICharCountRegistry;
 
   /**
    * Auto-show errors for all fields

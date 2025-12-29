@@ -13,7 +13,6 @@ import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { Text } from '@fluentui/react/lib/Text';
-import { useTheme } from '@fluentui/react/lib/Theme';
 import { CheckBox } from 'devextreme-react/check-box';
 import { RadioGroup } from 'devextreme-react/radio-group';
 import { SelectBox } from 'devextreme-react/select-box';
@@ -28,6 +27,7 @@ import {
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPChoiceField component for choice and multi-choice selection
@@ -101,8 +101,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     // Ref for focus management
     inputRef,
   } = props;
-
-  const theme = useTheme();
 
   // Merge user's otherConfig with defaults to ensure all properties have values
   const otherConfig = React.useMemo(() => ({
@@ -424,11 +422,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
 
   const otherTextboxClass = mergeStyles({
     marginTop: 8,
@@ -492,14 +485,13 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             onValueChanged={(e: any) => fieldOnChange(e.value)}
             layout="vertical"
             isValid={!hasError}
-            validationStatus={hasError ? 'invalid' : 'valid'}
-            validationError={fieldError}
-            className={`${hasError ? 'dx-invalid' : ''}`.trim()}
           />
           {hasError && (
-            <Text className={errorClass} role="alert">
-              {fieldError}
-            </Text>
+            <div className="sp-field-meta-row">
+              <span className="sp-field-error" role="alert">
+                <span className="sp-field-error-text">{fieldError}</span>
+              </span>
+            </div>
           )}
         </>
       );
@@ -534,17 +526,16 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
                 disabled={disabled || loading || readOnly}
                 readOnly={readOnly}
                 onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
-                isValid={!hasError}
-                validationStatus={hasError ? 'invalid' : 'valid'}
-                validationError={fieldError}
-                className={`${hasError ? 'dx-invalid' : ''}`.trim()}
+                className=""
               />
             ))}
           </Stack>
           {hasError && (
-            <Text className={errorClass} role="alert">
-              {fieldError}
-            </Text>
+            <div className="sp-field-meta-row">
+              <span className="sp-field-error" role="alert">
+                <span className="sp-field-error-text">{fieldError}</span>
+              </span>
+            </div>
           )}
         </>
       );
@@ -568,7 +559,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               showMultiTagOnly={showMultiTagOnly}
               onValueChanged={(e: any) => fieldOnChange(e.value)}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
             />
           ) : (
@@ -578,15 +568,16 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               value={!Array.isArray(fieldValue) ? fieldValue : undefined}
               onValueChanged={(e: any) => fieldOnChange(e.value)}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
               fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
             />
           )}
           {hasError && (
-            <Text className={errorClass} role="alert">
-              {fieldError}
-            </Text>
+            <div className="sp-field-meta-row">
+              <span className="sp-field-error" role="alert">
+                <span className="sp-field-error-text">{fieldError}</span>
+              </span>
+            </div>
           )}
         </>
       );
@@ -636,7 +627,19 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               onValueChanged={(e: any) => handleCustomValueChange(e.value)}
               disabled={disabled}
               readOnly={readOnly}
+              isValid={!otherState.customValueError}
+              validationStatus={otherState.customValueError ? 'invalid' : 'valid'}
             />
+            {/* BLOCKER FIX F-1: Show warning when allowFillIn is false */}
+            {otherState.customValueError && otherState.customValueError.includes('fill-in choices') && (
+              <MessageBar
+                messageBarType={MessageBarType.warning}
+                isMultiline={false}
+                styles={{ root: { marginTop: 4 } }}
+              >
+                {otherState.customValueError}
+              </MessageBar>
+            )}
           </div>
         )}
       </Stack>

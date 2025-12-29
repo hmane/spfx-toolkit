@@ -68,16 +68,21 @@ function getSitePath(pathname: string, serverRelativeUrl?: string): string {
 }
 
 /**
- * Builds SharePoint preview URL using Office Online (WOPI)
+ * Builds SharePoint preview URL
+ * - Office documents (Word, Excel, PowerPoint): Use WOPI (WopiFrame.aspx)
+ * - All other files (PDF, images, text, etc.): Use direct URL with web=1 parameter
+ *
  * @param documentUrl - Absolute document URL
  * @param mode - Preview mode (view or edit)
  * @param serverRelativeUrl - Optional server relative path to preserve site collection routing
- * @returns Preview URL for Office Online viewer
+ * @param uniqueId - Optional document unique ID (GUID) for more reliable preview
+ * @returns Preview URL
  */
 export function buildPreviewUrl(
   documentUrl: string,
   mode: 'view' | 'edit',
-  serverRelativeUrl?: string
+  serverRelativeUrl?: string,
+  uniqueId?: string
 ): string {
   if (!documentUrl) return '';
 
@@ -86,9 +91,13 @@ export function buildPreviewUrl(
     const origin = url.origin;
     const sitePath = getSitePath(url.pathname, serverRelativeUrl);
     const layoutBase = `${origin}${sitePath}/_layouts/15`;
-    const encodedUrl = encodeURIComponent(documentUrl);
+
+    // SharePoint expects server-relative URL for sourcedoc parameter
+    const serverRelativePath = serverRelativeUrl || url.pathname;
 
     const extension = getFileExtension(documentUrl).toLowerCase();
+
+    // Office documents - use WOPI (WopiFrame.aspx) for preview/edit
     const officeExtensions = [
       'docx',
       'doc',
@@ -108,18 +117,20 @@ export function buildPreviewUrl(
 
     if (isOfficeDoc) {
       const action = mode === 'view' ? 'interactivepreview' : 'edit';
-      return `${layoutBase}/WopiFrame.aspx?sourcedoc=${encodedUrl}&action=${action}`;
+      // Use UniqueId if available (more reliable), otherwise use server-relative path
+      if (uniqueId) {
+        return `${layoutBase}/WopiFrame.aspx?sourcedoc=${encodeURIComponent(uniqueId)}&action=${action}`;
+      }
+      return `${layoutBase}/WopiFrame.aspx?sourcedoc=${encodeURIComponent(serverRelativePath)}&action=${action}`;
     }
 
-    if (extension === 'pdf') {
-      return `${layoutBase}/WopiFrame.aspx?sourcedoc=${encodedUrl}&action=interactivepreview`;
-    }
+    // All non-Office files - use direct URL with web=1 for browser-based viewing
+    // This works for: PDF, images, text files, etc.
+    // The browser will render natively supported formats (PDF, images)
+    // or SharePoint will provide appropriate handling
+    const separator = documentUrl.includes('?') ? '&' : '?';
+    return `${documentUrl}${separator}web=1`;
 
-    if (mode === 'view') {
-      return `${layoutBase}/Doc.aspx?sourcedoc=${encodedUrl}&action=default`;
-    }
-
-    return documentUrl;
   } catch (error) {
     return documentUrl;
   }

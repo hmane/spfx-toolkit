@@ -8,6 +8,31 @@ import { ISPFieldBaseProps, SPDateTimeFormat } from '../types';
 
 /**
  * Props for SPDateField component
+ *
+ * **Important: Date Serialization for SharePoint**
+ *
+ * This component returns JavaScript `Date` objects which always include a time component.
+ * For date-only SharePoint fields (`SPDateTimeFormat.DateOnly`), you may need to handle
+ * time zone considerations when saving to SharePoint:
+ *
+ * @example
+ * ```typescript
+ * // For date-only fields, when saving to SharePoint:
+ * // Option 1: Strip time component (set to midnight UTC)
+ * const dateOnly = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+ *
+ * // Option 2: Use ISO date string (date portion only)
+ * const isoDate = date.toISOString().split('T')[0]; // "2024-01-15"
+ *
+ * // Option 3: Let PnPjs handle serialization (recommended)
+ * // PnPjs will properly serialize Date objects for SharePoint
+ * await sp.web.lists.getByTitle('MyList').items.add({
+ *   DueDate: date  // PnPjs handles the serialization
+ * });
+ * ```
+ *
+ * For DateTime fields (`SPDateTimeFormat.DateTime`), the full Date object including
+ * time is sent to SharePoint and time zone handling follows SharePoint's regional settings.
  */
 export interface ISPDateFieldProps extends ISPFieldBaseProps<Date> {
   /**

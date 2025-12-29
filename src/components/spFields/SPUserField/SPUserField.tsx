@@ -30,6 +30,7 @@ import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
 import './SPUserField.css';
+import '../spFields.css';
 import { ISPUserFieldProps, SPUserFieldDisplayMode, SPUserFieldValue } from './SPUserField.types';
 import {
   getUserDisplayName,
@@ -92,6 +93,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     onFocus,
 
     // User field specific props
+    hasError: hasErrorProp = false,
     columnName,
     listId,
     allowMultiple = false,
@@ -146,6 +148,94 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
       };
     }
   }, [name, label, required, formContext, fieldRef]);
+
+  // Apply error border styles directly via JavaScript (most reliable approach)
+  // This handles the case where CSS selectors can't reach deeply nested PnP components
+  React.useEffect(() => {
+    const wrapperEl = fieldRef.current;
+    if (!wrapperEl) return;
+
+    // Find the BasePicker element
+    const basePicker = wrapperEl.querySelector('.ms-BasePicker');
+    const basePickerText = wrapperEl.querySelector('.ms-BasePicker-text');
+
+    // Helper function to apply error styles
+    const applyErrorStyles = () => {
+      if (basePicker) {
+        const pickerEl = basePicker as HTMLElement;
+        pickerEl.style.setProperty('border-color', '#d9534f', 'important');
+        pickerEl.style.setProperty('border-width', '1px', 'important');
+        pickerEl.style.setProperty('border-style', 'solid', 'important');
+        pickerEl.style.setProperty('background-color', '#ffffff', 'important');
+        pickerEl.style.setProperty('box-shadow', 'none', 'important');
+      }
+    };
+
+    // Helper function to reset styles
+    const resetStyles = () => {
+      if (basePicker) {
+        const pickerEl = basePicker as HTMLElement;
+        pickerEl.style.removeProperty('border-color');
+        pickerEl.style.removeProperty('border-width');
+        pickerEl.style.removeProperty('border-style');
+        pickerEl.style.removeProperty('background-color');
+        pickerEl.style.removeProperty('box-shadow');
+      }
+    };
+
+    if (hasErrorProp) {
+      // Apply error styles initially
+      applyErrorStyles();
+
+      // Ensure white background on text element
+      if (basePickerText) {
+        const textEl = basePickerText as HTMLElement;
+        textEl.style.setProperty('background-color', '#ffffff', 'important');
+      }
+
+      // Use focusin/focusout events to reapply styles (these bubble, unlike focus/blur)
+      const handleFocusIn = () => {
+        // Reapply error styles after a tiny delay to override focus styles
+        setTimeout(applyErrorStyles, 0);
+      };
+
+      const handleFocusOut = () => {
+        // Reapply error styles after blur
+        setTimeout(applyErrorStyles, 0);
+      };
+
+      // Add event listeners to the wrapper to catch focus events from any child
+      wrapperEl.addEventListener('focusin', handleFocusIn);
+      wrapperEl.addEventListener('focusout', handleFocusOut);
+
+      // Also use MutationObserver as a backup for class changes
+      // Debounce to avoid excessive calls during rapid DOM updates
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+      const observer = new MutationObserver(() => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          applyErrorStyles();
+        }, 16); // ~60fps debounce
+      });
+      if (basePicker) {
+        observer.observe(basePicker, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+
+      return () => {
+        wrapperEl.removeEventListener('focusin', handleFocusIn);
+        wrapperEl.removeEventListener('focusout', handleFocusOut);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        observer.disconnect();
+      };
+    } else {
+      // Reset to default styles
+      resetStyles();
+      if (basePickerText) {
+        const textEl = basePickerText as HTMLElement;
+        textEl.style.setProperty('background-color', '#ffffff', 'important');
+      }
+    }
+  }, [hasErrorProp, fieldRef]);
 
   // Auto-load column metadata when columnName is provided
   React.useEffect(() => {
@@ -281,11 +371,6 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
 
   // Get PrincipalType based on resolvedAllowGroups
   const principalTypes = React.useMemo(() => {
@@ -365,7 +450,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     const fieldSelectedUsers = computeSelectedUsers(fieldValue);
 
     return (
-      <Stack className={`sp-user-field ${containerClass} ${className || ''}`}>
+      <Stack className={`sp-user-field ${containerClass} ${className || ''} ${(fieldError || hasErrorProp) ? 'has-error' : ''}`}>
         {label && (
           <Label required={required} disabled={disabled}>
             {label}
@@ -378,13 +463,11 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
           </Text>
         )}
 
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div
+          ref={fieldRef as React.RefObject<HTMLDivElement>}
+          className={`sp-user-field-picker-wrapper ${(fieldError || hasErrorProp) ? 'has-error' : ''}`}
+        >
         {displayMode === SPUserFieldDisplayMode.PeoplePicker ? (
-          <div style={{
-            border: fieldError ? '1px solid #a80000' : 'none',
-            borderRadius: fieldError ? '2px' : '0',
-            padding: fieldError ? '0' : '0'
-          }}>
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
               <PeoplePicker
                 context={SPContext.peoplepickerContext}
@@ -419,7 +502,6 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
                 webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
               />
             </React.Suspense>
-          </div>
         ) : displayMode === SPUserFieldDisplayMode.Compact ? (
           <Stack horizontal tokens={{ childrenGap: 8 }} wrap>
             {Array.isArray(fieldValue) ? (
@@ -482,7 +564,21 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
             )}
           </Stack>
         )}
+
+        {/* Error icon - matches DevExtreme exclamation icon style (CSS-based) */}
+        {(fieldError || hasErrorProp) && (
+          <div className="sp-user-field-error-icon" aria-hidden="true" />
+        )}
         </div>
+
+        {/* Error message row - always show field-level validation errors */}
+        {fieldError && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
       </Stack>
     );
   };

@@ -38,8 +38,10 @@ export function isISPUserFieldValue(value: any): value is ISPUserFieldValue {
  * Convert IPrincipal to ISPUserFieldValue format
  */
 export function principalToUserFieldValue(principal: IPrincipal): ISPUserFieldValue {
+  // F-3: Safer ID conversion - handle NaN and string/number inputs correctly
+  const parsedId = typeof principal.id === 'number' ? principal.id : parseInt(String(principal.id), 10);
   return {
-    Id: parseInt(principal.id, 10) || 0,
+    Id: Number.isNaN(parsedId) ? 0 : parsedId,
     EMail: principal.email,
     Title: principal.title || principal.email || principal.loginName || '',
     Name: principal.loginName || principal.value,
@@ -106,8 +108,11 @@ export function principalToPeoplePickerFormat(principal: IPrincipal): string {
  * Convert PeoplePicker item to IPrincipal
  */
 export function peoplePickerItemToPrincipal(item: any): IPrincipal {
+  // F-3: Safely extract ID - handle undefined, null, and numeric values
+  const rawId = item.id ?? item.Id ?? '0';
+  const id = String(rawId);
   return {
-    id: (item.id || item.Id || '0').toString(),
+    id,
     email: item.secondaryText || item.EMail || item.email,
     title: item.text || item.Title || item.title || '',
     loginName: item.loginName || item.Name || item.name,

@@ -14,10 +14,10 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPDateField component for date and datetime selection
@@ -90,7 +90,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     inputRef,
   } = props;
 
-  const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<Date | undefined>(defaultValue);
   const [isDOMReady, setIsDOMReady] = React.useState(false);
 
@@ -202,12 +201,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
   const containerClass = mergeStyles({
     width: width || '100%',
     marginBottom: 16,
-  });
-
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
   });
 
   // Disabled dates function
@@ -348,9 +341,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               onFocusIn={onFocus}
               onFocusOut={onBlur}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-              validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           ) : (
             <DateBox
@@ -374,13 +364,19 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               calendarOptions={calendarOpts}
               buttons={readOnlyButtons}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-              validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           )
         )}
         </div>
+
+        {/* Error message row - always show field-level validation errors */}
+        {hasError && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
       </Stack>
     );
   };

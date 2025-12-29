@@ -10,7 +10,10 @@ import {
 } from './types';
 
 interface ConflictContextValue {
+  /** @deprecated Use getDetector() instead to avoid stale reference on first render */
   detector: ConflictDetector | undefined;
+  /** Get the current detector instance (avoids stale ref on first render) */
+  getDetector: () => ConflictDetector | undefined;
   checkForConflicts: () => Promise<void>;
   hasChangedSinceLastCheck: () => Promise<boolean>;
   updateSnapshot: () => Promise<void>;
@@ -298,16 +301,35 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
     return detectorRef.current?.isPollingActive() ?? false;
   }, []);
 
-  const contextValue: ConflictContextValue = {
-    detector: detectorRef.current,
-    checkForConflicts,
-    hasChangedSinceLastCheck,
-    updateSnapshot,
-    pausePolling,
-    resumePolling,
-    getState,
-    isPollingActive,
-  };
+  // Getter function to avoid stale ref value on first render
+  const getDetector = useCallback((): ConflictDetector | undefined => {
+    return detectorRef.current;
+  }, []);
+
+  // R-1: Memoize context value to prevent unnecessary re-renders of consumers
+  const contextValue = React.useMemo<ConflictContextValue>(
+    () => ({
+      detector: detectorRef.current, // Kept for backward compatibility
+      getDetector, // Use this instead of detector for fresh value
+      checkForConflicts,
+      hasChangedSinceLastCheck,
+      updateSnapshot,
+      pausePolling,
+      resumePolling,
+      getState,
+      isPollingActive,
+    }),
+    [
+      checkForConflicts,
+      hasChangedSinceLastCheck,
+      updateSnapshot,
+      pausePolling,
+      resumePolling,
+      getState,
+      isPollingActive,
+      getDetector,
+    ]
+  );
 
   return <ConflictContext.Provider value={contextValue}>{children}</ConflictContext.Provider>;
 };

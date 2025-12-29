@@ -15,7 +15,6 @@ import { Text } from '@fluentui/react/lib/Text';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
 
 // Lazy load ModernTaxonomyPicker to avoid loading its CSS (TaxonomyTree.module.scss) when not used
 const ModernTaxonomyPicker = React.lazy(() =>
@@ -42,6 +41,7 @@ import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPTaxonomyField component for managed metadata (taxonomy) selection
@@ -116,7 +116,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     inputRef,
   } = props;
 
-  const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]>(
     defaultValue || (allowMultiple ? [] : null as any)
   );
@@ -331,11 +330,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
 
   // Get display label (with path if enabled)
   const getDisplayLabel = React.useCallback((term: ISPTaxonomyFieldValue) => {
@@ -450,10 +444,13 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
           </React.Suspense>
         </div>
 
-        {hasError && (
-          <Text className={errorClass} role="alert">
-            {fieldError}
-          </Text>
+        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
+        {hasError && !formContext?.autoShowErrors && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
         )}
       </Stack>
     );

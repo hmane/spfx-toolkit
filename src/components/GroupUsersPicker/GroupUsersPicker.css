@@ -2,6 +2,13 @@
  * GroupUsersPicker Component Styles
  */
 
+/* C-7: CSS Variables */
+:root {
+  --gup-neutral-primary: var(--neutralPrimary, #323130);
+  --gup-neutral-secondary: var(--neutralSecondary, #605e5c);
+  --gup-focus-color: var(--themePrimary, #0078d4);
+}
+
 .group-users-picker {
   position: relative;
   width: 100%;
@@ -53,7 +60,7 @@
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  background-color: #0078d4;
+  background-color: var(--gup-focus-color);
 }
 
 .group-users-picker-text {
@@ -67,7 +74,7 @@
 .group-users-picker-name {
   font-size: 14px;
   font-weight: 400;
-  color: #323130;
+  color: var(--gup-neutral-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -75,7 +82,7 @@
 
 .group-users-picker-email {
   font-size: 12px;
-  color: #605e5c;
+  color: var(--gup-neutral-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -132,7 +139,7 @@
 
 /* Accessibility */
 .group-users-picker-control:focus-within {
-  outline: 2px solid #0078d4;
+  outline: 2px solid var(--gup-focus-color);
   outline-offset: 2px;
 }
 

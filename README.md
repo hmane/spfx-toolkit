@@ -4,6 +4,27 @@
 
 A comprehensive toolkit designed to accelerate SPFx development with reusable, tree-shakable components and utilities. Built with TypeScript, React, and modern SPFx best practices.
 
+## ⚠️ CRITICAL: Import Patterns for Bundle Size
+
+**Importing from barrel exports (`spfx-toolkit` or `spfx-toolkit/components`) will pull ALL components including heavy DevExtreme dependencies (~500KB+), significantly increasing your bundle size.**
+
+```typescript
+// ❌ NEVER DO THIS - pulls entire library including DevExtreme (~500KB+)
+import { Card } from 'spfx-toolkit';
+import { Card } from 'spfx-toolkit/components';
+
+// ✅ ALWAYS DO THIS - minimal bundle impact
+import { Card } from 'spfx-toolkit/lib/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
+import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+```
+
+**Why?** The barrel exports (`index.ts`) use `export *` which causes all modules to be loaded eagerly, including DevExtreme-heavy components like SPChoiceField, SPLookupField, VersionHistory, etc. The `lazy` exports only work when imported directly from `spfx-toolkit/lib/components/lazy`.
+
+See [Bundle Size Optimization](#-bundle-size-optimization) for complete details.
+
+---
+
 ## ✨ Features
 
 - 🎯 **Tree-Shakable Architecture** - Import only what you need for minimal bundle size
@@ -265,6 +286,25 @@ import { DirectionalHint } from 'spfx-toolkit/lib/types';
 - ✅ Import DirectionalHint from `spfx-toolkit/lib/types`
 - ❌ Avoid bulk imports (`import * from 'spfx-toolkit'`)
 - 📊 Monitor bundle with `gulp bundle --ship --analyze-bundle`
+
+### DevExtreme Component Bundle Impact
+
+The following components import DevExtreme controls and add significant bundle weight. Consider lazy loading or route-level code splitting when using them:
+
+| Component | DevExtreme Imports | Estimated Impact |
+|-----------|-------------------|------------------|
+| SPChoiceField | CheckBox, RadioGroup, SelectBox, TagBox, TextBox | ~150-200KB |
+| SPLookupField | SelectBox, TagBox, ArrayStore | ~100-150KB |
+| SPDateField | DateBox | ~80-100KB |
+| SPNumberField | NumberBox | ~60-80KB |
+| SPTextField | TextBox, TextArea | ~60-80KB |
+| VersionHistory | Popup, ScrollView | ~120-150KB |
+| GroupUsersPicker | SelectBox, TagBox, LoadPanel | ~120-150KB |
+
+**Recommendation:** For forms with multiple SP field components, consider:
+1. Route-level code splitting to defer loading until form is visible
+2. Using `React.lazy()` for the entire form component
+3. Progressive loading - load core fields first, heavy fields on demand
 
 ## 🎯 Component Categories
 
@@ -538,6 +578,41 @@ const ManageAccess = React.lazy(() =>
 gulp bundle --ship
 ls -lh temp/deploy/
 ```
+
+## 🧪 Taxonomy Field Validation (Manual Verification Required)
+
+The `SPTaxonomyField` component sets `WssId=-1` when converting selected terms back to SharePoint format. This is because the ModernTaxonomyPicker from `@pnp/spfx-controls-react` doesn't provide the WssId value.
+
+**Status:** This behavior requires manual verification with your SharePoint environment.
+
+### How to Verify
+
+1. Copy `examples/TaxonomyFieldVerification.tsx` into your SPFx web part
+2. Configure the `VERIFICATION_CONFIG` object with your list/column details
+3. Uncomment the SPTaxonomyField component and SPContext imports
+4. Run the verification steps documented in the component
+
+### Test Steps
+
+1. **Load** an existing list item with a taxonomy value
+2. **Select** a different term using the picker
+3. **Observe** the form value - WssId should be -1
+4. **Save** the item to SharePoint
+5. **Reload** to verify the value was saved correctly
+
+### Expected Outcome
+
+- SharePoint should accept WssId=-1 and assign the correct WssId on save
+- If save fails with WssId=-1, please report this as a blocker issue
+
+### If Verification Fails
+
+If you encounter errors saving taxonomy values with WssId=-1:
+1. Check the browser console for detailed error messages
+2. Note the HTTP response status and body
+3. Report the issue at the project repository with these details
+
+---
 
 ## 📖 Complete Documentation
 

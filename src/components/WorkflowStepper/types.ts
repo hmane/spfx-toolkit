@@ -16,8 +16,8 @@ export type StepperVariant = 'arrow' | 'timeline' | 'minimal' | 'cards';
 export interface StepData {
   id: string;
   title: string;
-  description1?: string;
-  description2?: string;
+  description1?: string | React.ReactNode;
+  description2?: string | React.ReactNode;
   status: StepStatus;
   content?: React.ReactNode; // Each step can have its own content
   isClickable?: boolean;

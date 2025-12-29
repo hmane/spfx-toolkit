@@ -2,6 +2,7 @@
 
 import './spfxForm.css';
 
+export { default as FormCharCount } from './FormCharCount/FormCharCount';
 export { default as FormContainer } from './FormContainer/FormContainer';
 export { default as FormDescription } from './FormDescription/FormDescription';
 export { default as FormError } from './FormError/FormError';
@@ -14,7 +15,7 @@ export { FormErrorSummary } from './FormErrorSummary';
 export { FormProvider, useFormContext, FormContext } from './context';
 
 // Form utility hooks
-export { useScrollToError, useZustandFormSync, useFormFieldError } from './hooks';
+export { useScrollToError, useZustandFormSync, useFormFieldError, useCharCount } from './hooks';
 
 // DevExtreme controls
 export {
@@ -38,6 +39,7 @@ export { PnPPeoplePicker } from './PnPControls';
 // Not exported here to avoid naming conflict with base component
 
 // Re-export all types for convenience
+export type { IFormCharCountProps } from './FormCharCount/FormCharCount';
 export type { IFormContainerProps } from './FormContainer/FormContainer';
 export type { IFormDescriptionProps } from './FormDescription/FormDescription';
 export type { IFormErrorProps } from './FormError/FormError';
@@ -52,6 +54,8 @@ export type {
   IFormFieldMetadata,
   IFieldRegistry,
   IFormProviderProps,
+  ICharCountData,
+  ICharCountRegistry,
 } from './context';
 
 // Hook types
@@ -60,6 +64,7 @@ export type {
   IUseScrollToErrorReturn,
   IUseZustandFormSyncOptions,
   IUseFormFieldErrorReturn,
+  IUseCharCountReturn,
 } from './hooks';
 
 export type {

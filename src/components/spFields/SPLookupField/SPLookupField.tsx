@@ -25,6 +25,7 @@ import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 // Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
 // This prevents ComboBoxListItemPicker.module.scss from being bundled when not needed
@@ -721,9 +722,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
               }}
               maxDisplayedTags={maxDisplayedTags}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-              validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showSelectionControls={true}
               searchEnabled={showSearchBox}
@@ -755,16 +753,14 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 if (selectedItem) {
                   fieldOnChange(selectedItem);
                 } else {
-                  // Item not found in loaded items - log warning but don't block
-                  SPContext.logger.warn(`SPLookupField [${name}]: Item with Id ${selectedId} not found in lookupItems (${lookupItems.length} items). Creating lookup value.`);
-                  // Create a minimal lookup value - this handles edge cases where item isn't in the list yet
-                  fieldOnChange({ Id: selectedId, Title: `Item ${selectedId}` });
+                  // F-4: Item not found in loaded items - create synthetic value with better fallback
+                  // This can happen if item was deleted or filtered out after initial load
+                  SPContext.logger.warn(`SPLookupField [${name}]: Item with Id ${selectedId} not found in lookupItems (${lookupItems.length} items). Creating synthetic lookup value.`);
+                  // Use "Loading..." as fallback title - less confusing than "Item 123"
+                  fieldOnChange({ Id: selectedId, Title: '(Loading...)' });
                 }
               }}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-              validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
               acceptCustomValue={false}
               showDropDownButton={true}
               searchEnabled={showSearchBox}
@@ -773,6 +769,15 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           )
         )}
         </div>
+
+        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
+        {hasError && !formContext?.autoShowErrors && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
 
         {itemCount > 0 && itemCount > searchableThreshold && (
           <Text className={infoClass}>

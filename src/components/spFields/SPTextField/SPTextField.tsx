@@ -9,7 +9,7 @@
  */
 
 import * as React from 'react';
-import { Controller, RegisterOptions } from 'react-hook-form';
+import { Controller, RegisterOptions, useWatch, useForm } from 'react-hook-form';
 import TextBox from 'devextreme-react/text-box';
 import TextArea from 'devextreme-react/text-area';
 import { ISPTextFieldProps, SPTextFieldMode, INoteHistoryEntry } from './SPTextField.types';
@@ -20,6 +20,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { NoteHistory } from './NoteHistory';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 // Lazy load RichText from PnP for better bundle size
 const RichText = React.lazy(() =>
@@ -52,7 +53,14 @@ const RichText = React.lazy(() =>
 export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
   const formContext = useFormContext();
-  const effectiveControl = props.control || formContext?.control;
+
+  // Create a fallback form for standalone mode (no control provided)
+  // This ensures useWatch always has a valid control to work with
+  const fallbackForm = useForm({ defaultValues: { __standalone__: '' } });
+
+  // Use provided control, context control, or fallback
+  const effectiveControl = props.control || formContext?.control || fallbackForm.control;
+  const isStandaloneMode = !props.control && !formContext?.control;
 
   const {
     // Base props
@@ -146,8 +154,53 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     }
   }, [name, label, required, formContext, fieldRef]);
 
+  // Determine if char count should be handled by FormContext (when inside spForm)
+  const shouldUseFormContextCharCount = formContext?.autoShowErrors && showCharacterCount && name;
+
+  // Watch form value for char count registration (when using react-hook-form)
+  // In standalone mode, we use the fallback form with a dummy field name
+  const watchFieldName = isStandaloneMode ? '__standalone__' : (name || '__unused__');
+  const watchedValue = useWatch({
+    control: effectiveControl,
+    name: watchFieldName as string,
+    defaultValue: defaultValue || '',
+    disabled: isStandaloneMode,
+  });
+
   // Use controlled value if provided, otherwise use internal state
-  const currentValue = value !== undefined ? value : internalValue;
+  // EXCEPTION: For append-only mode, always use internal state for the input
+  // because the value prop contains existing notes (or SharePoint HTML link)
+  // and the input should start empty for adding new notes
+  const currentValue = appendOnly ? internalValue : (value !== undefined ? value : internalValue);
+
+  // Get the actual value for char count (from form, controlled prop, or internal state)
+  const charCountValue = React.useMemo(() => {
+    if (!isStandaloneMode && name) {
+      return watchedValue || '';
+    }
+    return currentValue || '';
+  }, [isStandaloneMode, name, watchedValue, currentValue]);
+
+  // Register char count with FormContext via useEffect (not during render)
+  React.useEffect(() => {
+    if (shouldUseFormContextCharCount && formContext?.charCountRegistry && name) {
+      const charCount = (charCountValue as string)?.length || 0;
+      formContext.charCountRegistry.set(name, {
+        current: charCount,
+        max: maxLength,
+        warningThreshold: 0.9,
+      });
+    }
+  }, [shouldUseFormContextCharCount, formContext, name, charCountValue, maxLength]);
+
+  // Separate cleanup effect - only runs on unmount or when char count feature is disabled
+  React.useEffect(() => {
+    return () => {
+      if (formContext?.charCountRegistry && name) {
+        formContext.charCountRegistry.remove(name);
+      }
+    };
+  }, [formContext, name]);
 
   // Determine if we should show history
   const showHistory = appendOnly && itemId && listNameOrId && (fieldInternalName || name);
@@ -251,20 +304,27 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     marginTop: 4,
   });
 
-  // Character count styles
-  const charCountClass = mergeStyles({
-    display: 'block',
-    width: '100%',
-    fontSize: 12,
-    color: theme.palette.neutralSecondary,
-    marginTop: 4,
-    textAlign: 'right',
-  });
+  // Character count warning threshold (90% of max)
+  const getCharCountClass = React.useCallback((current: number, max?: number): string => {
+    if (!max) return 'sp-field-char-count';
+    const ratio = current / max;
+    if (ratio >= 1) return 'sp-field-char-count error';
+    if (ratio >= 0.9) return 'sp-field-char-count warning';
+    return 'sp-field-char-count';
+  }, []);
 
   // Render field content
   const renderField = (fieldValue: string, fieldOnChange: (val: string) => void, fieldError?: string) => {
     const isMultiLine = mode === SPTextFieldMode.MultiLine;
-    const currentCharCount = fieldValue?.length || 0;
+
+    // For append-only mode, the input should always be empty (for adding new notes)
+    // The existing notes are shown in NoteHistory, not in the input
+    // Also filter out SharePoint's "View Entries" HTML links
+    const effectiveFieldValue = appendOnly
+      ? (fieldValue && !fieldValue.includes('View Entries</a>') ? fieldValue : '')
+      : fieldValue;
+
+    const currentCharCount = effectiveFieldValue?.length || 0;
 
     // Build buttons array for prefix/suffix icons
     const buttons: any[] = [];
@@ -295,7 +355,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
-      value: fieldValue || '',
+      value: effectiveFieldValue || '',
       onValueChanged: (e: any) => fieldOnChange(e.value),
       valueChangeEvent: 'input', // Update on every keystroke for real-time character count
       disabled: disabled,
@@ -305,20 +365,20 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       autoFocus: autoFocus,
       showClearButton: showClearButton && !disabled,
       stylingMode: stylingMode,
-      className: `${inputClassName || ''} ${hasError ? 'dx-invalid' : ''}`.trim(),
+      className: inputClassName || '',
       onFocusIn: onFocus,
       onFocusOut: onBlur,
+      // Keep isValid for DevExtreme error styling (red border), but don't pass validationError (we render our own)
       isValid: !hasError,
-      validationStatus: hasError ? 'invalid' as const : 'valid' as const,
-      validationError: fieldError, // Pass error message for DevExtreme validation tooltip
       ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
     };
 
-    // For append-only mode with disabled, only show history (no input field)
-    const shouldShowInput = !disabled || !appendOnly;
+    // For append-only mode, only show input when not read-only
+    // In read-only append-only mode, the history component shows all content
+    const shouldShowInput = appendOnly ? (!disabled && !readOnly) : (!disabled || !appendOnly);
 
     return (
-      <Stack className={containerClass}>
+      <Stack className={`sp-text-field ${containerClass} ${className || ''}`}>
         {label && (
           <Label required={required} disabled={disabled}>
             {label}
@@ -343,6 +403,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
             onHistoryLoad={onHistoryLoad}
             onHistoryError={onHistoryError}
             onCopyPrevious={handleCopyPrevious}
+            hasInputAbove={false}
           />
         )}
 
@@ -385,12 +446,25 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
               />
             )}
 
-            {showCharacterCount && !isRichTextMode && (
-              <Text className={charCountClass}>
-                {currentCharCount}
-                {maxLength && ` / ${maxLength}`}
-              </Text>
-            )}
+          </div>
+        )}
+
+        {/* Error message row - always show field-level validation errors */}
+        {hasError && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Character count row - skip if inside FormProvider with autoShowErrors (FormItem handles it via charCountRegistry) */}
+        {!shouldUseFormContextCharCount && showCharacterCount && !isRichTextMode && (
+          <div className="sp-field-meta-row">
+            <span className={getCharCountClass(currentCharCount, maxLength)}>
+              {currentCharCount}
+              {maxLength && ` / ${maxLength}`}
+            </span>
           </div>
         )}
 
@@ -406,6 +480,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
             onHistoryLoad={onHistoryLoad}
             onHistoryError={onHistoryError}
             onCopyPrevious={handleCopyPrevious}
+            hasInputAbove={shouldShowInput}
           />
         )}
       </Stack>

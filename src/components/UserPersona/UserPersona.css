@@ -1,5 +1,15 @@
 /* UserPersona Component Styles */
 
+/* C-7: CSS Variables */
+:root {
+  --up-neutral-primary: var(--neutralPrimary, #323130);
+  --up-neutral-secondary: var(--neutralSecondary, #605e5c);
+  --up-neutral-lighter: var(--neutralLighter, #f3f2f1);
+  --up-neutral-light: var(--neutralLight, #e1dfdd);
+  --up-white: var(--white, #ffffff);
+  --up-focus-color: var(--themePrimary, #0078d4);
+}
+
 .user-persona-container {
   display: inline-flex;
   align-items: center;
@@ -29,14 +39,14 @@
   border-radius: 50%;
   object-fit: cover;
   display: block;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--up-white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Persona with initials (Fluent UI Persona) */
 .user-persona-initials {
   border-radius: 50%;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--up-white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -61,9 +71,8 @@
 }
 
 .user-persona-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #323130;
+  font: inherit; /* Inherit all font properties from parent */
+  color: inherit;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -71,21 +80,48 @@
 }
 
 .user-persona-email {
-  font-size: 12px;
-  color: #605e5c;
+  font: inherit; /* Inherit all font properties from parent */
+  color: inherit;
+  opacity: 0.7; /* Slightly muted secondary text */
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Force Fluent UI Persona to inherit styles - including hover states */
+.user-persona-container .ms-Persona,
+.user-persona-container .ms-Persona:hover {
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.user-persona-container .ms-Persona-details,
+.user-persona-container .ms-Persona-details:hover {
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.user-persona-container .ms-Persona-primaryText,
+.user-persona-container .ms-Persona-primaryText:hover {
+  font: inherit !important;
+  color: inherit !important;
+}
+
+.user-persona-container .ms-Persona-secondaryText,
+.user-persona-container .ms-Persona-secondaryText:hover {
+  font: inherit !important;
+  color: inherit !important;
+  opacity: 0.7;
+}
+
 /* Loading state */
 .user-persona-loading {
   border-radius: 50%;
-  background: linear-gradient(90deg, #f3f2f1 25%, #e1dfdd 50%, #f3f2f1 75%);
+  background: linear-gradient(90deg, var(--up-neutral-lighter) 25%, var(--up-neutral-light) 50%, var(--up-neutral-lighter) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--up-white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -105,13 +141,7 @@
   height: 24px;
 }
 
-.user-persona-size-24 .user-persona-name {
-  font-size: 12px;
-}
-
-.user-persona-size-24 .user-persona-email {
-  font-size: 11px;
-}
+/* Size-specific text overrides removed - text inherits from parent container */
 
 .user-persona-size-28 .user-persona-avatar-photo,
 .user-persona-size-28 .user-persona-loading {
@@ -119,13 +149,6 @@
   height: 28px;
 }
 
-.user-persona-size-28 .user-persona-name {
-  font-size: 13px;
-}
-
-.user-persona-size-28 .user-persona-email {
-  font-size: 11px;
-}
 
 .user-persona-size-32 .user-persona-avatar-photo,
 .user-persona-size-32 .user-persona-loading {
@@ -139,13 +162,6 @@
   height: 40px;
 }
 
-.user-persona-size-40 .user-persona-name {
-  font-size: 15px;
-}
-
-.user-persona-size-40 .user-persona-email {
-  font-size: 13px;
-}
 
 .user-persona-size-48 .user-persona-avatar-photo,
 .user-persona-size-48 .user-persona-loading {
@@ -153,13 +169,6 @@
   height: 48px;
 }
 
-.user-persona-size-48 .user-persona-name {
-  font-size: 16px;
-}
-
-.user-persona-size-48 .user-persona-email {
-  font-size: 13px;
-}
 
 .user-persona-size-56 .user-persona-avatar-photo,
 .user-persona-size-56 .user-persona-loading {
@@ -167,13 +176,6 @@
   height: 56px;
 }
 
-.user-persona-size-56 .user-persona-name {
-  font-size: 18px;
-}
-
-.user-persona-size-56 .user-persona-email {
-  font-size: 14px;
-}
 
 .user-persona-size-72 .user-persona-avatar-photo,
 .user-persona-size-72 .user-persona-loading {
@@ -181,13 +183,6 @@
   height: 72px;
 }
 
-.user-persona-size-72 .user-persona-name {
-  font-size: 20px;
-}
-
-.user-persona-size-72 .user-persona-email {
-  font-size: 15px;
-}
 
 .user-persona-size-100 .user-persona-avatar-photo,
 .user-persona-size-100 .user-persona-loading {
@@ -195,13 +190,6 @@
   height: 100px;
 }
 
-.user-persona-size-100 .user-persona-name {
-  font-size: 24px;
-}
-
-.user-persona-size-100 .user-persona-email {
-  font-size: 16px;
-}
 
 /* Hover effects */
 .user-persona-container.clickable .user-persona-avatar-photo:hover,
@@ -213,7 +201,7 @@
 
 /* Focus styles for accessibility */
 .user-persona-container:focus-visible {
-  outline: 2px solid #0078d4;
+  outline: 2px solid var(--up-focus-color);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -235,7 +223,7 @@
 
   .user-persona-loading {
     animation: none;
-    background: #f3f2f1;
+    background: var(--up-neutral-lighter);
   }
 }
 
@@ -243,13 +231,5 @@
 @media (max-width: 768px) {
   .user-persona-text {
     gap: 1px;
-  }
-
-  .user-persona-name {
-    font-size: 13px;
-  }
-
-  .user-persona-email {
-    font-size: 11px;
   }
 }

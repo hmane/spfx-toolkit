@@ -19,6 +19,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPUrlField component for URL (hyperlink) input
@@ -86,9 +87,12 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
   } = props;
 
   const theme = useTheme();
-  const [internalValue, setInternalValue] = React.useState<ISPUrlFieldValue>(
-    defaultValue || { Url: '', Description: '' }
-  );
+
+  // F-6: Defensive property access - normalize defaultValue to ensure correct shape
+  const [internalValue, setInternalValue] = React.useState<ISPUrlFieldValue>(() => ({
+    Url: defaultValue?.Url ?? '',
+    Description: defaultValue?.Description ?? '',
+  }));
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -112,7 +116,11 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
   }, [name, label, required, formContext, fieldRef]);
 
   // Use controlled value if provided, otherwise use internal state
-  const currentValue = value !== undefined ? value : internalValue;
+  // F-6: Ensure currentValue always has correct shape with defensive defaults
+  const currentValue: ISPUrlFieldValue = React.useMemo(() => ({
+    Url: (value !== undefined ? value?.Url : internalValue.Url) ?? '',
+    Description: (value !== undefined ? value?.Description : internalValue.Description) ?? '',
+  }), [value, internalValue]);
 
   // URL validation regex
   const urlRegex = React.useMemo(() => {
@@ -191,12 +199,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
-
   const linkPreviewClass = mergeStyles({
     marginTop: 8,
     padding: 8,
@@ -252,9 +254,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                   onFocusIn={onFocus}
                   onFocusOut={onBlur}
                   isValid={!hasError}
-                  validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                  className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                 />
               </div>
 
@@ -273,9 +272,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                     placeholder={descriptionPlaceholder}
                     stylingMode={stylingMode}
                     isValid={!hasError}
-                    validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-                    className={`${hasError ? 'dx-invalid' : ''}`.trim()}
                   />
                 </div>
               )}
@@ -283,6 +279,15 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
           );
         })()}
         </div>
+
+        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
+        {fieldError && !formContext?.autoShowErrors && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
 
         {/* Link Preview */}
         {showLinkIcon && hasValidUrl && !readOnly && (

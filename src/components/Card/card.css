@@ -18,6 +18,16 @@
   --spfx-card-warning-light: var(--yellowLight, #fff4ce);
   --spfx-card-info: var(--themePrimary, #0078d4);
   --spfx-card-info-light: var(--themeLight, #c7e0f4);
+  /* C-7: Gradient dark variants */
+  --spfx-card-success-dark: #0e6e0e;
+  --spfx-card-error-dark: #a11d20;
+  --spfx-card-warning-dark: #cc9900;
+  --spfx-card-info-dark: #106ebe;
+  /* C-7: High contrast mode */
+  --spfx-card-hc-border: #000;
+  /* C-7: Focus indicator */
+  --spfx-card-focus-color: var(--themePrimary, #0078d4);
+  --spfx-card-focus-shadow: rgba(0, 120, 212, 0.2);
 }
 .spfx-card {
   display: flex;
@@ -152,48 +162,53 @@
 }
 .spfx-card-header-fixed.clickable {
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
 }
 .spfx-card-header-fixed.clickable:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
+/* BLOCKER FIX C-1: WCAG 2.4.7 - Visible focus indicator for keyboard navigation */
 .spfx-card-header-fixed.clickable:focus-visible {
-  outline: none;
+  outline: 2px solid var(--spfx-card-focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--spfx-card-focus-shadow);
 }
+/* Hide outline for mouse clicks but keep for keyboard */
 .spfx-card-header-fixed.clickable:focus:not(:focus-visible) {
   outline: none;
 }
 .spfx-card-header-fixed.success {
-  background: linear-gradient(135deg, var(--spfx-card-success) 0%, #0e6e0e 100%);
+  background: linear-gradient(135deg, var(--spfx-card-success) 0%, var(--spfx-card-success-dark) 100%);
   color: var(--spfx-card-theme-white);
   border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 .spfx-card-header-fixed.success.clickable:hover {
-  background: linear-gradient(135deg, #0e6e0e 0%, var(--spfx-card-success) 100%);
+  background: linear-gradient(135deg, var(--spfx-card-success-dark) 0%, var(--spfx-card-success) 100%);
 }
 .spfx-card-header-fixed.error {
-  background: linear-gradient(135deg, var(--spfx-card-error) 0%, #a11d20 100%);
+  background: linear-gradient(135deg, var(--spfx-card-error) 0%, var(--spfx-card-error-dark) 100%);
   color: var(--spfx-card-theme-white);
   border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 .spfx-card-header-fixed.error.clickable:hover {
-  background: linear-gradient(135deg, #a11d20 0%, var(--spfx-card-error) 100%);
+  background: linear-gradient(135deg, var(--spfx-card-error-dark) 0%, var(--spfx-card-error) 100%);
 }
 .spfx-card-header-fixed.warning {
-  background: linear-gradient(135deg, var(--spfx-card-warning) 0%, #cc9900 100%);
+  background: linear-gradient(135deg, var(--spfx-card-warning) 0%, var(--spfx-card-warning-dark) 100%);
   color: var(--spfx-card-neutral-primary);
   border-bottom-color: rgba(0, 0, 0, 0.1);
 }
 .spfx-card-header-fixed.warning.clickable:hover {
-  background: linear-gradient(135deg, #cc9900 0%, var(--spfx-card-warning) 100%);
+  background: linear-gradient(135deg, var(--spfx-card-warning-dark) 0%, var(--spfx-card-warning) 100%);
 }
 .spfx-card-header-fixed.info {
-  background: linear-gradient(135deg, var(--spfx-card-info) 0%, #106ebe 100%);
+  background: linear-gradient(135deg, var(--spfx-card-info) 0%, var(--spfx-card-info-dark) 100%);
   color: var(--spfx-card-theme-white);
   border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 .spfx-card-header-fixed.info.clickable:hover {
-  background: linear-gradient(135deg, #106ebe 0%, var(--spfx-card-info) 100%);
+  background: linear-gradient(135deg, var(--spfx-card-info-dark) 0%, var(--spfx-card-info) 100%);
 }
 .spfx-card-header-fixed.default {
   background: var(--spfx-card-neutral-lighter);
@@ -317,8 +332,9 @@
   align-items: center;
   justify-content: center;
   padding: 0;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  animation: fadeIn 300ms ease-out;
+  animation: spfx-card-fadeIn 300ms ease-out;
 }
 .spfx-card-maximized-content {
   width: 100vw;
@@ -519,12 +535,12 @@
   .spfx-card {
     break-inside: avoid;
     box-shadow: none;
-    border: 1px solid #000;
+    border: 1px solid var(--spfx-card-hc-border);
   }
   .spfx-card-header-fixed {
     background: white !important;
     color: black !important;
-    border-bottom: 1px solid #000;
+    border-bottom: 1px solid var(--spfx-card-hc-border);
   }
   .spfx-header-buttons {
     display: none;
@@ -535,12 +551,12 @@
   }
   .spfx-card-footer {
     display: block !important;
-    border-top: 1px solid #000;
+    border-top: 1px solid var(--spfx-card-hc-border);
     background: white !important;
     color: black !important;
   }
 }
-@keyframes fadeIn {
+@keyframes spfx-card-fadeIn {
   from {
     opacity: 0;
   }
@@ -548,7 +564,7 @@
     opacity: 1;
   }
 }
-@keyframes slideDown {
+@keyframes spfx-card-slideDown {
   from {
     max-height: 0;
     opacity: 0;
@@ -558,7 +574,7 @@
     opacity: 1;
   }
 }
-@keyframes slideUp {
+@keyframes spfx-card-slideUp {
   from {
     max-height: 500px;
     opacity: 1;
@@ -583,12 +599,12 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  animation: shimmer 1.5s infinite;
+  animation: spfx-card-shimmer 1.5s infinite;
 }
 .spfx-card.loading .spfx-card-body {
   opacity: 0.6;
 }
-@keyframes shimmer {
+@keyframes spfx-card-shimmer {
   0% {
     left: -100%;
   }
@@ -893,7 +909,7 @@
   .spfx-accordion .spfx-accordion-card {
     break-inside: avoid;
     box-shadow: none !important;
-    border: 1px solid #000 !important;
+    border: 1px solid var(--spfx-card-hc-border) !important;
     margin-bottom: 8px !important;
     transform: none !important;
   }
@@ -997,7 +1013,7 @@
   right: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--spfx-card-theme-primary), transparent);
-  animation: loadingBar 1.5s infinite;
+  animation: spfx-card-loadingBar 1.5s infinite;
   z-index: 10;
 }
 .spfx-accordion.error {
@@ -1025,7 +1041,7 @@
 .spfx-accordion.disabled .spfx-accordion-card .spfx-card-header-fixed {
   cursor: not-allowed;
 }
-@keyframes loadingBar {
+@keyframes spfx-card-loadingBar {
   0% {
     transform: translateX(-100%);
     opacity: 0;
@@ -1249,30 +1265,7 @@
     transform: translateY(-10px);
   }
 }
-@keyframes accordionExpand {
-  from {
-    max-height: 0;
-    opacity: 0;
-    transform: scaleY(0.95);
-  }
-  to {
-    max-height: 10000px;
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
-@keyframes accordionCollapse {
-  from {
-    max-height: 10000px;
-    opacity: 1;
-    transform: scaleY(1);
-  }
-  to {
-    max-height: 0;
-    opacity: 0;
-    transform: scaleY(0.95);
-  }
-}
+/* T-4: Duplicate @keyframes accordionExpand/accordionCollapse removed - defined at lines 1056/1068 */
 @keyframes cardMaximize {
   from {
     transform: scale(1);
@@ -1337,41 +1330,10 @@
     transform: scale(0.9) translateY(20px);
   }
 }
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-@keyframes shimmerWave {
-  0% {
-    background-position: -200% 0;
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 0.8;
-  }
-  100% {
-    background-position: 200% 0;
-    opacity: 0.4;
-  }
-}
-@keyframes loadingBar {
-  0% {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-@keyframes spin {
+/* T-4: Removed duplicate @keyframes spfx-card-shimmer (defined at line 597) */
+/* T-4: Removed unused @keyframes spfx-card-shimmerWave */
+/* T-4: Removed duplicate @keyframes spfx-card-loadingBar (defined at line 1034) */
+@keyframes spfx-card-spin {
   from {
     transform: rotate(0deg);
   }
@@ -1379,7 +1341,7 @@
     transform: rotate(360deg);
   }
 }
-@keyframes pulse {
+@keyframes spfx-card-pulse {
   0%, 100% {
     opacity: 0.4;
     transform: scale(0.95);
@@ -1389,7 +1351,7 @@
     transform: scale(1);
   }
 }
-@keyframes loadingDots {
+@keyframes spfx-card-loadingDots {
   0%, 80%, 100% {
     transform: scale(0.8);
     opacity: 0.5;
@@ -1399,7 +1361,7 @@
     opacity: 1;
   }
 }
-@keyframes progressIndeterminate {
+@keyframes spfx-card-progressIndeterminate {
   0% {
     left: -35%;
     right: 100%;
@@ -1437,7 +1399,7 @@
     box-shadow: 0 4px 8px var(--spfx-card-shadow-color), 0 0 0 4px rgba(0, 120, 212, 0.2);
   }
 }
-@keyframes buttonHover {
+@keyframes spfx-card-buttonHover {
   from {
     transform: translateY(0);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -1447,7 +1409,7 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   }
 }
-@keyframes iconRotate {
+@keyframes spfx-card-iconRotate {
   from {
     transform: rotate(0deg);
   }
@@ -1455,7 +1417,7 @@
     transform: rotate(180deg);
   }
 }
-@keyframes subtleBounce {
+@keyframes spfx-card-subtleBounce {
   0%, 100% {
     transform: translateY(0);
   }
@@ -1463,7 +1425,7 @@
     transform: translateY(-2px);
   }
 }
-@keyframes staggeredFadeIn {
+@keyframes spfx-card-staggeredFadeIn {
   from {
     opacity: 0;
     transform: translateY(30px);
@@ -1537,10 +1499,10 @@
   animation: cardGlow 2s var(--spfx-anim-ease-in-out) infinite;
 }
 .spfx-animate-pulse {
-  animation: pulse 2s var(--spfx-anim-ease-in-out) infinite;
+  animation: spfx-card-pulse 2s var(--spfx-anim-ease-in-out) infinite;
 }
 .spfx-animate-bounce {
-  animation: subtleBounce 0.6s var(--spfx-anim-ease-out);
+  animation: spfx-card-subtleBounce 0.6s var(--spfx-anim-ease-out);
 }
 .spfx-animate-fast {
   animation-duration: var(--spfx-anim-duration-fast) !important;
@@ -1564,13 +1526,13 @@
   animation-iteration-count: infinite !important;
 }
 .spfx-card.hover-lift:hover {
-  animation: buttonHover var(--spfx-anim-duration-fast) var(--spfx-anim-ease-out) forwards;
+  animation: spfx-card-buttonHover var(--spfx-anim-duration-fast) var(--spfx-anim-ease-out) forwards;
 }
 .spfx-card.hover-glow:hover {
   animation: cardGlow 0.6s var(--spfx-anim-ease-out);
 }
 .spfx-card.hover-bounce:hover {
-  animation: subtleBounce 0.6s var(--spfx-anim-ease-out);
+  animation: spfx-card-subtleBounce 0.6s var(--spfx-anim-ease-out);
 }
 @media (max-width: 768px) {
   .spfx-card.spfx-animate-fade-in, .spfx-card.spfx-animate-slide-in-left, .spfx-card.spfx-animate-slide-in-right, .spfx-card.spfx-animate-slide-in-up, .spfx-card.spfx-animate-slide-in-down {
@@ -1616,7 +1578,7 @@
   }
   .spfx-card {
     box-shadow: none !important;
-    border: 1px solid #000 !important;
+    border: 1px solid var(--spfx-card-hc-border) !important;
   }
 }
 @media (forced-colors: active) {
@@ -1640,13 +1602,13 @@
       outline: 1px solid Highlight;
     }
   }
-  @keyframes shimmer {
+  @keyframes spfx-card-shimmer {
     from, to {
       border-color: Highlight;
       outline: 1px solid Highlight;
     }
   }
-  @keyframes shimmerWave {
+  @keyframes spfx-card-shimmerWave {
     from, to {
       border-color: Highlight;
       outline: 1px solid Highlight;
@@ -1709,7 +1671,7 @@
   animation: cardErrorHighlight 0.8s var(--spfx-anim-ease-out);
 }
 .spfx-card-error.spfx-animate-shake {
-  animation: errorShake 0.5s var(--spfx-anim-ease-out);
+  animation: spfx-card-errorShake 0.5s var(--spfx-anim-ease-out);
 }
 @keyframes cardErrorHighlight {
   0% {
@@ -1725,7 +1687,7 @@
     transform: scale(1);
   }
 }
-@keyframes errorShake {
+@keyframes spfx-card-errorShake {
   0%, 100% {
     transform: translateX(0);
   }
@@ -1740,7 +1702,7 @@
   animation: cardWarningHighlight 0.8s var(--spfx-anim-ease-out);
 }
 .spfx-card-warning.spfx-animate-pulse {
-  animation: warningPulse 2s var(--spfx-anim-ease-in-out) infinite;
+  animation: spfx-card-warningPulse 2s var(--spfx-anim-ease-in-out) infinite;
 }
 @keyframes cardWarningHighlight {
   0% {
@@ -1756,7 +1718,7 @@
     transform: scale(1);
   }
 }
-@keyframes warningPulse {
+@keyframes spfx-card-warningPulse {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
@@ -1816,7 +1778,7 @@
     transform: perspective(1000px) rotateY(0deg);
   }
 }
-@keyframes typewriter {
+@keyframes spfx-card-typewriter {
   from {
     width: 0;
   }
@@ -1824,7 +1786,7 @@
     width: 100%;
   }
 }
-@keyframes advancedSpin {
+@keyframes spfx-card-advancedSpin {
   0% {
     transform: rotate(0deg) scale(1);
   }
@@ -1845,10 +1807,10 @@
   overflow: hidden;
   white-space: nowrap;
   border-right: 2px solid var(--spfx-card-theme-primary);
-  animation: typewriter 2s steps(20) forwards;
+  animation: spfx-card-typewriter 2s steps(20) forwards;
 }
 .spfx-card.advanced-loading .spfx-card-loading-spinner {
-  animation: advancedSpin 1s linear infinite;
+  animation: spfx-card-advancedSpin 1s linear infinite;
 }
 .spfx-animation-start {
   animation-play-state: running;

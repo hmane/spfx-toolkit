@@ -27,16 +27,87 @@ import { getErrorMessage, getPermissionNames, isGroupNameMatch } from './utils';
 import { LRUCache } from './LRUCache';
 
 /**
+ * MODULE-LEVEL pending promise tracking for request deduplication
+ *
+ * CRITICAL: These must be at module level (not instance level) to ensure
+ * deduplication works across ALL PermissionHelper instances in the application.
+ *
+ * Without this, each new PermissionHelper() instance would have its own
+ * pendingUserGroups/pendingCurrentUser, and parallel calls from different
+ * instances would all trigger duplicate API calls.
+ *
+ * Keys are constructed as: `${webAbsoluteUrl}_${userId}` to support multi-site scenarios
+ */
+const modulePendingCurrentUser: Map<string, Promise<ISPUser>> = new Map();
+const modulePendingUserGroups: Map<string, Promise<ISPGroup[]>> = new Map();
+const moduleCurrentUserCache: Map<string, ISPUser> = new Map();
+const moduleUserGroupsCache: Map<string, { groups: ISPGroup[]; timestamp: number }> = new Map();
+
+// Module-level pending promise tracking for item permission checks
+// Prevents duplicate calls when multiple components check the same item's permissions
+const modulePendingItemPermissions: Map<string, Promise<boolean>> = new Map();
+const moduleItemPermissionsCache: Map<string, { result: boolean; timestamp: number }> = new Map();
+
+// Cache timeout for module-level caches (5 minutes)
+const MODULE_CACHE_TIMEOUT = 5 * 60 * 1000;
+
+/**
+ * Clear all module-level caches for permission helper
+ *
+ * Use this for testing, or after major permission changes that affect all users.
+ * In normal operation, the caches auto-expire after 5 minutes.
+ */
+export function clearPermissionModuleCaches(): void {
+  modulePendingCurrentUser.clear();
+  modulePendingUserGroups.clear();
+  moduleCurrentUserCache.clear();
+  moduleUserGroupsCache.clear();
+  modulePendingItemPermissions.clear();
+  moduleItemPermissionsCache.clear();
+  try {
+    SPContext.logger.info('PermissionHelper: Module-level caches cleared');
+  } catch {
+    // SPContext may not be initialized
+  }
+}
+
+/**
+ * Get statistics about the module-level caches
+ * Useful for debugging and monitoring
+ */
+export function getPermissionModuleCacheStats(): {
+  pendingCurrentUserCount: number;
+  pendingUserGroupsCount: number;
+  currentUserCacheCount: number;
+  userGroupsCacheCount: number;
+  pendingItemPermissionsCount: number;
+  itemPermissionsCacheCount: number;
+} {
+  return {
+    pendingCurrentUserCount: modulePendingCurrentUser.size,
+    pendingUserGroupsCount: modulePendingUserGroups.size,
+    currentUserCacheCount: moduleCurrentUserCache.size,
+    userGroupsCacheCount: moduleUserGroupsCache.size,
+    pendingItemPermissionsCount: modulePendingItemPermissions.size,
+    itemPermissionsCacheCount: moduleItemPermissionsCache.size,
+  };
+}
+
+/**
  * Permission Helper Utility for SharePoint
  * Provides easy-to-use methods for checking permissions and roles using string-based group names
  *
  * Uses LRU (Least Recently Used) cache with configurable size limit to prevent unbounded memory growth.
+ *
+ * IMPORTANT: User/groups API calls use MODULE-LEVEL deduplication to prevent
+ * 100s of duplicate requests when multiple PermissionHelper instances exist.
  */
 export class PermissionHelper {
   private readonly sp: SPFI;
   private readonly config: Required<IPermissionHelperConfig>;
   private readonly cache: LRUCache<string, ICachedPermission>;
-  private currentUserCache?: ISPUser;
+  // Instance-level cache key prefix based on web URL
+  private readonly cacheKeyPrefix: string;
 
   constructor(sp: SPFI, config: IPermissionHelperConfig = {}) {
     this.sp = sp;
@@ -51,6 +122,14 @@ export class PermissionHelper {
 
     // Initialize LRU cache with configured size
     this.cache = new LRUCache<string, ICachedPermission>(this.config.cacheSize || 100);
+
+    // Create cache key prefix from web URL for multi-site support
+    // Use SPContext if available, otherwise fall back to 'default'
+    try {
+      this.cacheKeyPrefix = SPContext.webAbsoluteUrl || 'default';
+    } catch {
+      this.cacheKeyPrefix = 'default';
+    }
   }
 
   /**
@@ -97,6 +176,7 @@ export class PermissionHelper {
 
   /**
    * Check if current user has specific permission level on a list item
+   * Uses module-level caching to prevent duplicate API calls across instances
    * @param listName - Title of the SharePoint list
    * @param itemId - ID of the list item
    * @param permissionLevel - Required permission level
@@ -107,24 +187,75 @@ export class PermissionHelper {
     itemId: number,
     permissionLevel: SPPermissionLevel
   ): Promise<IPermissionResult> {
+    // Build module-level cache key including web URL for multi-site support
+    const moduleCacheKey = `${this.cacheKeyPrefix}_item_${listName}_${itemId}_${permissionLevel}`;
+
     try {
-      const cacheKey = `item_permission_${listName}_${itemId}_${permissionLevel}`;
-      const cached = this.getCachedData<IPermissionResult>(cacheKey);
+      // Check instance-level cache first
+      const instanceCacheKey = `item_permission_${listName}_${itemId}_${permissionLevel}`;
+      const cached = this.getCachedData<IPermissionResult>(instanceCacheKey);
       if (cached) {
         return cached;
       }
 
+      // Check module-level cache (with timeout)
+      const moduleCached = moduleItemPermissionsCache.get(moduleCacheKey);
+      if (moduleCached && Date.now() - moduleCached.timestamp < MODULE_CACHE_TIMEOUT) {
+        const result: IPermissionResult = {
+          hasPermission: moduleCached.result,
+          permissionLevel: permissionLevel,
+        };
+        this.setCachedData(instanceCacheKey, result);
+        return result;
+      }
+
+      // Check if there's already a pending request at module level
+      const pendingPromise = modulePendingItemPermissions.get(moduleCacheKey);
+      if (pendingPromise) {
+        SPContext.logger.info('PermissionHelper: Reusing pending item permission request', {
+          listName,
+          itemId,
+          permissionLevel,
+        });
+        const hasPermission = await pendingPromise;
+        return {
+          hasPermission,
+          permissionLevel: permissionLevel,
+        };
+      }
+
+      // Start new request and track at module level
+      SPContext.logger.info('PermissionHelper: Starting item permission request', {
+        listName,
+        itemId,
+        permissionLevel,
+      });
+
       const item = this.sp.web.lists.getByTitle(listName).items.getById(itemId);
       const permissionKind = this.mapPermissionLevel(permissionLevel);
-      const userPermissions = await item.currentUserHasPermissions(permissionKind);
+      const newPromise = item.currentUserHasPermissions(permissionKind);
+      modulePendingItemPermissions.set(moduleCacheKey, newPromise);
 
-      const result: IPermissionResult = {
-        hasPermission: userPermissions,
-        permissionLevel: permissionLevel,
-      };
+      try {
+        const userPermissions = await newPromise;
 
-      this.setCachedData(cacheKey, result);
-      return result;
+        // Cache at both module and instance level
+        moduleItemPermissionsCache.set(moduleCacheKey, {
+          result: userPermissions,
+          timestamp: Date.now(),
+        });
+
+        const result: IPermissionResult = {
+          hasPermission: userPermissions,
+          permissionLevel: permissionLevel,
+        };
+
+        this.setCachedData(instanceCacheKey, result);
+        return result;
+      } finally {
+        // Clear pending promise after completion
+        modulePendingItemPermissions.delete(moduleCacheKey);
+      }
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       SPContext.logger.warn('PermissionHelper: Item permission check failed', {
@@ -133,6 +264,8 @@ export class PermissionHelper {
         permissionLevel,
         error: errorMessage,
       });
+      // Clear pending on error
+      modulePendingItemPermissions.delete(moduleCacheKey);
       return {
         hasPermission: false,
         error: errorMessage,
@@ -501,7 +634,14 @@ export class PermissionHelper {
    */
   public clearCache(): void {
     this.cache.clear();
-    this.currentUserCache = undefined;
+    // Also clear module-level caches for this web
+    moduleCurrentUserCache.delete(this.cacheKeyPrefix);
+    // Clear all user groups caches that start with this prefix
+    for (const key of moduleUserGroupsCache.keys()) {
+      if (key.startsWith(this.cacheKeyPrefix)) {
+        moduleUserGroupsCache.delete(key);
+      }
+    }
   }
 
   /**
@@ -590,9 +730,18 @@ export class PermissionHelper {
       return key === `user_groups_${userId}` || key.startsWith(prefix);
     });
 
-    // Also clear current user cache if no specific user provided
+    // Also clear module-level caches
     if (userId === undefined) {
-      this.currentUserCache = undefined;
+      moduleCurrentUserCache.delete(this.cacheKeyPrefix);
+      // Clear all user groups caches for this web
+      for (const key of moduleUserGroupsCache.keys()) {
+        if (key.startsWith(this.cacheKeyPrefix)) {
+          moduleUserGroupsCache.delete(key);
+        }
+      }
+    } else {
+      // Clear specific user's groups cache
+      moduleUserGroupsCache.delete(`${this.cacheKeyPrefix}_user_groups_${userId}`);
     }
 
     return removed;
@@ -634,25 +783,82 @@ export class PermissionHelper {
   // Private helper methods
 
   private async getCurrentUser(): Promise<ISPUser> {
-    if (this.currentUserCache) {
-      return this.currentUserCache;
-    }
+    const cacheKey = this.cacheKeyPrefix;
 
-    this.currentUserCache = await this.sp.web.currentUser();
-    return this.currentUserCache;
-  }
-
-  private async getUserGroups(userId: number): Promise<ISPGroup[]> {
-    const cacheKey = `user_groups_${userId}`;
-    const cached = this.getCachedData<ISPGroup[]>(cacheKey);
+    // Return from module-level cache if available
+    const cached = moduleCurrentUserCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const groups = await this.sp.web.siteUsers.getById(userId).groups();
-    this.setCachedData(cacheKey, groups);
+    // If there's already a pending request at module level, wait for it
+    // This deduplicates concurrent calls across ALL PermissionHelper instances
+    const pendingPromise = modulePendingCurrentUser.get(cacheKey);
+    if (pendingPromise) {
+      SPContext.logger.info('PermissionHelper: Reusing pending currentUser request');
+      return pendingPromise;
+    }
 
-    return groups;
+    // Start the request and track at module level
+    SPContext.logger.info('PermissionHelper: Starting currentUser request');
+    const newPromise = this.sp.web.currentUser();
+    modulePendingCurrentUser.set(cacheKey, newPromise);
+
+    try {
+      const user = await newPromise;
+      moduleCurrentUserCache.set(cacheKey, user);
+      SPContext.logger.info('PermissionHelper: currentUser loaded and cached', { userId: user.Id });
+      return user;
+    } finally {
+      // Clear pending promise after completion
+      modulePendingCurrentUser.delete(cacheKey);
+    }
+  }
+
+  private async getUserGroups(userId: number): Promise<ISPGroup[]> {
+    const cacheKey = `${this.cacheKeyPrefix}_user_groups_${userId}`;
+
+    // Check module-level cache first (with timeout)
+    const cachedEntry = moduleUserGroupsCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < MODULE_CACHE_TIMEOUT) {
+      return cachedEntry.groups;
+    }
+
+    // Also check instance-level cache (LRU)
+    const instanceCached = this.getCachedData<ISPGroup[]>(`user_groups_${userId}`);
+    if (instanceCached) {
+      return instanceCached;
+    }
+
+    // If there's already a pending request at module level, wait for it
+    // This is CRITICAL: deduplicates calls across ALL PermissionHelper instances
+    const pendingPromise = modulePendingUserGroups.get(cacheKey);
+    if (pendingPromise) {
+      SPContext.logger.info('PermissionHelper: Reusing pending getUserGroups request', { userId });
+      return pendingPromise;
+    }
+
+    // Start the request and track at module level
+    SPContext.logger.info('PermissionHelper: Starting getUserGroups request', { userId });
+    const newPromise = this.sp.web.siteUsers.getById(userId).groups();
+    modulePendingUserGroups.set(cacheKey, newPromise);
+
+    try {
+      const groups = await newPromise;
+
+      // Cache at both module and instance level
+      moduleUserGroupsCache.set(cacheKey, { groups, timestamp: Date.now() });
+      this.setCachedData(`user_groups_${userId}`, groups);
+
+      SPContext.logger.info('PermissionHelper: getUserGroups loaded and cached', {
+        userId,
+        groupCount: groups.length,
+      });
+      return groups;
+    } finally {
+      // Clear pending promise after completion
+      modulePendingUserGroups.delete(cacheKey);
+    }
   }
 
   private mapPermissionLevel(level: SPPermissionLevel): PermissionKind {

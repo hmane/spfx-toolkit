@@ -33,14 +33,17 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
-    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
 
-    "paths": {
-      "@components/*": ["components/*"],
-      "@hooks/*": ["hooks/*"],
-      "@utilities/*": ["utilities/*"],
-      "@types/*": ["types/*"]
-    }
+    // B-1: Path aliases are defined for CONSUMING projects only.
+    // DO NOT use these aliases in source code - use relative imports instead.
+    // See CLAUDE.md "Import Paths - CRITICAL" section for details.
+    // "paths": {
+    //   "@components/*": ["components/*"],
+    //   "@hooks/*": ["hooks/*"],
+    //   "@utilities/*": ["utilities/*"],
+    //   "@types/*": ["types/*"]
+    // }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
   "exclude": ["node_modules", "lib", "dist", "temp"]

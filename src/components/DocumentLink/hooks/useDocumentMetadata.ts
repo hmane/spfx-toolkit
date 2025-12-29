@@ -10,6 +10,13 @@ import { getFileExtension, toAbsoluteUrl, getFilenameFromUrl } from '../utils';
 const documentCache = new Map<string, IDocumentInfo>();
 
 /**
+ * Pending promise tracking for request deduplication
+ * Prevents duplicate API calls when multiple DocumentLink components
+ * request the same document simultaneously
+ */
+const pendingRequests = new Map<string, Promise<IDocumentInfo>>();
+
+/**
  * Options for useDocumentMetadata hook
  */
 interface IUseDocumentMetadataOptions {
@@ -96,6 +103,20 @@ export function useDocumentMetadata(
         return;
       }
 
+      // Check if there's already a pending request for this document
+      // This prevents duplicate API calls when multiple components request the same document
+      if (cacheKey && pendingRequests.has(cacheKey)) {
+        try {
+          const docInfo = await pendingRequests.get(cacheKey)!;
+          if (isMountedRef.current) {
+            setDocument(docInfo);
+          }
+          return;
+        } catch {
+          // If pending request failed, we'll try again below
+        }
+      }
+
       // Ensure SPContext is initialized
       if (!SPContext.isReady()) {
         throw new DocumentLinkError(
@@ -104,33 +125,52 @@ export function useDocumentMetadata(
         );
       }
 
-      let fileData: any;
+      // Create the fetch promise and track it for deduplication
+      const fetchPromise = (async (): Promise<IDocumentInfo> => {
+        let fileData: any;
 
-      // Fetch by URL
-      if (documentUrl) {
-        fileData = await fetchByUrl(documentUrl);
+        // Fetch by URL
+        if (documentUrl) {
+          fileData = await fetchByUrl(documentUrl);
+        }
+        // Fetch by UniqueId
+        else if (documentUniqueId) {
+          fileData = await fetchByUniqueId(documentUniqueId);
+        }
+        // Fetch by ID and library name
+        else if (documentId && libraryName) {
+          fileData = await fetchByIdAndLibrary(documentId, libraryName);
+        }
+
+        // Transform to IDocumentInfo
+        const docInfo = transformToDocumentInfo(fileData);
+
+        // Cache the result
+        if (enableCache && cacheKey) {
+          documentCache.set(cacheKey, docInfo);
+        }
+
+        return docInfo;
+      })();
+
+      // Track the pending request
+      if (cacheKey) {
+        pendingRequests.set(cacheKey, fetchPromise);
       }
-      // Fetch by UniqueId
-      else if (documentUniqueId) {
-        fileData = await fetchByUniqueId(documentUniqueId);
+
+      try {
+        const docInfo = await fetchPromise;
+
+        // Check if still mounted before updating state
+        if (isMountedRef.current) {
+          setDocument(docInfo);
+        }
+      } finally {
+        // Clear pending request after completion
+        if (cacheKey) {
+          pendingRequests.delete(cacheKey);
+        }
       }
-      // Fetch by ID and library name
-      else if (documentId && libraryName) {
-        fileData = await fetchByIdAndLibrary(documentId, libraryName);
-      }
-
-      // Check if still mounted before updating state
-      if (!isMountedRef.current) return;
-
-      // Transform to IDocumentInfo
-      const docInfo = transformToDocumentInfo(fileData);
-
-      // Cache the result
-      if (enableCache && cacheKey) {
-        documentCache.set(cacheKey, docInfo);
-      }
-
-      setDocument(docInfo);
     } catch (err: any) {
       if (!isMountedRef.current) return;
 
@@ -168,6 +208,28 @@ export function useDocumentMetadata(
 }
 
 /**
+ * Fully decode a URL path, handling multiple levels of encoding
+ * Keeps decoding until no more %XX patterns are found or we reach a stable state
+ */
+function fullyDecodeUrlPath(path: string): string {
+  let decoded = path;
+  let previous = '';
+
+  // Keep decoding while the string changes and still contains encoded chars
+  while (decoded !== previous && decoded.includes('%')) {
+    previous = decoded;
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      // If decode fails, we've hit an invalid sequence - stop
+      break;
+    }
+  }
+
+  return decoded;
+}
+
+/**
  * Fetches document by URL
  */
 async function fetchByUrl(documentUrl: string): Promise<any> {
@@ -179,9 +241,14 @@ async function fetchByUrl(documentUrl: string): Promise<any> {
     if (documentUrl.startsWith('http://') || documentUrl.startsWith('https://')) {
       try {
         const url = new URL(documentUrl);
-        serverRelativeUrl = url.pathname + url.search;
+        // url.pathname is automatically decoded by URL constructor
+        serverRelativeUrl = url.pathname;
       } catch {
-        // If URL parsing fails, use as-is
+        // If URL parsing fails, try to extract path manually
+        const pathMatch = documentUrl.match(/https?:\/\/[^\/]+(\/.*)/);
+        if (pathMatch) {
+          serverRelativeUrl = pathMatch[1];
+        }
       }
     }
 
@@ -189,6 +256,10 @@ async function fetchByUrl(documentUrl: string): Promise<any> {
     if (!serverRelativeUrl.startsWith('/')) {
       serverRelativeUrl = '/' + serverRelativeUrl;
     }
+
+    // Fully decode any URL-encoded characters to get the actual path
+    // This handles double-encoded URLs like %2520 (which is %20 encoded again)
+    serverRelativeUrl = fullyDecodeUrlPath(serverRelativeUrl);
 
     // Use SPContext.spPessimistic for fresh data
     const file: any = await SPContext.spPessimistic.web.getFileByServerRelativePath(serverRelativeUrl)

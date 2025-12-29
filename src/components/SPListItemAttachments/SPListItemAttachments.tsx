@@ -92,6 +92,15 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const dropRef = React.useRef<HTMLDivElement>(null);
 
+  // Track mounted state to prevent setState after unmount
+  const isMountedRef = React.useRef(true);
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // State
   const [existingAttachments, setExistingAttachments] = React.useState<IAttachmentFile[]>([]);
   const [newFiles, setNewFiles] = React.useState<File[]>([]);
@@ -111,16 +120,22 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
 
     const loadAttachments = async () => {
       if (!SPContext.sp) {
-        setError('SPContext not initialized');
+        if (isMountedRef.current) {
+          setError('SPContext not initialized');
+        }
         return;
       }
 
       try {
-        setLoading(true);
-        setError(null);
+        if (isMountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
 
         const list = getListByNameOrId(SPContext.sp, listId);
         const item = await list.items.getById(itemId).select('AttachmentFiles').expand('AttachmentFiles')();
+
+        if (!isMountedRef.current) return;
 
         const attachments: IAttachmentFile[] = (item.AttachmentFiles || []).map((att: any) => ({
           fileName: att.FileName,
@@ -133,6 +148,8 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
           itemId,
         });
       } catch (err: any) {
+        if (!isMountedRef.current) return;
+
         const errorMsg = `Failed to load attachments: ${err?.message || 'Unknown error'}`;
         setError(errorMsg);
         SPContext.logger.error('SPListItemAttachments: Failed to load attachments', err, {
@@ -143,7 +160,9 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
           onError(err);
         }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 

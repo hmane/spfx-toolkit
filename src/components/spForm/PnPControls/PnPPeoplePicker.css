@@ -1,8 +1,16 @@
 /* PnPPeoplePicker Component Styles */
 /* Fix PnP PeoplePicker border to match Fluent UI controls */
 
+/* C-7: CSS Variables */
+:root {
+  --ppp-neutral-primary: var(--neutralPrimary, #323130);
+  --ppp-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --ppp-focus-color: var(--themePrimary, #0078d4);
+  --ppp-error-color: var(--red, #a4262c);
+}
+
 .ms-BasePicker {
-  border: 1px solid #8a8886 !important;
+  border: 1px solid var(--ppp-neutral-tertiary-alt) !important;
   border-radius: 2px !important;
   min-height: 32px !important;
   transition: border-color 0.15s ease-in-out !important;
@@ -10,12 +18,12 @@
 }
 
 .ms-BasePicker:hover {
-  border-color: #323130 !important;
+  border-color: var(--ppp-neutral-primary) !important;
 }
 
 .ms-BasePicker.is-active,
 .ms-BasePicker:focus-within {
-  border-color: #0078d4 !important;
+  border-color: var(--ppp-focus-color) !important;
   border-width: 1px !important;
   outline: none !important;
   box-shadow: none !important;
@@ -46,10 +54,10 @@
 
 /* Error state styling */
 .ms-BasePicker.error {
-  border-color: #a4262c !important;
+  border-color: var(--ppp-error-color) !important;
 }
 
 .ms-BasePicker.error:focus-within {
-  border-color: #a4262c !important;
+  border-color: var(--ppp-error-color) !important;
   box-shadow: none !important;
 }

@@ -14,9 +14,9 @@ import { Stack } from '@fluentui/react/lib/Stack';
 import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPNumberFieldProps } from './SPNumberField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import '../spFields.css';
 
 /**
  * SPNumberField component for numeric input
@@ -86,7 +86,6 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     inputRef,
   } = props;
 
-  const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<number | undefined>(defaultValue);
 
   // Create internal ref if not provided
@@ -189,12 +188,6 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
-  });
-
   // Render field content
   const renderField = (
     fieldValue: number | undefined,
@@ -237,13 +230,19 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
               onFocusIn={onFocus}
               onFocusOut={onBlur}
               isValid={!hasError}
-              validationStatus={hasError ? 'invalid' : 'valid'}
-          validationError={fieldError}
-              className={`${hasError ? 'dx-invalid' : ''}`.trim()}
             />
           );
         })()}
         </div>
+
+        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
+        {fieldError && !formContext?.autoShowErrors && (
+          <div className="sp-field-meta-row">
+            <span className="sp-field-error" role="alert">
+              <span className="sp-field-error-text">{fieldError}</span>
+            </span>
+          </div>
+        )}
       </Stack>
     );
   };
