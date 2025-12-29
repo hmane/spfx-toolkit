@@ -253,18 +253,22 @@
   background-color: var(--gv-neutral-lighter);
 }
 
-/* Enhanced Icon-Only Mode - Modern SaaS */
+/* Icon-Only Mode - SharePoint native appearance */
 .group-viewer-icon-only {
-  background: var(--gv-gradient-primary);
+  background: var(--neutralLighter, #f3f2f1);
   border-radius: 50%;
-  color: var(--gv-white);
-  box-shadow: var(--gv-shadow-md);
+  color: var(--neutralSecondary, #605e5c);
+  border: 1px solid var(--neutralLight, #edebe9);
   transition: all var(--gv-transition-normal);
 }
 
+.group-viewer-icon-only i {
+  color: var(--neutralSecondary, #605e5c);
+}
+
 .group-viewer-icon-only:hover {
-  box-shadow: var(--gv-shadow-lg);
-  transform: scale(1.08);
+  background: var(--neutralLight, #edebe9);
+  border-color: var(--neutralTertiary, #a19f9d);
 }
 
 /* Enhanced Tooltip Header - Modern SaaS with Gradient */

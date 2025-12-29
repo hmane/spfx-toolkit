@@ -782,7 +782,6 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
               styles={{
                 root: {
                   fontSize: iconSize,
-                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
