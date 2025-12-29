@@ -316,6 +316,40 @@ All Major and Minor issues have been addressed with minimal, targeted fixes:
 | m-6 | `useViewport.ts` | Simplified debounce - removed redundant RAF inside setTimeout. |
 | - | `SPListItemAttachments.tsx` | Added `isMountedRef` pattern for async safety. |
 
+#### Critical Fix: EffectiveBasePermissions Spam (M-4)
+
+| ID | File | Fix Applied |
+|----|------|-------------|
+| M-4 | `ManageAccessComponent.tsx` | **Fixed 100s of duplicate API calls.** `loadPermissions` callback was recreating on every render due to unstable callback dependencies (`getEnhancedItemPermissions`, `getCurrentUserPermissions`, etc.). Fixed by using refs to access callbacks without including them in deps. Now `loadPermissions` only depends on `[itemId, listId]` - reloads only when the actual item changes. |
+
+**Root Cause:** The `loadPermissions` useCallback included 7 dependencies:
+- `getEnhancedItemPermissions` (which itself depended on 6 callbacks)
+- `getCurrentUserPermissions`
+- `checkManagePermissions`
+- `filterAndProcessPermissions`
+- `onError`
+- `itemId`, `listId`
+
+Any change to any of these caused `loadPermissions` to be recreated, which triggered the effect that called it, causing repeated `EffectiveBasePermissions` API calls.
+
+**Fix Pattern Applied:**
+```typescript
+// Before: Unstable deps caused effect to refire on every render
+const loadPermissions = React.useCallback(async () => {
+  await getEnhancedItemPermissions();  // dep changes every render
+  await getCurrentUserPermissions();   // dep changes every render
+}, [getEnhancedItemPermissions, getCurrentUserPermissions, ...]); // 7 deps!
+
+// After: Use refs to access latest callbacks without triggering effect
+const getEnhancedItemPermissionsRef = React.useRef(getEnhancedItemPermissions);
+React.useEffect(() => { getEnhancedItemPermissionsRef.current = getEnhancedItemPermissions; });
+
+const loadPermissions = React.useCallback(async () => {
+  await getEnhancedItemPermissionsRef.current();  // ref is stable
+  await getCurrentUserPermissionsRef.current();   // ref is stable
+}, [itemId, listId]); // Only 2 deps - reloads only when item changes
+```
+
 ---
 
 ## 6. Verification (After Fixes)
@@ -382,6 +416,7 @@ TypeScript compilation is included as part of the build process (`npx tsc -p tsc
 | `src/components/spForm/context/FormContext.tsx` | Split FormStateContext |
 | `src/hooks/useViewport.ts` | Simplified debounce pattern |
 | `src/components/SPListItemAttachments/SPListItemAttachments.tsx` | Added isMountedRef |
+| `src/components/ManageAccess/ManageAccessComponent.tsx` | **Fixed EffectiveBasePermissions spam** - stabilized loadPermissions deps |
 
 ---
 

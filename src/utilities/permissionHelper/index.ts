@@ -1,11 +1,7 @@
 // Export main classes
 export { BatchPermissionChecker } from './BatchPermissionChecker';
 export { PermissionError } from './PermissionError';
-export {
-  PermissionHelper,
-  clearPermissionModuleCaches,
-  getPermissionModuleCacheStats,
-} from './PermissionHelper';
+export { PermissionHelper } from './PermissionHelper';
 export { LRUCache } from './LRUCache';
 
 
