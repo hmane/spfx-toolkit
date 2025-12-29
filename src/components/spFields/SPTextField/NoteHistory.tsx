@@ -338,16 +338,9 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
     );
   }
 
-  // Render empty state
+  // Don't render anything when there are no entries
   if (allEntries.length === 0) {
-    return (
-      <div className={containerClass}>
-        <div className="note-history__empty">
-          <Icon iconName="DocumentSet" className="note-history__empty-icon" />
-          <p className="note-history__empty-text">{emptyMessage}</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
