@@ -7,7 +7,6 @@ import { Text } from '@fluentui/react/lib/Text';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
-import { createPermissionHelper } from '../../utilities/permissionHelper';
 import { GroupViewer } from '../GroupViewer';
 import { UserPersona } from '../UserPersona';
 import './ManageAccessComponent.css';
@@ -16,10 +15,156 @@ import {
   DefaultProps,
   IManageAccessComponentProps,
   IPermissionPrincipal,
-  ISPSharingInfo,
   PersonaUtils,
-  ROLE_DEFINITION_IDS,
 } from './types';
+
+// =============================================================================
+// GLOBAL CACHE for ManageAccess GetSharingInformation API
+// Uses window-level caching to deduplicate API calls across component instances.
+// =============================================================================
+
+const CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const MANAGE_ACCESS_CACHE_KEY = '__spfx_toolkit_manage_access_cache__';
+
+interface IManageAccessCache {
+  sharingInfo: Map<string, { data: any; timestamp: number }>;
+  sharingInfoPending: Map<string, Promise<any>>;
+}
+
+// Get ManageAccess-specific cache for sharing info
+function getManageAccessCache(): IManageAccessCache {
+  const win = window as any;
+  if (!win[MANAGE_ACCESS_CACHE_KEY]) {
+    win[MANAGE_ACCESS_CACHE_KEY] = {
+      sharingInfo: new Map(),
+      sharingInfoPending: new Map(),
+    };
+  }
+  return win[MANAGE_ACCESS_CACHE_KEY];
+}
+
+// NOTE: We no longer call getCurrentUserEffectivePermissions to avoid EffectiveBasePermissions spam.
+// Instead, we determine canManagePermissions from the GetSharingInformation response by checking
+// if the current user has role >= Edit (role 3 or 9) on the item.
+
+/**
+ * Result from getEnhancedItemPermissions including user's manage capability
+ */
+interface IPermissionsResult {
+  permissions: IPermissionPrincipal[];
+  canManage: boolean;
+}
+
+/**
+ * Sharing information response from GetSharingInformation API
+ */
+interface ISharingInfoResponse {
+  permissionsInformation?: {
+    principals?: {
+      results?: Array<{
+        principal: {
+          id: number;
+          name: string;
+          loginName: string;
+          email: string | null;
+          principalType: number;
+          userPrincipalName: string | null;
+          isActive: boolean;
+          isExternal: boolean;
+        };
+        role: number; // 1=View, 3=Edit/FullControl, 9=Edit
+        isInherited: boolean;
+        members?: { results?: any[] };
+      }>;
+    };
+    siteAdmins?: {
+      results?: Array<any>;
+    };
+  };
+}
+
+/**
+ * Convert GetSharingInformation role numbers to permission levels
+ * Role values: 1=View, 2=Review, 3=FullControl, 9=Edit
+ */
+function roleToPermissionLevel(role: number): 'view' | 'edit' {
+  // 3 = Full Control (Owner), 9 = Edit (Contribute), 1 = View (Reader)
+  return role === 1 ? 'view' : 'edit';
+}
+
+/**
+ * Fetch sharing information using SharePoint's native GetSharingInformation API
+ * This is the same API SharePoint uses in its Manage Access panel
+ */
+async function getSharedSharingInfo(listId: string, itemId: number): Promise<ISharingInfoResponse | null> {
+  const cache = getManageAccessCache();
+  const key = `sharing_${listId}_${itemId}`;
+
+  // Return cached data if valid
+  const cached = cache.sharingInfo.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TIMEOUT) {
+    return cached.data;
+  }
+
+  // Wait for pending request if one exists
+  const pending = cache.sharingInfoPending.get(key);
+  if (pending) {
+    return pending;
+  }
+
+  // Create pending promise BEFORE any async operation
+  const request = (async () => {
+    try {
+      const webUrl = SPContext.webAbsoluteUrl;
+      // Use GetSharingInformation API - same as SharePoint's native Manage Access panel
+      const encodedListId = encodeURIComponent(`'${listId}'`);
+      const apiUrl = `${webUrl}/_api/web/Lists(@a1)/items(${itemId})/GetSharingInformation?@a1=${encodedListId}&$Expand=permissionsInformation`;
+
+      // Get request digest for POST request
+      const contextInfo = await SPContext.sp.web.getContextInfo();
+      const requestDigest = String(contextInfo.FormDigestValue);
+
+      const fetchResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json;odata=verbose',
+          'Content-Type': 'application/json;odata=verbose',
+          'X-RequestDigest': requestDigest,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          request: {
+            maxPrincipalsToReturn: 100,
+            maxLinkMembersToReturn: 100,
+          },
+        }),
+      });
+
+      if (!fetchResponse.ok) {
+        throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+
+      const result = await fetchResponse.json();
+      const data = result.d || result;
+
+      cache.sharingInfo.set(key, { data, timestamp: Date.now() });
+      return data;
+    } catch (error) {
+      SPContext.logger.error('ManageAccess: GetSharingInformation failed', error, { listId, itemId });
+      return null;
+    } finally {
+      cache.sharingInfoPending.delete(key);
+    }
+  })();
+
+  // Set pending SYNCHRONOUSLY before returning
+  cache.sharingInfoPending.set(key, request);
+  return request;
+}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
 export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = props => {
   const {
@@ -42,9 +187,9 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
   const [showInlineMessage, setShowInlineMessage] = React.useState(false);
 
   const inlineMessageTimeoutRef = React.useRef<number | null>(null);
-  const permissionHelperRef = React.useRef(createPermissionHelper(SPContext.sp));
-  // R-4: Request deduplication - track ongoing requests to prevent race conditions
-  const loadRequestIdRef = React.useRef<number>(0);
+  // Guard against duplicate permission loading
+  const hasLoadedRef = React.useRef<boolean>(false);
+  const loadingRef = React.useRef<boolean>(false);
 
   React.useEffect(() => {
     return () => {
@@ -54,316 +199,79 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     };
   }, []);
 
-  const isSystemAccount = React.useCallback((user: any): boolean => {
-    if (!user.Title && !user.LoginName) return false;
-
-    const systemPatterns = [
-      'System Account',
-      'SharePoint App',
-      'SHAREPOINT\\system',
-      'app@sharepoint',
-      'NT AUTHORITY',
-    ];
-
-    const title = (user.Title || '').toLowerCase();
-    const loginName = (user.LoginName || '').toLowerCase();
-
-    return systemPatterns.some(
-      pattern => title.includes(pattern.toLowerCase()) || loginName.includes(pattern.toLowerCase())
-    );
-  }, []);
-
-  const isLimitedAccessGroup = React.useCallback((member: any, roleDefinitions: any[]): boolean => {
-    return roleDefinitions.some(
-      role =>
-        role.Name.toLowerCase().includes('limited access') ||
-        role.Id === ROLE_DEFINITION_IDS.LIMITED_ACCESS
-    );
-  }, []);
-
-  const isSharingLinkPrincipal = React.useCallback((member: any): boolean => {
-    return (
-      member.Title &&
-      (member.Title.includes('SharingLinks.') ||
-        member.Title.includes('.OrganizationEdit.') ||
-        member.Title.includes('.OrganizationView.') ||
-        member.Title.includes('.AnonymousEdit.') ||
-        member.Title.includes('.AnonymousView.'))
-    );
-  }, []);
-
-  const getPermissionLevelFromRoles = React.useCallback(
-    (roleDefinitions: any[]): 'view' | 'edit' => {
-      const hasEdit = roleDefinitions.some(
-        role =>
-          role.Name === 'Full Control' ||
-          role.Name === 'Edit' ||
-          role.Name === 'Contribute' ||
-          role.Name === 'Design'
-      );
-
-      return hasEdit ? 'edit' : 'view';
-    },
-    []
-  );
-
-  const getPermissionLevelFromRoleDefinitions = React.useCallback(
-    async (groupId: number, roleDefinitions: any[]): Promise<'view' | 'edit'> => {
-      try {
-        const hasEditPermission = roleDefinitions.some(
-          (role: any) =>
-            role.Name === 'Full Control' ||
-            role.Name === 'Design' ||
-            role.Name === 'Edit' ||
-            role.Name === 'Contribute' ||
-            role.Id === ROLE_DEFINITION_IDS.FULL_CONTROL ||
-            role.Id === ROLE_DEFINITION_IDS.DESIGN ||
-            role.Id === ROLE_DEFINITION_IDS.EDIT ||
-            role.Id === ROLE_DEFINITION_IDS.CONTRIBUTE
-        );
-
-        if (hasEditPermission) {
-          SPContext.logger.info('ManageAccess detected edit permission', {
-            groupId,
-            roles: roleDefinitions.map((r: any) => r.Name),
-          });
-          return 'edit';
-        }
-
-        SPContext.logger.info('ManageAccess detected view permission', {
-          groupId,
-          roles: roleDefinitions.map((r: any) => r.Name),
-        });
-        return 'view';
-      } catch (error) {
-        SPContext.logger.warn('ManageAccess failed to determine permission level', {
-          error,
-          groupId,
-        });
-        return 'view';
-      }
-    },
-    []
-  );
-
-  const getSharingInformation = React.useCallback(async (): Promise<ISPSharingInfo | null> => {
+  const getEnhancedItemPermissions = React.useCallback(async (): Promise<IPermissionsResult> => {
     try {
-      const item = SPContext.sp.web.lists.getById(listId).items.getById(itemId);
-      const sharingInfo = await item.getSharingInformation();
-      return sharingInfo;
-    } catch (error) {
-      SPContext.logger.warn('ManageAccess could not get sharing information', error);
-      return null;
-    }
-  }, [itemId, listId]);
+      // Use SharePoint's native GetSharingInformation API - same as the Manage Access panel
+      const sharingInfo = await getSharedSharingInfo(listId, itemId);
 
-  const extractSharedUsersFromLimitedAccessGroup = React.useCallback(
-    async (
-      groupId: number,
-      actualPermissionLevel: 'view' | 'edit'
-    ): Promise<IPermissionPrincipal[]> => {
-      try {
-        const group = SPContext.sp.web.siteGroups.getById(groupId);
-        const users = await group.users.select(
-          'Id',
-          'Title',
-          'Email',
-          'LoginName',
-          'PrincipalType',
-          'UserPrincipalName'
-        )();
-
-        const sharedUsers: IPermissionPrincipal[] = [];
-
-        for (const user of users) {
-          if (isSystemAccount(user)) continue;
-
-          const principal: IPermissionPrincipal = {
-            id: user.Id.toString(),
-            displayName: user.Title,
-            email: user.Email || '',
-            loginName: user.LoginName,
-            permissionLevel: actualPermissionLevel,
-            isGroup: false,
-            principalType: user.PrincipalType,
-            canBeRemoved: true,
-            isSharingLink: true,
-            inheritedFrom: 'Shared',
-            userPrincipalName: user.UserPrincipalName,
-            normalizedEmail: user.Email ? user.Email.toLowerCase().trim() : undefined,
-            isValidForPersona: !!(user.Email || user.UserPrincipalName),
-          };
-
-          sharedUsers.push(principal);
-        }
-
-        SPContext.logger.info('ManageAccess extracted shared users', {
-          groupId,
-          count: sharedUsers.length,
-          permissionLevel: actualPermissionLevel,
-        });
-
-        return sharedUsers;
-      } catch (error) {
-        SPContext.logger.warn('ManageAccess failed to extract shared users', { error, groupId });
-        return [];
+      if (!sharingInfo) {
+        return { permissions: [], canManage: false };
       }
-    },
-    [isSystemAccount]
-  );
-
-  const getEnhancedItemPermissions = React.useCallback(async (): Promise<
-    IPermissionPrincipal[]
-  > => {
-    try {
-      const item = SPContext.sp.web.lists.getById(listId).items.getById(itemId);
-
-      const roleAssignments = await item.roleAssignments.expand(
-        'RoleDefinitionBindings',
-        'Member'
-      )();
 
       const permissionsList: IPermissionPrincipal[] = [];
-      const processedUsers = new Set<string>();
+      const processedPrincipals = new Set<string>();
 
-      const sharingLinkGroups: Array<{ id: number; permissionLevel: 'view' | 'edit' }> = [];
+      // Get current user's login name to check their role
+      const currentUserLoginName = SPContext.currentUser?.loginName?.toLowerCase() || '';
+      let currentUserCanManage = false;
 
-      // STEP 1: Identify sharing link groups and regular groups
-      for (const assignment of roleAssignments) {
-        const assignmentData = assignment as any;
-        const member = assignmentData.Member;
-        const roleDefinitions = assignmentData.RoleDefinitionBindings;
+      // Process principals from GetSharingInformation response
+      const principals = sharingInfo.permissionsInformation?.principals?.results || [];
 
-        if (!member || !roleDefinitions) continue;
+      for (const principalInfo of principals) {
+        const { principal, role, isInherited } = principalInfo;
 
-        // Check if this is a sharing link group
-        if (isSharingLinkPrincipal(member)) {
-          // Determine permission level from role definitions
-          const permissionLevel = getPermissionLevelFromRoles(roleDefinitions);
-
-          sharingLinkGroups.push({
-            id: member.Id,
-            permissionLevel,
-          });
-
-          SPContext.logger.info('ManageAccess found sharing link group', {
-            id: member.Id,
-            title: member.Title,
-            permissionLevel,
-          });
+        if (!principal) {
           continue;
         }
 
-        // Skip Limited Access groups
-        if (isLimitedAccessGroup(member, roleDefinitions)) {
+        // Check if this is the current user and if they have edit/manage permissions
+        // Role values: 1=View, 2=Review, 3=FullControl, 9=Edit
+        if (principal.loginName?.toLowerCase() === currentUserLoginName) {
+          // Role 3 = Full Control, Role 9 = Edit - both allow managing
+          currentUserCanManage = role === 3 || role === 9;
+        }
+
+        // Skip if already processed
+        const principalKey = `${principal.id}`;
+        if (processedPrincipals.has(principalKey)) {
           continue;
         }
 
-        // Regular groups and users
-        const permissionLevel = getPermissionLevelFromRoles(roleDefinitions);
-        const canBeRemoved = !protectedPrincipals?.includes(member.Id.toString());
+        // Convert role number to permission level
+        // Role values: 1=View, 2=Review, 3=FullControl, 9=Edit
+        const permissionLevel = roleToPermissionLevel(role);
+        const canBeRemoved = !protectedPrincipals?.includes(principal.id.toString());
 
-        const principal: IPermissionPrincipal = {
-          id: member.Id.toString(),
-          displayName: member.Title,
-          email: member.Email || '',
-          loginName: member.LoginName,
+        // PrincipalType: 1=User, 8=SecurityGroup
+        const isGroup = principal.principalType === 8;
+
+        const permissionPrincipal: IPermissionPrincipal = {
+          id: principal.id.toString(),
+          displayName: principal.name,
+          email: principal.email || '',
+          loginName: principal.loginName,
           permissionLevel,
-          isGroup: member.PrincipalType === 8,
-          principalType: member.PrincipalType,
+          isGroup,
+          principalType: principal.principalType,
           canBeRemoved,
-          userPrincipalName: member.UserPrincipalName,
-          normalizedEmail: member.Email ? member.Email.toLowerCase().trim() : undefined,
-          isValidForPersona: !!(member.Email || member.UserPrincipalName),
+          userPrincipalName: principal.userPrincipalName || undefined,
+          normalizedEmail: principal.email ? principal.email.toLowerCase().trim() : undefined,
+          isValidForPersona: !!(principal.email || principal.userPrincipalName),
+          inheritedFrom: isInherited ? 'Inherited' : undefined,
         };
 
-        if (member.PrincipalType === 8) {
-          permissionsList.push(principal);
-        } else if (!isSystemAccount(member)) {
-          const userKey = `${member.Email || member.LoginName || member.Id}`;
-          if (!processedUsers.has(userKey)) {
-            permissionsList.push(principal);
-            processedUsers.add(userKey);
-          }
-        }
+        permissionsList.push(permissionPrincipal);
+        processedPrincipals.add(principalKey);
       }
 
-      // STEP 2: Get members from sharing link groups
-      if (sharingLinkGroups.length > 0) {
-        SPContext.logger.info('ManageAccess processing sharing link groups', {
-          count: sharingLinkGroups.length,
-        });
-
-        const sharedUsersArrays = await Promise.all(
-          sharingLinkGroups.map(async group => {
-            try {
-              const groupObj = SPContext.sp.web.siteGroups.getById(group.id);
-              const users = await groupObj.users.select(
-                'Id',
-                'Title',
-                'Email',
-                'LoginName',
-                'PrincipalType',
-                'UserPrincipalName'
-              )();
-
-              const sharedUsers: IPermissionPrincipal[] = [];
-
-              for (const user of users) {
-                if (isSystemAccount(user)) continue;
-
-                const userKey = `${user.Email || user.LoginName || user.Id}`;
-                if (processedUsers.has(userKey)) continue;
-
-                const principal: IPermissionPrincipal = {
-                  id: user.Id.toString(),
-                  displayName: user.Title,
-                  email: user.Email || '',
-                  loginName: user.LoginName,
-                  permissionLevel: group.permissionLevel,
-                  isGroup: false,
-                  principalType: user.PrincipalType,
-                  canBeRemoved: true,
-                  isSharingLink: true,
-                  inheritedFrom: 'Shared',
-                  userPrincipalName: user.UserPrincipalName,
-                  normalizedEmail: user.Email ? user.Email.toLowerCase().trim() : undefined,
-                  isValidForPersona: !!(user.Email || user.UserPrincipalName),
-                };
-
-                sharedUsers.push(principal);
-                processedUsers.add(userKey);
-              }
-
-              SPContext.logger.info('ManageAccess extracted users from sharing link', {
-                groupId: group.id,
-                userCount: sharedUsers.length,
-                permissionLevel: group.permissionLevel,
-              });
-
-              return sharedUsers;
-            } catch (error) {
-              SPContext.logger.warn('ManageAccess failed to get sharing link members', {
-                error,
-                groupId: group.id,
-              });
-              return [];
-            }
-          })
-        );
-
-        const allSharedUsers = sharedUsersArrays.flat();
-        permissionsList.push(...allSharedUsers);
-      }
-
-      SPContext.logger.info('ManageAccess final permissions', {
+      SPContext.logger.info('ManageAccess permissions loaded', {
         totalCount: permissionsList.length,
-        directUsers: permissionsList.filter(p => !p.isGroup && !p.inheritedFrom).length,
         groups: permissionsList.filter(p => p.isGroup).length,
-        sharedUsers: permissionsList.filter(p => p.inheritedFrom).length,
+        canManage: currentUserCanManage,
       });
 
-      return permissionsList;
+      return { permissions: permissionsList, canManage: currentUserCanManage };
     } catch (error) {
       SPContext.logger.error('ManageAccess failed to get permissions', error);
       throw error;
@@ -372,10 +280,6 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     itemId,
     listId,
     protectedPrincipals,
-    isLimitedAccessGroup,
-    isSharingLinkPrincipal,
-    getPermissionLevelFromRoles,
-    isSystemAccount,
   ]);
 
   const filterAndProcessPermissions = React.useCallback(
@@ -404,85 +308,56 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     []
   );
 
-  const getCurrentUserPermissions = React.useCallback(async (): Promise<string[]> => {
-    try {
-      const userPerms = await permissionHelperRef.current.getCurrentUserPermissions();
-      return userPerms.permissionLevels || [];
-    } catch (error) {
-      SPContext.logger.error('ManageAccess failed to get current user permissions', error);
-      return [];
-    }
-  }, []);
-
-  const checkManagePermissions = React.useCallback((perms: string[]): boolean => {
-    const hasEditPermission = perms.some(
-      perm =>
-        perm.toLowerCase().includes('edit') ||
-        perm.toLowerCase().includes('full control') ||
-        perm.toLowerCase().includes('manage')
-    );
-    return hasEditPermission;
-  }, []);
+  // NOTE: getCurrentUserPermissions and checkManagePermissions were removed.
+  // We now determine canManage directly from the GetSharingInformation response
+  // to avoid making additional EffectiveBasePermissions API calls.
 
   const loadPermissions = React.useCallback(async (): Promise<void> => {
-    // R-4: Request deduplication - increment request ID to invalidate stale responses
-    const currentRequestId = ++loadRequestIdRef.current;
+    // Guard: Skip if already loading
+    if (loadingRef.current) {
+      return;
+    }
 
     try {
+      loadingRef.current = true;
       setIsLoading(true);
 
       await SPContext.performance.track('ManageAccess.loadPermissions', async () => {
-        const [permissionsList, userPerms] = await Promise.all([
-          getEnhancedItemPermissions(),
-          getCurrentUserPermissions(),
-        ]);
+        // GetSharingInformation returns both permissions and canManage in one call
+        // No need for separate EffectiveBasePermissions API call
+        const result = await getEnhancedItemPermissions();
 
-        // R-4: Only update state if this is still the latest request
-        if (currentRequestId !== loadRequestIdRef.current) {
-          SPContext.logger.info('ManageAccess ignoring stale permission response', {
-            requestId: currentRequestId,
-            latestRequestId: loadRequestIdRef.current,
-          });
-          return;
-        }
-
-        const canManage = checkManagePermissions(userPerms);
-
-        setPermissions(await filterAndProcessPermissions(permissionsList));
-        setCurrentUserPermissions(userPerms);
-        setCanManagePermissions(canManage);
+        setPermissions(await filterAndProcessPermissions(result.permissions));
+        setCurrentUserPermissions(result.canManage ? ['Edit'] : ['View']);
+        setCanManagePermissions(result.canManage);
         setIsLoading(false);
-
-        SPContext.logger.info('ManageAccess permissions loaded', {
-          permissionCount: permissionsList.length,
-          canManage: canManage,
-        });
+        hasLoadedRef.current = true;
       });
     } catch (error) {
-      // R-4: Only update error state if this is still the latest request
-      if (currentRequestId !== loadRequestIdRef.current) {
-        return;
-      }
       SPContext.logger.error('ManageAccess failed to load permissions', error, {
         itemId,
         listId,
       });
       onError?.(error instanceof Error ? error.message : 'Failed to load permissions');
       setIsLoading(false);
+    } finally {
+      loadingRef.current = false;
     }
   }, [
     itemId,
     listId,
     getEnhancedItemPermissions,
-    getCurrentUserPermissions,
-    checkManagePermissions,
     filterAndProcessPermissions,
     onError,
   ]);
 
+  // Load permissions once when component mounts or itemId/listId changes
   React.useEffect(() => {
+    // Reset load state when item changes
+    hasLoadedRef.current = false;
+    loadingRef.current = false;
     loadPermissions();
-  }, [loadPermissions]);
+  }, [itemId, listId]); // Only depend on stable props, not the callback
 
   const showInlineMessageHandler = React.useCallback((message: string): void => {
     setInlineMessage(message);
