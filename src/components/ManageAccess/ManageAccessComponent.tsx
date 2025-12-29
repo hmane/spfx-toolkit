@@ -211,9 +211,13 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
       const permissionsList: IPermissionPrincipal[] = [];
       const processedPrincipals = new Set<string>();
 
-      // Get current user's login name to check their role
+      // Get current user info for permission checking
       const currentUserLoginName = SPContext.currentUser?.loginName?.toLowerCase() || '';
+      const currentUserId = SPContext.currentUser?.id;
       let currentUserCanManage = false;
+
+      // Track groups with edit permissions to check user membership later
+      const groupsWithEditAccess: number[] = [];
 
       // Process principals from GetSharingInformation response
       const principals = sharingInfo.permissionsInformation?.principals?.results || [];
@@ -225,11 +229,20 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
           continue;
         }
 
-        // Check if this is the current user and if they have edit/manage permissions
-        // Role values: 1=View, 2=Review, 3=FullControl, 9=Edit
-        if (principal.loginName?.toLowerCase() === currentUserLoginName) {
-          // Role 3 = Full Control, Role 9 = Edit - both allow managing
-          currentUserCanManage = role === 3 || role === 9;
+        // PrincipalType: 1=User, 8=SecurityGroup
+        const isGroup = principal.principalType === 8;
+        const hasEditRole = role === 3 || role === 9; // 3=FullControl, 9=Edit
+
+        // Check if this is the current user directly
+        if (!isGroup && principal.loginName?.toLowerCase() === currentUserLoginName) {
+          if (hasEditRole) {
+            currentUserCanManage = true;
+          }
+        }
+
+        // Track groups with edit access for membership check
+        if (isGroup && hasEditRole) {
+          groupsWithEditAccess.push(principal.id);
         }
 
         // Skip if already processed
@@ -239,12 +252,8 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         }
 
         // Convert role number to permission level
-        // Role values: 1=View, 2=Review, 3=FullControl, 9=Edit
         const permissionLevel = roleToPermissionLevel(role);
         const canBeRemoved = !protectedPrincipals?.includes(principal.id.toString());
-
-        // PrincipalType: 1=User, 8=SecurityGroup
-        const isGroup = principal.principalType === 8;
 
         const permissionPrincipal: IPermissionPrincipal = {
           id: principal.id.toString(),
@@ -263,6 +272,21 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
 
         permissionsList.push(permissionPrincipal);
         processedPrincipals.add(principalKey);
+      }
+
+      // If user doesn't have direct edit access, check if they're in a group with edit access
+      if (!currentUserCanManage && groupsWithEditAccess.length > 0 && currentUserId) {
+        try {
+          // Get current user's group memberships
+          const userGroups = await SPContext.sp.web.siteUsers.getById(Number(currentUserId)).groups();
+          const userGroupIds = new Set(userGroups.map((g: { Id: number }) => g.Id));
+
+          // Check if user is member of any group with edit access
+          currentUserCanManage = groupsWithEditAccess.some(groupId => userGroupIds.has(groupId));
+        } catch (groupError) {
+          // If we can't get groups, fall back to no manage permissions
+          SPContext.logger.warn('ManageAccess: Could not check group membership', groupError);
+        }
       }
 
       SPContext.logger.info('ManageAccess permissions loaded', {
