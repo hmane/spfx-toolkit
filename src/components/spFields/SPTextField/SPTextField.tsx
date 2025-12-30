@@ -449,8 +449,9 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           </div>
         )}
 
-        {/* Error message row - always show field-level validation errors */}
-        {hasError && (
+        {/* Error message row - only show when NOT in FormContext (standalone mode)
+            When inside FormContext, FormItem/FormValue handles error display */}
+        {hasError && !formContext && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
               <span className="sp-field-error-text">{fieldError}</span>

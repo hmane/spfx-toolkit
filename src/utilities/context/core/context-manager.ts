@@ -20,6 +20,7 @@ import type {
 } from '../types';
 import { EnvironmentDetector } from '../utils/environment';
 import '@pnp/sp/profiles';
+import '@pnp/sp/site-users/web';
 import { IPrincipal } from '../../../types';
 
 /**

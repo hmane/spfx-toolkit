@@ -86,6 +86,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     dateValidator,
     disabledDates,
     showCalendarIcon = true,
+    calendarButtonPosition = 'after',
     stylingMode = 'outlined',
     inputRef,
   } = props;
@@ -239,11 +240,41 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
   // The Today button will use a ref to get the current onChange handler
   const onChangeRef = React.useRef<(val: Date | undefined) => void>();
 
+  // Ref to DateBox instance for programmatic control
+  const dateBoxRef = React.useRef<DateBox>(null);
+
+  // Handler to open the calendar programmatically
+  const handleOpenCalendar = React.useCallback(() => {
+    if (dateBoxRef.current) {
+      const instance = dateBoxRef.current.instance;
+      if (instance) {
+        instance.open();
+      }
+    }
+  }, []);
+
   const dateBoxButtons = React.useMemo(() => {
     const buttons: any[] = [];
 
     if (showCalendarIcon) {
-      buttons.push('dropDown');
+      if (calendarButtonPosition === 'before') {
+        // Use custom button for 'before' position since built-in dropDown doesn't support location
+        buttons.push({
+          name: 'customCalendar',
+          location: 'before',
+          options: {
+            icon: 'event',
+            onClick: handleOpenCalendar,
+            stylingMode: 'text',
+          },
+        });
+      } else {
+        // Use built-in dropDown for 'after' position (default behavior)
+        buttons.push({
+          name: 'dropDown',
+          location: 'after',
+        });
+      }
     }
 
     if (showTodayButton && isActive) {
@@ -262,13 +293,24 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     }
 
     return buttons;
-  }, [showCalendarIcon, showTodayButton, isActive]);
+  }, [showCalendarIcon, showTodayButton, isActive, calendarButtonPosition, handleOpenCalendar]);
 
   // Stable buttons array for readonly mode
-  const readOnlyButtons = React.useMemo((): any[] =>
-    showCalendarIcon ? ['dropDown'] : [],
-    [showCalendarIcon]
-  );
+  const readOnlyButtons = React.useMemo((): any[] => {
+    if (!showCalendarIcon) return [];
+    if (calendarButtonPosition === 'before') {
+      return [{
+        name: 'customCalendar',
+        location: 'before',
+        options: {
+          icon: 'event',
+          onClick: handleOpenCalendar,
+          stylingMode: 'text',
+        },
+      }];
+    }
+    return [{ name: 'dropDown', location: 'after' }];
+  }, [showCalendarIcon, calendarButtonPosition, handleOpenCalendar]);
 
   // Normalize value - handle string dates from SharePoint
   const normalizeValue = React.useCallback((fieldValue: Date | undefined): Date | undefined => {
@@ -313,6 +355,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
         {isDOMReady && (
           isActive ? (
             <DateBox
+              ref={dateBoxRef}
               key={componentKey}
               value={normalizedValue}
               onValueChanged={(e: any) => {
@@ -369,8 +412,9 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
         )}
         </div>
 
-        {/* Error message row - always show field-level validation errors */}
-        {hasError && (
+        {/* Error message row - only show when NOT in FormContext (standalone mode)
+            When inside FormContext, FormItem/FormValue handles error display */}
+        {hasError && !formContext && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
               <span className="sp-field-error-text">{fieldError}</span>

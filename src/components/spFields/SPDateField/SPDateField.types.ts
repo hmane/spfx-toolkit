@@ -116,6 +116,13 @@ export interface ISPDateFieldProps extends ISPFieldBaseProps<Date> {
   showCalendarIcon?: boolean;
 
   /**
+   * Position of the calendar dropdown button
+   * 'before' places it on the left side, 'after' places it on the right
+   * @default 'after'
+   */
+  calendarButtonPosition?: 'before' | 'after';
+
+  /**
    * Input styling mode
    * @default 'outlined'
    */

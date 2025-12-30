@@ -152,13 +152,14 @@ const FormItem: React.FC<IFormItemProps> = ({
   let label: React.ReactNode = null;
   let value: React.ReactNode = null;
   let errorElement: React.ReactNode = null;
+  let hasFormValueChild = false; // Track if the value child is specifically a FormValue component
 
   childrenArray.forEach((child) => {
     if (React.isValidElement(child)) {
       const childType = child.type as any;
       const isLabel =
         childType?.name === 'FormLabel' || childType?.displayName === 'FormLabel';
-      const isValue =
+      const isFormValue =
         childType?.name === 'FormValue' || childType?.displayName === 'FormValue';
       const isError =
         childType?.name === 'FormError' || childType?.displayName === 'FormError';
@@ -168,8 +169,9 @@ const FormItem: React.FC<IFormItemProps> = ({
         label = generatedFieldId
           ? React.cloneElement(child, { htmlFor: generatedFieldId } as any)
           : child;
-      } else if (isValue) {
+      } else if (isFormValue) {
         value = child;
+        hasFormValueChild = true; // FormValue handles its own error/char count row
       } else if (isError) {
         errorElement = child;
       } else if (!label) {
@@ -201,8 +203,9 @@ const FormItem: React.FC<IFormItemProps> = ({
     }
 
     // If there's a FormValue child, don't render anything here
-    // FormValue now handles both error and char count display via its own ErrorCharCountRow
-    if (value) {
+    // FormValue handles both error and char count display via its own ErrorCharCountRow
+    // But if it's a direct SP field (not wrapped in FormValue), we should render the row
+    if (hasFormValueChild) {
       return null;
     }
 

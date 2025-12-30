@@ -637,8 +637,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             </React.Suspense>
           </div>
 
-          {/* Show error with MessageBar for PnP control */}
-          {hasError && (
+          {/* Show error with MessageBar for PnP control - only when NOT in FormContext */}
+          {hasError && !formContext && (
             <MessageBar messageBarType={MessageBarType.error} style={{ marginTop: 4 }}>
               {fieldError}
             </MessageBar>
@@ -770,8 +770,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
         )}
         </div>
 
-        {/* Error message row - skip if formContext.autoShowErrors (spForm handles errors) */}
-        {hasError && !formContext?.autoShowErrors && (
+        {/* Error message row - only show when NOT in FormContext (standalone mode)
+            When inside FormContext, FormItem/FormValue handles error display */}
+        {hasError && !formContext && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
               <span className="sp-field-error-text">{fieldError}</span>

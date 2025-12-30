@@ -486,7 +486,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             layout="vertical"
             isValid={!hasError}
           />
-          {hasError && (
+          {/* Error message row - only show when NOT in FormContext (standalone mode) */}
+          {hasError && !formContext && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
                 <span className="sp-field-error-text">{fieldError}</span>
@@ -530,7 +531,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               />
             ))}
           </Stack>
-          {hasError && (
+          {/* Error message row - only show when NOT in FormContext (standalone mode) */}
+          {hasError && !formContext && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
                 <span className="sp-field-error-text">{fieldError}</span>
@@ -572,7 +574,8 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
             />
           )}
-          {hasError && (
+          {/* Error message row - only show when NOT in FormContext (standalone mode) */}
+          {hasError && !formContext && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
                 <span className="sp-field-error-text">{fieldError}</span>

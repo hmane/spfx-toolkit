@@ -571,8 +571,9 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         )}
         </div>
 
-        {/* Error message row - always show field-level validation errors */}
-        {fieldError && (
+        {/* Error message row - only show when NOT in FormContext (standalone mode)
+            When inside FormContext, FormItem/FormValue handles error display */}
+        {fieldError && !formContext && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
               <span className="sp-field-error-text">{fieldError}</span>

@@ -2,7 +2,7 @@
  * FormContext exports
  */
 
-export { FormContext, FormProvider, useFormContext } from './FormContext';
+export { FormContext, FormStateContext, FormProvider, useFormContext, useFormStateContext } from './FormContext';
 export type {
   IFormContextValue,
   IFormFieldMetadata,
