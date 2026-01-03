@@ -158,4 +158,9 @@ const FormValue: React.FC<IFormValueProps> = ({ children, className = '', fieldN
   );
 };
 
-export default React.memo(FormValue);
+// Set displayName for FormItem detection (important for minified builds)
+// Must be set on the memoized component, not just the original
+const MemoizedFormValue = React.memo(FormValue);
+MemoizedFormValue.displayName = 'FormValue';
+
+export default MemoizedFormValue;

@@ -77,4 +77,9 @@ const FormLabel: React.FC<IFormLabelProps> = ({
   );
 };
 
-export default React.memo(FormLabel);
+// Set displayName for FormItem detection (important for minified builds)
+// Must be set on the memoized component, not just the original
+const MemoizedFormLabel = React.memo(FormLabel);
+MemoizedFormLabel.displayName = 'FormLabel';
+
+export default MemoizedFormLabel;

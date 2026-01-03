@@ -47,4 +47,9 @@ const FormError: React.FC<IFormErrorProps> = ({
   );
 };
 
-export default React.memo(FormError);
+// Set displayName for FormItem/FormValue detection (important for minified builds)
+// Must be set on the memoized component, not just the original
+const MemoizedFormError = React.memo(FormError);
+MemoizedFormError.displayName = 'FormError';
+
+export default MemoizedFormError;
