@@ -1,53 +1,52 @@
-/* VersionHistory Component Styles - Modern SaaS Redesign */
+/* VersionHistory Component Styles - SharePoint Native Theme */
 
 /* ============================================
-   CSS Variables - Modern SaaS Palette
+   CSS Variables - SharePoint Native Palette
    ============================================ */
 :root {
-  /* Primary gradients */
-  --vh-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --vh-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  --vh-gradient-warning: linear-gradient(135deg, #fdbb2d 0%, #f5576c 100%);
-  --vh-gradient-error: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-  --vh-gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  /* SharePoint theme colors - using Fluent UI theme tokens with fallbacks */
+  --vh-theme-primary: var(--themePrimary, #0078d4);
+  --vh-theme-dark: var(--themeDark, #005a9e);
+  --vh-theme-darker: var(--themeDarker, #004578);
+  --vh-theme-light: var(--themeLight, #c7e0f4);
+  --vh-theme-lighter: var(--themeLighter, #deecf9);
+  --vh-theme-lighter-alt: var(--themeLighterAlt, #eff6fc);
 
-  /* Shadows */
-  --vh-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --vh-shadow-md: 0 4px 20px rgba(102, 126, 234, 0.15);
-  --vh-shadow-lg: 0 8px 30px rgba(102, 126, 234, 0.25);
-  --vh-shadow-glow: 0 0 20px rgba(102, 126, 234, 0.4);
+  /* Shadows - subtle, professional */
+  --vh-shadow-sm: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132), 0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108);
+  --vh-shadow-md: 0 3.2px 7.2px 0 rgba(0, 0, 0, 0.132), 0 0.6px 1.8px 0 rgba(0, 0, 0, 0.108);
+  --vh-shadow-lg: 0 6.4px 14.4px 0 rgba(0, 0, 0, 0.132), 0 1.2px 3.6px 0 rgba(0, 0, 0, 0.108);
 
   /* Transitions */
-  --vh-transition-fast: 0.15s ease;
-  --vh-transition-normal: 0.25s ease;
-  --vh-transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --vh-transition-fast: 0.1s ease;
+  --vh-transition-normal: 0.2s ease;
+  --vh-transition-slow: 0.3s ease;
 
-  /* Colors */
-  --vh-primary: #667eea;
-  --vh-primary-dark: #5a67d8;
-  --vh-success: #11998e;
-  --vh-error: #eb3349;
+  /* Semantic colors */
+  --vh-success: var(--green, #107c10);
+  --vh-error: var(--red, #d13438);
 
-  /* C-7: Fluent UI neutral palette - using CSS custom properties with fallbacks */
+  /* Fluent UI neutral palette */
   --vh-neutral-primary: var(--neutralPrimary, #323130);
-  --vh-neutral-primary-alt: var(--neutralPrimaryAlt, #201f1e);
+  --vh-neutral-primary-alt: var(--neutralPrimaryAlt, #3b3a39);
   --vh-neutral-secondary: var(--neutralSecondary, #605e5c);
   --vh-neutral-tertiary: var(--neutralTertiary, #a19f9d);
-  --vh-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --vh-neutral-tertiary-alt: var(--neutralTertiaryAlt, #c8c6c4);
   --vh-neutral-quaternary: var(--neutralQuaternary, #d2d0ce);
-  --vh-neutral-quaternary-alt: var(--neutralQuaternaryAlt, #c8c6c4);
+  --vh-neutral-quaternary-alt: var(--neutralQuaternaryAlt, #e1dfdd);
   --vh-neutral-light: var(--neutralLight, #edebe9);
   --vh-neutral-lighter: var(--neutralLighter, #f3f2f1);
-  --vh-neutral-lighter-alt: var(--neutralLighterAlt, #fafafa);
+  --vh-neutral-lighter-alt: var(--neutralLighterAlt, #faf9f8);
   --vh-white: var(--white, #ffffff);
   --vh-semantic-error-text: var(--errorText, #a4262c);
-  --vh-semantic-success-text: var(--successText, #0b6a0b);
-  --vh-semantic-warning-bg: #fff8e1;
-  --vh-semantic-warning-text: #8b6c21;
+  --vh-semantic-success-text: var(--successText, #107c10);
+  --vh-semantic-warning-bg: var(--warningBackground, #fff4ce);
+  --vh-semantic-warning-text: var(--warning, #797673);
   --vh-focus-color: var(--themePrimary, #0078d4);
-  /* C-7: Background gradients */
-  --vh-bg-header: linear-gradient(180deg, #fafbfc 0%, var(--vh-white) 100%);
-  --vh-bg-content: linear-gradient(180deg, #f8f9fc 0%, #f3f4f8 100%);
+
+  /* Background colors - clean, minimal */
+  --vh-bg-header: var(--vh-white);
+  --vh-bg-content: var(--vh-neutral-lighter-alt);
 }
 
 /* ============================================
@@ -81,9 +80,10 @@
 
 /* DevExtreme Popup overrides */
 .version-history-popup .dx-overlay-content {
-  border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+  box-shadow: var(--vh-shadow-lg);
   overflow: hidden;
+  border: 1px solid var(--vh-neutral-light);
 }
 
 .version-history-popup .dx-popup-content {
@@ -99,29 +99,16 @@
   overflow: hidden;
 }
 
-/* Header - Fixed with gradient accent */
+/* Header - SharePoint panel style */
 .version-history-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 24px 28px;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--vh-neutral-light);
+  background: var(--vh-white);
   flex-shrink: 0;
-  gap: 24px;
-  position: relative;
-}
-
-/* Gradient accent line under header */
-.version-history-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--vh-gradient-primary);
-  opacity: 0.6;
+  gap: 16px;
 }
 
 .version-history-header-content {
@@ -184,56 +171,70 @@
   flex-shrink: 0;
 }
 
+/* SharePoint-style buttons */
 .version-history-primary-button,
 .version-history-secondary-button,
 .version-history-icon-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   height: 32px;
-  border-radius: 4px;
+  min-width: 80px;
+  border-radius: 2px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--vh-neutral-primary);
-  padding: 0 12px;
+  padding: 0 16px;
   cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: background var(--vh-transition-fast), border-color var(--vh-transition-fast);
 }
 
 .version-history-secondary-button {
-  border-color: var(--vh-neutral-quaternary);
+  border-color: var(--vh-neutral-secondary);
   background: var(--vh-white);
+  color: var(--vh-neutral-primary);
 }
 
 .version-history-secondary-button:hover {
   background: var(--vh-neutral-lighter);
-  border-color: var(--vh-neutral-quaternary-alt);
+  border-color: var(--vh-neutral-primary);
 }
 
+.version-history-secondary-button:active {
+  background: var(--vh-neutral-light);
+}
+
+/* Primary button - SharePoint theme color */
 .version-history-primary-button {
-  background: var(--vh-gradient-primary);
+  background: var(--vh-theme-primary);
   color: var(--vh-white);
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  transition: all var(--vh-transition-normal);
+  border-color: var(--vh-theme-primary);
 }
 
 .version-history-primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  background: var(--vh-theme-dark);
+  border-color: var(--vh-theme-dark);
+}
+
+.version-history-primary-button:active {
+  background: var(--vh-theme-darker);
+  border-color: var(--vh-theme-darker);
 }
 
 .version-history-icon-button {
   width: 32px;
-  justify-content: center;
+  min-width: 32px;
+  padding: 0;
   color: var(--vh-neutral-secondary);
   border-color: transparent;
 }
 
 .version-history-icon-button:hover {
   background: var(--vh-neutral-lighter);
-  color: var(--vh-neutral-primary-alt);
+  color: var(--vh-neutral-primary);
 }
 
 .version-history-status {
@@ -248,16 +249,15 @@
   min-height: 0;
 }
 
-/* Timeline panel (left) - Fixed width with subtle gradient */
+/* Timeline panel (left) - SharePoint style */
 .version-history-timeline-panel {
   width: 300px;
-  border-right: 1px solid rgba(102, 126, 234, 0.08);
+  border-right: 1px solid var(--vh-neutral-light);
   display: flex;
   flex-direction: column;
-  background: var(--vh-bg-content);
+  background: var(--vh-neutral-lighter-alt);
   overflow: hidden;
   flex-shrink: 0;
-  position: relative;
 }
 
 /* Details panel (right) */
@@ -345,24 +345,23 @@
 .version-timeline-chip {
   border: 1px solid var(--vh-neutral-quaternary);
   background: var(--vh-white);
-  border-radius: 16px;
+  border-radius: 2px;
   font-size: 12px;
   padding: 4px 12px;
   cursor: pointer;
   color: var(--vh-neutral-primary);
-  transition: all 0.15s ease;
+  transition: all var(--vh-transition-fast);
 }
 
 .version-timeline-chip:hover:not(.disabled) {
   background: var(--vh-neutral-lighter);
-  border-color: var(--vh-neutral-quaternary-alt);
+  border-color: var(--vh-neutral-tertiary-alt);
 }
 
 .version-timeline-chip.active {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
-  border-color: var(--vh-primary);
-  color: var(--vh-primary-dark);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  background: var(--vh-theme-lighter-alt);
+  border-color: var(--vh-theme-primary);
+  color: var(--vh-theme-dark);
 }
 
 .version-timeline-chip.disabled,
@@ -489,62 +488,60 @@
    ======================================== */
 
 
+/* SharePoint-style version card */
 .version-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px 16px 14px 44px;
-  margin-bottom: 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 12px 16px 12px 40px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  border: 1px solid transparent;
   background: var(--vh-white);
   cursor: pointer;
-  transition: border-color var(--vh-transition-fast), box-shadow var(--vh-transition-fast);
+  transition: background var(--vh-transition-fast), border-color var(--vh-transition-fast);
   position: relative;
-  z-index: 1;
 }
 
 /* Radio button indicator */
 .version-card::before {
   content: '';
   position: absolute;
-  left: 16px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--vh-white);
-  border: 2px solid var(--vh-neutral-quaternary-alt);
+  border: 1px solid var(--vh-neutral-tertiary-alt);
   transition: all var(--vh-transition-fast);
   flex-shrink: 0;
 }
 
 .version-card:hover {
-  border-color: rgba(102, 126, 234, 0.3);
-  box-shadow: var(--vh-shadow-sm);
+  background: var(--vh-neutral-lighter);
 }
 
 .version-card:hover::before {
-  border-color: var(--vh-primary);
+  border-color: var(--vh-theme-primary);
 }
 
 .version-card.selected {
-  border-color: var(--vh-primary);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
-  box-shadow: var(--vh-shadow-sm);
+  border-color: var(--vh-theme-primary);
+  background: var(--vh-theme-lighter-alt);
 }
 
 /* Selected radio button - filled */
 .version-card.selected::before {
-  border-color: var(--vh-primary);
-  background: var(--vh-primary);
+  border-color: var(--vh-theme-primary);
+  background: var(--vh-theme-primary);
   box-shadow: inset 0 0 0 3px var(--vh-white);
 }
 
 .version-card:focus-visible {
-  outline: 2px solid var(--vh-primary);
-  outline-offset: 2px;
+  outline: 2px solid var(--vh-theme-primary);
+  outline-offset: 1px;
 }
 
 .version-card-avatar {
@@ -586,8 +583,8 @@
 }
 
 .version-card-badge.major {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
-  color: var(--vh-primary-dark);
+  background: var(--vh-theme-lighter-alt);
+  color: var(--vh-theme-dark);
 }
 
 
@@ -608,13 +605,13 @@
 
 .version-card-changes {
   font-weight: 600;
-  color: var(--vh-success);
+  color: var(--vh-semantic-success-text);
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(17, 153, 142, 0.1);
-  border-radius: 8px;
+  background: rgba(16, 124, 16, 0.08);
+  border-radius: 2px;
 }
 
 .version-card-size {
@@ -666,25 +663,23 @@
 }
 
 .version-card-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.15);
-  background: rgba(102, 126, 234, 0.03);
+  width: 28px;
+  height: 28px;
+  border-radius: 2px;
+  border: 1px solid var(--vh-neutral-quaternary);
+  background: var(--vh-white);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--vh-primary);
+  color: var(--vh-neutral-secondary);
   transition: all var(--vh-transition-fast);
 }
 
 .version-card-action:hover {
-  background: var(--vh-gradient-primary);
-  border-color: transparent;
+  background: var(--vh-theme-primary);
+  border-color: var(--vh-theme-primary);
   color: var(--vh-white);
-  transform: scale(1.05);
-  box-shadow: var(--vh-shadow-sm);
 }
 
 /* ========================================
@@ -700,15 +695,14 @@
 }
 
 .version-details-header {
-  padding: 24px 28px;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.04) 0%, rgba(118, 75, 162, 0.04) 100%);
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--vh-neutral-light);
+  background: var(--vh-white);
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  animation: vh-fadeIn 0.3s ease-out;
 }
 
 .version-details-info {
@@ -748,8 +742,8 @@
 }
 
 .version-details-badge.major {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
-  color: var(--vh-primary-dark);
+  background: var(--vh-theme-lighter-alt);
+  color: var(--vh-theme-dark);
 }
 
 .version-details-badge.no-change {
@@ -815,22 +809,26 @@
 }
 
 .version-details-primary-button {
-  background: var(--vh-gradient-primary);
+  background: var(--vh-theme-primary);
   color: var(--vh-white);
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  border-color: var(--vh-theme-primary);
 }
 
 .version-details-primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  background: var(--vh-theme-dark);
+  border-color: var(--vh-theme-dark);
+}
+
+.version-details-primary-button:active {
+  background: var(--vh-theme-darker);
+  border-color: var(--vh-theme-darker);
 }
 
 .version-details-primary-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  background: var(--vh-neutral-tertiary-alt);
+  border-color: var(--vh-neutral-tertiary-alt);
 }
 
 .version-details-stats {
@@ -1011,7 +1009,7 @@
 }
 
 .field-change-icon.modified {
-  color: var(--vh-primary);
+  color: var(--vh-theme-primary);
 }
 
 .field-name-text {
@@ -1059,24 +1057,24 @@
 }
 
 .field-value-new.highlight-added {
-  color: var(--vh-success);
+  color: var(--vh-semantic-success-text);
   font-weight: 600;
   padding: 2px 6px;
-  background: rgba(17, 153, 142, 0.08);
-  border-radius: 4px;
+  background: rgba(16, 124, 16, 0.08);
+  border-radius: 2px;
 }
 
 .field-value-new.highlight-modified {
-  color: var(--vh-primary);
+  color: var(--vh-theme-dark);
   font-weight: 600;
   padding: 2px 6px;
-  background: rgba(102, 126, 234, 0.08);
-  border-radius: 4px;
+  background: var(--vh-theme-lighter-alt);
+  border-radius: 2px;
 }
 
 /* Special field types */
 .field-value-link {
-  color: var(--vh-primary);
+  color: var(--vh-theme-primary);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -1085,7 +1083,7 @@
 }
 
 .field-value-link:hover {
-  color: var(--vh-primary-dark);
+  color: var(--vh-theme-dark);
   text-decoration: underline;
 }
 
@@ -1176,14 +1174,14 @@
 .version-timeline-list::-webkit-scrollbar-thumb,
 .field-changes-table-body::-webkit-scrollbar-thumb,
 .dx-scrollview-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(102, 126, 234, 0.3) 0%, rgba(102, 126, 234, 0.2) 100%);
+  background: var(--vh-neutral-quaternary);
   border-radius: 4px;
 }
 
 .version-timeline-list::-webkit-scrollbar-thumb:hover,
 .field-changes-table-body::-webkit-scrollbar-thumb:hover,
 .dx-scrollview-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(102, 126, 234, 0.5) 0%, rgba(102, 126, 234, 0.3) 100%);
+  background: var(--vh-neutral-tertiary-alt);
 }
 
 /* ========================================
@@ -1264,7 +1262,7 @@
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--vh-neutral-light);
-    max-height: 40vh;
+    max-height: 35vh;
   }
 
   .version-history-details-panel {

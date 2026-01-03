@@ -1,35 +1,49 @@
-/* ManageAccess Main Component Styles - Modern SaaS Design */
+/* ManageAccess Main Component Styles - SharePoint Native Theme */
 
 /* ============================================
-   CSS Variables - Modern SaaS Palette
+   CSS Variables - SharePoint Native Palette
    ============================================ */
 :root {
-  --ma-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --ma-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  --ma-gradient-error: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-  --ma-primary: #667eea;
-  --ma-primary-dark: #5a67d8;
-  --ma-success: #11998e;
-  --ma-error: #eb3349;
-  --ma-shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
-  --ma-shadow-md: 0 4px 20px rgba(102, 126, 234, 0.2);
-  --ma-shadow-lg: 0 8px 32px rgba(102, 126, 234, 0.25);
-  --ma-transition-fast: 0.15s ease;
-  --ma-transition-normal: 0.25s ease;
+  /* SharePoint theme colors */
+  --ma-theme-primary: var(--themePrimary, #0078d4);
+  --ma-theme-dark: var(--themeDark, #005a9e);
+  --ma-theme-darker: var(--themeDarker, #004578);
+  --ma-theme-light: var(--themeLight, #c7e0f4);
+  --ma-theme-lighter: var(--themeLighter, #deecf9);
+  --ma-theme-lighter-alt: var(--themeLighterAlt, #eff6fc);
 
-  /* C-7: Fluent UI neutral palette */
+  /* Semantic colors */
+  --ma-success: var(--green, #107c10);
+  --ma-error: var(--red, #d13438);
+
+  /* Shadows - Fluent UI standard */
+  --ma-shadow-sm: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132), 0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108);
+  --ma-shadow-md: 0 3.2px 7.2px 0 rgba(0, 0, 0, 0.132), 0 0.6px 1.8px 0 rgba(0, 0, 0, 0.108);
+  --ma-shadow-lg: 0 6.4px 14.4px 0 rgba(0, 0, 0, 0.132), 0 1.2px 3.6px 0 rgba(0, 0, 0, 0.108);
+
+  /* Transitions */
+  --ma-transition-fast: 0.1s ease;
+  --ma-transition-normal: 0.2s ease;
+
+  /* Fluent UI neutral palette */
   --ma-neutral-primary: var(--neutralPrimary, #323130);
+  --ma-neutral-primary-alt: var(--neutralPrimaryAlt, #3b3a39);
   --ma-neutral-secondary: var(--neutralSecondary, #605e5c);
-  --ma-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --ma-neutral-tertiary: var(--neutralTertiary, #a19f9d);
+  --ma-neutral-tertiary-alt: var(--neutralTertiaryAlt, #c8c6c4);
+  --ma-neutral-quaternary: var(--neutralQuaternary, #d2d0ce);
+  --ma-neutral-light: var(--neutralLight, #edebe9);
+  --ma-neutral-lighter: var(--neutralLighter, #f3f2f1);
+  --ma-neutral-lighter-alt: var(--neutralLighterAlt, #faf9f8);
   --ma-white: var(--white, #ffffff);
   --ma-focus-color: var(--themePrimary, #0078d4);
 
-  /* C-7: Backgrounds */
-  --ma-bg-panel: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  --ma-bg-selected: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
-  --ma-bg-card: linear-gradient(135deg, var(--ma-white) 0%, #f8f9ff 100%);
-  --ma-bg-hover: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-  --ma-bg-subtle: #fafbfc;
+  /* Background colors - clean, minimal */
+  --ma-bg-panel: var(--ma-white);
+  --ma-bg-selected: var(--ma-theme-lighter-alt);
+  --ma-bg-card: var(--ma-white);
+  --ma-bg-hover: var(--ma-neutral-lighter);
+  --ma-bg-subtle: var(--ma-neutral-lighter-alt);
 }
 
 /* ============================================
@@ -72,8 +86,7 @@
 }
 
 .manage-access-avatar:hover {
-  transform: scale(1.08);
-  box-shadow: var(--ma-shadow-md);
+  box-shadow: var(--ma-shadow-sm);
 }
 
 /* Permission Indicator Styles - SharePoint native appearance */
@@ -172,17 +185,16 @@
 /* Inline Message Styles */
 .manage-access-inline-message {
   margin: 8px 0;
-  border-radius: 8px;
-  animation: ma-slideIn 0.3s ease-out;
+  border-radius: 2px;
 }
 
 .manage-access-inline-message.ms-MessageBar--success {
-  background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%);
+  background: rgba(16, 124, 16, 0.1);
   border-left: 3px solid var(--ma-success);
 }
 
 .manage-access-inline-message.ms-MessageBar--error {
-  background: linear-gradient(135deg, rgba(235, 51, 73, 0.1) 0%, rgba(244, 92, 67, 0.1) 100%);
+  background: rgba(209, 52, 56, 0.1);
   border-left: 3px solid var(--ma-error);
 }
 
@@ -193,13 +205,13 @@
 }
 
 .manage-access-permission-dropdown .ms-Dropdown-title {
-  border-radius: 6px;
-  border-color: rgba(102, 126, 234, 0.3);
+  border-radius: 2px;
+  border-color: var(--ma-neutral-tertiary-alt);
   transition: all var(--ma-transition-fast);
 }
 
 .manage-access-permission-dropdown .ms-Dropdown-title:hover {
-  border-color: var(--ma-primary);
+  border-color: var(--ma-theme-primary);
 }
 
 /* Section Header Styles */
@@ -215,10 +227,10 @@
 
 .manage-access-section-header::before {
   content: '';
-  width: 4px;
-  height: 16px;
-  background: var(--ma-gradient-primary);
-  border-radius: 2px;
+  width: 3px;
+  height: 14px;
+  background: var(--ma-theme-primary);
+  border-radius: 1px;
 }
 
 /* Grant Access Section */
@@ -226,9 +238,8 @@
   margin-bottom: 20px;
   padding: 16px;
   background: var(--ma-white);
-  border-radius: 12px;
-  box-shadow: var(--ma-shadow-sm);
-  border: 1px solid rgba(102, 126, 234, 0.1);
+  border-radius: 2px;
+  border: 1px solid var(--ma-neutral-light);
 }
 
 .manage-access-grant-buttons {
@@ -238,22 +249,26 @@
 }
 
 .manage-access-grant-buttons .ms-Button--primary {
-  background: var(--ma-gradient-primary);
-  border: none;
-  border-radius: 6px;
-  transition: all var(--ma-transition-normal);
-  box-shadow: var(--ma-shadow-sm);
+  background: var(--ma-theme-primary);
+  border: 1px solid var(--ma-theme-primary);
+  border-radius: 2px;
+  transition: all var(--ma-transition-fast);
 }
 
 .manage-access-grant-buttons .ms-Button--primary:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--ma-shadow-md);
+  background: var(--ma-theme-dark);
+  border-color: var(--ma-theme-dark);
 }
 
-/* People Picker Styles - Fix border to match other components */
+.manage-access-grant-buttons .ms-Button--primary:active {
+  background: var(--ma-theme-darker);
+  border-color: var(--ma-theme-darker);
+}
+
+/* People Picker Styles - SharePoint native appearance */
 .manage-access-panel .ms-BasePicker {
-  border: 1px solid rgba(102, 126, 234, 0.3) !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--ma-neutral-tertiary-alt) !important;
+  border-radius: 2px !important;
   min-height: 32px !important;
   box-sizing: border-box !important;
   transition: all var(--ma-transition-fast) !important;
@@ -261,16 +276,14 @@
 }
 
 .manage-access-panel .ms-BasePicker:hover {
-  border-color: var(--ma-primary) !important;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+  border-color: var(--ma-neutral-primary) !important;
 }
 
 .manage-access-panel .ms-BasePicker.is-active,
 .manage-access-panel .ms-BasePicker:focus-within {
-  border-color: var(--ma-primary) !important;
-  border-width: 1px !important;
+  border-color: var(--ma-theme-primary) !important;
+  border-width: 2px !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
 }
 
 .manage-access-panel .ms-BasePicker-text {
@@ -297,27 +310,23 @@
 
 /* COMPACT Permission Item Styles */
 .manage-access-permission-item {
-  padding: 12px 16px;
-  border: 1px solid rgba(102, 126, 234, 0.1);
-  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ma-neutral-light);
+  border-radius: 2px;
   background-color: var(--ma-white);
-  transition: all var(--ma-transition-normal);
-  margin-bottom: 8px;
+  transition: background var(--ma-transition-fast), border-color var(--ma-transition-fast);
+  margin-bottom: 4px;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   grid-template-areas: "avatar info permission delete";
   gap: 12px;
   align-items: center;
-  min-height: 52px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  animation: ma-slideIn 0.3s ease-out;
+  min-height: 48px;
 }
 
 .manage-access-permission-item:hover {
-  background: var(--ma-bg-card);
-  border-color: rgba(102, 126, 234, 0.25);
-  box-shadow: var(--ma-shadow-sm);
-  transform: translateY(-1px);
+  background: var(--ma-neutral-lighter);
+  border-color: var(--ma-neutral-tertiary-alt);
 }
 
 /* Permission Avatar */
@@ -417,12 +426,12 @@
 .manage-access-remove-button {
   grid-area: delete;
   opacity: 0;
-  transition: all var(--ma-transition-normal);
+  transition: opacity var(--ma-transition-fast), background var(--ma-transition-fast);
   color: var(--ma-error);
   min-width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 2px;
   background: transparent;
   border: 1px solid transparent;
 }
@@ -432,16 +441,14 @@
 }
 
 .manage-access-remove-button:hover {
-  background: var(--ma-gradient-error);
+  background: var(--ma-error);
   color: var(--ma-white);
-  border-color: transparent;
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(235, 51, 73, 0.3);
+  border-color: var(--ma-error);
 }
 
 .manage-access-remove-button:focus {
   opacity: 1;
-  outline: 2px solid rgba(235, 51, 73, 0.5);
+  outline: 2px solid var(--ma-error);
   outline-offset: 2px;
 }
 
@@ -450,28 +457,18 @@
   text-align: center;
   color: var(--ma-neutral-secondary);
   font-style: normal;
-  padding: 40px 24px;
-  background: var(--ma-bg-hover);
-  border-radius: 16px;
-  border: 2px dashed rgba(102, 126, 234, 0.3);
-  animation: ma-slideIn 0.4s ease-out;
-}
-
-.manage-access-no-permissions::before {
-  content: '👥';
-  display: block;
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.6;
+  padding: 32px 24px;
+  background: var(--ma-neutral-lighter-alt);
+  border-radius: 2px;
+  border: 1px dashed var(--ma-neutral-tertiary-alt);
 }
 
 /* Focus Styles for Accessibility */
 .manage-access-permission-indicator:focus,
 .manage-access-remaining:focus,
 .manage-access-link:focus {
-  outline: 2px solid var(--ma-primary);
+  outline: 2px solid var(--ma-theme-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
 }
 
 /* MOBILE RESPONSIVE STYLES */
@@ -482,7 +479,6 @@
 
   .manage-access-grant-section {
     padding: 12px;
-    border-radius: 10px;
   }
 
   /* Mobile: Stack layout */
@@ -491,9 +487,8 @@
     grid-template-areas:
       "avatar info"
       "actions actions";
-    padding: 12px;
+    padding: 10px;
     gap: 10px;
-    border-radius: 10px;
   }
 
   /* Row 1: Avatar + Name/Email */
@@ -542,8 +537,7 @@
   }
 
   .manage-access-permission-item {
-    padding: 10px;
-    border-radius: 8px;
+    padding: 8px;
   }
 
   .manage-access-permission-name {
@@ -557,7 +551,6 @@
   .manage-access-permission-level {
     font-size: 10px;
     padding: 4px 8px;
-    border-radius: 12px;
   }
 
   .manage-access-remove-button {
@@ -567,11 +560,6 @@
 
   .manage-access-no-permissions {
     padding: 24px 16px;
-    border-radius: 12px;
-  }
-
-  .manage-access-no-permissions::before {
-    font-size: 24px;
   }
 }
 

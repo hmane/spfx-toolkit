@@ -1,36 +1,44 @@
-/* GroupViewer Main Styles - Modern SaaS Design */
+/* GroupViewer Main Styles - SharePoint Native Theme */
 
 /* ============================================
-   CSS Variables - Modern SaaS Palette
+   CSS Variables - SharePoint Native Palette
    ============================================ */
 :root {
-  --gv-gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gv-gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  --gv-gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --gv-primary: #667eea;
-  --gv-primary-dark: #5a67d8;
-  --gv-shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
-  --gv-shadow-md: 0 4px 20px rgba(102, 126, 234, 0.2);
-  --gv-shadow-lg: 0 8px 32px rgba(102, 126, 234, 0.25);
-  --gv-transition-fast: 0.15s ease;
-  --gv-transition-normal: 0.25s ease;
+  /* SharePoint theme colors */
+  --gv-theme-primary: var(--themePrimary, #0078d4);
+  --gv-theme-dark: var(--themeDark, #005a9e);
+  --gv-theme-darker: var(--themeDarker, #004578);
+  --gv-theme-light: var(--themeLight, #c7e0f4);
+  --gv-theme-lighter: var(--themeLighter, #deecf9);
+  --gv-theme-lighter-alt: var(--themeLighterAlt, #eff6fc);
 
-  /* C-7: Fluent UI neutral palette */
+  /* Shadows - Fluent UI standard */
+  --gv-shadow-sm: 0 1.6px 3.6px 0 rgba(0, 0, 0, 0.132), 0 0.3px 0.9px 0 rgba(0, 0, 0, 0.108);
+  --gv-shadow-md: 0 3.2px 7.2px 0 rgba(0, 0, 0, 0.132), 0 0.6px 1.8px 0 rgba(0, 0, 0, 0.108);
+  --gv-shadow-lg: 0 6.4px 14.4px 0 rgba(0, 0, 0, 0.132), 0 1.2px 3.6px 0 rgba(0, 0, 0, 0.108);
+
+  /* Transitions */
+  --gv-transition-fast: 0.1s ease;
+  --gv-transition-normal: 0.2s ease;
+
+  /* Fluent UI neutral palette */
   --gv-neutral-primary: var(--neutralPrimary, #323130);
   --gv-neutral-secondary: var(--neutralSecondary, #605e5c);
-  --gv-neutral-tertiary-alt: var(--neutralTertiaryAlt, #8a8886);
+  --gv-neutral-tertiary: var(--neutralTertiary, #a19f9d);
+  --gv-neutral-tertiary-alt: var(--neutralTertiaryAlt, #c8c6c4);
+  --gv-neutral-light: var(--neutralLight, #edebe9);
   --gv-neutral-lighter: var(--neutralLighter, #f3f2f1);
+  --gv-neutral-lighter-alt: var(--neutralLighterAlt, #faf9f8);
   --gv-white: var(--white, #ffffff);
   --gv-error: var(--red, #d13438);
 
-  /* C-7: Backgrounds */
-  --gv-bg-container: linear-gradient(180deg, var(--gv-white) 0%, #fafbfc 100%);
-  --gv-bg-error: linear-gradient(135deg, #fef7f7 0%, var(--gv-white) 100%);
-  --gv-bg-empty: linear-gradient(135deg, #f8f8f8 0%, var(--gv-white) 100%);
-  --gv-bg-info: linear-gradient(135deg, #f0f9ff 0%, var(--gv-white) 100%);
-  --gv-bg-hover: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, var(--gv-white) 100%);
+  /* Background colors - clean, minimal */
+  --gv-bg-container: var(--gv-white);
+  --gv-bg-error: rgba(209, 52, 56, 0.05);
+  --gv-bg-empty: var(--gv-neutral-lighter-alt);
+  --gv-bg-hover: var(--gv-neutral-lighter);
 
-  /* C-7: High contrast */
+  /* High contrast */
   --gv-hc-border: #000000;
 }
 
@@ -58,11 +66,11 @@
 }
 
 .group-viewer:hover {
-  transform: translateY(-1px);
+  opacity: 0.8;
 }
 
 .group-viewer:active {
-  transform: scale(0.98);
+  opacity: 0.7;
 }
 
 /* Display Mode Styles */
@@ -87,18 +95,17 @@
   text-decoration: underline;
 }
 
-/* Enhanced Tooltip Container Styles - Modern SaaS */
+/* Tooltip Container Styles - SharePoint native */
 .group-viewer-tooltip {
-  min-width: 300px;
-  max-width: 400px;
+  min-width: 280px;
+  max-width: 380px;
   font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
   color: var(--gv-neutral-primary);
-  background: var(--gv-bg-container);
-  border-radius: 16px;
+  background: var(--gv-white);
+  border-radius: 2px;
   box-shadow: var(--gv-shadow-lg);
-  border: 1px solid rgba(102, 126, 234, 0.1);
+  border: 1px solid var(--gv-neutral-light);
   overflow: visible;
-  animation: gv-fadeIn 0.3s ease-out;
 }
 
 /* Compact state styles - loading, error, empty */
@@ -107,28 +114,27 @@
 .group-viewer-tooltip.empty {
   min-width: 240px;
   max-width: 280px;
-  min-height: 120px;
+  min-height: 100px;
   text-align: center;
-  padding: 24px 20px;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
 }
 
 .group-viewer-tooltip.error {
-  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
-  border: 1px solid rgba(209, 52, 56, 0.2);
+  background: var(--gv-bg-error);
+  border: 1px solid rgba(209, 52, 56, 0.3);
 }
 
 .group-viewer-tooltip.empty {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border: 1px solid rgba(102, 126, 234, 0.15);
+  background: var(--gv-bg-empty);
+  border: 1px solid var(--gv-neutral-light);
 }
 
 .group-viewer-tooltip.loading {
-  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
-  border: 1px solid rgba(102, 126, 234, 0.15);
+  background: var(--gv-white);
+  border: 1px solid var(--gv-neutral-light);
 }
 
 /* Remove the ::before pseudo-elements for compact states */
@@ -137,20 +143,16 @@
   display: none;
 }
 
-/* Enhanced Member Item Styles - Modern SaaS */
+/* Member Item Styles - SharePoint native */
 .group-viewer-member-item {
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  transition: all var(--gv-transition-normal);
-  border-radius: 10px;
-  margin: 4px 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gv-neutral-light);
+  transition: background var(--gv-transition-fast);
   background: transparent;
 }
 
 .group-viewer-member-item:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.04) 0%, rgba(118, 75, 162, 0.04) 100%);
-  box-shadow: var(--gv-shadow-sm);
-  transform: translateX(4px);
+  background: var(--gv-bg-hover);
 }
 
 .group-viewer-member-item:last-child {
@@ -212,26 +214,24 @@
 }
 
 .group-viewer-fallback-persona:hover {
-  transform: scale(1.1);
+  opacity: 0.8;
 }
 
-/* Enhanced Nested Group Icon Styles - Modern SaaS */
+/* Nested Group Icon Styles - SharePoint native */
 .group-viewer-nested-group-icon {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--gv-gradient-primary);
+  background: var(--gv-theme-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all var(--gv-transition-normal);
-  box-shadow: var(--gv-shadow-sm);
+  transition: background var(--gv-transition-fast);
 }
 
 .group-viewer-nested-group-icon:hover {
-  transform: scale(1.15);
-  box-shadow: var(--gv-shadow-md);
+  background: var(--gv-theme-dark);
 }
 
 .group-viewer-nested-group-icon i {
@@ -271,53 +271,39 @@
   border-color: var(--neutralTertiary, #a19f9d);
 }
 
-/* Enhanced Tooltip Header - Modern SaaS with Gradient */
+/* Tooltip Header - SharePoint native */
 .group-viewer-tooltip-header {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.06) 0%, rgba(118, 75, 162, 0.06) 100%);
-  padding: 18px 22px 14px 22px;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-  position: relative;
-  border-radius: 16px 16px 0 0;
-}
-
-/* Gradient accent line */
-.group-viewer-tooltip-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gv-gradient-primary);
-  opacity: 0.5;
+  background: var(--gv-white);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gv-neutral-light);
 }
 
 .group-viewer-tooltip-header .group-viewer-title {
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 600;
+  font-size: 14px;
   color: var(--gv-neutral-primary);
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 24px;
+  gap: 8px;
+  min-height: 20px;
 }
 
 /* Member count badge - inline with title */
 .group-viewer-member-count {
   color: var(--gv-neutral-secondary);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 /* Special group badge styling */
 .group-viewer-member-count.group-viewer-special-badge {
-  color: var(--gv-primary);
+  color: var(--gv-theme-dark);
   font-weight: 600;
   padding: 2px 8px;
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 10px;
+  background: var(--gv-theme-lighter-alt);
+  border-radius: 2px;
   font-size: 11px;
 }
 
@@ -325,12 +311,12 @@
   color: var(--gv-neutral-secondary);
   font-size: 12px;
   font-style: normal;
-  margin-top: 10px;
-  line-height: 1.5;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 8px;
-  border-left: 3px solid var(--gv-primary);
+  margin-top: 8px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  background: var(--gv-neutral-lighter-alt);
+  border-radius: 2px;
+  border-left: 2px solid var(--gv-theme-primary);
 }
 
 /* Enhanced Section Headers */
@@ -367,15 +353,14 @@
   margin-top: 1px;
 }
 
-/* Focus Styles for Accessibility - Modern SaaS */
+/* Focus Styles for Accessibility */
 .group-viewer:focus {
-  outline: 2px solid var(--gv-primary);
+  outline: 2px solid var(--gv-theme-primary);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 .group-viewer:focus-visible {
-  outline: 2px solid var(--gv-primary);
+  outline: 2px solid var(--gv-theme-primary);
   outline-offset: 2px;
 }
 
@@ -412,22 +397,8 @@
   word-break: break-word;
 }
 
-/* Enhanced Empty State */
-.group-viewer-tooltip.empty::before {
-  content: "👥";
-  font-size: 24px;
-  display: block;
-  margin-bottom: 8px;
-  opacity: 0.5;
-}
-
-/* Enhanced Error State */
-.group-viewer-tooltip.error::before {
-  content: "⚠️";
-  font-size: 20px;
-  display: block;
-  margin-bottom: 8px;
-}
+/* Empty and Error states - no additional icons needed as the component
+   already shows appropriate icons in the content area */
 
 /* Modern Glassmorphism Effect for Tooltip */
 .group-viewer-tooltip {
@@ -436,38 +407,37 @@
   background: rgba(255, 255, 255, 0.95);
 }
 
-/* Enhanced Hover States - Modern SaaS */
+/* Hover States */
 .group-viewer-member-item .group-viewer-member-name {
   transition: color var(--gv-transition-fast);
 }
 
 .group-viewer-member-item:hover .group-viewer-member-name {
-  color: var(--gv-primary);
+  color: var(--gv-theme-primary);
 }
 
-/* Special Group Tooltip Styles - Modern SaaS */
+/* Special Group Tooltip Styles */
 .group-viewer-tooltip.special-group {
-  min-width: 340px;
-  max-width: 440px;
-  background: var(--gv-bg-hover);
-  border-left: 4px solid var(--gv-primary);
+  min-width: 300px;
+  max-width: 400px;
+  border-left: 3px solid var(--gv-theme-primary);
 }
 
 .group-viewer-tooltip.special-group .group-viewer-tooltip-header {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-  border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+  background: var(--gv-theme-lighter-alt);
+  border-bottom: 1px solid var(--gv-neutral-light);
 }
 
 .group-viewer-tooltip.special-group .group-viewer-title {
-  color: var(--gv-primary-dark);
+  color: var(--gv-theme-dark);
 }
 
 .group-viewer-tooltip.special-group .group-viewer-description {
-  background: rgba(102, 126, 234, 0.05);
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-top: 10px;
-  border-left: 3px solid var(--gv-primary);
+  background: var(--gv-neutral-lighter-alt);
+  padding: 8px 12px;
+  border-radius: 2px;
+  margin-top: 8px;
+  border-left: 2px solid var(--gv-theme-primary);
   font-style: normal;
   color: var(--gv-neutral-secondary);
 }
@@ -477,24 +447,18 @@
   .group-viewer-tooltip {
     min-width: 240px;
     max-width: 320px;
-    border-radius: 12px;
   }
 
   .group-viewer-tooltip-header {
-    padding: 12px 16px 8px 16px;
+    padding: 10px 14px;
   }
 
   .group-viewer-tooltip-header .group-viewer-title {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .group-viewer-member-item {
-    padding: 8px 0;
-  }
-
-  .group-viewer-member-item:hover {
-    padding: 8px 6px;
-    margin: 0 -6px;
+    padding: 6px 10px;
   }
 
   .group-viewer-name-only,
@@ -527,7 +491,6 @@
   .group-viewer-tooltip {
     min-width: 200px;
     max-width: 280px;
-    border-radius: 16px;
   }
 
   .group-viewer-live-persona-container,
