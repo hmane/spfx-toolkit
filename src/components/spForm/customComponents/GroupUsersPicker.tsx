@@ -69,6 +69,14 @@ export const GroupUsersPicker: React.FC<IRHFGroupUsersPickerProps> = ({
         const fieldValueAsPrincipals: IPrincipal[] = field.value || [];
         const selectedUsers: IGroupUser[] = fieldValueAsPrincipals.map(principalToGroupUser);
 
+        SPContext.logger.info('GroupUsersPicker RHF: Rendering', {
+          fieldName: name,
+          fieldValueCount: fieldValueAsPrincipals.length,
+          fieldValue: fieldValueAsPrincipals,
+          selectedUsersCount: selectedUsers.length,
+          selectedUsers: selectedUsers.map(u => ({ id: u.id, text: u.text })),
+        });
+
         return (
           <BaseGroupUsersPicker
             {...baseProps}

@@ -114,24 +114,49 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
 
   // Track previous selectedUsers to avoid unnecessary comparisons
   const prevSelectedUsersRef = React.useRef<IGroupUser[]>(selectedUsers);
+  // Track whether we've successfully synced selectedUsers after users loaded
+  const hasSyncedAfterLoadRef = React.useRef(false);
 
-  // Update selected value when selectedUsers prop changes
+  // Update selected value when selectedUsers prop changes OR when users finish loading
   // IMPORTANT: Only update if the value actually changed to prevent infinite loops
   // We need to find the matching user in the loaded users array to get the correct ID type
   React.useEffect(() => {
+    SPContext.logger.info('GroupUsersPicker: Sync effect running', {
+      usersCount: users.length,
+      selectedUsersCount: selectedUsers.length,
+      selectedUsers: selectedUsers.map(u => ({ id: u.id, text: u.text })),
+      hasSyncedAfterLoad: hasSyncedAfterLoadRef.current,
+      currentSelectedValue: selectedValue,
+    });
+
     // Only update when users are loaded
-    if (users.length === 0) return;
+    if (users.length === 0) {
+      hasSyncedAfterLoadRef.current = false; // Reset flag when users are not loaded
+      SPContext.logger.info('GroupUsersPicker: Users not loaded yet, skipping sync');
+      return;
+    }
 
     // Quick check: if selectedUsers reference hasn't changed, skip processing
     const prevSelectedUsers = prevSelectedUsersRef.current;
     const idsMatch = selectedUsers.length === prevSelectedUsers.length &&
       selectedUsers.every((u, i) => u.id === prevSelectedUsers[i]?.id);
 
-    if (idsMatch && prevSelectedUsers.length > 0) {
-      return; // No change in selected users
+    // Need to sync if: users just loaded and we have selectedUsers that haven't been synced yet
+    const needsInitialSync = !hasSyncedAfterLoadRef.current && selectedUsers.length > 0;
+
+    SPContext.logger.info('GroupUsersPicker: Sync check', {
+      idsMatch,
+      prevSelectedUsersCount: prevSelectedUsers.length,
+      needsInitialSync,
+    });
+
+    if (idsMatch && prevSelectedUsers.length > 0 && !needsInitialSync) {
+      SPContext.logger.info('GroupUsersPicker: Skipping sync - no changes');
+      return; // No change in selected users and already synced
     }
 
     prevSelectedUsersRef.current = selectedUsers;
+    hasSyncedAfterLoadRef.current = true;
 
     let newValue: any;
 
@@ -155,18 +180,35 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
         .filter(id => id !== undefined);
     }
 
-    // Only update if the value actually changed (compare as strings to handle type differences)
+    // Only update if the value actually changed
+    // IMPORTANT: Compare both value AND type - DevExtreme needs the exact type from users array
+    // The initial selectedValue might be a string from props, but users array has numeric IDs
+    const currentValueStr = String(selectedValue ?? '');
+    const newValueStr = String(newValue ?? '');
+    const typesDiffer = typeof selectedValue !== typeof newValue && newValue !== undefined;
+
     const shouldUpdate = maxUserCount === 1
-      ? String(selectedValue ?? '') !== String(newValue ?? '')
+      ? currentValueStr !== newValueStr || typesDiffer
       : JSON.stringify((Array.isArray(selectedValue) ? selectedValue : []).map(String))
           !== JSON.stringify((Array.isArray(newValue) ? newValue : []).map(String));
+
+    SPContext.logger.info('GroupUsersPicker: Update check', {
+      currentValueStr,
+      newValueStr,
+      currentValueType: typeof selectedValue,
+      newValueType: typeof newValue,
+      typesDiffer,
+      shouldUpdate,
+    });
 
     if (shouldUpdate) {
       SPContext.logger.info('GroupUsersPicker: Syncing selectedValue from prop', {
         selectedUsersCount: selectedUsers.length,
         propUserId: selectedUsers[0]?.id,
         resolvedValue: newValue,
+        resolvedValueType: typeof newValue,
         currentSelectedValue: selectedValue,
+        currentSelectedValueType: typeof selectedValue,
       });
       setSelectedValue(newValue);
     }

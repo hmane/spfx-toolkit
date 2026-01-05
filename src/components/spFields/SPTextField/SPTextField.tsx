@@ -54,13 +54,17 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
   const formContext = useFormContext();
 
+  // Determine if we're in standalone mode FIRST (before creating any form)
+  const isStandaloneMode = !props.control && !formContext?.control;
+
   // Create a fallback form for standalone mode (no control provided)
   // This ensures useWatch always has a valid control to work with
+  // IMPORTANT: useForm must be called unconditionally (React hooks rule)
+  // but we only use the fallback control when actually in standalone mode
   const fallbackForm = useForm({ defaultValues: { __standalone__: '' } });
 
-  // Use provided control, context control, or fallback
-  const effectiveControl = props.control || formContext?.control || fallbackForm.control;
-  const isStandaloneMode = !props.control && !formContext?.control;
+  // Use provided control, context control, or fallback (only in standalone mode)
+  const effectiveControl = props.control || formContext?.control || (isStandaloneMode ? fallbackForm.control : undefined);
 
   const {
     // Base props
@@ -154,8 +158,15 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     }
   }, [name, label, required, formContext, fieldRef]);
 
+  // Determine if we should show history
+  const showHistory = appendOnly && itemId && listNameOrId && (fieldInternalName || name);
+  const isRichTextMode = mode === SPTextFieldMode.RichText;
+  const historyPosition = historyConfig?.position || 'below';
+
   // Determine if char count should be handled by FormContext (when inside spForm)
-  const shouldUseFormContextCharCount = formContext?.autoShowErrors && showCharacterCount && name;
+  // IMPORTANT: When history is shown below, SPTextField renders char count inline (between input and history),
+  // so we should NOT register with FormContext to avoid duplicate display
+  const shouldUseFormContextCharCount = formContext?.autoShowErrors && showCharacterCount && name && !(showHistory && historyPosition === 'below');
 
   // Watch form value for char count registration (when using react-hook-form)
   // In standalone mode, we use the fallback form with a dummy field name
@@ -201,11 +212,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       }
     };
   }, [formContext, name]);
-
-  // Determine if we should show history
-  const showHistory = appendOnly && itemId && listNameOrId && (fieldInternalName || name);
-  const isRichTextMode = mode === SPTextFieldMode.RichText;
-  const historyPosition = historyConfig?.position || 'below';
 
   // Debounced change handler
   const handleChange = React.useCallback(
@@ -459,8 +465,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           </div>
         )}
 
-        {/* Character count row - skip if inside FormProvider with autoShowErrors (FormItem handles it via charCountRegistry) */}
-        {!shouldUseFormContextCharCount && showCharacterCount && !isRichTextMode && (
+        {/* Character count row - render here if:
+            1. Not using FormContext char count (standalone mode), OR
+            2. History is shown below (char count must appear between input and history, not after history)
+            When history is below, we always render char count here to maintain proper visual order */}
+        {showCharacterCount && !isRichTextMode && (!shouldUseFormContextCharCount || (showHistory && historyPosition === 'below')) && (
           <div className="sp-field-meta-row">
             <span className={getCharCountClass(currentCharCount, maxLength)}>
               {currentCharCount}

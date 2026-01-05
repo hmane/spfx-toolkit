@@ -119,28 +119,36 @@ export interface IFormProviderProps {
 }
 
 /**
- * FormProvider - wraps form to provide context
- * Uses two contexts: one for stable values (control, registry, etc.)
- * and one for frequently-changing form state to optimize re-renders
+ * Inner component that uses useFormState when control is provided
+ * This allows us to conditionally use the hook without violating React rules
  */
-export const FormProvider: React.FC<IFormProviderProps> = ({
+const FormProviderWithState: React.FC<IFormProviderProps & {
+  registry: React.MutableRefObject<IFieldRegistry>;
+  charCountRegistry: React.MutableRefObject<ICharCountRegistry>;
+}> = ({
   children,
   control,
   autoShowErrors = false,
+  registry,
+  charCountRegistry,
 }) => {
-  const registry = React.useRef<IFieldRegistry>(createFieldRegistry());
-  const charCountRegistry = React.useRef<ICharCountRegistry>(createCharCountRegistry());
-  const formState = control ? useFormState({ control }) : undefined;
+  // useFormState is only called when control is provided (this component is only rendered then)
+  const formState = useFormState({ control: control! });
+
+  // Store formState in a ref so context value doesn't need to depend on it
+  // This prevents context updates when formState changes during render
+  const formStateRef = React.useRef(formState);
+  formStateRef.current = formState;
 
   // Stable context value - only changes when control or autoShowErrors changes
+  // formState is accessed via ref to avoid context value changes on every form state update
   const contextValue = React.useMemo<IFormContextValue>(() => {
-    // Store formState in a ref-like pattern for methods that need it
-    // This way the contextValue doesn't change when formState changes
-    const getFormState = () => formState;
+    // Use ref to get current formState - this keeps the context value stable
+    const getFormState = () => formStateRef.current;
 
     return {
       control,
-      formState, // Keep for backward compatibility
+      formState: formStateRef.current, // Initial value for backward compat
       registry: registry.current,
       charCountRegistry: charCountRegistry.current,
       autoShowErrors,
@@ -168,7 +176,6 @@ export const FormProvider: React.FC<IFormProviderProps> = ({
       focusField(fieldName: string): boolean {
         const field = registry.current.get(fieldName);
         if (field?.ref?.current) {
-          // Try to find focusable element
           const focusableElement = findFocusableElement(field.ref.current);
           if (focusableElement) {
             focusableElement.focus();
@@ -204,11 +211,104 @@ export const FormProvider: React.FC<IFormProviderProps> = ({
         }
       },
     };
-  }, [control, autoShowErrors, formState]);
+  }, [control, autoShowErrors, registry, charCountRegistry]);
 
   return (
     <FormContext.Provider value={contextValue}>
       <FormStateContext.Provider value={formState}>
+        {children}
+      </FormStateContext.Provider>
+    </FormContext.Provider>
+  );
+};
+
+/**
+ * FormProvider - wraps form to provide context
+ * Uses two contexts: one for stable values (control, registry, etc.)
+ * and one for frequently-changing form state to optimize re-renders
+ *
+ * When control is provided, uses FormProviderWithState to get form state.
+ * When control is not provided, provides a minimal context without form state.
+ */
+export const FormProvider: React.FC<IFormProviderProps> = ({
+  children,
+  control,
+  autoShowErrors = false,
+}) => {
+  const registry = React.useRef<IFieldRegistry>(createFieldRegistry());
+  const charCountRegistry = React.useRef<ICharCountRegistry>(createCharCountRegistry());
+
+  // If control is provided, use the inner component that calls useFormState
+  if (control) {
+    return (
+      <FormProviderWithState
+        control={control}
+        autoShowErrors={autoShowErrors}
+        registry={registry}
+        charCountRegistry={charCountRegistry}
+      >
+        {children}
+      </FormProviderWithState>
+    );
+  }
+
+  // No control provided - create minimal context without form state
+  const contextValue = React.useMemo<IFormContextValue>(() => {
+    return {
+      control: undefined,
+      formState: undefined,
+      registry: registry.current,
+      charCountRegistry: charCountRegistry.current,
+      autoShowErrors,
+
+      getFieldError(): string | undefined {
+        return undefined;
+      },
+
+      hasError(): boolean {
+        return false;
+      },
+
+      getFirstErrorField(): string | undefined {
+        return undefined;
+      },
+
+      focusField(fieldName: string): boolean {
+        const field = registry.current.get(fieldName);
+        if (field?.ref?.current) {
+          const focusableElement = findFocusableElement(field.ref.current);
+          if (focusableElement) {
+            focusableElement.focus();
+            return true;
+          }
+        }
+        return false;
+      },
+
+      focusFirstError(): boolean {
+        return false;
+      },
+
+      scrollToField(fieldName: string, options?: ScrollIntoViewOptions): void {
+        const field = registry.current.get(fieldName);
+        if (field?.ref?.current) {
+          field.ref.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            ...options,
+          });
+        }
+      },
+
+      scrollToFirstError(): void {
+        // No-op without form state
+      },
+    };
+  }, [autoShowErrors]);
+
+  return (
+    <FormContext.Provider value={contextValue}>
+      <FormStateContext.Provider value={undefined}>
         {children}
       </FormStateContext.Provider>
     </FormContext.Provider>
