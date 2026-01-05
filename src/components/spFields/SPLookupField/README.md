@@ -1,6 +1,19 @@
-# SPLookupField Component =
+# SPLookupField Component
 
 A comprehensive lookup field component that mirrors SharePoint's Lookup fields. Supports single/multi-select, auto-switching display modes (dropdown/searchable), cascading lookups, cross-site lookups, and smart performance optimization.
+
+> âš ï¸ **IMPORTANT: Direct Import Required**
+>
+> SPLookupField is NOT exported from the spFields barrel to prevent unnecessary CSS bundling.
+> Always import directly from the component path:
+>
+> ```typescript
+> // âœ… Correct - direct import
+> import { SPLookupField } from 'spfx-toolkit/lib/components/spFields/SPLookupField';
+>
+> // âŒ Wrong - will not work
+> import { SPLookupField } from 'spfx-toolkit/lib/components/spFields';
+> ```
 
 ## Table of Contents
 
@@ -21,18 +34,18 @@ A comprehensive lookup field component that mirrors SharePoint's Lookup fields. 
 ## Features
 
 - = **Smart Display Modes** - Auto-switches between dropdown and searchable
-- =Ê **Single/Multi Select** - Select one or multiple items
+- =ï¿½ **Single/Multi Select** - Select one or multiple items
 - = **Cascading Lookups** - Dependent lookup relationships
 - < **Cross-Site Lookups** - Look up items from other sites
-- =¾ **Caching** - Optional data caching
-- <¯ **CAML Filtering** - Filter lookup items with CAML
+- =ï¿½ **Caching** - Optional data caching
+- <ï¿½ **CAML Filtering** - Filter lookup items with CAML
 - = **Search** - Search-as-you-type for large lists
-- ¡ **Performance** - Optimized for small and large lists
-- <£ **React Hook Form** - Native integration
-- <¨ **DevExtreme UI** - SelectBox/TagBox for dropdowns
-- <¯ **PnP Controls** - ListItemPicker for searchable mode
-- =æ **Tree-Shakable** - Import only what you need
-- <¯ **TypeScript** - Full type safety
+- ï¿½ **Performance** - Optimized for small and large lists
+- <ï¿½ **React Hook Form** - Native integration
+- <ï¿½ **DevExtreme UI** - SelectBox/TagBox for dropdowns
+- <ï¿½ **PnP Controls** - ListItemPicker for searchable mode
+- =ï¿½ **Tree-Shakable** - Import only what you need
+- <ï¿½ **TypeScript** - Full type safety
 
 ---
 

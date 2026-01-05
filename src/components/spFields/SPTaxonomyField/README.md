@@ -1,6 +1,19 @@
-# SPTaxonomyField Component <÷
+# SPTaxonomyField Component <ï¿½
 
 A comprehensive managed metadata (taxonomy) field component that mirrors SharePoint's Managed Metadata fields. Supports term set integration, single/multi-select, hierarchical term display, search functionality, and DevExtreme UI integration.
+
+> âš ï¸ **IMPORTANT: Direct Import Required**
+>
+> SPTaxonomyField is NOT exported from the spFields barrel to prevent unnecessary CSS bundling.
+> Always import directly from the component path:
+>
+> ```typescript
+> // âœ… Correct - direct import
+> import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields/SPTaxonomyField';
+>
+> // âŒ Wrong - will not work
+> import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields';
+> ```
 
 ## Table of Contents
 
@@ -19,19 +32,19 @@ A comprehensive managed metadata (taxonomy) field component that mirrors SharePo
 
 ## Features
 
-- <÷ **Managed Metadata** - Connect to SharePoint term stores
+- <ï¿½ **Managed Metadata** - Connect to SharePoint term stores
 - = **Search Functionality** - Search terms with configurable delay
-- =Ê **Single/Multi Select** - Select one or multiple terms
+- =ï¿½ **Single/Multi Select** - Select one or multiple terms
 - <3 **Hierarchical Display** - Show term paths and hierarchy
-- =¾ **Caching** - Optional term data caching
-- <¯ **Anchor Terms** - Limit to specific term branches
-- <£ **React Hook Form** - Native integration with validation
-- <¨ **DevExtreme UI** - Consistent styling with spForm system
+- =ï¿½ **Caching** - Optional term data caching
+- <ï¿½ **Anchor Terms** - Limit to specific term branches
+- <ï¿½ **React Hook Form** - Native integration with validation
+- <ï¿½ **DevExtreme UI** - Consistent styling with spForm system
 -  **Validation** - Built-in validation with custom rules
-- <­ **Styling Modes** - Outlined, underlined, or filled styles
+- <ï¿½ **Styling Modes** - Outlined, underlined, or filled styles
 - = **Access Control** - Read-only and disabled states
-- =æ **Tree-Shakable** - Import only what you need
-- <¯ **TypeScript** - Full type safety
+- =ï¿½ **Tree-Shakable** - Import only what you need
+- <ï¿½ **TypeScript** - Full type safety
 
 ---
 
@@ -300,7 +313,7 @@ const dataSource3: ITaxonomyDataSource = {
   }}
   maxDisplayedTags={5}
   showPath
-  pathSeparator=" ’ "
+  pathSeparator=" ï¿½ "
 />
 ```
 
@@ -474,7 +487,7 @@ function DocumentClassificationForm() {
         }}
         rules={{ required: 'Document type is required' }}
         showPath
-        pathSeparator=" ’ "
+        pathSeparator=" ï¿½ "
       />
 
       {/* Category - Limited based on document type */}

@@ -128,16 +128,26 @@ type StepStatus = 'completed' | 'current' | 'pending' | 'warning' | 'error' | 'b
 
 ### WorkflowStepperProps
 
-| Prop                | Type                                     | Default       | Description                      |
-| ------------------- | ---------------------------------------- | ------------- | -------------------------------- |
-| `steps`             | `StepData[]`                             | -             | Array of step data (required)    |
-| `mode`              | `'fullSteps' \| 'progress' \| 'compact'` | `'fullSteps'` | Display mode                     |
-| `selectedStepId`    | `string`                                 | -             | ID of selected step (controlled) |
-| `onStepClick`       | `(step: StepData) => void`               | -             | Step click handler               |
-| `minStepWidth`      | `number`                                 | `160`         | Minimum width per step in pixels |
-| `descriptionStyles` | `StepDescriptionStyles`                  | -             | Custom styles for descriptions   |
-| `className`         | `string`                                 | -             | Additional CSS class             |
-| `showScrollHint`    | `boolean`                                | `true`        | Show scroll hint arrows          |
+| Prop                | Type                                          | Default       | Description                      |
+| ------------------- | --------------------------------------------- | ------------- | -------------------------------- |
+| `steps`             | `StepData[]`                                  | -             | Array of step data (required)    |
+| `mode`              | `'fullSteps' \| 'progress' \| 'compact'`      | `'fullSteps'` | Display mode                     |
+| `variant`           | `'arrow' \| 'timeline' \| 'minimal' \| 'cards'` | `'arrow'`     | Visual variant style             |
+| `selectedStepId`    | `string`                                      | -             | ID of selected step (controlled) |
+| `onStepClick`       | `(step: StepData) => void`                    | -             | Step click handler               |
+| `minStepWidth`      | `number`                                      | `160`         | Minimum width per step in pixels |
+| `descriptionStyles` | `StepDescriptionStyles`                       | -             | Custom styles for descriptions   |
+| `className`         | `string`                                      | -             | Additional CSS class             |
+| `showScrollHint`    | `boolean`                                     | `true`        | Show scroll hint arrows          |
+
+### StepperVariant Types
+
+| Variant    | Description                                                     |
+| ---------- | --------------------------------------------------------------- |
+| `arrow`    | Default arrow-based horizontal design with seamless connections |
+| `timeline` | Vertical layout with animated progress line and circular nodes  |
+| `minimal`  | Ultra-clean horizontal dots connected by thin lines             |
+| `cards`    | Elevated card design with hover lift effects                    |
 
 ### StepDescriptionStyles
 

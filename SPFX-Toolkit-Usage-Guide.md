@@ -771,24 +771,25 @@ const MyComponent: React.FC = () => {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `steps` | `IWorkflowStep[]` | Required | Array of workflow steps |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Layout direction |
-| `theme` | `'arrow' \| 'circle'` | `'arrow'` | Visual style |
-| `allowClickableSteps` | `boolean` | `false` | Enable step clicking |
-| `onStepClick` | `(step, index) => void` | - | Click handler |
+| `steps` | `StepData[]` | Required | Array of workflow steps |
+| `mode` | `'fullSteps' \| 'progress' \| 'compact'` | `'fullSteps'` | Display mode |
+| `variant` | `'arrow' \| 'timeline' \| 'minimal' \| 'cards'` | `'arrow'` | Visual style |
+| `selectedStepId` | `string` | - | ID of selected step (controlled) |
+| `onStepClick` | `(step: StepData) => void` | - | Step click handler |
+| `minStepWidth` | `number` | `160` | Minimum width per step in pixels |
 | `className` | `string` | - | Custom CSS class |
 
-**IWorkflowStep Interface:**
+**StepData Interface:**
 
 ```typescript
-interface IWorkflowStep {
-  label: string;                    // Step name
-  status: 'completed' | 'current' | 'pending' | 'error';
-  description?: string;             // Optional description
-  icon?: string;                    // Fluent UI icon name
-  date?: Date;                      // Step date
-  user?: string;                    // User who completed step
-  metadata?: Record<string, any>;   // Additional data
+interface StepData {
+  id: string;                       // Unique identifier (required)
+  title: string;                    // Step title (required)
+  description1?: string;            // Primary description
+  description2?: string;            // Secondary description
+  status: 'completed' | 'current' | 'pending' | 'warning' | 'error' | 'blocked';
+  content?: React.ReactNode;        // Step content
+  isClickable?: boolean;            // Override clickability
 }
 ```
 
@@ -1910,6 +1911,15 @@ const TaskEditor: React.FC = () => {
 - All fields support RHF `name`, `control`, and `rules` props.
 - Combine with `SPContext.smart` to enable SharePoint-backed lookups.
 - Utility types in `spFields/types` help define strongly-typed list item models.
+- **Important:** `SPLookupField` and `SPTaxonomyField` must be imported directly to prevent CSS bundling:
+  ```typescript
+  // ✅ Correct - direct import
+  import { SPLookupField } from 'spfx-toolkit/lib/components/spFields/SPLookupField';
+  import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields/SPTaxonomyField';
+
+  // ❌ Wrong - will not work (not exported from barrel)
+  import { SPLookupField } from 'spfx-toolkit/lib/components/spFields';
+  ```
 
 #### Troubleshooting Validation
 

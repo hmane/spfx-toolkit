@@ -73,6 +73,7 @@ interface IVersionHistoryProps {
   onClose: () => void;                      // Required: Callback when modal is closed
   onExport?: (versionCount: number) => void;  // Optional: After CSV export
   onDownload?: (version: IVersionInfo) => void;  // Optional: After download
+  allowCopyLink?: boolean;                  // Optional: Show copy link button (default: false)
 }
 ```
 

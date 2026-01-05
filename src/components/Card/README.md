@@ -90,8 +90,8 @@ import { Card, Header, Content, Footer } from './components/SpfxCard';
 
 export const MyComponent: React.FC = () => {
   return (
-    <Card id='my-card' variant='info' size='regular'>
-      <Header>My First Card</Header>
+    <Card id='my-card' size='regular'>
+      <Header variant='info'>My First Card</Header>
       <Content>
         <p>This is card content that can be expanded and collapsed.</p>
       </Content>
@@ -123,12 +123,11 @@ export const AdvancedCard: React.FC = () => {
   return (
     <Card
       id='advanced-card'
-      variant='success'
       allowMaximize={true}
       persist={true}
       onExpand={data => console.log('Expanded:', data)}
     >
-      <Header>Advanced Card</Header>
+      <Header variant='success'>Advanced Card</Header>
       <ActionButtons actions={actions} />
       <Content>
         <p>This card can be maximized and persists its state!</p>
@@ -503,8 +502,8 @@ const FormWithValidation = () => {
 
   return (
     <Accordion id='form-accordion'>
-      <Card id='form-basic-info' variant={errors.name ? 'error' : 'default'}>
-        <Header>
+      <Card id='form-basic-info'>
+        <Header variant={errors.name ? 'error' : 'default'}>
           Basic Information
           {errors.name && <span className='error-indicator'>*</span>}
         </Header>
