@@ -138,10 +138,9 @@
 }
 
 /* Accessibility */
-.group-users-picker-control:focus-within {
-  outline: 2px solid var(--gup-focus-color);
-  outline-offset: 2px;
-}
+/* Note: DevExtreme controls (SelectBox/TagBox) handle their own focus styling.
+   We removed the custom :focus-within outline to avoid double borders.
+   The DevExtreme focus styling provides consistent UX across all DX-based components. */
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
