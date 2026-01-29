@@ -10,6 +10,42 @@ import { getInitials, getPersonaColor, getUserPhotoIfNotDefault } from '../../..
 import { IGroupUser } from '../GroupUsersPicker.types';
 import { fetchAllGroupUsersRecursive } from '../utils/groupUserFetcher';
 
+/**
+ * Concurrency limit for photo loading to prevent API throttling
+ */
+const PHOTO_CONCURRENCY_LIMIT = 5;
+
+/**
+ * Processes an array of items with a concurrency limit
+ * @param items - Array of items to process
+ * @param processor - Async function to process each item
+ * @param concurrencyLimit - Maximum number of concurrent operations
+ * @returns Array of results in the same order as input items
+ */
+async function processWithConcurrency<T, R>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<R>,
+  concurrencyLimit: number
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let currentIndex = 0;
+
+  async function processNext(): Promise<void> {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      results[index] = await processor(items[index], index);
+    }
+  }
+
+  // Start concurrent workers up to the limit
+  const workers = Array(Math.min(concurrencyLimit, items.length))
+    .fill(null)
+    .map(() => processNext());
+
+  await Promise.all(workers);
+  return results;
+}
+
 export interface IUseGroupUsersResult {
   /**
    * List of users from the group (deduplicated and sorted)
@@ -46,11 +82,17 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
 
   const siteUrl = SPContext.spfxContext?.pageContext?.web?.absoluteUrl || '';
 
+  // Request versioning to prevent stale responses from overwriting newer state
+  const requestIdRef = React.useRef<number>(0);
+
   React.useEffect(() => {
     let isMounted = true;
+    const currentRequestId = ++requestIdRef.current;
 
     const loadUsers = async () => {
       if (!groupName || groupName.trim().length === 0) {
+        // Clear users when groupName is empty to prevent stale data
+        setUsers([]);
         setError('Group name is required');
         setLoading(false);
         return;
@@ -71,7 +113,8 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
 
         const groupUsers = await fetchAllGroupUsersRecursive(sp, groupName);
 
-        if (!isMounted) return;
+        // Check both mount status and request version
+        if (!isMounted || currentRequestId !== requestIdRef.current) return;
 
         SPContext.logger.info('GroupUsersPicker: Recursive fetch completed', {
           groupName,
@@ -79,29 +122,33 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
         });
 
         // Transform users to IGroupUser format with photo validation
-        const transformedUsersPromises = groupUsers.map(async user => {
-          const displayName = user.Title || user.Email || user.LoginName || 'Unknown User';
-          const email = user.Email || user.LoginName || '';
-          const loginName = user.LoginName || user.Email || '';
+        // Use concurrency limit to prevent API throttling with large groups
+        const transformedUsers = await processWithConcurrency(
+          groupUsers,
+          async (user) => {
+            const displayName = user.Title || user.Email || user.LoginName || 'Unknown User';
+            const email = user.Email || user.LoginName || '';
+            const loginName = user.LoginName || user.Email || '';
 
-          // Get photo only if it's not a default SharePoint photo
-          // This prevents showing OOB photos and the flash effect
-          const photoUrl = await getUserPhotoIfNotDefault(siteUrl, loginName, 'S');
+            // Get photo only if it's not a default SharePoint photo
+            // This prevents showing OOB photos and the flash effect
+            const photoUrl = await getUserPhotoIfNotDefault(siteUrl, loginName, 'S');
 
-          return {
-            id: user.Id,
-            text: displayName,
-            secondaryText: email,
-            imageUrl: photoUrl, // Will be undefined for default photos
-            loginName: loginName,
-            imageInitials: getInitials(displayName),
-            initialsColor: getPersonaColor(displayName),
-          };
-        });
+            return {
+              id: user.Id,
+              text: displayName,
+              secondaryText: email,
+              imageUrl: photoUrl, // Will be undefined for default photos
+              loginName: loginName,
+              imageInitials: getInitials(displayName),
+              initialsColor: getPersonaColor(displayName),
+            } as IGroupUser;
+          },
+          PHOTO_CONCURRENCY_LIMIT
+        );
 
-        const transformedUsers: IGroupUser[] = await Promise.all(transformedUsersPromises);
-
-        if (!isMounted) return;
+        // Check both mount status and request version before updating state
+        if (!isMounted || currentRequestId !== requestIdRef.current) return;
 
         // Users are already sorted by the recursive fetch function
         setUsers(transformedUsers);
@@ -112,7 +159,8 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
           userCount: transformedUsers.length,
         });
       } catch (err: any) {
-        if (!isMounted) return;
+        // Ignore errors from stale requests
+        if (!isMounted || currentRequestId !== requestIdRef.current) return;
 
         const errorMessage = err?.message || 'Failed to load group users';
 
@@ -131,7 +179,8 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
 
         setUsers([]);
       } finally {
-        if (isMounted) {
+        // Only update loading state for the latest request
+        if (isMounted && currentRequestId === requestIdRef.current) {
           setLoading(false);
         }
       }

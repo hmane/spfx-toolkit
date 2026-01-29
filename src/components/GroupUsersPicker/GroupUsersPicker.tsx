@@ -19,6 +19,50 @@ import { SPContext } from '../../utilities/context';
 import './GroupUsersPicker.css';
 
 /**
+ * Avatar component with state-driven fallback for image errors
+ * Avoids DOM mutation by using React state to track image load failures
+ */
+const UserAvatar: React.FC<{ item: IGroupUser }> = React.memo(({ item }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const initials = item.imageInitials || getInitials(item.text);
+  const hasPhoto = !!item.imageUrl && !imageError;
+
+  // Reset error state when imageUrl changes (handles virtualized list node reuse)
+  React.useEffect(() => {
+    setImageError(false);
+  }, [item.imageUrl]);
+
+  const handleImageError = React.useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  if (hasPhoto) {
+    return (
+      <img
+        src={item.imageUrl}
+        alt={item.text}
+        className="group-users-picker-photo"
+        onError={handleImageError}
+      />
+    );
+  }
+
+  // Show initials (for users with no photo, default SharePoint photos, or failed loads)
+  return (
+    <div
+      className="group-users-picker-initials"
+      style={{
+        backgroundColor: item.initialsColor ? `var(--persona-color-${item.initialsColor})` : '#0078d4',
+      }}
+    >
+      {initials}
+    </div>
+  );
+});
+
+UserAvatar.displayName = 'UserAvatar';
+
+/**
  * Default item render template with user photo/initials
  * Matches UserPersona logic: show photo OR initials, not both
  * imageUrl will be undefined for default SharePoint photos
@@ -26,45 +70,10 @@ import './GroupUsersPicker.css';
 const defaultItemRender = (item: IGroupUser): React.ReactNode => {
   if (!item) return null;
 
-  const initials = item.imageInitials || getInitials(item.text);
-  const hasPhoto = !!item.imageUrl;
-
   return (
     <div className="group-users-picker-item">
       <div className="group-users-picker-avatar">
-        {hasPhoto ? (
-          // Show photo (only if it's a real custom photo, not default)
-          <img
-            src={item.imageUrl}
-            alt={item.text}
-            className="group-users-picker-photo"
-            onError={(e) => {
-              // Fallback to initials if image fails to load
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              const parent = target.parentElement;
-              if (parent) {
-                const initialsDiv = document.createElement('div');
-                initialsDiv.className = 'group-users-picker-initials';
-                initialsDiv.style.backgroundColor = item.initialsColor
-                  ? `var(--persona-color-${item.initialsColor})`
-                  : '#0078d4';
-                initialsDiv.textContent = initials;
-                parent.appendChild(initialsDiv);
-              }
-            }}
-          />
-        ) : (
-          // Show initials (for users with no photo or default SharePoint photos)
-          <div
-            className="group-users-picker-initials"
-            style={{
-              backgroundColor: item.initialsColor ? `var(--persona-color-${item.initialsColor})` : '#0078d4',
-            }}
-          >
-            {initials}
-          </div>
-        )}
+        <UserAvatar item={item} />
       </div>
       <div className="group-users-picker-text">
         <div className="group-users-picker-name">{item.text}</div>

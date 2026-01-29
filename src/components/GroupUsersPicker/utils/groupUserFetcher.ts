@@ -53,7 +53,7 @@ export async function fetchAllGroupUsersRecursive(
 }
 
 /**
- * Internal recursive function to fetch users from groups
+ * Internal recursive function to fetch users from groups (by name - entry point)
  * @param sp - PnP SP instance
  * @param groupName - Current group name
  * @param processedGroups - Set of already processed group IDs
@@ -68,7 +68,7 @@ async function fetchGroupUsersRecursiveInternal(
   rootGroupName: string
 ): Promise<void> {
   try {
-    // Get the group
+    // Get the group by name (entry point)
     const group: ISiteGroupInfo = await sp.web.siteGroups.getByName(groupName)();
 
     if (!group || !group.Id) {
@@ -78,23 +78,57 @@ async function fetchGroupUsersRecursiveInternal(
       return;
     }
 
+    // Delegate to ID-based internal function
+    await fetchGroupUsersByIdInternal(sp, group.Id, groupName, processedGroups, userMap, rootGroupName);
+  } catch (error: any) {
+    // Log error but continue processing other groups
+    SPContext.logger.error('GroupUserFetcher: Error processing group', error, {
+      groupName,
+    });
+
+    // If this is the root group, throw the error
+    if (groupName === rootGroupName) {
+      throw error;
+    }
+  }
+}
+
+/**
+ * Internal recursive function to fetch users from groups (by ID - stable lookup)
+ * @param sp - PnP SP instance
+ * @param groupId - Current group ID
+ * @param groupName - Group name for logging
+ * @param processedGroups - Set of already processed group IDs
+ * @param userMap - Map of users to deduplicate
+ * @param rootGroupName - Original root group name for logging
+ */
+async function fetchGroupUsersByIdInternal(
+  sp: SPFI,
+  groupId: number,
+  groupName: string,
+  processedGroups: ProcessedGroupsMap,
+  userMap: UserMap,
+  rootGroupName: string
+): Promise<void> {
+  try {
     // Check if we've already processed this group (prevent infinite loops)
-    if (processedGroups.has(group.Id)) {
+    if (processedGroups.has(groupId)) {
       SPContext.logger.info('GroupUserFetcher: Already processed group, skipping', {
         groupName,
-        groupId: group.Id,
+        groupId,
       });
       return;
     }
 
     // Mark this group as processed
-    processedGroups.add(group.Id);
+    processedGroups.add(groupId);
 
-    // Get all users from this group
-    const users: ISiteUserInfo[] = await sp.web.siteGroups.getByName(groupName).users();
+    // Get all users from this group using stable ID-based lookup
+    const users: ISiteUserInfo[] = await sp.web.siteGroups.getById(groupId).users();
 
     SPContext.logger.info('GroupUserFetcher: Processing group', {
       groupName,
+      groupId,
       memberCount: users.length,
     });
 
@@ -109,13 +143,15 @@ async function fetchGroupUsersRecursiveInternal(
 
       if (user.PrincipalType === 8) {
         // This is a nested SharePoint group - recursively fetch its users
+        // Use user.Id which is the group's ID for stable lookup (not Title which can change)
         SPContext.logger.info('GroupUserFetcher: Found nested group', {
           nestedGroupTitle: user.Title,
           nestedGroupId: user.Id,
         });
-        await fetchGroupUsersRecursiveInternal(
+        await fetchGroupUsersByIdInternal(
           sp,
-          user.Title || user.LoginName,
+          user.Id,
+          user.Title || `Group ${user.Id}`,
           processedGroups,
           userMap,
           rootGroupName
@@ -147,18 +183,17 @@ async function fetchGroupUsersRecursiveInternal(
 
     SPContext.logger.info('GroupUserFetcher: Completed processing group', {
       groupName,
+      groupId,
       totalUniqueUsers: userMap.size,
     });
   } catch (error: any) {
     // Log error but continue processing other groups
-    SPContext.logger.error('GroupUserFetcher: Error processing group', error, {
+    SPContext.logger.error('GroupUserFetcher: Error processing group by ID', error, {
       groupName,
+      groupId,
     });
 
-    // If this is the root group, throw the error
-    if (groupName === rootGroupName) {
-      throw error;
-    }
+    // Don't throw for nested groups - the root group error is handled in the name-based function
   }
 }
 

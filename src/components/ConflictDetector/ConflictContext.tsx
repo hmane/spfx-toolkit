@@ -8,6 +8,7 @@ import {
   DEFAULT_CONFLICT_OPTIONS,
   ConflictDetectionError,
 } from './types';
+import { SPContext } from '../../utilities/context';
 
 interface ConflictContextValue {
   /** @deprecated Use getDetector() instead to avoid stale reference on first render */
@@ -87,7 +88,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         try {
           onStateChange(stateRef.current);
         } catch (error) {
-          console.error('Error in onStateChange callback:', error);
+          SPContext.logger.error('Error in onStateChange callback:', error);
         }
       }
     },
@@ -100,7 +101,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
     const initializeDetector = async () => {
       if (!enabled || !listId?.trim() || !itemId || !sp) {
-        console.warn('ConflictDetectionProvider: Required props missing or disabled');
+        SPContext.logger.warn('ConflictDetectionProvider: Required props missing or disabled');
         return;
       }
 
@@ -142,7 +143,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         // Ignore errors if operation was aborted
         if (abortController.signal.aborted) return;
 
-        console.error('ConflictDetectionProvider: Failed to initialize', error);
+        SPContext.logger.error('ConflictDetectionProvider: Failed to initialize', error);
         if (isMountedRef.current) {
           updateState({
             isChecking: false,
@@ -176,7 +177,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
       try {
         detectorRef.current.updateOptions(mergedOptions);
       } catch (error) {
-        console.error('ConflictDetectionProvider: Failed to update options', error);
+        SPContext.logger.error('ConflictDetectionProvider: Failed to update options', error);
         updateState({
           error: error instanceof Error ? error.message : 'Failed to update options',
         });
@@ -197,7 +198,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
   const checkForConflicts = useCallback(async (): Promise<void> => {
     if (!detectorRef.current) {
-      console.warn('ConflictDetectionProvider: Detector not initialized');
+      SPContext.logger.warn('ConflictDetectionProvider: Detector not initialized');
       return;
     }
 
@@ -223,7 +224,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         });
       }
     } catch (error) {
-      console.error('ConflictDetectionProvider: Failed to check conflicts', error);
+      SPContext.logger.error('ConflictDetectionProvider: Failed to check conflicts', error);
       if (isMountedRef.current) {
         updateState({
           isChecking: false,
@@ -235,7 +236,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
 
   const hasChangedSinceLastCheck = useCallback(async (): Promise<boolean> => {
     if (!detectorRef.current) {
-      console.warn('ConflictDetectionProvider: Detector not initialized');
+      SPContext.logger.warn('ConflictDetectionProvider: Detector not initialized');
       return false;
     }
 
@@ -243,14 +244,14 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
       const result = await detectorRef.current.hasChangedSinceLastCheck();
       return result.success && result.conflictInfo ? result.conflictInfo.hasConflict : false;
     } catch (error) {
-      console.error('ConflictDetectionProvider: Failed to check for changes', error);
+      SPContext.logger.error('ConflictDetectionProvider: Failed to check for changes', error);
       return false;
     }
   }, []);
 
   const updateSnapshot = useCallback(async (): Promise<void> => {
     if (!detectorRef.current) {
-      console.warn('ConflictDetectionProvider: Detector not initialized');
+      SPContext.logger.warn('ConflictDetectionProvider: Detector not initialized');
       return;
     }
 
@@ -272,7 +273,7 @@ export const ConflictDetectionProvider: React.FC<ConflictProviderProps> = ({
         });
       }
     } catch (error) {
-      console.error('ConflictDetectionProvider: Failed to update snapshot', error);
+      SPContext.logger.error('ConflictDetectionProvider: Failed to update snapshot', error);
       if (isMountedRef.current) {
         updateState({
           error: error instanceof Error ? error.message : 'Snapshot update failed',
@@ -392,7 +393,7 @@ export const ConflictDetectionFormProvider: React.FC<ConflictDetectionFormProvid
         try {
           onConflictDetected(state.hasConflict, state.conflictInfo);
         } catch (error) {
-          console.error('Error in onConflictDetected callback:', error);
+          SPContext.logger.error('Error in onConflictDetected callback:', error);
         }
       }
 

@@ -6,6 +6,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { useCallback, useMemo } from 'react';
 import { ConflictInfo, ConflictResolutionAction } from './types';
+import { SPContext } from '../../utilities/context';
 
 interface ConflictNotificationBarProps {
   conflictInfo: ConflictInfo | undefined;
@@ -64,10 +65,10 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
             }
             break;
           default:
-            console.warn(`Unknown action type: ${action.type}`);
+            SPContext.logger.warn(`Unknown action type: ${action.type}`);
         }
       } catch (actionError) {
-        console.error('Error handling conflict action:', actionError);
+        SPContext.logger.error('Error handling conflict action:', actionError);
       }
     },
     [onAction, onRefresh, onOverwrite, onDismiss]
@@ -83,7 +84,7 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
         minute: '2-digit',
       });
     } catch (formatError) {
-      console.error('Error formatting date:', formatError);
+      SPContext.logger.error('Error formatting date:', formatError);
       return date.toString();
     }
   }, []);
@@ -162,7 +163,7 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
         conflictInfo.lastModified
       )}. Your changes might overwrite their updates.`;
     } catch (messageError) {
-      console.error('Error creating conflict message:', messageError);
+      SPContext.logger.error('Error creating conflict message:', messageError);
       return 'This record has been modified by another user. Your changes might overwrite their updates.';
     }
   }, [customMessage, conflictInfo?.hasConflict, conflictInfo?.lastModifiedBy, conflictInfo?.lastModified, formatDateTime]);

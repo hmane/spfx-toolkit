@@ -10,6 +10,7 @@ import {
   ConflictSeverity,
   EnhancedConflictInfo,
 } from './types';
+import { SPContext } from '../../utilities/context';
 
 // =====================================================================================
 // Core Exports
@@ -97,7 +98,7 @@ export const ConflictDetectionUtils = {
         minute: '2-digit',
       });
     } catch (error) {
-      console.error('Error formatting date:', error);
+      SPContext.logger.error('Error formatting date:', error);
       return date.toString();
     }
   },
@@ -120,7 +121,7 @@ export const ConflictDetectionUtils = {
 
       return ConflictDetectionUtils.formatDateTime(date);
     } catch (error) {
-      console.error('Error formatting relative date:', error);
+      SPContext.logger.error('Error formatting relative date:', error);
       return ConflictDetectionUtils.formatDateTime(date);
     }
   },
@@ -137,7 +138,7 @@ export const ConflictDetectionUtils = {
       const threshold = thresholdMinutes * 60 * 1000;
       return now - conflictTime < threshold;
     } catch (error) {
-      console.error('Error checking recent conflict:', error);
+      SPContext.logger.error('Error checking recent conflict:', error);
       return false;
     }
   },
@@ -160,7 +161,7 @@ export const ConflictDetectionUtils = {
       if (timeDiff < fiveMinutes) return 'medium';
       return 'low';
     } catch (error) {
-      console.error('Error determining conflict severity:', error);
+      SPContext.logger.error('Error determining conflict severity:', error);
       return 'low';
     }
   },
@@ -180,7 +181,7 @@ export const ConflictDetectionUtils = {
         isRecentConflict: ConflictDetectionUtils.isRecentConflict(conflictInfo),
       };
     } catch (error) {
-      console.error('Error enhancing conflict info:', error);
+      SPContext.logger.error('Error enhancing conflict info:', error);
       return {
         ...conflictInfo,
         severity: 'low',

@@ -344,14 +344,14 @@ export class PermissionHelper {
       // Check window cache first
       const windowCached = windowCache.effectivePerms.get(effectivePermsKey);
       if (windowCached && Date.now() - windowCached.timestamp < CACHE_TIMEOUT) {
-        console.log('[PermissionHelper] getCurrentUserPermissions - WINDOW CACHE HIT', effectivePermsKey);
+        SPContext.logger.info('[PermissionHelper] getCurrentUserPermissions - WINDOW CACHE HIT', effectivePermsKey);
         permissionLevels = getPermissionNames(windowCached.data);
       } else {
         // Check for pending request
         let pending = windowCache.effectivePermsPending.get(effectivePermsKey);
         if (!pending) {
           // Make new request
-          console.log('[PermissionHelper] getCurrentUserPermissions - MAKING NEW API CALL', effectivePermsKey);
+          SPContext.logger.info('[PermissionHelper] getCurrentUserPermissions - MAKING NEW API CALL', effectivePermsKey);
           pending = (async () => {
             try {
               let perms;
@@ -369,7 +369,7 @@ export class PermissionHelper {
           })();
           windowCache.effectivePermsPending.set(effectivePermsKey, pending);
         } else {
-          console.log('[PermissionHelper] getCurrentUserPermissions - WAITING FOR PENDING', effectivePermsKey);
+          SPContext.logger.info('[PermissionHelper] getCurrentUserPermissions - WAITING FOR PENDING', effectivePermsKey);
         }
         const perms = await pending;
         permissionLevels = getPermissionNames(perms);
@@ -699,21 +699,21 @@ export class PermissionHelper {
     // Check window-level cache (shared across all bundles)
     const windowCache = getPermissionWindowCache();
     if (windowCache.currentUser && Date.now() - windowCache.currentUser.timestamp < CACHE_TIMEOUT) {
-      console.log('[PermissionHelper] getCurrentUser - WINDOW CACHE HIT');
+      SPContext.logger.info('[PermissionHelper] getCurrentUser - WINDOW CACHE HIT');
       this.currentUserCache = windowCache.currentUser.data;
       return this.currentUserCache;
     }
 
     // Check if there's a pending request (deduplication)
     if (windowCache.currentUserPending) {
-      console.log('[PermissionHelper] getCurrentUser - WAITING FOR PENDING');
+      SPContext.logger.info('[PermissionHelper] getCurrentUser - WAITING FOR PENDING');
       const result = await windowCache.currentUserPending;
       this.currentUserCache = result;
       return result;
     }
 
     // Make new request with deduplication
-    console.log('[PermissionHelper] getCurrentUser - MAKING NEW API CALL');
+    SPContext.logger.info('[PermissionHelper] getCurrentUser - MAKING NEW API CALL');
     windowCache.currentUserPending = (async () => {
       try {
         const user = await this.sp.web.currentUser();
@@ -740,7 +740,7 @@ export class PermissionHelper {
     const windowCache = getPermissionWindowCache();
     const windowCached = windowCache.userGroups.get(userId);
     if (windowCached && Date.now() - windowCached.timestamp < CACHE_TIMEOUT) {
-      console.log('[PermissionHelper] getUserGroups - WINDOW CACHE HIT', userId);
+      SPContext.logger.info('[PermissionHelper] getUserGroups - WINDOW CACHE HIT', userId);
       this.setCachedData(cacheKey, windowCached.data);
       return windowCached.data;
     }
@@ -748,14 +748,14 @@ export class PermissionHelper {
     // Check if there's a pending request (deduplication)
     const pending = windowCache.userGroupsPending.get(userId);
     if (pending) {
-      console.log('[PermissionHelper] getUserGroups - WAITING FOR PENDING', userId);
+      SPContext.logger.info('[PermissionHelper] getUserGroups - WAITING FOR PENDING', userId);
       const result = await pending;
       this.setCachedData(cacheKey, result);
       return result;
     }
 
     // Make new request with deduplication
-    console.log('[PermissionHelper] getUserGroups - MAKING NEW API CALL', userId);
+    SPContext.logger.info('[PermissionHelper] getUserGroups - MAKING NEW API CALL', userId);
     const request = (async () => {
       try {
         const groups = await this.sp.web.siteUsers.getById(userId).groups();

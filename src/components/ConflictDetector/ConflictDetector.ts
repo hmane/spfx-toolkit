@@ -10,6 +10,7 @@ import {
   ConflictDetectionError,
   CONFLICT_DETECTION_CONSTANTS,
 } from './types';
+import { SPContext } from '../../utilities/context';
 
 export class ConflictDetector {
   private readonly listId: string;
@@ -45,7 +46,7 @@ export class ConflictDetector {
     this.validateOptions();
 
     if (this.options.logConflicts) {
-      console.log(`ConflictDetector initialized for List: ${listId}, Item: ${itemId}`);
+      SPContext.logger.info(`ConflictDetector initialized for List: ${listId}, Item: ${itemId}`);
     }
   }
 
@@ -75,7 +76,7 @@ export class ConflictDetector {
       }
 
       if (this.options.logConflicts) {
-        console.log('ConflictDetector initialized with snapshot:', this.originalSnapshot);
+        SPContext.logger.info('ConflictDetector initialized with snapshot:', this.originalSnapshot);
       }
 
       return {
@@ -84,7 +85,7 @@ export class ConflictDetector {
       };
     } catch (error) {
       const errorMessage = `Failed to initialize ConflictDetector: ${this.getErrorMessage(error)}`;
-      console.error(errorMessage, error);
+      SPContext.logger.error(errorMessage, error);
       return {
         success: false,
         conflictInfo: undefined,
@@ -130,7 +131,7 @@ export class ConflictDetector {
 
       if (hasConflict) {
         if (this.options.logConflicts) {
-          console.warn('Conflict detected:', {
+          SPContext.logger.warn('Conflict detected:', {
             original: this.originalSnapshot,
             current: currentItem.conflictInfo,
           });
@@ -141,7 +142,7 @@ export class ConflictDetector {
           try {
             this.options.onConflictDetected(conflictInfo);
           } catch (callbackError) {
-            console.error('Error in onConflictDetected callback:', callbackError);
+            SPContext.logger.error('Error in onConflictDetected callback:', callbackError);
           }
         }
       }
@@ -152,7 +153,7 @@ export class ConflictDetector {
       };
     } catch (error) {
       const errorMessage = `Failed to check for conflicts: ${this.getErrorMessage(error)}`;
-      console.error(errorMessage, error);
+      SPContext.logger.error(errorMessage, error);
       return {
         success: false,
         conflictInfo: undefined,
@@ -196,7 +197,7 @@ export class ConflictDetector {
       };
     } catch (error) {
       const errorMessage = `Failed to check for changes: ${this.getErrorMessage(error)}`;
-      console.error(errorMessage, error);
+      SPContext.logger.error(errorMessage, error);
       return {
         success: false,
         conflictInfo: undefined,
@@ -235,21 +236,21 @@ export class ConflictDetector {
       }
 
       if (result.success && this.options.logConflicts) {
-        console.log('Snapshot updated:', this.originalSnapshot);
+        SPContext.logger.info('Snapshot updated:', this.originalSnapshot);
       }
 
       if (result.success && this.options.onConflictResolved) {
         try {
           this.options.onConflictResolved();
         } catch (callbackError) {
-          console.error('Error in onConflictResolved callback:', callbackError);
+          SPContext.logger.error('Error in onConflictResolved callback:', callbackError);
         }
       }
 
       return result;
     } catch (error) {
       const errorMessage = `Failed to update snapshot: ${this.getErrorMessage(error)}`;
-      console.error(errorMessage, error);
+      SPContext.logger.error(errorMessage, error);
       return {
         success: false,
         conflictInfo: undefined,
@@ -280,16 +281,16 @@ export class ConflictDetector {
         const result = await this.checkForConflicts();
         if (result.success && result.conflictInfo?.hasConflict) {
           if (this.options.logConflicts) {
-            console.log('Polling detected conflict');
+            SPContext.logger.info('Polling detected conflict');
           }
         }
       } catch (error) {
-        console.error('Error during polling:', error);
+        SPContext.logger.error('Error during polling:', error);
       }
     }, this.options.checkInterval);
 
     if (this.options.logConflicts) {
-      console.log(`Started polling every ${this.options.checkInterval}ms`);
+      SPContext.logger.info(`Started polling every ${this.options.checkInterval}ms`);
     }
   }
 
@@ -303,7 +304,7 @@ export class ConflictDetector {
       this.isPollingPaused = false;
 
       if (this.options.logConflicts && !this.isDisposed) {
-        console.log('Stopped polling');
+        SPContext.logger.info('Stopped polling');
       }
     }
   }
@@ -316,7 +317,7 @@ export class ConflictDetector {
       this.isPollingPaused = true;
 
       if (this.options.logConflicts) {
-        console.log('Paused polling');
+        SPContext.logger.info('Paused polling');
       }
     }
   }
@@ -329,7 +330,7 @@ export class ConflictDetector {
       this.isPollingPaused = false;
 
       if (this.options.logConflicts) {
-        console.log('Resumed polling');
+        SPContext.logger.info('Resumed polling');
       }
     }
   }
@@ -354,7 +355,7 @@ export class ConflictDetector {
     this.isDisposed = true;
 
     if (this.options.logConflicts) {
-      console.log('ConflictDetector disposed');
+      SPContext.logger.info('ConflictDetector disposed');
     }
   }
 
@@ -387,7 +388,7 @@ export class ConflictDetector {
     }
 
     if (this.options.logConflicts) {
-      console.log('ConflictDetector options updated:', this.options);
+      SPContext.logger.info('ConflictDetector options updated:', this.options);
     }
   }
 

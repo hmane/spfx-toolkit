@@ -495,3 +495,50 @@ All fixes from the December 2025 audit remain in place. No new blockers or criti
 - Proper cleanup of subscriptions/timers
 
 **Re-Audit Status:** ✅ Passed - No Action Required
+
+---
+
+## 9. Additional Findings & Fixes (January 2026)
+
+A follow-up review identified additional issues not covered in the initial audit. All issues have been fixed.
+
+### New Findings
+
+| # | Severity | File | Issue | Fix Applied |
+|---|----------|------|-------|-------------|
+| A1 | Medium | `useGroupUsers.ts` | No request versioning/abort - slow request can overwrite newer state | Added `requestIdRef` pattern to ignore stale responses |
+| A2 | Medium | `groupUserFetcher.ts:117` | Nested group recursion uses `getByName(Title)` which isn't stable | Refactored to use `getById(user.Id)` for stable lookup |
+| A3 | Medium | `GroupUsersPicker.tsx:41-54` | DOM mutation on image error creates duplicate nodes and React reconciliation issues | Replaced with `UserAvatar` component using React state for fallback |
+| A4 | Low | `useGroupUsers.ts:82-102` | `Promise.all` fans out all photo requests causing throttling with large groups | Added concurrency limit (`PHOTO_CONCURRENCY_LIMIT = 5`) |
+| A5 | Low | `useGroupUsers.ts:53-56` | Empty `groupName` leaves stale users in state | Added `setUsers([])` to clear on empty groupName |
+| A6 | Low | `PermissionHelper.ts`, `ConflictDetector.ts` | Debug `console.log` leaks noise in production | Replaced with `SPContext.logger.info` |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/components/GroupUsersPicker/hooks/useGroupUsers.ts` | Added request versioning, concurrency limit, clear users on empty groupName |
+| `src/components/GroupUsersPicker/utils/groupUserFetcher.ts` | Added `fetchGroupUsersByIdInternal` for stable ID-based lookup |
+| `src/components/GroupUsersPicker/GroupUsersPicker.tsx` | Added `UserAvatar` component with React state fallback |
+| `src/utilities/permissionHelper/PermissionHelper.ts` | Replaced console.log with SPContext.logger.info |
+| `src/components/ConflictDetector/ConflictDetector.ts` | Replaced console.log with SPContext.logger.info |
+
+### Build Verification
+
+```bash
+$ npm run build
+[11:09:26] ✅ TypeScript build completed
+[11:09:26] ✅ Build validation passed - all required files present
+[11:09:26] Finished 'build' after 5.82 s
+
+$ npm run validate
+[11:09:31] ✅ Build validation passed - all required files present
+```
+
+### Open Questions (No Code Changes Needed)
+
+1. **Nested AD/Security Groups**: Currently, AD groups (PrincipalType 4) and Security groups (PrincipalType 16) are shown as selectable entries but not expanded. This appears intentional - only SharePoint groups (PrincipalType 8) are recursively expanded.
+
+2. **User Photos**: Photo loading is enabled by default. For large groups or low-bandwidth environments, consumers can use `useCache={true}` to leverage cached photos, and the new concurrency limit prevents throttling.
+
+**Additional Fixes Status:** ✅ All Issues Fixed

@@ -10,6 +10,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConflictNotificationBar } from './ConflictNotificationBar';
 import { ConflictInfo, ConflictResolutionAction } from './types';
+import { SPContext } from '../../utilities/context';
 
 interface ConflictResolutionDialogProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
         minute: '2-digit',
       });
     } catch (error) {
-      console.error('Error formatting date:', error);
+      SPContext.logger.error('Error formatting date:', error);
       return date.toString();
     }
   }, []);
@@ -105,7 +106,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
       try {
         await onResolve(action);
       } catch (error) {
-        console.error('Error in conflict resolution:', error);
+        SPContext.logger.error('Error in conflict resolution:', error);
         // Reset processing state on error
         setProcessingAction(undefined);
       }
@@ -130,7 +131,7 @@ export const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> =
       return `This record has been modified by another user while you were editing it.
         You can refresh to see the latest changes, or continue to overwrite them with your changes.`;
     } catch (error) {
-      console.error('Error creating dialog message:', error);
+      SPContext.logger.error('Error creating dialog message:', error);
       return 'This record has been modified by another user while you were editing it.';
     }
   }, [customMessage]);
@@ -395,7 +396,7 @@ export const EnhancedConflictResolutionDialog: React.FC<EnhancedConflictResoluti
           setInternalOpen(false);
         }
       } catch (error) {
-        console.error('Error in enhanced conflict resolution:', error);
+        SPContext.logger.error('Error in enhanced conflict resolution:', error);
       }
     },
     [onBeforeResolve, confirmationRequired, onResolve, autoOpen]
@@ -525,7 +526,7 @@ export const ConflictHandler: React.FC<ConflictHandlerProps> = ({
             break;
         }
       } catch (error) {
-        console.error('Error handling conflict action:', error);
+        SPContext.logger.error('Error handling conflict action:', error);
       } finally {
         setProcessing(false);
         if (showDialog) {

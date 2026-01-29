@@ -11,6 +11,7 @@ import {
   UseConflictDetectionProps,
   UseConflictDetectionReturn,
 } from './types';
+import { SPContext } from '../../utilities/context';
 
 export const useConflictDetection = ({
   sp,
@@ -83,7 +84,7 @@ export const useConflictDetection = ({
         return false;
       }
     } catch (error) {
-      console.error('useConflictDetection: Initialize failed', error);
+      SPContext.logger.error('useConflictDetection: Initialize failed', error);
       updateState({
         isChecking: false,
         error: error instanceof Error ? error.message : 'Initialize failed',
@@ -95,7 +96,7 @@ export const useConflictDetection = ({
 
   const checkForConflicts = useCallback(async (): Promise<boolean> => {
     if (!detectorRef.current || !isInitializedRef.current) {
-      console.warn('useConflictDetection: Not initialized. Call initialize() first.');
+      SPContext.logger.warn('useConflictDetection: Not initialized. Call initialize() first.');
       return false;
     }
 
@@ -122,7 +123,7 @@ export const useConflictDetection = ({
         return false;
       }
     } catch (error) {
-      console.error('useConflictDetection: Check failed', error);
+      SPContext.logger.error('useConflictDetection: Check failed', error);
       updateState({
         isChecking: false,
         error: error instanceof Error ? error.message : 'Conflict check failed',
@@ -133,7 +134,7 @@ export const useConflictDetection = ({
 
   const hasChangedSinceLastCheck = useCallback(async (): Promise<boolean> => {
     if (!detectorRef.current || !isInitializedRef.current) {
-      console.warn('useConflictDetection: Not initialized. Call initialize() first.');
+      SPContext.logger.warn('useConflictDetection: Not initialized. Call initialize() first.');
       return false;
     }
 
@@ -147,7 +148,7 @@ export const useConflictDetection = ({
 
       return false;
     } catch (error) {
-      console.error('useConflictDetection: hasChangedSinceLastCheck failed', error);
+      SPContext.logger.error('useConflictDetection: hasChangedSinceLastCheck failed', error);
       return false;
     }
   }, []);
@@ -155,7 +156,7 @@ export const useConflictDetection = ({
   const updateSnapshot = useCallback(
     async (saveResponseData?: any): Promise<boolean> => {
       if (!detectorRef.current || !isInitializedRef.current) {
-        console.warn('useConflictDetection: Not initialized.');
+        SPContext.logger.warn('useConflictDetection: Not initialized.');
         return false;
       }
 
@@ -177,7 +178,7 @@ export const useConflictDetection = ({
           return false;
         }
       } catch (error) {
-        console.error('useConflictDetection: Update snapshot failed', error);
+        SPContext.logger.error('useConflictDetection: Update snapshot failed', error);
         updateState({
           error: error instanceof Error ? error.message : 'Update snapshot failed',
         });
@@ -230,7 +231,7 @@ export const useConflictDetection = ({
   useEffect(() => {
     if (enabled && listId && itemId && sp) {
       initialize().catch(error => {
-        console.error('Auto-initialization failed:', error);
+        SPContext.logger.error('Auto-initialization failed:', error);
       });
     }
 
@@ -245,7 +246,7 @@ export const useConflictDetection = ({
       try {
         detectorRef.current.updateOptions(mergedOptions);
       } catch (error) {
-        console.error('Failed to update options:', error);
+        SPContext.logger.error('Failed to update options:', error);
         updateState({
           error: error instanceof Error ? error.message : 'Failed to update options',
         });
@@ -317,7 +318,7 @@ export const usePreSaveConflictCheck = (
         conflictInfo: conflictDetection.conflictInfo,
       };
     } catch (error) {
-      console.error('Error in checkBeforeSave:', error);
+      SPContext.logger.error('Error in checkBeforeSave:', error);
       return {
         canSave: !options.blockSave, // If error and not blocking, allow save
         hasConflict: false,
@@ -354,7 +355,7 @@ export const useConflictMonitor = (
   // Auto-initialize on mount
   useEffect(() => {
     initialize().catch(error => {
-      console.error('Conflict monitor initialization failed:', error);
+      SPContext.logger.error('Conflict monitor initialization failed:', error);
     });
   }, [initialize]);
 
