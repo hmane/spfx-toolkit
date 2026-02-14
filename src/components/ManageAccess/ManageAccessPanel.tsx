@@ -4,7 +4,6 @@ import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Panel, PanelType } from '@fluentui/react/lib/Panel';
-import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
 import { Separator } from '@fluentui/react/lib/Separator';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
@@ -57,57 +56,19 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
     enabled,
   } = props;
 
+  const defaultPermissionLevel = permissionTypes === 'both' ? 'view' : permissionTypes;
   const [selectedUsers, setSelectedUsers] = React.useState<any[]>([]);
-  const [selectedPermissionLevel, setSelectedPermissionLevel] = React.useState<'view' | 'edit'>(
-    getDefaultPermissionLevel()
-  );
+  const [selectedPermissionLevel, setSelectedPermissionLevel] =
+    React.useState<'view' | 'edit'>(defaultPermissionLevel);
   const [showRemoveDialog, setShowRemoveDialog] = React.useState(false);
   const [userToRemove, setUserToRemove] = React.useState<IPermissionPrincipal | null>(null);
   const [isGrantingAccess, setIsGrantingAccess] = React.useState(false);
   const [isValidatingUsers, setIsValidatingUsers] = React.useState(false);
   const [peoplePickerKey, setPeoplePickerKey] = React.useState(0);
 
-  const panelRef = React.useRef<HTMLDivElement>(null);
-
-  function getDefaultPermissionLevel(): 'view' | 'edit' {
-    if (permissionTypes === 'both') return 'view';
-    return permissionTypes;
-  }
-
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
-        const panelOverlay = document.querySelector('.ms-Panel');
-        if (panelOverlay && !panelOverlay.contains(event.target as Node)) {
-          onDismiss();
-        }
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onDismiss]);
-
-  const getPersonaColor = React.useCallback((displayName: string): PersonaInitialsColor => {
-    const colors = [
-      PersonaInitialsColor.lightBlue,
-      PersonaInitialsColor.lightGreen,
-      PersonaInitialsColor.lightPink,
-      PersonaInitialsColor.magenta,
-      PersonaInitialsColor.orange,
-      PersonaInitialsColor.teal,
-      PersonaInitialsColor.violet,
-      PersonaInitialsColor.warmGray,
-    ];
-
-    const hash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }, []);
+    setSelectedPermissionLevel(defaultPermissionLevel);
+  }, [defaultPermissionLevel]);
 
   const handlePeoplePickerChange = React.useCallback(
     async (items: any[]): Promise<void> => {
@@ -142,14 +103,14 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
     try {
       await onGrantAccess(selectedUsers, selectedPermissionLevel);
       setSelectedUsers([]);
-      setSelectedPermissionLevel(getDefaultPermissionLevel());
+      setSelectedPermissionLevel(defaultPermissionLevel);
       setPeoplePickerKey(prev => prev + 1);
     } catch (error) {
       SPContext.logger.error('ManageAccessPanel failed to grant access', error);
     } finally {
       setIsGrantingAccess(false);
     }
-  }, [selectedUsers, selectedPermissionLevel, onGrantAccess]);
+  }, [selectedUsers, selectedPermissionLevel, onGrantAccess, defaultPermissionLevel]);
 
   const handleRemoveClick = React.useCallback((principal: IPermissionPrincipal): void => {
     setShowRemoveDialog(true);
@@ -214,7 +175,7 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
           <div className='manage-access-permission-persona'>
             {permission.isGroup ? (
               <GroupViewer
-                groupId={parseInt(permission.id)}
+                groupId={Number.parseInt(permission.id, 10)}
                 groupName={permission.displayName}
                 displayMode='icon'
                 size={32}
@@ -379,12 +340,12 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
                   <Stack tokens={{ childrenGap: 10 }}>
                     <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
                       <PeoplePicker
-                        context={SPContext.spfxContext as any}
+                        context={SPContext.peoplepickerContext}
                         titleText=''
                         personSelectionLimit={10}
                         groupName=''
                         showtooltip={true}
-                        disabled={false}
+                        disabled={isGrantingAccess || isValidatingUsers}
                         onChange={handlePeoplePickerChange}
                         showHiddenInUI={false}
                         principalTypes={[PrincipalType.User, PrincipalType.SharePointGroup]}

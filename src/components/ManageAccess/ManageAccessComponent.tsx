@@ -1,6 +1,5 @@
 import { Icon } from '@fluentui/react/lib/Icon';
 import { Link } from '@fluentui/react/lib/Link';
-import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
@@ -181,7 +180,6 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
   const [isLoading, setIsLoading] = React.useState(true);
   const [showManageAccessPanel, setShowManageAccessPanel] = React.useState(false);
   const [permissions, setPermissions] = React.useState<IPermissionPrincipal[]>([]);
-  const [currentUserPermissions, setCurrentUserPermissions] = React.useState<string[]>([]);
   const [canManagePermissions, setCanManagePermissions] = React.useState(false);
   const [inlineMessage, setInlineMessage] = React.useState('');
   const [showInlineMessage, setShowInlineMessage] = React.useState(false);
@@ -352,7 +350,6 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         const result = await getEnhancedItemPermissions();
 
         setPermissions(await filterAndProcessPermissions(result.permissions));
-        setCurrentUserPermissions(result.canManage ? ['Edit'] : ['View']);
         setCanManagePermissions(result.canManage);
         setIsLoading(false);
         hasLoadedRef.current = true;
@@ -475,22 +472,6 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     },
     [onPermissionChanged, loadPermissions]
   );
-
-  const getPersonaColor = React.useCallback((displayName: string): PersonaInitialsColor => {
-    const colors = [
-      PersonaInitialsColor.lightBlue,
-      PersonaInitialsColor.lightGreen,
-      PersonaInitialsColor.lightPink,
-      PersonaInitialsColor.magenta,
-      PersonaInitialsColor.orange,
-      PersonaInitialsColor.teal,
-      PersonaInitialsColor.violet,
-      PersonaInitialsColor.warmGray,
-    ];
-
-    const hash = displayName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }, []);
 
   const renderPermissionAvatar = React.useCallback(
     (permission: IPermissionPrincipal, index: number): React.ReactElement => {
