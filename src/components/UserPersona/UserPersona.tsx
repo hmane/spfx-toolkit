@@ -46,7 +46,22 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
   const [email, setEmail] = React.useState(providedEmail || '');
   const [photoUrl, setPhotoUrl] = React.useState<string | undefined>(undefined);
 
-  const siteUrl = SPContext.spfxContext.pageContext.web.absoluteUrl;
+  const siteUrl = (() => {
+    if (!SPContext.isReady()) return '';
+    try {
+      return SPContext.webAbsoluteUrl || SPContext.spfxContext.pageContext.web.absoluteUrl || '';
+    } catch {
+      return '';
+    }
+  })();
+  const serviceScope = (() => {
+    if (!SPContext.isReady()) return undefined;
+    try {
+      return SPContext.spfxContext.serviceScope;
+    } catch {
+      return undefined;
+    }
+  })();
   const normalizedIdentifier = normalizeUserIdentifier(userIdentifier);
   const [isDefaultPhoto, setIsDefaultPhoto] = React.useState(true);
 
@@ -157,7 +172,7 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
     let isMounted = true;
 
     const loadPhoto = async () => {
-      if (!isValidUserIdentifier(normalizedIdentifier)) {
+      if (!siteUrl || !isValidUserIdentifier(normalizedIdentifier)) {
         if (isMounted) {
           setPhotoUrl(undefined);
         }
@@ -288,12 +303,12 @@ export const UserPersona: React.FC<IUserPersonaProps> = props => {
 
   // Wrap entire container with LivePersona if enabled
   const contentWithLivePersona =
-    showLivePersona && isValidUserIdentifier(normalizedIdentifier) ? (
+    showLivePersona && isValidUserIdentifier(normalizedIdentifier) && serviceScope ? (
       <React.Suspense fallback={content}>
         <LivePersona
           upn={normalizedIdentifier}
           template={content}
-          serviceScope={SPContext.spfxContext.serviceScope}
+          serviceScope={serviceScope}
         />
       </React.Suspense>
     ) : (

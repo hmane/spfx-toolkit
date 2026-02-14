@@ -759,6 +759,41 @@ export function exportAllToCSV(versions: IVersionInfo[], itemInfo: IItemInfo): v
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Build a _vti_history URL for a historical document version.
+ *
+ * Handles both absolute and server-relative item URLs, and normalizes paths so
+ * the generated history path is relative to the current web path.
+ */
+export function buildVtiHistoryUrl(
+  siteAbsoluteUrl: string,
+  versionId: string | number,
+  itemUrl: string,
+  webServerRelativeUrl: string = '/'
+): string {
+  let itemPath = itemUrl || '';
+  if (/^https?:\/\//i.test(itemPath)) {
+    try {
+      itemPath = new URL(itemPath).pathname;
+    } catch {
+      // keep original value as fallback
+    }
+  }
+
+  const normalizedItemPath = itemPath.replace(/^\/+/, '/');
+  const normalizedWebPath = webServerRelativeUrl.replace(/\/+$/, '');
+  let relativePath = normalizedItemPath.replace(/^\/+/, '');
+
+  if (normalizedWebPath && normalizedWebPath !== '/') {
+    const webPrefix = `${normalizedWebPath}/`.toLowerCase();
+    if (normalizedItemPath.toLowerCase().startsWith(webPrefix)) {
+      relativePath = normalizedItemPath.substring(webPrefix.length).replace(/^\/+/, '');
+    }
+  }
+
+  return `${siteAbsoluteUrl.replace(/\/$/, '')}/_vti_history/${String(versionId)}/${relativePath}`;
+}
+
 export async function downloadDocumentVersion(
   version: IVersionInfo,
   itemInfo: IItemInfo
@@ -796,7 +831,12 @@ export async function downloadDocumentVersion(
       URL.revokeObjectURL(url);
     } else {
       // Historical version - use direct URL with version ID
-      const siteAbsoluteUrl = SPContext.spfxContext.pageContext.web.absoluteUrl;
+      const siteAbsoluteUrl = (() => {
+        if (!SPContext.isReady()) {
+          throw new Error('SPContext is not initialized');
+        }
+        return SPContext.webAbsoluteUrl || SPContext.spfxContext.pageContext.web.absoluteUrl;
+      })();
 
       // Build the historical version download URL
       // Format: {siteUrl}/_vti_history/{versionId}/{documentPath}
@@ -805,11 +845,17 @@ export async function downloadDocumentVersion(
       } else {
         // Fallback: construct from version ID
         const versionId = version.versionId || version.versionLabel;
-        const docPath = itemInfo.itemUrl.substring(itemInfo.itemUrl.indexOf('/', 1) + 1); // Remove leading /sites/sitename
-        downloadUrl = `${siteAbsoluteUrl}/_vti_history/${versionId}/${docPath}`;
+        downloadUrl = buildVtiHistoryUrl(
+          siteAbsoluteUrl,
+          versionId,
+          itemInfo.itemUrl,
+          SPContext.webServerRelativeUrl || '/'
+        );
       }
 
-      console.log('[downloadDocumentVersion] Historical version URL:', downloadUrl);
+      SPContext.logger.info('VersionHistory: historical version download URL generated', {
+        versionId: version.versionId || version.versionLabel,
+      });
 
       // Use fetch instead of PnP for historical versions
       const response = await fetch(downloadUrl, {

@@ -181,6 +181,9 @@ export class SimpleHttpClient implements IHttpClient {
 
     // Parse response
     const responseData = await this.parseResponse<T>(response);
+    if (!response.ok) {
+      throw this.createHttpError(response.status, responseData);
+    }
 
     return {
       data: responseData,
@@ -241,6 +244,30 @@ export class SimpleHttpClient implements IHttpClient {
 
   private isSharePointUrl(url: string): boolean {
     return url.toLowerCase().includes('/_api/') || url.toLowerCase().includes('sharepoint.com');
+  }
+
+  private createHttpError(status: number, responseData: unknown): Error {
+    const responseMessage =
+      typeof responseData === 'string'
+        ? responseData
+        : typeof responseData === 'object' && responseData !== null
+          ? (responseData as { message?: string; error?: { message?: string } }).error?.message ||
+            (responseData as { message?: string }).message
+          : undefined;
+
+    const message = responseMessage
+      ? `HTTP ${status}: ${responseMessage}`
+      : `HTTP ${status}: Request failed`;
+
+    const error = new Error(message) as Error & {
+      status?: number;
+      statusCode?: number;
+      response?: unknown;
+    };
+    error.status = status;
+    error.statusCode = status;
+    error.response = responseData;
+    return error;
   }
 
   private isNonRetryableError(error: any): boolean {

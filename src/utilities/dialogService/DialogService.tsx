@@ -30,6 +30,8 @@ class DialogServiceManager {
 
   private listeners: Set<() => void> = new Set();
   private containerElement: HTMLDivElement | null = null;
+  private isDisposed: boolean = false;
+  private renderToken: number = 0;
 
   /**
    * Generate a unique loader ID
@@ -46,6 +48,7 @@ class DialogServiceManager {
       return; // Already initialized
     }
 
+    this.isDisposed = false;
     this.containerElement = document.createElement('div');
     this.containerElement.id = 'spfx-toolkit-dialog-container';
     document.body.appendChild(this.containerElement);
@@ -59,9 +62,13 @@ class DialogServiceManager {
    */
   public dispose(): void {
     if (this.containerElement) {
-      document.body.removeChild(this.containerElement);
+      ReactDOM.unmountComponentAtNode(this.containerElement);
+      if (this.containerElement.parentNode) {
+        this.containerElement.parentNode.removeChild(this.containerElement);
+      }
       this.containerElement = null;
     }
+    this.isDisposed = true;
     this.listeners.clear();
   }
 
@@ -89,8 +96,18 @@ class DialogServiceManager {
       return;
     }
 
+    const container = this.containerElement;
+    const token = ++this.renderToken;
+
     // Import ReactDOM dynamically to avoid bundling issues
     import('react-dom').then(({ render }) => {
+      if (this.isDisposed || !this.containerElement || this.containerElement !== container) {
+        return;
+      }
+      if (token !== this.renderToken) {
+        return;
+      }
+
       render(
         <DialogServiceRenderer
           loadingStates={Array.from(this.loadingStates.values())}
@@ -98,7 +115,7 @@ class DialogServiceManager {
           onDialogDismiss={() => this.handleDialogDismiss()}
           onDialogAction={(value: any) => this.handleDialogAction(value)}
         />,
-        this.containerElement
+        container
       );
     });
   }

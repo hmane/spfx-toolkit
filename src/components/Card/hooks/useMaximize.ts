@@ -117,39 +117,18 @@ export const useMaximize = (
 
       // Wait for animation to complete using transitionend event
       await new Promise<void>((resolve) => {
-        const handleTransitionEnd = (e: TransitionEvent) => {
-          // Only respond to transform/width/height transitions on the element itself
-          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
-            element.removeEventListener('transitionend', handleTransitionEnd);
+        let didComplete = false;
+        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
-            // Restore all original styles after animation completes
-            element.style.position = original.position;
-            element.style.top = original.top;
-            element.style.left = original.left;
-            element.style.width = original.width;
-            element.style.height = original.height;
-            element.style.zIndex = original.zIndex;
-            element.style.transform = original.transform;
-            element.style.margin = '';
-            element.style.transition = '';
-            element.style.borderRadius = '';
+        const completeRestore = (): void => {
+          if (didComplete) return;
+          didComplete = true;
 
-            // Remove maximized class
-            element.classList.remove('spfx-card-maximized');
-
-            // Remove backdrop
-            removeBackdrop();
-
-            setIsMaximized(false);
-            setIsAnimating(false);
-            isMaximizingRef.current = false;
-            onRestore?.();
-            resolve();
+          if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+            fallbackTimeout = null;
           }
-        };
 
-        // Fallback timeout in case transitionend doesn't fire
-        const fallbackTimeout = setTimeout(() => {
           element.removeEventListener('transitionend', handleTransitionEnd);
 
           element.style.position = original.position;
@@ -171,6 +150,18 @@ export const useMaximize = (
           isMaximizingRef.current = false;
           onRestore?.();
           resolve();
+        };
+
+        const handleTransitionEnd = (e: TransitionEvent) => {
+          // Only respond to transform/width/height transitions on the element itself
+          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
+            completeRestore();
+          }
+        };
+
+        // Fallback timeout in case transitionend doesn't fire
+        fallbackTimeout = setTimeout(() => {
+          completeRestore();
         }, duration + 50); // Add small buffer
 
         element.addEventListener('transitionend', handleTransitionEnd);
@@ -278,21 +269,18 @@ export const useMaximize = (
 
       // Wait for animation to complete using transitionend event
       await new Promise<void>((resolve) => {
-        const handleTransitionEnd = (e: TransitionEvent) => {
-          // Only respond to width/height transitions on the element itself
-          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
-            element.removeEventListener('transitionend', handleTransitionEnd);
+        let didComplete = false;
+        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
-            setIsMaximized(true);
-            setIsAnimating(false);
-            isMaximizingRef.current = false;
-            onMaximize?.();
-            resolve();
+        const completeMaximize = (): void => {
+          if (didComplete) return;
+          didComplete = true;
+
+          if (fallbackTimeout) {
+            clearTimeout(fallbackTimeout);
+            fallbackTimeout = null;
           }
-        };
 
-        // Fallback timeout in case transitionend doesn't fire
-        const fallbackTimeout = setTimeout(() => {
           element.removeEventListener('transitionend', handleTransitionEnd);
 
           setIsMaximized(true);
@@ -300,6 +288,18 @@ export const useMaximize = (
           isMaximizingRef.current = false;
           onMaximize?.();
           resolve();
+        };
+
+        const handleTransitionEnd = (e: TransitionEvent) => {
+          // Only respond to width/height transitions on the element itself
+          if (e.target === element && (e.propertyName === 'width' || e.propertyName === 'height')) {
+            completeMaximize();
+          }
+        };
+
+        // Fallback timeout in case transitionend doesn't fire
+        fallbackTimeout = setTimeout(() => {
+          completeMaximize();
         }, duration + 50); // Add small buffer
 
         element.addEventListener('transitionend', handleTransitionEnd);

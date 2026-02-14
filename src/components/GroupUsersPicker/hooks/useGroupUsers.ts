@@ -80,8 +80,6 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
   const [error, setError] = React.useState<string | null>(null);
   const [retryCount, setRetryCount] = React.useState<number>(0);
 
-  const siteUrl = SPContext.spfxContext?.pageContext?.web?.absoluteUrl || '';
-
   // Request versioning to prevent stale responses from overwriting newer state
   const requestIdRef = React.useRef<number>(0);
 
@@ -104,6 +102,14 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
       try {
         // Use spPessimistic for fresh data or spCached for cached data
         const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
+        const siteUrl = (() => {
+          if (!SPContext.isReady()) return '';
+          try {
+            return SPContext.webAbsoluteUrl || SPContext.spfxContext.pageContext.web.absoluteUrl || '';
+          } catch {
+            return '';
+          }
+        })();
 
         // Fetch all users recursively from the group and nested groups
         SPContext.logger.info('GroupUsersPicker: Starting recursive user fetch', {
@@ -191,7 +197,7 @@ export function useGroupUsers(groupName: string, useCache: boolean = false): IUs
     return () => {
       isMounted = false;
     };
-  }, [groupName, useCache, retryCount, siteUrl]);
+  }, [groupName, useCache, retryCount]);
 
   const retry = React.useCallback(() => {
     setRetryCount(prev => prev + 1);

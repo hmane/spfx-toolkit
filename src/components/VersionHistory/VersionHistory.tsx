@@ -20,6 +20,7 @@ import {
 } from './types';
 import {
   compareVersions,
+  buildVtiHistoryUrl,
   downloadDocumentVersion,
   exportAllToCSV,
   filterVersions,
@@ -265,8 +266,14 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     (version: IVersionInfo): string | null => {
       if (!state.itemInfo) return null;
 
-      const siteUrl =
-        SPContext.spfxContext?.pageContext?.web?.absoluteUrl || SPContext.webAbsoluteUrl || '';
+      const siteUrl = (() => {
+        if (!SPContext.isReady()) return '';
+        try {
+          return SPContext.webAbsoluteUrl || SPContext.spfxContext.pageContext.web.absoluteUrl || '';
+        } catch {
+          return '';
+        }
+      })();
 
       if (!siteUrl) {
         return toAbsoluteUrl(state.itemInfo.itemUrl);
@@ -282,16 +289,15 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         }
 
         const versionId = version.versionId || version.versionLabel;
-        let documentPath = state.itemInfo.itemUrl || '';
-
-        if (documentPath.startsWith('/')) {
-          const secondSlash = documentPath.indexOf('/', 1);
-          documentPath =
-            secondSlash > -1 ? documentPath.substring(secondSlash + 1) : documentPath.substring(1);
-        }
-
-        documentPath = documentPath.replace(/^\//, '');
-        return `${siteUrl.replace(/\/$/, '')}/_vti_history/${versionId}/${documentPath}`;
+        const webServerRelativeUrl = (() => {
+          if (!SPContext.isReady()) return '/';
+          try {
+            return SPContext.webServerRelativeUrl || '/';
+          } catch {
+            return '/';
+          }
+        })();
+        return buildVtiHistoryUrl(siteUrl, versionId, state.itemInfo.itemUrl, webServerRelativeUrl);
       }
 
       const listUrl = `${siteUrl.replace(

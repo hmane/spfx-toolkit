@@ -314,8 +314,7 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
           <div
             style={{
               flex: 1,
-              padding:
-                window.innerWidth <= 480 ? '12px' : window.innerWidth <= 768 ? '16px' : '20px',
+              padding: 'clamp(12px, 2.5vw, 20px)',
               overflowY: 'auto',
             }}
           >

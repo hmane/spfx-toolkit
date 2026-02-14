@@ -36,7 +36,6 @@ export async function downloadDocument(document: IDocumentInfo): Promise<void> {
 export function openPreviewModal(document: IDocumentInfo, mode: 'view' | 'edit'): void {
   try {
     const previewUrl = buildPreviewUrl(document.url, mode, document.serverRelativeUrl) || document.url;
-    console.log('Opening preview modal:', { url: document.url, previewUrl, mode });
 
     // Create modal container
     const modal = window.document.createElement('div');
@@ -153,7 +152,6 @@ export function openPreviewModal(document: IDocumentInfo, mode: 'view' | 'edit')
 export function openPreviewNewTab(document: IDocumentInfo, mode: 'view' | 'edit'): void {
   try {
     const previewUrl = buildPreviewUrl(document.url, mode, document.serverRelativeUrl) || document.url;
-    console.log('Opening preview in new tab:', { url: document.url, previewUrl, mode });
     const newWindow = window.open(previewUrl, '_blank', 'noopener=yes,noreferrer=yes');
 
     // Fallback when pop-up blockers prevent opening a new tab

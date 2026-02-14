@@ -21,6 +21,23 @@ export class CardControllerService implements ICardController {
   private subscriptions = new Map<string, Array<(action: string, data?: any) => void>>();
   private globalSubscriptions: Array<(action: string, cardId: string, data?: any) => void> = [];
   private batchOperations = new Set<string>();
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+  private readonly handleWindowLoad = () => {
+    this.storageService.cleanup();
+  };
+
+  private readonly handleBeforeUnload = () => {
+    this.persistStates();
+  };
+
+  private readonly handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      this.restoreStates();
+    } else {
+      this.persistStates();
+    }
+  };
 
   private constructor() {
     this.storageService = StorageService.getInstance();
@@ -43,31 +60,34 @@ export class CardControllerService implements ICardController {
    */
   private setupEventListeners(): void {
     // Cleanup expired storage on page load
-    window.addEventListener('load', () => {
-      this.storageService.cleanup();
-    });
+    window.addEventListener('load', this.handleWindowLoad);
 
     // Save states before page unload
-    window.addEventListener('beforeunload', () => {
-      this.persistStates();
-    });
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
 
     // Handle visibility change for cleanup
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        this.restoreStates();
-      } else {
-        this.persistStates();
-      }
-    });
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /**
+   * Remove global event listeners
+   */
+  private removeEventListeners(): void {
+    window.removeEventListener('load', this.handleWindowLoad);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   /**
    * Schedule periodic cleanup
    */
   private scheduleCleanup(): void {
+    if (this.cleanupIntervalId) {
+      return;
+    }
+
     // Run cleanup every 5 minutes
-    setInterval(() => {
+    this.cleanupIntervalId = setInterval(() => {
       this.storageService.cleanup();
     }, 5 * 60 * 1000);
   }
@@ -798,6 +818,12 @@ export class CardControllerService implements ICardController {
    * Force cleanup of all resources
    */
   public cleanup(): void {
+    this.removeEventListeners();
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+    }
+
     // Clear all subscriptions
     this.subscriptions.clear();
     this.globalSubscriptions.length = 0;
@@ -818,6 +844,8 @@ export class CardControllerService implements ICardController {
     this.cleanup();
     this.cards.clear();
     this.clearStoredStates();
+    this.setupEventListeners();
+    this.scheduleCleanup();
 
     console.log('[SpfxCard] Controller reset completed');
   }

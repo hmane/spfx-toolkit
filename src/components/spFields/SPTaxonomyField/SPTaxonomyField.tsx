@@ -373,8 +373,17 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     fieldOnChange: (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]) => void,
     fieldError?: string
   ) => {
+    let spfxContext: any;
+    if (SPContext.isReady()) {
+      try {
+        spfxContext = SPContext.spfxContext;
+      } catch {
+        spfxContext = undefined;
+      }
+    }
+
     // Check if SPContext is available
-    if (!SPContext.spfxContext) {
+    if (!spfxContext) {
       return (
         <Stack className={containerClass}>
           {label && <Label required={required}>{label}</Label>}
@@ -426,7 +435,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
             <ModernTaxonomyPicker
-              context={SPContext.spfxContext}
+              context={spfxContext}
               termSetId={resolvedDataSource.termSetId}
               anchorTermId={resolvedDataSource.anchorId}
               label={label || ''}
