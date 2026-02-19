@@ -198,8 +198,8 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
 
     const shouldUpdate = maxUserCount === 1
       ? currentValueStr !== newValueStr || typesDiffer
-      : JSON.stringify((Array.isArray(selectedValue) ? selectedValue : []).map(String))
-          !== JSON.stringify((Array.isArray(newValue) ? newValue : []).map(String));
+      : JSON.stringify(Array.isArray(selectedValue) ? selectedValue : [])
+          !== JSON.stringify(Array.isArray(newValue) ? newValue : []);
 
     SPContext.logger.info('GroupUsersPicker: Update check', {
       currentValueStr,
