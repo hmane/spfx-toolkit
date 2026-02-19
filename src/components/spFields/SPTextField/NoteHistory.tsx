@@ -120,7 +120,6 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
    * Memoized to prevent recreating on every render
    */
   const loadHistory = React.useCallback(async (abortSignal?: AbortSignal) => {
-    // Prevent duplicate loads
     if (loadingRef.current) {
       SPContext.logger.info('NoteHistory: Load already in progress, skipping');
       return;
@@ -149,9 +148,16 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
       const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
 
       // Load versions from SharePoint
-      const versions = await getListByNameOrId(sp, listNameOrId)
+      // Add cache-busting parameter to prevent stale browser-cached responses
+      const versionsQuery = getListByNameOrId(sp, listNameOrId)
         .items.getById(itemId)
-        .versions
+        .versions;
+
+      if (!useCache) {
+        versionsQuery.query.set('_t', Date.now().toString());
+      }
+
+      const versions = await versionsQuery
         .select(
           'VersionId',
           'VersionLabel',
