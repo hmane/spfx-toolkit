@@ -1,10 +1,10 @@
 # Build output
-lib/
-components/
-hooks/
-utilities/
-types/
-utils/
+/lib/
+/components/
+/hooks/
+/utilities/
+/types/
+/utils/
 dist/
 build/
 *.tsbuildinfo
