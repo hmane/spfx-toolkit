@@ -60,18 +60,20 @@ export class SimpleHttpClient implements IHttpClient {
 
   async callFunction<T = any>(options: FunctionCallOptions): Promise<HttpResponse<T>> {
     const { url, method = 'POST', data, ...requestOptions } = options;
+    const useAuth = requestOptions.useAuth ?? this.config.enableAuth;
 
     this.config.logger.info('Calling Azure Function', {
       method,
       url: this.sanitizeUrl(url),
-      hasAuth: !!requestOptions.useAuth,
+      hasAuth: !!(useAuth && requestOptions.resourceUri),
     });
 
-    return this.request<T>(method, url, data, requestOptions);
+    return this.request<T>(method, url, data, { ...requestOptions, useAuth });
   }
 
   async triggerFlow<T = any>(options: FlowCallOptions): Promise<HttpResponse<T>> {
     const { url, data, idempotencyKey, ...requestOptions } = options;
+    const useAuth = requestOptions.useAuth ?? this.config.enableAuth;
 
     // Add idempotency header if provided
     const headers = {
@@ -82,10 +84,10 @@ export class SimpleHttpClient implements IHttpClient {
     this.config.logger.info('Triggering Power Platform Flow', {
       url: this.sanitizeUrl(url),
       hasIdempotency: !!idempotencyKey,
-      hasAuth: !!requestOptions.useAuth,
+      hasAuth: !!(useAuth && requestOptions.resourceUri),
     });
 
-    return this.request<T>('POST', url, data, { ...requestOptions, headers });
+    return this.request<T>('POST', url, data, { ...requestOptions, headers, useAuth });
   }
 
   // Core request method
@@ -157,7 +159,9 @@ export class SimpleHttpClient implements IHttpClient {
     let response: HttpClientResponse | SPHttpClientResponse;
 
     // Use Azure AD client if auth is enabled and resourceUri is provided
-    if (options.useAuth && options.resourceUri) {
+    const useAuth = options.useAuth ?? this.config.enableAuth;
+
+    if (useAuth && options.resourceUri) {
       const aadClient = await this.aadFactory.getClient(options.resourceUri);
       response = await this.withTimeout(
         aadClient.fetch(url, AadHttpClient.configurations.v1, requestOptions),

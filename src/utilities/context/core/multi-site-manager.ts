@@ -89,7 +89,11 @@ export class MultiSiteContextManager {
       let spCached: SPFI = sp;
       let spPessimistic: SPFI = sp;
 
-      if (cacheConfig.strategy && cacheConfig.strategy !== 'none') {
+      if (
+        cacheConfig.strategy &&
+        cacheConfig.strategy !== 'none' &&
+        cacheConfig.strategy !== 'pessimistic'
+      ) {
         // Create cache module for this site
         const cacheModule = new CacheModule();
         await cacheModule.initialize(this.primaryContext, { cache: cacheConfig as ContextConfig['cache'] });
@@ -100,11 +104,7 @@ export class MultiSiteContextManager {
           spCached = sp.using(cacheBehavior);
         }
 
-        // Always create pessimistic instance (no cache)
-        const pessimisticBehavior = cacheModule.createBehavior('none' as CacheStrategy, 0);
-        if (pessimisticBehavior) {
-          spPessimistic = sp.using(pessimisticBehavior);
-        }
+        // `spPessimistic` intentionally remains uncached.
       }
 
       // 8. Create site-specific logger

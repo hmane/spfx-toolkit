@@ -49,7 +49,7 @@ npm install spfx-toolkit
 ### Static Methods (Recommended for Production)
 
 ```typescript
-import { StringUtils } from 'spfx-toolkit/lib/utilities/stringUtils';
+import { StringUtils } from 'spfx-toolkit/utilities/stringUtils';
 
 // File path operations
 const filename = StringUtils.getFileName('/sites/mysite/Documents/file.pdf');
@@ -80,9 +80,10 @@ const params = StringUtils.getQueryStringMap('?id=123&name=test');
 ### String Prototype Extensions (For Convenience)
 
 ```typescript
-import 'spfx-toolkit/lib/utilities/stringUtils';
+import { applyStringExtensions } from 'spfx-toolkit/utilities/stringUtils';
 
-// Extensions are automatically applied
+// Extensions must be applied explicitly
+applyStringExtensions();
 const filename = '/sites/mysite/Documents/file.pdf'.getFileName();
 // "file.pdf"
 

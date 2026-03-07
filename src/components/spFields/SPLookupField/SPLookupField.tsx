@@ -227,7 +227,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     let isMounted = true;
 
     const determineDisplayMode = async () => {
-      if (!SPContext.sp) {
+      const sp = useCache ? SPContext.tryGetCachedSP() : SPContext.tryGetFreshSP();
+      if (!sp) {
         if (isMounted) {
           SPContext.logger.warn('SPLookupField: SPContext not initialized', {
             list: dataSource.listNameOrId,
@@ -251,8 +252,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       }
 
       try {
-        const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
-
         // Cross-site lookup warning
         if (dataSource.webUrl) {
           SPContext.logger.warn('SPLookupField: Cross-site lookups not fully supported', {
@@ -338,7 +337,8 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     let isMounted = true;
 
     const loadLookupItems = async () => {
-      if (!SPContext.sp) {
+      const sp = useCache ? SPContext.tryGetCachedSP() : SPContext.tryGetFreshSP();
+      if (!sp) {
         if (isMounted) {
           SPContext.logger.error('SPLookupField: Cannot load items - SPContext not initialized', null, {
             list: dataSource.listNameOrId,
@@ -355,8 +355,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
       }
 
       try {
-        const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
-
         let query = getListByNameOrId(sp, dataSource.listNameOrId).items
           .select('Id', dataSource.displayField || 'Title', ...(dataSource.additionalFields || []))
           .top(dataSource.itemLimit || searchableThreshold);
@@ -583,7 +581,19 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     // Render Searchable Mode (PnP ListItemPicker)
     const modeValue = String(actualDisplayMode);
     if (modeValue === 'searchable') {
+      const spfxContext = SPContext.tryGetSPFxContext();
       const hasError = !!fieldError;
+
+      if (!spfxContext) {
+        return (
+          <Stack className={containerClass}>
+            {label && <Label required={required}>{label}</Label>}
+            <MessageBar messageBarType={MessageBarType.error}>
+              SPContext not initialized. Lookup field search requires SPContext to be initialized.
+            </MessageBar>
+          </Stack>
+        );
+      }
 
       return (
         <Stack className={`sp-lookup-field sp-lookup-field-searchable ${containerClass} ${className || ''}`}>
@@ -627,7 +637,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                     }
                   }
                 }}
-                context={SPContext.spfxContext}
+                context={spfxContext}
                 disabled={disabled || readOnly}
                 placeholder={placeholder || `Type to search (${itemCount} items available)`}
                 noResultsFoundText="No items found matching your search"

@@ -9,6 +9,10 @@ import { ScrollView } from 'devextreme-react/scroll-view';
 import * as React from 'react';
 import '../../utilities/context/pnpImports/files';
 import { SPContext } from '../../utilities/context';
+import {
+  readBrowserStorageValue,
+  writeBrowserStorageValue,
+} from '../../utilities/browserStorage';
 import { VersionDetails } from './components/VersionDetails';
 import { VersionTimeline } from './components/VersionTimeline';
 import {
@@ -27,6 +31,17 @@ import {
   isSystemField,
   formatRelativeTime,
 } from './VersionHistoryUtils';
+
+interface IVersionHistoryPersistedFilters {
+  searchQuery?: string;
+  filterByUser?: string | null;
+  filterDateRange?: IFilterState['filterDateRange'];
+  showMajorOnly?: boolean;
+  showUpdatesOnly?: boolean;
+  customDateStart?: string | null;
+  customDateEnd?: string | null;
+  filtersExpanded?: boolean;
+}
 
 export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
   const {
@@ -101,9 +116,11 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     const persistenceKey = `spfx-toolkit:version-history:${listId}:${itemId}`;
 
     try {
-      const stored = window.localStorage.getItem(persistenceKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      const parsed = readBrowserStorageValue<IVersionHistoryPersistedFilters>(persistenceKey, {
+        preferred: ['localStorage'],
+      });
+
+      if (parsed) {
         setState(prev => ({
           ...prev,
           persistenceKey,
@@ -120,7 +137,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         return;
       }
     } catch (error) {
-      SPContext.logger?.warn('VersionHistory: failed to restore persisted filters', {
+      SPContext.logger.warn('VersionHistory: failed to restore persisted filters', {
         error,
         listId,
         itemId,
@@ -152,9 +169,15 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     };
 
     try {
-      window.localStorage.setItem(state.persistenceKey, JSON.stringify(payload));
+      const stored = writeBrowserStorageValue(state.persistenceKey, payload, {
+        preferred: ['localStorage'],
+      });
+
+      if (!stored) {
+        throw new Error('localStorage is not available');
+      }
     } catch (error) {
-      SPContext.logger?.warn('VersionHistory: failed to persist filters', {
+      SPContext.logger.warn('VersionHistory: failed to persist filters', {
         error,
         listId,
         itemId,
@@ -232,7 +255,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           statusMessage: { type: 'success', text: successMessage },
         }));
       } catch (error) {
-        SPContext.logger?.warn('VersionHistory: copy to clipboard failed', { error });
+        SPContext.logger.warn('VersionHistory: copy to clipboard failed', { error });
         setState(prev => ({
           ...prev,
           statusMessage: {

@@ -1,9 +1,9 @@
 # SPFx Toolkit - Complete Developer Usage Guide
 
-**Version:** 1.0.0+
+**Version:** 1.0.0-alpha.1
 **For:** SharePoint Framework (SPFx) >= 1.21.1
 **Author:** SPFx Toolkit Team
-**Last Updated:** October 2025
+**Last Updated:** March 7, 2026
 
 ---
 
@@ -36,6 +36,13 @@ npm install spfx-toolkit --save
 npm install @fluentui/react@8.106.4 @pnp/sp@^3.20.1 react@^17.0.1 --save
 ```
 
+### Import Path Compatibility
+
+- Use `spfx-toolkit/components/...`, `spfx-toolkit/hooks`, and `spfx-toolkit/utilities/...` as the default import paths.
+- This package now ships compatibility proxy entrypoints, so those subpaths also resolve in classic SPFx projects and `npm link` setups after you rebuild or reinstall the package.
+- Use `spfx-toolkit/lib/...` as a legacy fallback if a consumer is pinned to older package behavior.
+- Do not import UI components from the package root (`spfx-toolkit`).
+
 ### Your First Component (5 Minutes)
 
 ```typescript
@@ -44,11 +51,11 @@ import * as ReactDom from 'react-dom';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 
 // 1. Import SPContext (ALWAYS FIRST)
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // 2. Import components you need
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
-import { Card } from 'spfx-toolkit/lib/components/Card';
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
+import { Card } from 'spfx-toolkit/components/Card';
 
 export default class MyWebPart extends BaseClientSideWebPart<{}> {
   protected async onInit(): Promise<void> {
@@ -80,6 +87,8 @@ const MyComponent: React.FC = () => {
 ```
 
 **That's it!** You now have expandable cards with user personas working in your SPFx web part.
+
+If you are using `npm link`, rebuild the toolkit after changing package entrypoints so the generated proxy folders and `lib/` output are up to date.
 
 ---
 
@@ -119,21 +128,28 @@ npm install react-hook-form@^7.45.4 --save  # For spForm
 npm install zustand@^4.3.9 --save  # For spForm state management
 ```
 
+If you are consuming the toolkit through `npm link`, rebuild the toolkit after changes so the linked `lib/` folder stays current:
+
+```bash
+cd /path/to/spfx-toolkit
+npm run build
+```
+
 ### Step 3: Centralize PnP Imports
 
 Load PnPjs exactly once per web part and register its typings globally:
 
 ```typescript
 // src/webparts/pnpImports.ts
-import 'spfx-toolkit/lib/utilities/context/pnpImports/core';
-import 'spfx-toolkit/lib/utilities/context/pnpImports/lists';
-import 'spfx-toolkit/lib/utilities/context/pnpImports/content';
+import 'spfx-toolkit/utilities/context/pnpImports/core';
+import 'spfx-toolkit/utilities/context/pnpImports/lists';
+import 'spfx-toolkit/utilities/context/pnpImports/content';
 
 // Optional bundles
-// import 'spfx-toolkit/lib/utilities/context/pnpImports/files';
-// import 'spfx-toolkit/lib/utilities/context/pnpImports/search';
-// import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy';
-// import 'spfx-toolkit/lib/utilities/context/pnpImports/security';
+// import 'spfx-toolkit/utilities/context/pnpImports/files';
+// import 'spfx-toolkit/utilities/context/pnpImports/search';
+// import 'spfx-toolkit/utilities/context/pnpImports/taxonomy';
+// import 'spfx-toolkit/utilities/context/pnpImports/security';
 ```
 
 ```typescript
@@ -270,20 +286,25 @@ await SPContext.teams(this.context, 'MyWebPart');
 
 #### 3. Custom Configuration (Advanced)
 
-Full control over all settings:
+Full control over logging, HTTP, and cache behavior:
 
 ```typescript
-await SPContext.initialize(this.context, 'MyWebPart', {
-  enableCache: true,
-  cacheExpirationMinutes: 30,
-  enableLogging: true,
-  logLevel: 'info',
-  enablePerformanceTracking: true,
-  enablePeoplePickerContext: true,
-  modules: {
-    cache: { strategy: 'memory', maxSize: 100 },
-    logger: { console: true, performance: true }
-  }
+await SPContext.initialize(this.context, {
+  componentName: 'MyWebPart',
+  logging: {
+    level: 1, // Info
+    enableConsole: true,
+    enablePerformance: true,
+  },
+  cache: {
+    strategy: 'memory',
+    ttl: 300000, // 5 minutes
+  },
+  http: {
+    timeout: 30000,
+    retries: 2,
+    enableAuth: true,
+  },
 });
 ```
 
@@ -295,7 +316,7 @@ After initialization, access SPContext anywhere in your code:
 // PnP/PnPjs operations
 const items = await SPContext.sp.web.lists.getByTitle('MyList').items();
 
-// Different caching strategies
+// Different access patterns
 const cached = await SPContext.spCached.web.lists.getByTitle('MyList').items();
 const fresh = await SPContext.spPessimistic.web.lists.getByTitle('MyList').items();
 
@@ -317,6 +338,7 @@ console.log('Context health:', health);
 - **Initialize once** in web part's `onInit()` lifecycle
 - **Call before rendering** any components
 - **Check initialization**: Use `SPContext.isReady()` to verify
+- **Prefer safe accessors** in optional infrastructure code: `SPContext.tryGetContext()`, `SPContext.tryGetSP()`, `SPContext.tryGetFreshSP()`
 - **Teams context**: Use `.teams()` preset for optimal Teams performance
 
 ### Multi-Site Connectivity
@@ -378,7 +400,7 @@ const hrSite = SPContext.sites.get('hr');
 // PnP Instances (same as main SPContext)
 hrSite.sp                    // Standard PnP instance
 hrSite.spCached              // Memory-cached instance
-hrSite.spPessimistic         // No-cache instance
+hrSite.spPessimistic         // Always-fresh instance
 
 // Site Properties
 hrSite.webAbsoluteUrl        // Full site URL
@@ -537,7 +559,7 @@ For comprehensive examples, advanced patterns, and detailed API reference, see:
 #### Basic Usage
 
 ```typescript
-import { Card } from 'spfx-toolkit/lib/components/Card';
+import { Card } from 'spfx-toolkit/components/Card';
 
 const MyComponent: React.FC = () => {
   return (
@@ -557,7 +579,7 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { Card, useCardController } from 'spfx-toolkit/lib/components/Card';
+import { Card, useCardController } from 'spfx-toolkit/components/Card';
 
 const MyComponent: React.FC = () => {
   // Programmatic control
@@ -613,7 +635,7 @@ const MyComponent: React.FC = () => {
 #### Basic Usage
 
 ```typescript
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
 
 const MyComponent: React.FC = () => {
   return (
@@ -630,7 +652,7 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
 import { PersonaSize } from '@fluentui/react/lib/Persona';
 
 const MyComponent: React.FC = () => {
@@ -683,8 +705,8 @@ const MyComponent: React.FC = () => {
 #### Basic Usage
 
 ```typescript
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import type { IWorkflowStep } from 'spfx-toolkit/lib/components/WorkflowStepper';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
+import type { IWorkflowStep } from 'spfx-toolkit/components/WorkflowStepper';
 
 const MyComponent: React.FC = () => {
   const steps: IWorkflowStep[] = [
@@ -803,7 +825,7 @@ interface StepData {
 #### Basic Usage
 
 ```typescript
-import { ManageAccess } from 'spfx-toolkit/lib/components/ManageAccess';
+import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';
 
 const MyComponent: React.FC = () => {
   return (
@@ -821,8 +843,8 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { ManageAccess } from 'spfx-toolkit/lib/components/ManageAccess';
-import type { IPermissionUpdate } from 'spfx-toolkit/lib/utilities/permissionHelper';
+import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';
+import type { IPermissionUpdate } from 'spfx-toolkit/utilities/permissionHelper';
 
 const MyComponent: React.FC = () => {
   const handlePermissionChange = (updates: IPermissionUpdate[]) => {
@@ -878,7 +900,7 @@ const MyComponent: React.FC = () => {
 #### Basic Usage
 
 ```typescript
-import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';
 
 const MyComponent: React.FC = () => {
   return (
@@ -893,7 +915,7 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
+import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';
 
 const MyComponent: React.FC = () => {
   const handleVersionRestore = (versionId: number) => {
@@ -952,8 +974,8 @@ const MyComponent: React.FC = () => {
 import {
   useConflictDetection,
   ConflictNotificationBar
-} from 'spfx-toolkit/lib/components/ConflictDetector';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+} from 'spfx-toolkit/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 const MyFormComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
   const {
@@ -1007,8 +1029,8 @@ const MyFormComponent: React.FC<{ listId: string; itemId: number }> = ({ listId,
 #### Pre-Save Conflict Check
 
 ```typescript
-import { usePreSaveConflictCheck } from 'spfx-toolkit/lib/components/ConflictDetector';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { usePreSaveConflictCheck } from 'spfx-toolkit/components/ConflictDetector';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 const MyComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, itemId }) => {
   const { checkBeforeSave, hasConflict, updateSnapshot } = usePreSaveConflictCheck(
@@ -1039,7 +1061,7 @@ const MyComponent: React.FC<{ listId: string; itemId: number }> = ({ listId, ite
 import {
   useConflictDetection,
   CONFLICT_DETECTION_PRESETS
-} from 'spfx-toolkit/lib/components/ConflictDetector';
+} from 'spfx-toolkit/components/ConflictDetector';
 
 // Available presets:
 // - silent: Logs conflicts but no UI
@@ -1091,7 +1113,7 @@ interface ConflictInfo {
 #### Basic Usage
 
 ```typescript
-import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
+import { GroupViewer } from 'spfx-toolkit/components/GroupViewer';
 
 const MyComponent: React.FC = () => {
   return (
@@ -1106,7 +1128,7 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
+import { GroupViewer } from 'spfx-toolkit/components/GroupViewer';
 
 const MyComponent: React.FC = () => {
   return (
@@ -1165,7 +1187,7 @@ const MyComponent: React.FC = () => {
 #### Basic Usage
 
 ```typescript
-import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
+import { ErrorBoundary } from 'spfx-toolkit/components/ErrorBoundary';
 
 const MyComponent: React.FC = () => {
   return (
@@ -1181,7 +1203,7 @@ const MyComponent: React.FC = () => {
 #### Advanced Features
 
 ```typescript
-import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/lib/components/ErrorBoundary';
+import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/components/ErrorBoundary';
 
 const MyComponent: React.FC = () => {
   const handleError = (error: Error, errorInfo: React.ErrorInfo) => {
@@ -1257,7 +1279,7 @@ const MyChildComponent: React.FC = () => {
 #### Basic Usage
 
 ```typescript
-import { DocumentLink } from 'spfx-toolkit/lib/components/DocumentLink';
+import { DocumentLink } from 'spfx-toolkit/components/DocumentLink';
 
 const InlineDocument = () => (
   <DocumentLink
@@ -1270,7 +1292,7 @@ const InlineDocument = () => (
 #### Advanced Features
 
 ```typescript
-import { DocumentLink } from 'spfx-toolkit/lib/components/DocumentLink';
+import { DocumentLink } from 'spfx-toolkit/components/DocumentLink';
 
 const RichDocumentLink: React.FC = () => (
   <DocumentLink
@@ -1323,7 +1345,7 @@ const RichDocumentLink: React.FC = () => (
 
 ```typescript
 import * as React from 'react';
-import { GroupUsersPicker, type IGroupUser } from 'spfx-toolkit/lib/components/GroupUsersPicker';
+import { GroupUsersPicker, type IGroupUser } from 'spfx-toolkit/components/GroupUsersPicker';
 
 const ApproverPicker: React.FC = () => {
   const [approvers, setApprovers] = React.useState<IGroupUser[]>([]);
@@ -1344,21 +1366,27 @@ const ApproverPicker: React.FC = () => {
 #### React Hook Form Integration
 
 ```typescript
-import { useForm } from 'react-hook-form';
-import { GroupUsersPicker } from 'spfx-toolkit/lib/components/spForm/customComponents/GroupUsersPicker';
+import { Controller, useForm } from 'react-hook-form';
+import { GroupUsersPicker } from 'spfx-toolkit/components/GroupUsersPicker';
 
 const GroupPickerForm: React.FC = () => {
   const { control, handleSubmit } = useForm<{ reviewers: any[] }>({ defaultValues: { reviewers: [] } });
 
   return (
     <form onSubmit={handleSubmit(console.log)}>
-      <GroupUsersPicker
+      <Controller
         name="reviewers"
         control={control}
-        groupName="Reviewers"
-        maxUserCount={1}
         rules={{ required: 'Reviewer required' }}
-        placeholder="Pick a reviewer"
+        render={({ field }) => (
+          <GroupUsersPicker
+            groupName="Reviewers"
+            maxUserCount={1}
+            selectedUsers={field.value ?? []}
+            onChange={field.onChange}
+            placeholder="Pick a reviewer"
+          />
+        )}
       />
       <button type="submit">Save</button>
     </form>
@@ -1402,7 +1430,7 @@ import {
   FormError,
   DevExtremeTextBox,
   DevExtremeSelectBox,
-} from 'spfx-toolkit/lib/components/spForm';
+} from 'spfx-toolkit/components/spForm';
 
 const RequestForm: React.FC = () => {
   const form = useForm<{ title: string; category: string }>({
@@ -1446,7 +1474,7 @@ const RequestForm: React.FC = () => {
 | Layout | `FormContainer`, `FormItem`, `FormLabel`, `FormValue`, `FormError`, `FormDescription` | Responsive layout + consistent spacing |
 | DevExtreme Controls | `DevExtremeTextBox`, `DevExtremeSelectBox`, `DevExtremeDateBox`, `DevExtremeNumberBox`, `DevExtremeTagBox`, `DevExtremeSwitch`, `DevExtremeRadioGroup`, `DevExtremeAutocomplete`, `DevExtremeTextArea`, `DevExtremeCheckBox` | RHF-ready wrappers with value conversion |
 | PnP Controls | `PnPPeoplePicker`, `PnPModernTaxonomyPicker` | Async SharePoint pickers with RHF integration |
-| Custom Components | `GroupUsersPicker` (via `spForm/customComponents`) | Re-exports tuned for RHF |
+| Custom Components | Use `Controller` + `GroupUsersPicker` | Preferred public integration pattern for RHF |
 
 **Usage Tips**
 - Import DevExtreme styles globally: `import 'devextreme/dist/css/dx.light.css';`
@@ -1487,7 +1515,7 @@ import {
   FormErrorSummary,
   useScrollToError,
   useZustandFormSync,
-} from 'spfx-toolkit/lib/components/spForm';
+} from 'spfx-toolkit/components/spForm';
 
 // Zustand store for form drafts
 const useFormStore = create((set) => ({
@@ -1820,7 +1848,7 @@ For detailed documentation:
 **Option 1: Pass control directly (works, but verbose)**
 ```typescript
 import { useForm } from 'react-hook-form';
-import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/lib/components/spFields';
+import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/components/spFields';
 
 const TaskEditor: React.FC = () => {
   const form = useForm<{ title: string; status: string; assignees: number[] }>({
@@ -1856,8 +1884,8 @@ const TaskEditor: React.FC = () => {
 **Option 2: Use FormProvider (recommended, cleaner)**
 ```typescript
 import { useForm } from 'react-hook-form';
-import { FormProvider } from 'spfx-toolkit/lib/components/spForm';
-import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/lib/components/spFields';
+import { FormProvider } from 'spfx-toolkit/components/spForm';
+import { SPTextField, SPChoiceField, SPUserField } from 'spfx-toolkit/components/spFields';
 
 const TaskEditor: React.FC = () => {
   const form = useForm<{ title: string; status: string; assignees: number[] }>({
@@ -1911,14 +1939,14 @@ const TaskEditor: React.FC = () => {
 - All fields support RHF `name`, `control`, and `rules` props.
 - Combine with `SPContext.smart` to enable SharePoint-backed lookups.
 - Utility types in `spFields/types` help define strongly-typed list item models.
-- **Important:** `SPLookupField` and `SPTaxonomyField` must be imported directly to prevent CSS bundling:
+- **Important:** `SPLookupField` and `SPTaxonomyField` are documented exceptions. They still use legacy deep imports so their PnP control CSS is only included when you opt in:
   ```typescript
-  // ✅ Correct - direct import
+  // ✅ Correct - documented exception
   import { SPLookupField } from 'spfx-toolkit/lib/components/spFields/SPLookupField';
   import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields/SPTaxonomyField';
 
-  // ❌ Wrong - will not work (not exported from barrel)
-  import { SPLookupField } from 'spfx-toolkit/lib/components/spFields';
+  // ❌ Wrong - not exported from the public spFields barrel
+  import { SPLookupField } from 'spfx-toolkit/components/spFields';
   ```
 
 #### Troubleshooting Validation
@@ -1988,7 +2016,7 @@ import {
   LazyConflictDetector,
   LazyWorkflowStepper,
   preloadComponent,
-} from 'spfx-toolkit/lib/components/lazy';
+} from 'spfx-toolkit/components/lazy';
 
 const VersionHistoryTrigger: React.FC = () => {
   const [showHistory, setShowHistory] = React.useState(false);
@@ -1996,7 +2024,7 @@ const VersionHistoryTrigger: React.FC = () => {
   return (
     <>
       <button
-        onMouseEnter={() => preloadComponent(() => import('spfx-toolkit/lib/components/VersionHistory'))}
+        onMouseEnter={() => preloadComponent(() => import('spfx-toolkit/components/VersionHistory'))}
         onClick={() => setShowHistory(true)}
       >
         View Version History
@@ -2027,14 +2055,12 @@ Use `preloadComponent` or `useLazyPreload` to warm caches when users show intent
 
 ## Custom Hooks
 
-## Custom Hooks
-
 ### useLocalStorage - Persistent State Management
 
 **Use Case:** User preferences, form data, UI state persistence
 
 ```typescript
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
 
 const MyComponent: React.FC = () => {
   // Simple value
@@ -2105,7 +2131,7 @@ function useLocalStorage<T>(
 **Use Case:** Responsive layouts, mobile/desktop rendering, adaptive UI
 
 ```typescript
-import { useViewport } from 'spfx-toolkit/lib/hooks';
+import { useViewport } from 'spfx-toolkit/hooks';
 
 const MyComponent: React.FC = () => {
   const { width, height, isMobile, isTablet, isDesktop, isLargeScreen } = useViewport();
@@ -2162,7 +2188,7 @@ function useViewport(): IViewport;
 **Use Case:** External card state management, synchronized cards, complex layouts
 
 ```typescript
-import { Card, useCardController } from 'spfx-toolkit/lib/components/Card';
+import { Card, useCardController } from 'spfx-toolkit/components/Card';
 
 const MyComponent: React.FC = () => {
   const card1 = useCardController('card-1');
@@ -2225,8 +2251,8 @@ function useCardController(cardId: string): ICardController;
 **Use Case:** Multiple CRUD operations, cross-list updates, performance optimization
 
 ```typescript
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // Basic usage
 const batch = new BatchBuilder(SPContext.sp);
@@ -2320,8 +2346,8 @@ interface IBatchResult {
 import {
   PermissionHelper,
   PermissionLevel
-} from 'spfx-toolkit/lib/utilities/permissionHelper';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+} from 'spfx-toolkit/utilities/permissionHelper';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // Initialize
 const permHelper = new PermissionHelper(SPContext.sp);
@@ -2351,7 +2377,7 @@ console.log(permissions);
 **Advanced Usage:**
 
 ```typescript
-import { PermissionHelper, PermissionLevel } from 'spfx-toolkit/lib/utilities/permissionHelper';
+import { PermissionHelper, PermissionLevel } from 'spfx-toolkit/utilities/permissionHelper';
 
 // Check list-level permissions
 const canManageList = await permHelper.hasListPermission(
@@ -2443,7 +2469,7 @@ class PermissionHelper {
 import {
   createSPExtractor,
   createSPUpdater
-} from 'spfx-toolkit/lib/utilities/listItemHelper';
+} from 'spfx-toolkit/utilities/listItemHelper';
 
 // Get list item from SharePoint
 const item = await SPContext.sp.web.lists
@@ -2483,7 +2509,7 @@ await SPContext.sp.web.lists
 **Advanced Usage:**
 
 ```typescript
-import { createSPExtractor } from 'spfx-toolkit/lib/utilities/listItemHelper';
+import { createSPExtractor } from 'spfx-toolkit/utilities/listItemHelper';
 
 // Lookup fields
 const projectId = extractor.getLookup('Project');  // Returns lookup ID
@@ -2565,7 +2591,7 @@ interface ISPUpdater {
 **Use Case:** File name extraction, text formatting, initials generation
 
 ```typescript
-import { StringUtils } from 'spfx-toolkit/lib/utilities/stringUtils';
+import { StringUtils } from 'spfx-toolkit/utilities/stringUtils';
 
 // File name extraction
 const fileName = StringUtils.getFileName('/sites/mysite/documents/report.pdf');
@@ -2613,6 +2639,14 @@ const trimmed = StringUtils.safeTrim(null);  // Returns ''
 const trimmed2 = StringUtils.safeTrim('  text  ');  // Returns 'text'
 ```
 
+If you want the optional prototype extensions, opt in explicitly:
+
+```typescript
+import { applyStringExtensions } from 'spfx-toolkit/utilities/stringUtils';
+
+applyStringExtensions();
+```
+
 **API Reference:**
 
 ```typescript
@@ -2639,7 +2673,7 @@ class StringUtils {
 **Use Case:** Date formatting, relative time, date calculations
 
 ```typescript
-import { DateUtils } from 'spfx-toolkit/lib/utilities/dateUtils';
+import { DateUtils } from 'spfx-toolkit/utilities/dateUtils';
 
 // Date formatting
 const formatted = DateUtils.formatDate(new Date(), 'MM/DD/YYYY');
@@ -2683,6 +2717,14 @@ const startOfWeek = DateUtils.getStartOfWeek(new Date());
 const endOfWeek = DateUtils.getEndOfWeek(new Date());
 const startOfMonth = DateUtils.getStartOfMonth(new Date());
 const endOfMonth = DateUtils.getEndOfMonth(new Date());
+```
+
+If you want the optional `Date.prototype` helpers, opt in explicitly:
+
+```typescript
+import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
+
+applyDateExtensions();
 ```
 
 **Format Patterns:**
@@ -2736,8 +2778,8 @@ class DateUtils {
 **Use Case:** Inject custom CSS from `Style Library`/`Site Assets`, theme toggles, feature-specific styling
 
 ```typescript
-import { CssLoader } from 'spfx-toolkit/lib/utilities/CssLoader';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { CssLoader } from 'spfx-toolkit/utilities/CssLoader';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 export default class MyWebPart extends BaseClientSideWebPart<{}> {
   protected async onInit(): Promise<void> {
@@ -2771,7 +2813,7 @@ export default class MyWebPart extends BaseClientSideWebPart<{}> {
 
 ```typescript
 import * as React from 'react';
-import { createLazyComponent, preloadComponent, useLazyPreload } from 'spfx-toolkit/lib/utilities/lazyLoader';
+import { createLazyComponent, preloadComponent, useLazyPreload } from 'spfx-toolkit/utilities/lazyLoader';
 
 const lazyAdminImport = () => import('../AdminPanel').then((m) => ({ default: m.AdminPanel }));
 
@@ -2812,7 +2854,7 @@ const SettingsButton: React.FC = () => {
 **Use Case:** Loading overlays, user notifications, confirmation dialogs with blocking UI
 
 ```typescript
-import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/lib/utilities/dialogService';
+import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/utilities/dialogService';
 import * as React from 'react';
 
 // Basic usage with strings
@@ -3058,7 +3100,7 @@ await confirm('Choose an option:', {
 #### Real-World Example: Form Submission
 
 ```typescript
-import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/lib/utilities/dialogService';
+import { showLoading, hideLoading, alert, confirm } from 'spfx-toolkit/utilities/dialogService';
 import { sp } from '@pnp/sp';
 
 const handleSubmit = async (): Promise<void> => {
@@ -3182,7 +3224,7 @@ import type {
   IAlertOptions,
   IConfirmOptions,
   IConfirmButton
-} from 'spfx-toolkit/lib/utilities/dialogService';
+} from 'spfx-toolkit/utilities/dialogService';
 ```
 
 #### Best Practices
@@ -3280,7 +3322,7 @@ import type {
   ISPGroup,
   ISPRoleAssignment,
   PermissionErrorCode
-} from 'spfx-toolkit/lib/types';
+} from 'spfx-toolkit/types';
 
 // ===== UTILITY TYPES =====
 import type {
@@ -3291,7 +3333,7 @@ import type {
   IConfirmButton,
   ILoadingState,
   IDialogState
-} from 'spfx-toolkit/lib/utilities/dialogService';
+} from 'spfx-toolkit/utilities/dialogService';
 
 // ===== COMPONENT TYPES =====
 import type {
@@ -3329,14 +3371,14 @@ import type {
   ISPMember,
   ISPRoleDefinition,
   IManageAccessComponentProps
-} from 'spfx-toolkit/lib/components';
+} from 'spfx-toolkit/components';
 ```
 
 ---
 
 ### 1. Core Global Types
 
-These types are available from `spfx-toolkit/lib/types` and can be reused across your entire application.
+These types are available from `spfx-toolkit/types` and can be reused across your entire application.
 
 #### 1.1 SharePoint Field Value Types
 
@@ -3416,7 +3458,7 @@ export interface IListItemFormUpdateValue {
 **Usage Example:**
 
 ```typescript
-import type { IPrincipal, SPLookup, SPTaxonomy } from 'spfx-toolkit/lib/types';
+import type { IPrincipal, SPLookup, SPTaxonomy } from 'spfx-toolkit/types';
 
 interface IProjectItem {
   Id: number;
@@ -3513,8 +3555,8 @@ export interface IBatchBuilderConfig {
 **Usage Example:**
 
 ```typescript
-import type { IBatchResult, IBatchError } from 'spfx-toolkit/lib/types';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import type { IBatchResult, IBatchError } from 'spfx-toolkit/types';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 
 const executeBatchOperations = async (): Promise<IBatchResult> => {
   const batch = new BatchBuilder(SPContext.sp, {
@@ -3669,7 +3711,7 @@ import type {
   IUserPermissions,
   IItemPermissions,
   PermissionErrorCode
-} from 'spfx-toolkit/lib/types';
+} from 'spfx-toolkit/types';
 
 // Type-safe permission checking
 const checkUserAccess = async (
@@ -3828,7 +3870,7 @@ import type {
   IAlertOptions,
   IConfirmOptions,
   IConfirmButton
-} from 'spfx-toolkit/lib/utilities/dialogService';
+} from 'spfx-toolkit/utilities/dialogService';
 import * as React from 'react';
 
 // Type-safe JSX messages
@@ -4013,8 +4055,8 @@ export interface AccordionProps {
 **Usage Example:**
 
 ```typescript
-import type { CardProps, CardState, CardController } from 'spfx-toolkit/lib/components/Card';
-import { Card, useCardController } from 'spfx-toolkit/lib/components/Card';
+import type { CardProps, CardState, CardController } from 'spfx-toolkit/components/Card';
+import { Card, useCardController } from 'spfx-toolkit/components/Card';
 
 const MyComponent: React.FC = () => {
   const controller: CardController = useCardController();
@@ -4085,8 +4127,8 @@ export interface WorkflowStepperProps {
 **Usage Example:**
 
 ```typescript
-import type { StepData, WorkflowStepperProps } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
+import type { StepData, WorkflowStepperProps } from 'spfx-toolkit/components/WorkflowStepper';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
 
 const MyWorkflow: React.FC = () => {
   const steps: StepData[] = [
@@ -4188,8 +4230,8 @@ import type {
   ConflictInfo,
   ConflictDetectionOptions,
   UseConflictDetectionReturn
-} from 'spfx-toolkit/lib/components/ConflictDetector';
-import { useConflictDetection } from 'spfx-toolkit/lib/components/ConflictDetector';
+} from 'spfx-toolkit/components/ConflictDetector';
+import { useConflictDetection } from 'spfx-toolkit/components/ConflictDetector';
 
 const MyForm: React.FC<{ itemId: number }> = ({ itemId }) => {
   const options: ConflictDetectionOptions = {
@@ -4328,7 +4370,7 @@ import type {
   IGroupViewerProps,
   IPermissionPrincipal,
   IManageAccessComponentProps
-} from 'spfx-toolkit/lib/components';
+} from 'spfx-toolkit/components';
 
 const MyComponent: React.FC = () => {
   const handlePermissionChange = async (
@@ -4361,8 +4403,8 @@ Common patterns for using toolkit types in your applications.
 #### Pattern 1: Extending Types
 
 ```typescript
-import type { CardProps } from 'spfx-toolkit/lib/components/Card';
-import type { IPrincipal } from 'spfx-toolkit/lib/types';
+import type { CardProps } from 'spfx-toolkit/components/Card';
+import type { IPrincipal } from 'spfx-toolkit/types';
 
 // Extend toolkit types for your custom needs
 interface ICustomCardProps extends CardProps {
@@ -4379,7 +4421,7 @@ interface ICustomUser extends IPrincipal {
 #### Pattern 2: Type-Safe List Items
 
 ```typescript
-import type { IPrincipal, SPLookup, SPTaxonomy } from 'spfx-toolkit/lib/types';
+import type { IPrincipal, SPLookup, SPTaxonomy } from 'spfx-toolkit/types';
 
 // Define your list item schema with toolkit types
 interface IProjectListItem {
@@ -4409,7 +4451,7 @@ const hasTeamMembers = (item: IProjectListItem): boolean => {
 #### Pattern 3: Generic Type Functions
 
 ```typescript
-import type { IBatchResult, IOperationResult } from 'spfx-toolkit/lib/types';
+import type { IBatchResult, IOperationResult } from 'spfx-toolkit/types';
 
 // Generic function with toolkit types
 const processOperationResults = <T>(
@@ -4476,7 +4518,7 @@ export {
 
 1. **Always use `import type`** for type-only imports (tree-shaking):
    ```typescript
-   import type { CardProps } from 'spfx-toolkit/lib/components/Card';
+   import type { CardProps } from 'spfx-toolkit/components/Card';
    ```
 
 2. **Define list item interfaces** using toolkit types:
@@ -4512,22 +4554,24 @@ export {
 
 ## Bundle Size Optimization
 
-**CRITICAL:** The toolkit is designed for minimal bundle impact through tree-shaking. Following these guidelines is essential for performance.
+**CRITICAL:** The toolkit is structured to avoid unnecessary imports. Actual bundle-size gains depend on the consuming SPFx toolchain, but these import patterns are still the safest default.
 
 ### ✅ DO: Use Direct Imports
 
 ```typescript
 // ✅ EXCELLENT: Tree-shakable imports (minimal bundle size)
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 ```
+
+Use public subpath imports by default. The only documented `lib/*` exceptions in this guide are `SPLookupField` and `SPTaxonomyField`, plus any legacy fallback you intentionally keep during migration.
 
 ### ❌ DON'T: Use Barrel Imports
 
 ```typescript
-// ❌ AVOID: Barrel imports (imports EVERYTHING ~2MB+)
+// ❌ AVOID: Barrel imports (they pull much more than needed)
 import { Card } from 'spfx-toolkit';
 import { useLocalStorage } from 'spfx-toolkit';
 
@@ -4588,18 +4632,11 @@ open temp/webpack-bundle-analyzer/index.html
 ```
 
 **Look for:**
-- Large chunks from `spfx-toolkit` (should be minimal)
-- Large Fluent UI imports (optimize if > 500KB)
+- Unexpectedly large chunks from `spfx-toolkit`
+- Large Fluent UI or DevExtreme imports
 - Duplicate dependencies
 
-### Bundle Size Targets
-
-| Import Type | Expected Size | Warning Threshold |
-|-------------|---------------|-------------------|
-| Single component | 50-200KB | > 500KB |
-| Single hook | 10-50KB | > 100KB |
-| Single utility | 50-150KB | > 300KB |
-| Fluent UI component | 20-100KB | > 200KB |
+There is no single reliable size target for every SPFx solution. Compare your app before and after import changes and focus on the largest real chunks in the analyzer output.
 
 ---
 
@@ -4609,12 +4646,12 @@ open temp/webpack-bundle-analyzer/index.html
 
 ```typescript
 import * as React from 'react';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import { useViewport } from 'spfx-toolkit/lib/hooks';
-import type { IWorkflowStep } from 'spfx-toolkit/lib/components/WorkflowStepper';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+import { Card } from 'spfx-toolkit/components/Card';
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
+import { useViewport } from 'spfx-toolkit/hooks';
+import type { IWorkflowStep } from 'spfx-toolkit/components/WorkflowStepper';
 
 const Dashboard: React.FC = () => {
   const { isMobile } = useViewport();
@@ -4665,10 +4702,10 @@ const Dashboard: React.FC = () => {
 
 ```typescript
 import * as React from 'react';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
-import { ConflictDetector } from 'spfx-toolkit/lib/components/ConflictDetector';
-import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
-import { createSPExtractor, createSPUpdater } from 'spfx-toolkit/lib/utilities/listItemHelper';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+import { ConflictDetector } from 'spfx-toolkit/components/ConflictDetector';
+import { ErrorBoundary } from 'spfx-toolkit/components/ErrorBoundary';
+import { createSPExtractor, createSPUpdater } from 'spfx-toolkit/utilities/listItemHelper';
 import { TextField } from '@fluentui/react/lib/TextField';
 import { PrimaryButton } from '@fluentui/react/lib/Button';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
@@ -4773,8 +4810,8 @@ const TaskForm: React.FC<ITaskFormProps> = ({ itemId, onSave }) => {
 
 ```typescript
 import * as React from 'react';
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 import { ProgressIndicator } from '@fluentui/react/lib/ProgressIndicator';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 
@@ -4856,8 +4893,8 @@ const BulkUpdate: React.FC<IBulkUpdateProps> = ({ itemIds, status, onComplete })
 
 ```typescript
 import * as React from 'react';
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useViewport, useLocalStorage } from 'spfx-toolkit/lib/hooks';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useViewport, useLocalStorage } from 'spfx-toolkit/hooks';
 import { Stack } from '@fluentui/react/lib/Stack';
 
 const ResponsiveDashboard: React.FC = () => {
@@ -4961,7 +4998,7 @@ protected async onInit(): Promise<void> {
 ```typescript
 // ✅ Lazy load heavy components
 const VersionHistory = React.lazy(() =>
-  import('spfx-toolkit/lib/components/VersionHistory').then(m => ({ default: m.VersionHistory }))
+  import('spfx-toolkit/components/VersionHistory').then(m => ({ default: m.VersionHistory }))
 );
 
 const MyComponent: React.FC = () => {
@@ -5021,7 +5058,7 @@ initializeIcons();
 5. Wrap in ErrorBoundary to catch render errors:
 
 ```typescript
-import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
+import { ErrorBoundary } from 'spfx-toolkit/components/ErrorBoundary';
 
 <ErrorBoundary fallback={<div>Error occurred</div>}>
   <MyComponent />
@@ -5038,7 +5075,7 @@ import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
 3. Use correct caching strategy:
    - `SPContext.sp` - Standard caching
    - `SPContext.spCached` - Memory cached
-   - `SPContext.spPessimistic` - No cache
+   - `SPContext.spPessimistic` - Always fresh / bypasses cache
 
 ```typescript
 // ✅ Fresh data (no cache)
@@ -5116,7 +5153,7 @@ React.useEffect(() => {
 
 ### 2. Import Optimization
 
-- ✅ Use direct imports: `spfx-toolkit/lib/components/Card`
+- ✅ Use direct imports: `spfx-toolkit/components/Card`
 - ✅ Use Fluent UI `/lib/` imports: `@fluentui/react/lib/Button`
 - ✅ Lazy load heavy components when possible
 - ❌ Avoid barrel imports: `spfx-toolkit`
@@ -5186,29 +5223,34 @@ React.useEffect(() => {
 
 ```typescript
 SPContext.sp: SPFI;                      // Default PnP instance
-SPContext.spCached: SPFI;                // Memory-cached instance
-SPContext.spPessimistic: SPFI;           // No-cache instance
-SPContext.context: WebPartContext;       // SPFx context
+SPContext.spCached: SPFI;                // Configured cached instance
+SPContext.spPessimistic: SPFI;           // Always-fresh instance
+SPContext.context: SPFxContext;          // Toolkit context wrapper
+SPContext.spfxContext: SPFxContextInput; // Raw SPFx context
 SPContext.webAbsoluteUrl: string;        // Current site URL
-SPContext.currentUser: IUserInfo;        // Current user info
-SPContext.logger: ILogger;               // Logger instance
-SPContext.peoplePickerContext: IPeoplePickerContext;  // PeoplePicker context
+SPContext.currentUser: IPrincipal;       // Current user info
+SPContext.logger: Logger;                // Logger instance
+SPContext.peoplepickerContext: IPeoplePickerContext;  // PeoplePicker context
 ```
 
 ### SPContext Static Methods
 
 ```typescript
 // Initialization
-SPContext.initialize(context, name, config?): Promise<void>;
-SPContext.smart(context, name): Promise<void>;
-SPContext.basic(context, name): Promise<void>;
-SPContext.production(context, name): Promise<void>;
-SPContext.development(context, name): Promise<void>;
-SPContext.teams(context, name): Promise<void>;
+SPContext.initialize(context, config?): Promise<SPFxContext>;
+SPContext.smart(context, name): Promise<SPFxContext>;
+SPContext.basic(context, name): Promise<SPFxContext>;
+SPContext.production(context, name): Promise<SPFxContext>;
+SPContext.development(context, name): Promise<SPFxContext>;
+SPContext.teams(context, name): Promise<SPFxContext>;
 
 // Health check
-SPContext.getHealthCheck(): Promise<IHealthCheck>;
+SPContext.getHealthCheck(): Promise<ContextHealthCheck>;
 SPContext.isReady(): boolean;
+SPContext.tryGetContext(): SPFxContext | undefined;
+SPContext.tryGetSP(): SPFI | undefined;
+SPContext.tryGetCachedSP(): SPFI | undefined;
+SPContext.tryGetFreshSP(): SPFI | undefined;
 SPContext.reset(): void;
 ```
 
@@ -5238,40 +5280,40 @@ SPContext.reset(): void;
 
 ```typescript
 // Card
-import { Card, useCardController } from 'spfx-toolkit/lib/components/Card';
-import type { ICardProps } from 'spfx-toolkit/lib/components/Card';
+import { Card, useCardController } from 'spfx-toolkit/components/Card';
+import type { ICardProps } from 'spfx-toolkit/components/Card';
 
 // UserPersona
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
-import type { IUserPersonaProps } from 'spfx-toolkit/lib/components/UserPersona';
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
+import type { IUserPersonaProps } from 'spfx-toolkit/components/UserPersona';
 
 // WorkflowStepper
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import type { IWorkflowStepperProps, IWorkflowStep } from 'spfx-toolkit/lib/components/WorkflowStepper';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
+import type { IWorkflowStepperProps, IWorkflowStep } from 'spfx-toolkit/components/WorkflowStepper';
 
 // ManageAccess
-import { ManageAccess } from 'spfx-toolkit/lib/components/ManageAccess';
-import type { IManageAccessProps } from 'spfx-toolkit/lib/components/ManageAccess';
+import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';
+import type { IManageAccessProps } from 'spfx-toolkit/components/ManageAccess';
 
 // VersionHistory
-import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
-import type { IVersionHistoryProps } from 'spfx-toolkit/lib/components/VersionHistory';
+import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';
+import type { IVersionHistoryProps } from 'spfx-toolkit/components/VersionHistory';
 
 // ConflictDetector
-import { ConflictDetector, useConflictDetection } from 'spfx-toolkit/lib/components/ConflictDetector';
-import type { IConflictDetectorProps } from 'spfx-toolkit/lib/components/ConflictDetector';
+import { ConflictDetector, useConflictDetection } from 'spfx-toolkit/components/ConflictDetector';
+import type { IConflictDetectorProps } from 'spfx-toolkit/components/ConflictDetector';
 
 // GroupViewer
-import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
-import type { IGroupViewerProps } from 'spfx-toolkit/lib/components/GroupViewer';
+import { GroupViewer } from 'spfx-toolkit/components/GroupViewer';
+import type { IGroupViewerProps } from 'spfx-toolkit/components/GroupViewer';
 
 // DocumentLink
-import { DocumentLink, useDocumentMetadata } from 'spfx-toolkit/lib/components/DocumentLink';
-import type { IDocumentLinkProps, IDocumentInfo } from 'spfx-toolkit/lib/components/DocumentLink';
+import { DocumentLink, useDocumentMetadata } from 'spfx-toolkit/components/DocumentLink';
+import type { IDocumentLinkProps, IDocumentInfo } from 'spfx-toolkit/components/DocumentLink';
 
 // GroupUsersPicker
-import { GroupUsersPicker, useGroupUsers } from 'spfx-toolkit/lib/components/GroupUsersPicker';
-import type { IGroupUsersPickerProps, IGroupUser } from 'spfx-toolkit/lib/components/GroupUsersPicker';
+import { GroupUsersPicker, useGroupUsers } from 'spfx-toolkit/components/GroupUsersPicker';
+import type { IGroupUsersPickerProps, IGroupUser } from 'spfx-toolkit/components/GroupUsersPicker';
 
 // spForm
 import {
@@ -5282,7 +5324,7 @@ import {
   FormError,
   DevExtremeTextBox,
   PnPPeoplePicker,
-} from 'spfx-toolkit/lib/components/spForm';
+} from 'spfx-toolkit/components/spForm';
 import type {
   IFormContainerProps,
   IFormItemProps,
@@ -5291,11 +5333,15 @@ import type {
   IFormErrorProps,
   IDevExtremeTextBoxProps,
   IPnPPeoplePickerProps,
-} from 'spfx-toolkit/lib/components/spForm';
+} from 'spfx-toolkit/components/spForm';
 
 // SPField Suite
-import { SPTextField, SPChoiceField, SPField } from 'spfx-toolkit/lib/components/spFields';
-import type { ISPTextFieldProps, ISPChoiceFieldProps, ISPFieldProps } from 'spfx-toolkit/lib/components/spFields';
+import { SPTextField, SPChoiceField, SPField } from 'spfx-toolkit/components/spFields';
+import type { ISPTextFieldProps, ISPChoiceFieldProps, ISPFieldProps } from 'spfx-toolkit/components/spFields';
+
+// Documented exceptions for CSS-isolated field controls
+import { SPLookupField } from 'spfx-toolkit/lib/components/spFields/SPLookupField';
+import { SPTaxonomyField } from 'spfx-toolkit/lib/components/spFields/SPTaxonomyField';
 
 // Lazy Components
 import {
@@ -5306,46 +5352,52 @@ import {
   LazyWorkflowStepper,
   preloadComponent,
   useLazyPreload,
-} from 'spfx-toolkit/lib/components/lazy';
+} from 'spfx-toolkit/components/lazy';
 
 // ErrorBoundary
-import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/lib/components/ErrorBoundary';
-import type { IErrorBoundaryProps } from 'spfx-toolkit/lib/components/ErrorBoundary';
+import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/components/ErrorBoundary';
+import type { IErrorBoundaryProps } from 'spfx-toolkit/components/ErrorBoundary';
 ```
 
 ### Hooks
 
+Prefer these subpaths by default. Generated compatibility proxies allow them to resolve in classic SPFx projects too; keep `spfx-toolkit/lib/...` only as a legacy fallback during migration.
+
 ```typescript
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { useViewport } from 'spfx-toolkit/lib/hooks';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { useViewport } from 'spfx-toolkit/hooks';
 ```
 
 ### Utilities
 
+Prefer these subpaths by default. Generated compatibility proxies allow them to resolve in classic SPFx projects too; keep `spfx-toolkit/lib/...` only as a legacy fallback during migration.
+
 ```typescript
 // Context
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // BatchBuilder
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
-import type { IBatchBuilderOptions, IBatchResult } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
+import type { IBatchBuilderOptions, IBatchResult } from 'spfx-toolkit/utilities/batchBuilder';
 
 // PermissionHelper
-import { PermissionHelper, PermissionLevel } from 'spfx-toolkit/lib/utilities/permissionHelper';
-import type { IEffectivePermissions } from 'spfx-toolkit/lib/utilities/permissionHelper';
+import { PermissionHelper, PermissionLevel } from 'spfx-toolkit/utilities/permissionHelper';
+import type { IEffectivePermissions } from 'spfx-toolkit/utilities/permissionHelper';
 
 // ListItemHelper
-import { createSPExtractor, createSPUpdater } from 'spfx-toolkit/lib/utilities/listItemHelper';
-import type { ISPExtractor, ISPUpdater, IUserInfo } from 'spfx-toolkit/lib/utilities/listItemHelper';
+import { createSPExtractor, createSPUpdater } from 'spfx-toolkit/utilities/listItemHelper';
+import type { ISPExtractor, ISPUpdater, IUserInfo } from 'spfx-toolkit/utilities/listItemHelper';
 
 // StringUtils
-import { StringUtils } from 'spfx-toolkit/lib/utilities/stringUtils';
+import { StringUtils } from 'spfx-toolkit/utilities/stringUtils';
+import { applyStringExtensions } from 'spfx-toolkit/utilities/stringUtils';
 
 // DateUtils
-import { DateUtils } from 'spfx-toolkit/lib/utilities/dateUtils';
+import { DateUtils } from 'spfx-toolkit/utilities/dateUtils';
+import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
 
 // CssLoader
-import { CssLoader } from 'spfx-toolkit/lib/utilities/CssLoader';
+import { CssLoader } from 'spfx-toolkit/utilities/CssLoader';
 
 // Lazy Loader
 import {
@@ -5354,7 +5406,7 @@ import {
   LazyLoadErrorBoundary,
   preloadComponent,
   useLazyPreload,
-} from 'spfx-toolkit/lib/utilities/lazyLoader';
+} from 'spfx-toolkit/utilities/lazyLoader';
 ```
 
 ---
@@ -5378,12 +5430,11 @@ import {
 ### Version Information
 - Current Version: Check `package.json`
 - Changelog: `CHANGELOG.md`
-- Migration Guides: `docs/migrations/`
 
 ---
 
-**Last Updated:** October 2025
-**Toolkit Version:** 1.0.0+
+**Last Updated:** March 7, 2026
+**Toolkit Version:** 1.0.0-alpha.1
 **Maintained By:** SPFx Toolkit Team
 
 ---
@@ -5404,209 +5455,3 @@ import {
 ## License
 
 This toolkit is provided as-is for use in SharePoint Framework projects. See LICENSE file for details.
-
----
-
-## Bundle Size Optimization & Tree-Shaking
-
-The SPFx Toolkit is fully optimized for minimal bundle sizes through tree-shaking and lazy loading.
-
-### Optimization Overview
-
-**Total Bundle Size Reduction: 750KB - 1.2MB**
-
-- ✅ Tree-shakable Fluent UI imports
-- ✅ Custom DirectionalHint enum (avoids import errors)
-- ✅ Lazy loading utilities
-- ✅ Pre-configured lazy components
-- ✅ Optimized package exports
-
-### Tree-Shakable Imports (RECOMMENDED)
-
-**Always use specific import paths for minimal bundle size:**
-
-```typescript
-// ✅ BEST: Direct imports - only imports what you need
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
-
-// ❌ AVOID: Bulk imports - imports everything (~2MB+)
-import { Card } from 'spfx-toolkit';
-```
-
-### Lazy Loading for Heavy Components
-
-For components not needed on initial page load, use lazy loading:
-
-#### Available Lazy Components
-
-| Component | Initial Bundle | Lazy Wrapper | Savings |
-|-----------|---------------|--------------|---------|
-| `LazyVersionHistory` | 200-300KB | ~5KB | 195-295KB |
-| `LazyManageAccessComponent` | 150-250KB | ~5KB | 145-245KB |
-| `LazyManageAccessPanel` | 150-250KB | ~5KB | 145-245KB |
-| `LazyConflictDetector` | 100-150KB | ~3KB | 97-147KB |
-| `LazyWorkflowStepper` | 80-120KB | ~3KB | 77-117KB |
-
-#### Usage Example
-
-```typescript
-// Import lazy version
-import { LazyVersionHistory } from 'spfx-toolkit/lib/components/lazy';
-
-// Use exactly like the regular component
-function MyComponent() {
-  return (
-    <LazyVersionHistory
-      itemId={123}
-      listId="abc-def-ghi"
-      itemType="document"
-      onDownload={(version) => console.log('Downloaded', version)}
-    />
-  );
-}
-```
-
-#### Preloading Pattern
-
-Improve UX by preloading components before they're needed:
-
-```typescript
-import { LazyVersionHistory, preloadComponent } from 'spfx-toolkit/lib/components/lazy';
-
-function MyComponent() {
-  return (
-    <Button
-      // Preload on hover for instant display on click
-      onMouseEnter={() => preloadComponent(
-        () => import('spfx-toolkit/lib/components/VersionHistory')
-      )}
-      onClick={() => setShowHistory(true)}
-    >
-      View History
-    </Button>
-  );
-}
-```
-
-### DirectionalHint Type (Tree-Shakable)
-
-We provide `DirectionalHint` enum to avoid Fluent UI import issues:
-
-```typescript
-// ✅ Import from toolkit (tree-shakable, no errors)
-import { DirectionalHint } from 'spfx-toolkit/lib/types';
-import { TooltipHost } from '@fluentui/react/lib/Tooltip';
-
-<TooltipHost directionalHint={DirectionalHint.topCenter}>
-  Content
-</TooltipHost>
-```
-
-**Why we provide this:**
-- Fluent UI's `DirectionalHint` export path changed and breaks tree-shaking
-- Importing from main `@fluentui/react` adds 2-3MB to bundle
-- Our custom enum maintains tree-shaking with identical values
-
-### When to Use Lazy Loading
-
-**✅ DO use lazy loading for:**
-- Components > 100KB
-- Modal/panel content
-- Admin/configuration screens
-- Rarely used features
-- Components with heavy dependencies (DevExtreme, etc.)
-
-**❌ DON'T use lazy loading for:**
-- Small components (< 50KB)
-- Components needed immediately on page load
-- Critical UI elements
-- Simple presentational components
-
-### Recommended Component Loading Strategy
-
-```typescript
-// ✅ Lightweight components - regular imports
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
-import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
-import { ErrorBoundary } from 'spfx-toolkit/lib/components/ErrorBoundary';
-
-// ✅ Heavy components - lazy imports
-import {
-  LazyVersionHistory,
-  LazyManageAccessComponent,
-  LazyConflictDetector,
-  LazyWorkflowStepper
-} from 'spfx-toolkit/lib/components/lazy';
-```
-
-### Bundle Analysis
-
-Monitor your bundle size to verify optimizations:
-
-```bash
-# Build for production
-gulp bundle --ship
-
-# Analyze bundle (recommended)
-gulp bundle --ship --analyze-bundle
-
-# Check output size
-ls -lh temp/deploy/
-```
-
-### Performance Metrics
-
-Expected improvements with optimizations:
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Initial bundle | 2.5MB | 1.7MB | -32% |
-| Initial load | 1200ms | 800ms | -33% |
-| Time to interactive | 1800ms | 1100ms | -39% |
-| Lighthouse score | 75 | 92 | +23% |
-
-### Migration Guide
-
-#### For Existing Projects
-
-1. **Update imports to lazy versions** (optional but recommended):
-   ```typescript
-   // Before
-   import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
-
-   // After
-   import { LazyVersionHistory as VersionHistory } from 'spfx-toolkit/lib/components/lazy';
-   ```
-
-2. **Verify bundle size**:
-   ```bash
-   gulp bundle --ship --analyze-bundle
-   ```
-
-#### Backward Compatibility
-
-✅ **No breaking changes!** All existing imports continue to work:
-
-```typescript
-// ✅ Still works - regular import
-import { VersionHistory } from 'spfx-toolkit/lib/components/VersionHistory';
-
-// ✅ New option - lazy import
-import { LazyVersionHistory } from 'spfx-toolkit/lib/components/lazy';
-```
-
-### Additional Resources
-
-- [Lazy Loading Guide](./src/components/lazy/README.md) - Complete lazy loading documentation
-- [Lazy Loader API](./src/utilities/lazyLoader/README.md) - Create custom lazy components
-- [Type Definitions](./src/types/README.md) - DirectionalHint and other types
-- [Development Guide](./CLAUDE.md) - Architecture and optimization details
-
----
-
-**Last Updated:** October 2025
-**Toolkit Version:** 1.0.0-alpha.0+

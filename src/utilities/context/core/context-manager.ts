@@ -135,7 +135,11 @@ export class ContextManager {
       let spCached: SPFI = sp;
       let spPessimistic: SPFI = sp;
 
-      if (config.cache?.strategy && config.cache.strategy !== 'none') {
+      if (
+        config.cache?.strategy &&
+        config.cache.strategy !== 'none' &&
+        config.cache.strategy !== 'pessimistic'
+      ) {
         const cacheModule = new CacheModule();
         await cacheModule.initialize(spfxContext, config);
         this.modules.set('cache', cacheModule);
@@ -143,11 +147,7 @@ export class ContextManager {
         const cacheBehavior = cacheModule.createBehavior(config.cache.strategy, config.cache.ttl);
 
         if (cacheBehavior) {
-          if (config.cache.strategy === 'pessimistic') {
-            spPessimistic = sp.using(cacheBehavior);
-          } else {
-            spCached = sp.using(cacheBehavior);
-          }
+          spCached = sp.using(cacheBehavior);
         }
       }
 

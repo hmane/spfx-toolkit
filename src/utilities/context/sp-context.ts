@@ -17,6 +17,15 @@ import type {
 } from './types';
 import { IPrincipal } from '../../types';
 
+const NOOP_LOGGER: Logger = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+  success: () => undefined,
+  startTimer: () => () => 0,
+};
+
 /**
  * Enhanced SPContext with comprehensive SharePoint properties
  */
@@ -188,11 +197,23 @@ export class SPContext {
   // ========================================
 
   static get context(): SPFxContext {
-    if (!SPContext.contextModule) {
+    const context = SPContext.tryGetContext();
+    if (!context) {
       throw new Error('SPContext not initialized. Call SPContext.initialize() first.');
     }
-    // FIX: Use the correct method name that exists in context-manager
-    return SPContext.contextModule.Context.getCurrentContext();
+    return context;
+  }
+
+  static tryGetContext(): SPFxContext | undefined {
+    if (!SPContext.contextModule?.Context?.getCurrentContext) {
+      return undefined;
+    }
+
+    try {
+      return SPContext.contextModule.Context.getCurrentContext();
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -278,7 +299,11 @@ export class SPContext {
    * ```
    */
   static get logger(): Logger {
-    return SPContext.context.logger;
+    return SPContext.tryGetContext()?.logger ?? NOOP_LOGGER;
+  }
+
+  static tryGetLogger(): Logger {
+    return SPContext.logger;
   }
 
   /**
@@ -319,6 +344,10 @@ export class SPContext {
    */
   static get spfxContext(): SPFxContextInput {
     return SPContext.context.context;
+  }
+
+  static tryGetSPFxContext(): SPFxContextInput | undefined {
+    return SPContext.tryGetContext()?.context;
   }
 
   /**
@@ -432,6 +461,18 @@ export class SPContext {
 
   static get peoplepickerContext(): IPeoplePickerContext {
     return SPContext.context.peoplepickerContext;
+  }
+
+  static tryGetSP(): SPFI | undefined {
+    return SPContext.tryGetContext()?.sp;
+  }
+
+  static tryGetCachedSP(): SPFI | undefined {
+    return SPContext.tryGetContext()?.spCached;
+  }
+
+  static tryGetFreshSP(): SPFI | undefined {
+    return SPContext.tryGetContext()?.spPessimistic;
   }
 
   // ========================================

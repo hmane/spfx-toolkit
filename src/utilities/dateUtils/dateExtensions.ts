@@ -381,13 +381,15 @@ export const DateUtils = {
  * checks to prevent multiple applications of the same extensions.
  *
  * @remarks
- * Extensions are automatically applied when importing from 'spfx-toolkit/lib/utilities/dateUtils'
+ * Extensions are opt-in. Import `applyDateExtensions()` and call it explicitly
+ * when you want to patch `Date.prototype`.
  * Manual calling is only needed if extensions were not auto-applied or need to be reapplied.
  *
  * @example Automatic Extension Application
  * ```typescript
  * // Extensions are auto-applied on import
- * import 'spfx-toolkit/lib/utilities/dateUtils';
+ * import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
+ * applyDateExtensions();
  *
  * // Now you can use extension methods
  * const formatted = new Date().format('MM/dd/yyyy'); // '03/15/2024'
@@ -398,7 +400,7 @@ export const DateUtils = {
  *
  * @example Manual Extension Application (rarely needed)
  * ```typescript
- * import { applyDateExtensions } from 'spfx-toolkit/lib/utilities/dateUtils';
+ * import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
  * applyDateExtensions();
  *
  * // Extensions are now available
@@ -408,7 +410,8 @@ export const DateUtils = {
  * @example SharePoint Date Field Processing
  * ```typescript
  * // Process SharePoint date fields with extensions
- * import 'spfx-toolkit/lib/utilities/dateUtils';
+ * import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
+ * applyDateExtensions();
  *
  * const items = await sp.web.lists.getByTitle('Events').items();
  * const processedItems = items.map(item => ({

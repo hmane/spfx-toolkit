@@ -165,7 +165,8 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     let isMounted = true;
 
     const loadColumnMetadata = async () => {
-      if (!SPContext.sp) {
+      const sp = SPContext.tryGetSP();
+      if (!sp) {
         if (isMounted) {
           setError('SPContext not initialized');
         }
@@ -176,7 +177,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         setLoading(true);
         setError(null);
 
-        const list = getListByNameOrId(SPContext.sp, listId);
+        const list = getListByNameOrId(sp, listId);
         const field = await list.fields.getByInternalNameOrTitle(columnName)();
 
         if (!isMounted) return;
@@ -248,7 +249,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     let isMounted = true;
 
     const loadTerms = async () => {
-      if (!SPContext.sp) {
+      if (!SPContext.isReady()) {
         if (isMounted) {
           setError('SPContext not initialized');
         }
@@ -373,14 +374,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     fieldOnChange: (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]) => void,
     fieldError?: string
   ) => {
-    let spfxContext: any;
-    if (SPContext.isReady()) {
-      try {
-        spfxContext = SPContext.spfxContext;
-      } catch {
-        spfxContext = undefined;
-      }
-    }
+    const spfxContext = SPContext.tryGetSPFxContext();
 
     // Check if SPContext is available
     if (!spfxContext) {

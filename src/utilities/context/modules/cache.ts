@@ -53,6 +53,8 @@ export class CacheModule implements ContextModule {
           store: 'local', // Use local storage for persistence
           ttl: cacheTtl,
         };
+      case 'pessimistic':
+        return undefined;
       case 'none':
       default:
         return undefined;

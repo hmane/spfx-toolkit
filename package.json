@@ -26,6 +26,76 @@
       "import": "./lib/components/lazy/index.js",
       "require": "./lib/components/lazy/index.js"
     },
+    "./components/Card": {
+      "types": "./lib/components/Card/index.d.ts",
+      "import": "./lib/components/Card/index.js",
+      "require": "./lib/components/Card/index.js"
+    },
+    "./components/ConflictDetector": {
+      "types": "./lib/components/ConflictDetector/index.d.ts",
+      "import": "./lib/components/ConflictDetector/index.js",
+      "require": "./lib/components/ConflictDetector/index.js"
+    },
+    "./components/DocumentLink": {
+      "types": "./lib/components/DocumentLink/index.d.ts",
+      "import": "./lib/components/DocumentLink/index.js",
+      "require": "./lib/components/DocumentLink/index.js"
+    },
+    "./components/ErrorBoundary": {
+      "types": "./lib/components/ErrorBoundary/index.d.ts",
+      "import": "./lib/components/ErrorBoundary/index.js",
+      "require": "./lib/components/ErrorBoundary/index.js"
+    },
+    "./components/GroupUsersPicker": {
+      "types": "./lib/components/GroupUsersPicker/index.d.ts",
+      "import": "./lib/components/GroupUsersPicker/index.js",
+      "require": "./lib/components/GroupUsersPicker/index.js"
+    },
+    "./components/GroupViewer": {
+      "types": "./lib/components/GroupViewer/index.d.ts",
+      "import": "./lib/components/GroupViewer/index.js",
+      "require": "./lib/components/GroupViewer/index.js"
+    },
+    "./components/ManageAccess": {
+      "types": "./lib/components/ManageAccess/index.d.ts",
+      "import": "./lib/components/ManageAccess/index.js",
+      "require": "./lib/components/ManageAccess/index.js"
+    },
+    "./components/spForm": {
+      "types": "./lib/components/spForm/index.d.ts",
+      "import": "./lib/components/spForm/index.js",
+      "require": "./lib/components/spForm/index.js"
+    },
+    "./components/spFields": {
+      "types": "./lib/components/spFields/index.d.ts",
+      "import": "./lib/components/spFields/index.js",
+      "require": "./lib/components/spFields/index.js"
+    },
+    "./components/SPDynamicForm": {
+      "types": "./lib/components/SPDynamicForm/index.d.ts",
+      "import": "./lib/components/SPDynamicForm/index.js",
+      "require": "./lib/components/SPDynamicForm/index.js"
+    },
+    "./components/SPListItemAttachments": {
+      "types": "./lib/components/SPListItemAttachments/index.d.ts",
+      "import": "./lib/components/SPListItemAttachments/index.js",
+      "require": "./lib/components/SPListItemAttachments/index.js"
+    },
+    "./components/UserPersona": {
+      "types": "./lib/components/UserPersona/index.d.ts",
+      "import": "./lib/components/UserPersona/index.js",
+      "require": "./lib/components/UserPersona/index.js"
+    },
+    "./components/VersionHistory": {
+      "types": "./lib/components/VersionHistory/index.d.ts",
+      "import": "./lib/components/VersionHistory/index.js",
+      "require": "./lib/components/VersionHistory/index.js"
+    },
+    "./components/WorkflowStepper": {
+      "types": "./lib/components/WorkflowStepper/index.d.ts",
+      "import": "./lib/components/WorkflowStepper/index.js",
+      "require": "./lib/components/WorkflowStepper/index.js"
+    },
     "./hooks": {
       "types": "./lib/hooks/index.d.ts",
       "import": "./lib/hooks/index.js",
@@ -41,11 +111,91 @@
       "import": "./lib/types/index.js",
       "require": "./lib/types/index.js"
     },
+    "./utilities": {
+      "types": "./lib/utilities/index.d.ts",
+      "import": "./lib/utilities/index.js",
+      "require": "./lib/utilities/index.js"
+    },
+    "./utilities/batchBuilder": {
+      "types": "./lib/utilities/batchBuilder/index.d.ts",
+      "import": "./lib/utilities/batchBuilder/index.js",
+      "require": "./lib/utilities/batchBuilder/index.js"
+    },
+    "./utilities/browserStorage": {
+      "types": "./lib/utilities/browserStorage/index.d.ts",
+      "import": "./lib/utilities/browserStorage/index.js",
+      "require": "./lib/utilities/browserStorage/index.js"
+    },
+    "./utilities/context": {
+      "types": "./lib/utilities/context/index.d.ts",
+      "import": "./lib/utilities/context/index.js",
+      "require": "./lib/utilities/context/index.js"
+    },
+    "./utilities/context/pnpImports/*": {
+      "types": "./lib/utilities/context/pnpImports/*.d.ts",
+      "import": "./lib/utilities/context/pnpImports/*.js",
+      "require": "./lib/utilities/context/pnpImports/*.js"
+    },
+    "./utilities/dateUtils": {
+      "types": "./lib/utilities/dateUtils/index.d.ts",
+      "import": "./lib/utilities/dateUtils/index.js",
+      "require": "./lib/utilities/dateUtils/index.js"
+    },
+    "./utilities/dialogService": {
+      "types": "./lib/utilities/dialogService/index.d.ts",
+      "import": "./lib/utilities/dialogService/index.js",
+      "require": "./lib/utilities/dialogService/index.js"
+    },
+    "./utilities/htmlUtils": {
+      "types": "./lib/utilities/htmlUtils/index.d.ts",
+      "import": "./lib/utilities/htmlUtils/index.js",
+      "require": "./lib/utilities/htmlUtils/index.js"
+    },
+    "./utilities/lazyLoader": {
+      "types": "./lib/utilities/lazyLoader/index.d.ts",
+      "import": "./lib/utilities/lazyLoader/index.js",
+      "require": "./lib/utilities/lazyLoader/index.js"
+    },
+    "./utilities/listItemHelper": {
+      "types": "./lib/utilities/listItemHelper/index.d.ts",
+      "import": "./lib/utilities/listItemHelper/index.js",
+      "require": "./lib/utilities/listItemHelper/index.js"
+    },
+    "./utilities/permissionHelper": {
+      "types": "./lib/utilities/permissionHelper/index.d.ts",
+      "import": "./lib/utilities/permissionHelper/index.js",
+      "require": "./lib/utilities/permissionHelper/index.js"
+    },
+    "./utilities/spHelper": {
+      "types": "./lib/utilities/spHelper/index.d.ts",
+      "import": "./lib/utilities/spHelper/index.js",
+      "require": "./lib/utilities/spHelper/index.js"
+    },
+    "./utilities/stringUtils": {
+      "types": "./lib/utilities/stringUtils/index.d.ts",
+      "import": "./lib/utilities/stringUtils/index.js",
+      "require": "./lib/utilities/stringUtils/index.js"
+    },
+    "./utilities/userPhotoHelper": {
+      "types": "./lib/utilities/userPhotoHelper/index.d.ts",
+      "import": "./lib/utilities/userPhotoHelper/index.js",
+      "require": "./lib/utilities/userPhotoHelper/index.js"
+    },
+    "./utilities/CssLoader": {
+      "types": "./lib/utilities/CssLoader/index.d.ts",
+      "import": "./lib/utilities/CssLoader/index.js",
+      "require": "./lib/utilities/CssLoader/index.js"
+    },
     "./lib/*": "./lib/*"
   },
   "license": "MIT",
   "files": [
     "lib/",
+    "components/",
+    "hooks/",
+    "utilities/",
+    "types/",
+    "utils/",
     "README.md",
     "LICENSE"
   ],
@@ -76,7 +226,6 @@
     "@types/node": "^18.19.0",
     "@types/react": "^17.0.83",
     "@types/react-dom": "^17.0.25",
-    "del": "^6.1.1",
     "gulp": "^4.0.2",
     "typescript": "^4.7.4"
   },

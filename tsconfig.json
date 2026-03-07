@@ -4,46 +4,28 @@
     "target": "ES5",
     "module": "commonjs",
     "moduleResolution": "node",
-
     "lib": ["es5", "dom", "es2015.collection", "es2015.promise", "es2015.iterable", "es2020"],
-
     "jsx": "react",
     "rootDir": "src",
     "outDir": "lib",
     "baseUrl": "src",
-
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-
     "importHelpers": false,
     "noEmitHelpers": false,
     "downlevelIteration": true,
-
     "preserveConstEnums": false,
     "removeComments": true,
-
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-
     "typeRoots": ["./node_modules/@types", "./src/types"]
-
-    // B-1: Path aliases are defined for CONSUMING projects only.
-    // DO NOT use these aliases in source code - use relative imports instead.
-    // See CLAUDE.md "Import Paths - CRITICAL" section for details.
-    // "paths": {
-    //   "@components/*": ["components/*"],
-    //   "@hooks/*": ["hooks/*"],
-    //   "@utilities/*": ["utilities/*"],
-    //   "@types/*": ["types/*"]
-    // }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
   "exclude": ["node_modules", "lib", "dist", "temp"]

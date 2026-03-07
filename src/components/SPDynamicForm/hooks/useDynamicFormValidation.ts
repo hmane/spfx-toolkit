@@ -91,11 +91,12 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
             throw new Error('Item ID is required to upload attachments. For new items, pass the new item ID.');
           }
 
-          if (!SPContext.sp) {
+          const sp = SPContext.tryGetSP();
+          if (!sp) {
             throw new Error('SPContext not initialized');
           }
 
-          const list = getListByNameOrId(SPContext.sp, listId);
+          const list = getListByNameOrId(sp, listId);
           const item = list.items.getById(effectiveItemId);
 
           // Upload new files

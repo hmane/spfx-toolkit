@@ -12,6 +12,7 @@ import { INoteHistoryEntry, INoteHistoryConfig } from './SPTextField.types';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { UserPersona } from '../../UserPersona';
 import { DateUtils } from '../../../utilities/dateUtils';
+import { sanitizeHtml } from '../../../utilities/htmlUtils';
 
 /**
  * Props for NoteHistoryEntry component
@@ -152,7 +153,7 @@ export const NoteHistoryEntry: React.FC<INoteHistoryEntryProps> = (props) => {
       {entry.isRichText ? (
         <div
           className="note-history__content note-history__content--rich"
-          dangerouslySetInnerHTML={{ __html: entry.text }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(entry.text) }}
         />
       ) : (
         <p className="note-history__content">{entry.text}</p>

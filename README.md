@@ -2,24 +2,26 @@
 
 > **Production-ready components, hooks, and utilities for SharePoint Framework (SPFx) >= 1.21.1**
 
-A comprehensive toolkit designed to accelerate SPFx development with reusable, tree-shakable components and utilities. Built with TypeScript, React, and modern SPFx best practices.
+A comprehensive toolkit designed to accelerate SPFx development with reusable components and utilities. Built with TypeScript, React, and modern SPFx best practices.
 
 ## ⚠️ CRITICAL: Import Patterns for Bundle Size
 
-**Importing from barrel exports (`spfx-toolkit` or `spfx-toolkit/components`) will pull ALL components including heavy DevExtreme dependencies (~500KB+), significantly increasing your bundle size.**
+**Importing from barrel exports (`spfx-toolkit` or `spfx-toolkit/components`) can pull in the full component surface, including DevExtreme-heavy modules. Prefer explicit package subpaths.**
 
 ```typescript
-// ❌ NEVER DO THIS - pulls entire library including DevExtreme (~500KB+)
+// ❌ NEVER DO THIS - pulls the full library surface including DevExtreme-heavy modules
 import { Card } from 'spfx-toolkit';
 import { Card } from 'spfx-toolkit/components';
 
 // ✅ ALWAYS DO THIS - minimal bundle impact
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 ```
 
-**Why?** The barrel exports (`index.ts`) use `export *` which causes all modules to be loaded eagerly, including DevExtreme-heavy components like SPChoiceField, SPLookupField, VersionHistory, etc. The `lazy` exports only work when imported directly from `spfx-toolkit/lib/components/lazy`.
+**Why?** The barrel exports (`index.ts`) use `export *` which causes all modules to be loaded eagerly, including DevExtreme-heavy components like SPChoiceField, SPLookupField, VersionHistory, etc. The `lazy` exports only work when imported directly from `spfx-toolkit/components/lazy`.
+
+This package now ships compatibility proxy entrypoints, so `spfx-toolkit/components/...`, `spfx-toolkit/hooks`, and `spfx-toolkit/utilities/...` resolve in classic SPFx and `npm link` setups as well. Legacy `spfx-toolkit/lib/*` imports still work for backward compatibility.
 
 See [Bundle Size Optimization](#-bundle-size-optimization) for complete details.
 
@@ -159,26 +161,26 @@ Write-Host "SPFx Toolkit installation complete!" -ForegroundColor Green
 
 ```typescript
 // Import only what you need for minimal bundle size
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 ```
 
 ### Direct Path Imports
 
 ```typescript
 // Multiple items from same category
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import { useLocalStorage, useViewport } from 'spfx-toolkit/lib/hooks';
+import { Card } from 'spfx-toolkit/components/Card';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
+import { useLocalStorage, useViewport } from 'spfx-toolkit/hooks';
 ```
 
 ### Simple Example
 
 ```typescript
 import React from 'react';
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
 
 const MyWebPart: React.FC = () => {
   const [data, setData] = useLocalStorage('my-data', {});
@@ -189,6 +191,19 @@ const MyWebPart: React.FC = () => {
     </Card>
   );
 };
+```
+
+### Upgrade Notes
+
+```typescript
+// Old root component import
+import { UserPersona } from 'spfx-toolkit';
+
+// New preferred import
+import { UserPersona } from 'spfx-toolkit/components/UserPersona';
+
+// Legacy fallback still supported
+import { UserPersona } from 'spfx-toolkit/lib/components/UserPersona';
 ```
 
 ## 📦 What's Included
@@ -231,15 +246,15 @@ const MyWebPart: React.FC = () => {
 
 ## 📊 Bundle Size Optimization
 
-SPFx Toolkit is **fully optimized for tree-shaking** with **lazy loading** support, reducing initial bundle sizes by **750KB - 1.2MB**.
+SPFx Toolkit supports selective imports and lazy loading. Actual bundle-size gains depend on the consuming SPFx build pipeline.
 
 ### Tree-Shakable Imports (RECOMMENDED)
 
 ```typescript
 // ✅ BEST: Direct imports - only imports what you need
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 ```
 
 ### Lazy Loading for Heavy Components
@@ -248,22 +263,22 @@ For components that aren't needed immediately, use lazy loading:
 
 ```typescript
 // ✅ EXCELLENT: Lazy loading - loads on-demand
-import { LazyVersionHistory } from 'spfx-toolkit/lib/components/lazy';
-import { LazyManageAccessComponent } from 'spfx-toolkit/lib/components/lazy';
+import { LazyVersionHistory } from 'spfx-toolkit/components/lazy';
+import { LazyManageAccessComponent } from 'spfx-toolkit/components/lazy';
 
 // Use like normal components
 <LazyVersionHistory itemId={123} listId="abc" itemType="document" />
 ```
 
-### Optimization Results
+### Optimization Notes
 
-| Component | Regular Import | Lazy Import | Savings |
+| Component | Regular Import | Lazy Import | Typical Difference |
 |-----------|---------------|-------------|---------|
 | VersionHistory | ~200-300KB | ~5KB wrapper | 195-295KB |
 | ManageAccess | ~150-250KB | ~5KB wrapper | 145-245KB |
 | ConflictDetector | ~100-150KB | ~3KB wrapper | 97-147KB |
 
-**Total Potential Savings: 750KB - 1.2MB**
+These numbers are illustrative only. In current SPFx projects, actual savings depend on the consumer bundler and may be much smaller.
 
 ### Common Types Export
 
@@ -271,7 +286,7 @@ We provide common Fluent UI types to maintain tree-shaking:
 
 ```typescript
 // ✅ Import DirectionalHint from toolkit (tree-shakable)
-import { DirectionalHint } from 'spfx-toolkit/lib/types';
+import { DirectionalHint } from 'spfx-toolkit/types';
 
 // Use with Fluent UI components
 <TooltipHost directionalHint={DirectionalHint.topCenter}>
@@ -281,9 +296,9 @@ import { DirectionalHint } from 'spfx-toolkit/lib/types';
 
 **Bundle Size Tips:**
 
-- ✅ Use direct imports (`/lib/components/Card`) for smallest bundles
+- ✅ Use direct imports (`components/Card`, `hooks`, `utilities/...`) for smallest bundles
 - ✅ Use lazy imports for heavy components (VersionHistory, ManageAccess)
-- ✅ Import DirectionalHint from `spfx-toolkit/lib/types`
+- ✅ Import DirectionalHint from `spfx-toolkit/types`
 - ❌ Avoid bulk imports (`import * from 'spfx-toolkit'`)
 - 📊 Monitor bundle with `gulp bundle --ship --analyze-bundle`
 
@@ -345,7 +360,7 @@ Optimize data operations and enhance performance.
 
 ```typescript
 // ✅ GOOD: Minimal bundle impact
-import { Card } from 'spfx-toolkit/lib/components/Card';
+import { Card } from 'spfx-toolkit/components/Card';
 
 // ❌ AVOID: Imports everything
 import { Card } from 'spfx-toolkit';
@@ -397,9 +412,9 @@ Each component is self-contained with its own:
 ### 📊 Dashboard Applications
 
 ```typescript
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useViewport } from 'spfx-toolkit/lib/hooks';
-import { Context } from 'spfx-toolkit/lib/utilities/context';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useViewport } from 'spfx-toolkit/hooks';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // Perfect for: Executive dashboards, KPI displays, metrics
 ```
@@ -407,9 +422,9 @@ import { Context } from 'spfx-toolkit/lib/utilities/context';
 ### 📝 Form Applications
 
 ```typescript
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { FormContainer, DevExtremeTextBox } from 'spfx-toolkit/lib/components/spForm';
-import { ConflictDetector } from 'spfx-toolkit/lib/components/ConflictDetector';
+import { Card } from 'spfx-toolkit/components/Card';
+import { FormContainer, DevExtremeTextBox } from 'spfx-toolkit/components/spForm';
+import { ConflictDetector } from 'spfx-toolkit/components/ConflictDetector';
 
 // Perfect for: Data entry, document management, list forms
 ```
@@ -417,9 +432,9 @@ import { ConflictDetector } from 'spfx-toolkit/lib/components/ConflictDetector';
 ### 🔄 Workflow Applications
 
 ```typescript
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+import { Card } from 'spfx-toolkit/components/Card';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 
 // Perfect for: Approval processes, multi-step workflows, progress tracking
 ```
@@ -427,9 +442,9 @@ import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
 ### 🔐 Permission Management
 
 ```typescript
-import { ManageAccess } from 'spfx-toolkit/lib/components/ManageAccess';
-import { GroupViewer } from 'spfx-toolkit/lib/components/GroupViewer';
-import { PermissionHelper } from 'spfx-toolkit/lib/utilities/permissionHelper';
+import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';
+import { GroupViewer } from 'spfx-toolkit/components/GroupViewer';
+import { PermissionHelper } from 'spfx-toolkit/utilities/permissionHelper';
 
 // Perfect for: Document libraries, access control, security applications
 ```
@@ -437,7 +452,7 @@ import { PermissionHelper } from 'spfx-toolkit/lib/utilities/permissionHelper';
 ### 🌐 Multi-Site Applications
 
 ```typescript
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // Initialize primary context
 await SPContext.smart(this.context, 'MyWebPart');
@@ -474,8 +489,8 @@ Start with our [Component Categories](#-component-categories) to identify what y
 npm install spfx-toolkit
 
 // Import specific components
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
 ```
 
 ### 3. Integrate with Your SPFx Solution
@@ -540,7 +555,10 @@ spfx-toolkit/
 │   │   ├── context/         # Context management
 │   │   └── ...              # Other utilities
 │   └── types/               # TypeScript definitions
-├── lib/                     # Compiled output
+├── lib/                     # Generated compiled output
+├── components/              # Generated compatibility proxies
+├── hooks/                   # Generated compatibility proxies
+├── utilities/               # Generated compatibility proxies
 └── docs/                    # Additional documentation
 ```
 
@@ -550,11 +568,11 @@ spfx-toolkit/
 
 ```typescript
 // ✅ Best: Direct component import
-import { Card } from 'spfx-toolkit/lib/components/Card';
+import { Card } from 'spfx-toolkit/components/Card';
 
 // ✅ Good: Multiple direct imports
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { WorkflowStepper } from 'spfx-toolkit/lib/components/WorkflowStepper';
+import { Card } from 'spfx-toolkit/components/Card';
+import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';
 
 // ❌ Avoid: Main package import
 import { Card } from 'spfx-toolkit';
@@ -565,7 +583,7 @@ import { Card } from 'spfx-toolkit';
 ```typescript
 // Load heavy components only when needed
 const ManageAccess = React.lazy(() =>
-  import('spfx-toolkit/lib/components/ManageAccess').then(m => ({
+  import('spfx-toolkit/components/ManageAccess').then(m => ({
     default: m.ManageAccessComponent,
   }))
 );
@@ -790,7 +808,7 @@ foreach ($dep in $peerDeps) {
 
 Write-Host "SPFx Toolkit setup complete!" -ForegroundColor Green
 Write-Host "You can now import components like:" -ForegroundColor Cyan
-Write-Host "import { Card } from 'spfx-toolkit/lib/components/Card';" -ForegroundColor Gray
+Write-Host "import { Card } from 'spfx-toolkit/components/Card';" -ForegroundColor Gray
 ```
 
 **Usage**:

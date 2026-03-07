@@ -119,7 +119,8 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
     }
 
     const loadAttachments = async () => {
-      if (!SPContext.sp) {
+      const sp = SPContext.tryGetSP();
+      if (!sp) {
         if (isMountedRef.current) {
           setError('SPContext not initialized');
         }
@@ -132,7 +133,7 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
           setError(null);
         }
 
-        const list = getListByNameOrId(SPContext.sp, listId);
+        const list = getListByNameOrId(sp, listId);
         const item = await list.items.getById(itemId).select('AttachmentFiles').expand('AttachmentFiles')();
 
         if (!isMountedRef.current) return;
@@ -334,7 +335,8 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
   // Upload file to SharePoint
   const uploadFile = React.useCallback(
     async (file: File) => {
-      if (!SPContext.sp || !itemId) {
+      const sp = SPContext.tryGetSP();
+      if (!sp || !itemId) {
         throw new Error('Cannot upload: SPContext not initialized or no item ID');
       }
 
@@ -345,7 +347,7 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
       }
 
       try {
-        const list = getListByNameOrId(SPContext.sp, listId);
+        const list = getListByNameOrId(sp, listId);
         await list.items.getById(itemId).attachmentFiles.add(file.name, file);
 
         SPContext.logger.success('SPListItemAttachments: File uploaded', { fileName: file.name });
@@ -378,6 +380,12 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
 
     setError(null);
     const errors: string[] = [];
+    const sp = SPContext.tryGetSP();
+
+    if (!sp || !itemId) {
+      setError('Cannot refresh attachments: SPContext not initialized or no item ID');
+      return;
+    }
 
     for (const file of newFiles) {
       try {
@@ -390,7 +398,7 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
     if (errors.length === 0) {
       // All uploads successful - reload attachments
       setNewFiles([]);
-      const list = getListByNameOrId(SPContext.sp, listId);
+      const list = getListByNameOrId(sp, listId);
       const item = await list.items.getById(itemId!).select('AttachmentFiles').expand('AttachmentFiles')();
       const attachments: IAttachmentFile[] = (item.AttachmentFiles || []).map((att: any) => ({
         fileName: att.FileName,
@@ -405,7 +413,8 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
   // Delete attachment
   const handleDeleteAttachment = React.useCallback(
     async (fileName: string) => {
-      if (!SPContext.sp || !itemId) {
+      const sp = SPContext.tryGetSP();
+      if (!sp || !itemId) {
         return;
       }
 
@@ -413,7 +422,7 @@ export const SPListItemAttachments: React.FC<ISPListItemAttachmentsProps> = (pro
       setError(null);
 
       try {
-        const list = getListByNameOrId(SPContext.sp, listId);
+        const list = getListByNameOrId(sp, listId);
         await list.items.getById(itemId).attachmentFiles.getByName(fileName).delete();
 
         setExistingAttachments((prev) => prev.filter((att) => att.fileName !== fileName));

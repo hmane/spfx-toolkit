@@ -3,11 +3,8 @@
 // src/utilities/dateUtils/index.ts
 // ========================================
 
-// Import and immediately apply extensions
+// Import utilities and optional prototype extensions.
 import dateExtensions, { applyDateExtensions } from './dateExtensions';
-
-// Auto-initialize extensions when imported
-applyDateExtensions();
 
 // Export the DateUtils from the default export
 export const DateUtils = dateExtensions.DateUtils;

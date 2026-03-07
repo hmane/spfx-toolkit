@@ -21,9 +21,9 @@ export async function downloadDocument(document: IDocumentInfo): Promise<void> {
     link.click();
     window.document.body.removeChild(link);
 
-    SPContext.logger?.info('Document download initiated', { documentName: document.name });
+    SPContext.logger.info('Document download initiated', { documentName: document.name });
   } catch (error) {
-    SPContext.logger?.error('Failed to download document', error, { documentName: document.name });
+    SPContext.logger.error('Failed to download document', error, { documentName: document.name });
     throw error;
   }
 }
@@ -132,12 +132,12 @@ export function openPreviewModal(document: IDocumentInfo, mode: 'view' | 'edit')
     // Add to DOM
     window.document.body.appendChild(modal);
 
-    SPContext.logger?.info('Document preview opened in modal', {
+    SPContext.logger.info('Document preview opened in modal', {
       documentName: document.name,
       mode,
     });
   } catch (error) {
-    SPContext.logger?.error('Failed to open preview modal', error, {
+    SPContext.logger.error('Failed to open preview modal', error, {
       documentName: document.name,
     });
     throw error;
@@ -159,12 +159,12 @@ export function openPreviewNewTab(document: IDocumentInfo, mode: 'view' | 'edit'
       window.location.href = previewUrl;
     }
 
-    SPContext.logger?.info('Document preview opened in new tab', {
+    SPContext.logger.info('Document preview opened in new tab', {
       documentName: document.name,
       mode,
     });
   } catch (error) {
-    SPContext.logger?.error('Failed to open preview in new tab', error, {
+    SPContext.logger.error('Failed to open preview in new tab', error, {
       documentName: document.name,
     });
     throw error;

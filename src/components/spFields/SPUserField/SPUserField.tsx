@@ -250,7 +250,8 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     let isMounted = true;
 
     const loadColumnMetadata = async () => {
-      if (!SPContext.sp) {
+      const sp = SPContext.tryGetSP();
+      if (!sp) {
         if (isMounted) {
           setError('SPContext not initialized');
         }
@@ -261,7 +262,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         setLoading(true);
         setError(null);
 
-        const list = getListByNameOrId(SPContext.sp, listId);
+        const list = getListByNameOrId(sp, listId);
         const field = await list.fields.getByInternalNameOrTitle(columnName)();
 
         if (!isMounted) return;
@@ -388,7 +389,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     fieldError?: string
   ) => {
     // Check if SPContext is initialized
-    if (!SPContext.context) {
+    if (!SPContext.isReady()) {
       return (
         <Stack className={containerClass}>
           {label && (

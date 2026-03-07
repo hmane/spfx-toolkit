@@ -3,11 +3,8 @@
 // src/utilities/stringUtils/index.ts
 // ========================================
 
-// Import and immediately apply extensions
+// Import utilities and optional prototype extensions.
 import stringExtensions, { applyStringExtensions } from './stringExtensions';
-
-// Auto-initialize extensions when imported
-applyStringExtensions();
 
 // Export the StringUtils from the default export
 export const StringUtils = stringExtensions.StringUtils;

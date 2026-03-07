@@ -183,7 +183,7 @@ export function useDocumentMetadata(
               err
             );
       setError(error);
-      SPContext.logger?.error('useDocumentMetadata: Failed to fetch document', error);
+      SPContext.logger.error('useDocumentMetadata: Failed to fetch document', error);
     } finally {
       if (isMountedRef.current) {
         setLoading(false);

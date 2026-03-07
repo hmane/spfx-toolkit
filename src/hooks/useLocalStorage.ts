@@ -1,4 +1,10 @@
 import * as React from 'react';
+import {
+  isBrowserStorageAvailable,
+  readBrowserStorageValue,
+  removeBrowserStorageValue,
+  writeBrowserStorageValue,
+} from '../utilities/browserStorage';
 
 export interface UseLocalStorageOptions {
   /**
@@ -45,18 +51,7 @@ export function useLocalStorage<T>(
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | undefined>(undefined);
 
-  // Check if localStorage is available (useful for SPFx scenarios)
-  const isStorageAvailable = React.useMemo(() => {
-    try {
-      if (typeof window === 'undefined') return false;
-      const testKey = '__localStorage_test__';
-      window.localStorage.setItem(testKey, 'test');
-      window.localStorage.removeItem(testKey);
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
+  const isStorageAvailable = React.useMemo(() => isBrowserStorageAvailable('localStorage'), []);
 
   const [value, setValue] = React.useState<T>(initialValue);
 
@@ -70,8 +65,11 @@ export function useLocalStorage<T>(
     let isCancelled = false;
 
     try {
-      const stored = window.localStorage.getItem(key);
-      const result = stored ? deserialize(stored) : initialValue;
+      const result = readBrowserStorageValue<T>(key, {
+        fallback: initialValue,
+        parse: deserialize,
+        preferred: ['localStorage'],
+      }) as T;
       if (!isCancelled) {
         setValue(result);
         setError(undefined);
@@ -105,7 +103,15 @@ export function useLocalStorage<T>(
 
           // Write to localStorage inside setState to ensure we're using current state
           try {
-            window.localStorage.setItem(key, serialize(valueToStore));
+            const stored = writeBrowserStorageValue<T>(key, valueToStore, {
+              preferred: ['localStorage'],
+              serialize,
+            });
+
+            if (!stored) {
+              throw new Error('localStorage is not available');
+            }
+
             setError(undefined);
           } catch (storageErr) {
             const storageError =
@@ -129,7 +135,7 @@ export function useLocalStorage<T>(
     if (!isStorageAvailable) return;
 
     try {
-      window.localStorage.removeItem(key);
+      removeBrowserStorageValue(key, ['localStorage']);
       setValue(initialValue);
       setError(undefined);
     } catch (err) {

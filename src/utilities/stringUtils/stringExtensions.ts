@@ -606,20 +606,22 @@ export const StringUtils = {
  * multiple applications of the same extensions.
  *
  * @remarks
- * Extensions are automatically applied when importing from 'spfx-toolkit/lib/utilities/stringUtils'
+ * Extensions are opt-in. Import `applyStringExtensions()` and call it explicitly
+ * when you want to patch `String.prototype`.
  * Manual calling is only needed if extensions were not auto-applied or need to be reapplied.
  *
  * @example
  * ```typescript
  * // Extensions are auto-applied on import
- * import 'spfx-toolkit/lib/utilities/stringUtils';
+ * import { applyStringExtensions } from 'spfx-toolkit/utilities/stringUtils';
+ * applyStringExtensions();
  *
  * // Now you can use extension methods
  * const filename = '/path/to/file.pdf'.getFileName(); // 'file.pdf'
  * const initials = 'John Doe'.getInitials(); // 'JD'
  *
  * // Manual application (rarely needed)
- * import { applyStringExtensions } from 'spfx-toolkit/lib/utilities/stringUtils';
+ * import { applyStringExtensions } from 'spfx-toolkit/utilities/stringUtils';
  * applyStringExtensions();
  * ```
  */

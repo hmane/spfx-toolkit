@@ -111,7 +111,8 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
 
     // Smart config - load from SharePoint
     const loadFieldMetadata = async () => {
-      if (!SPContext.sp) {
+      const sp = config.useCache !== false ? SPContext.tryGetCachedSP() : SPContext.tryGetFreshSP();
+      if (!sp) {
         if (isMounted) {
           setError('SPContext not initialized');
           setLoading(false);
@@ -125,8 +126,6 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
       }
 
       try {
-        const sp = config.useCache !== false ? SPContext.spCached : SPContext.spPessimistic;
-
         // Load field from SharePoint
         const field = await getListByNameOrId(sp, config.listNameOrId)
           .fields.getByInternalNameOrTitle(config.fieldInternalName)();

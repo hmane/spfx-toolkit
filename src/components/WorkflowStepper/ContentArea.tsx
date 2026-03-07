@@ -1,6 +1,7 @@
 import { useTheme } from '@fluentui/react/lib/Theme';
 import * as React from 'react';
 import { useMemo } from 'react';
+import { sanitizeHtml } from '../../utilities/htmlUtils';
 import { ContentAreaProps } from './types';
 import { getStepperStyles } from './WorkflowStepper.styles';
 
@@ -34,7 +35,7 @@ export const ContentArea: React.FC<ContentAreaProps> = ({ selectedStep, isVisibl
 
     // Handle string content
     if (typeof selectedStep.content === 'string') {
-      return <div dangerouslySetInnerHTML={{ __html: selectedStep.content }} />;
+      return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedStep.content) }} />;
     }
 
     // Fallback for other content types

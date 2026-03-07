@@ -9,7 +9,7 @@ SPContext simplifies SharePoint Framework development by providing:
 - **Clean Property Access** - `SPContext.webAbsoluteUrl`, `SPContext.logger`, `SPContext.sp`
 - **Smart Environment Detection** - Automatically configures for dev/uat/production
 - **Built-in Performance Monitoring** - Track slow operations and health
-- **Multiple Caching Strategies** - Memory, storage, and pessimistic caching
+- **Multiple Caching Strategies** - Memory, storage, and always-fresh access via `spPessimistic`
 - **Culture & Localization Support** - Multi-language environment handling
 - **Azure AD Integration** - Secure API calls to Azure Functions and Power Platform
 - **TypeScript First** - Complete type safety with IntelliSense
@@ -22,7 +22,7 @@ SPContext simplifies SharePoint Framework development by providing:
 
 ```typescript
 // ✅ EXCELLENT: Tree-shakable imports (saves 200-500KB+)
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 // ❌ AVOID: Main package import (imports entire toolkit)
 import { SPContext } from 'spfx-toolkit';
@@ -39,7 +39,7 @@ npm install spfx-toolkit
 Install PnP dependencies in your SPFx project:
 
 ```bash
-npm install @pnp/sp@3.20.1 @pnp/logging@3.20.1 @pnp/queryable@3.20.1
+npm install @pnp/sp@^3.20.1 @pnp/logging@^4.16.0 @pnp/queryable@^3.20.1
 ```
 
 ### 3. Tree-Shakable PnP Module Imports
@@ -50,14 +50,14 @@ SPContext automatically imports core PnP modules (`webs`, `site-users`, `profile
 
 ```typescript
 // Import only the PnP functionality you need - these are side effects that enhance SPContext.sp
-import 'spfx-toolkit/lib/utilities/context/pnpImports/lists'; // lists, items, batching, views
-import 'spfx-toolkit/lib/utilities/context/pnpImports/files'; // files, folders, attachments
-import 'spfx-toolkit/lib/utilities/context/pnpImports/search'; // search API
-import 'spfx-toolkit/lib/utilities/context/pnpImports/taxonomy'; // managed metadata
-import 'spfx-toolkit/lib/utilities/context/pnpImports/security'; // permissions, sharing
+import 'spfx-toolkit/utilities/context/pnpImports/lists'; // lists, items, batching, views
+import 'spfx-toolkit/utilities/context/pnpImports/files'; // files, folders, attachments
+import 'spfx-toolkit/utilities/context/pnpImports/search'; // search API
+import 'spfx-toolkit/utilities/context/pnpImports/taxonomy'; // managed metadata
+import 'spfx-toolkit/utilities/context/pnpImports/security'; // permissions, sharing
 
 // Tree-shakable SPContext import
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPContext } from 'spfx-toolkit/utilities/context';
 
 export default class MyWebPart extends BaseClientSideWebPart<IProps> {
   protected async onInit(): Promise<void> {
@@ -334,7 +334,7 @@ const items = await SPContext.sp.web.lists.getByTitle('Documents').items();
 // Cached operations (uses caching if enabled, otherwise same as sp)
 const cachedItems = await SPContext.spCached.web.lists.getByTitle('Config').items();
 
-// Pessimistic cached operations (uses pessimistic caching if enabled, otherwise same as sp)
+// Always-fresh operations (never cached)
 const configData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items();
 ```
 
@@ -730,15 +730,10 @@ await SPContext.initialize(this.context, {
   cache: { strategy: 'storage', ttl: 600000 }, // 10 minutes
 });
 
-// Pessimistic caching (for rarely changing data)
-await SPContext.initialize(this.context, {
-  cache: { strategy: 'pessimistic', ttl: 1800000 }, // 30 minutes
-});
-
 // All instances are always available - smart fallback behavior:
 const freshData = await SPContext.sp.web.lists.getByTitle('News').items(); // Always fresh
 const cachedData = await SPContext.spCached.web.lists.getByTitle('Config').items(); // Cached if enabled, otherwise fresh
-const staticData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items(); // Pessimistic if enabled, otherwise fresh
+const staticData = await SPContext.spPessimistic.web.lists.getByTitle('Settings').items(); // Always fresh / uncached
 ```
 
 ## Error Handling

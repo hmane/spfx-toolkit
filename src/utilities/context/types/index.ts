@@ -12,6 +12,8 @@ import { IPrincipal } from '../../../types';
 // Environment types
 export type EnvironmentName = 'dev' | 'uat' | 'prod';
 export type BuildMode = 'development' | 'production';
+// `pessimistic` is retained as a deprecated alias for `none` to avoid a silent runtime no-op
+// in existing consumers. Prefer `none` for always-fresh requests.
 export type CacheStrategy = 'none' | 'memory' | 'storage' | 'pessimistic';
 
 // Core interfaces

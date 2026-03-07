@@ -46,7 +46,7 @@ npm install spfx-toolkit
 ### Static Methods (Recommended for Production)
 
 ```typescript
-import { DateUtils } from 'spfx-toolkit/lib/utilities/dateUtils';
+import { DateUtils } from 'spfx-toolkit/utilities/dateUtils';
 
 // Format dates
 const formatted = DateUtils.format(new Date(), 'MM/dd/yyyy');
@@ -71,9 +71,10 @@ const isToday = DateUtils.isToday(new Date());
 ### Date Prototype Extensions (For Convenience)
 
 ```typescript
-import 'spfx-toolkit/lib/utilities/dateUtils';
+import { applyDateExtensions } from 'spfx-toolkit/utilities/dateUtils';
 
-// Extensions are automatically applied
+// Extensions must be applied explicitly
+applyDateExtensions();
 const formatted = new Date().format('MM/dd/yyyy');
 // "03/15/2024"
 

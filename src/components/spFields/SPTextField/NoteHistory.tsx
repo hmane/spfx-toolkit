@@ -125,7 +125,8 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
       return;
     }
 
-    if (!SPContext.sp) {
+    const sp = useCache ? SPContext.tryGetCachedSP() : SPContext.tryGetFreshSP();
+    if (!sp) {
       const err = new Error('SPContext not initialized');
       setError(err.message);
       if (onHistoryError) {
@@ -145,8 +146,6 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
     setError(null);
 
     try {
-      const sp = useCache ? SPContext.spCached : SPContext.spPessimistic;
-
       // Load versions from SharePoint
       // Add cache-busting parameter to prevent stale browser-cached responses
       const versionsQuery = getListByNameOrId(sp, listNameOrId)
