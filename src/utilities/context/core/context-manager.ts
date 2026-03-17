@@ -104,14 +104,15 @@ export class ContextManager {
       // Environment detection
       const environment = EnvironmentDetector.detect(spfxContext.pageContext);
       const correlationId = this.generateCorrelationId();
+      const loggerOverride = this.getLoggerOverrideFromUrl();
 
       // Create core logger
       const logger = new SimpleLogger({
-        level: config.logging?.level ?? this.getDefaultLogLevel(environment),
+        level: loggerOverride.level ?? config.logging?.level ?? this.getDefaultLogLevel(environment),
         componentName: config.componentName ?? 'SPFxApp',
         environment,
         correlationId,
-        enableConsole: config.logging?.enableConsole ?? true,
+        enableConsole: loggerOverride.forceConsole || (config.logging?.enableConsole ?? true),
       });
 
       // Create HTTP client
@@ -312,6 +313,54 @@ export class ContextManager {
     } catch {
       return false;
     }
+  }
+
+  private getLoggerOverrideFromUrl(): { level?: LogLevel; forceConsole: boolean } {
+    try {
+      if (
+        typeof globalThis === 'undefined' ||
+        !('location' in globalThis) ||
+        !globalThis.location?.search
+      ) {
+        return { forceConsole: false };
+      }
+
+      const params = new URLSearchParams(globalThis.location.search);
+      const logLevel = params.get('logLevel');
+
+      if (logLevel !== null) {
+        const parsed = Number(logLevel);
+        if (Number.isInteger(parsed) && this.isSupportedLogLevel(parsed)) {
+          return { level: parsed as LogLevel, forceConsole: true };
+        }
+      }
+
+      if (
+        this.hasTruthyQueryFlag(params, 'debug') ||
+        this.hasTruthyQueryFlag(params, 'lwDebug') ||
+        this.hasTruthyQueryFlag(params, 'lrsDebug')
+      ) {
+        return { level: LogLevel.Verbose, forceConsole: true };
+      }
+    } catch {
+      // Ignore malformed query strings and fall back to configured logging
+    }
+
+    return { forceConsole: false };
+  }
+
+  private hasTruthyQueryFlag(params: URLSearchParams, name: string): boolean {
+    const value = params.get(name);
+    return value === '1' || value?.toLowerCase() === 'true';
+  }
+
+  private isSupportedLogLevel(level: number): boolean {
+    return [
+      LogLevel.Verbose,
+      LogLevel.Info,
+      LogLevel.Warning,
+      LogLevel.Error,
+    ].includes(level as LogLevel);
   }
 
   private cleanup(): void {

@@ -20,15 +20,14 @@ export class ConflictDetector {
   private pollingInterval: ReturnType<typeof setInterval> | undefined = undefined;
   private isPollingPaused = false;
   private isDisposed = false;
-  private readonly sp: SPFI;
 
   constructor(
-    sp: SPFI,
+    sp: SPFI | undefined,
     listId: string,
     itemId: number,
     options: Partial<ConflictDetectionOptions> = {}
   ) {
-    if (!sp) {
+    if (!sp && !SPContext.tryGetContext()) {
       throw new ConflictDetectionError('SP context is required', 'INVALID_SP_CONTEXT');
     }
     if (!listId?.trim()) {
@@ -38,7 +37,6 @@ export class ConflictDetector {
       throw new ConflictDetectionError('Valid ItemId is required', 'INVALID_ITEM_ID');
     }
 
-    this.sp = sp;
     this.listId = listId.trim();
     this.itemId = itemId;
     this.options = { ...DEFAULT_CONFLICT_OPTIONS, ...options };
@@ -397,13 +395,30 @@ export class ConflictDetector {
    */
   private async getCurrentItemInfo(): Promise<ConflictDetectionResult> {
     try {
-      const item: SharePointListItem = await this.sp.web.lists
-        .getById(this.listId)
-        .items.getById(this.itemId)
-        .select('Id', 'Modified', 'Editor/Title', 'Editor/Email')
-        .expand('Editor')();
+      const requestUrl =
+        `${SPContext.webAbsoluteUrl}/_api/web/lists(guid'${this.listId}')/items(${this.itemId})` +
+        `?$select=Id,Modified,Editor/Title,Editor/EMail&$expand=Editor&__cdts=${Date.now()}`;
 
-      const conflictInfo = this.convertItemToConflictInfo(item);
+      const response = await SPContext.http.get<SharePointListItem | { d: SharePointListItem }>(
+        requestUrl,
+        {
+          headers: {
+            Accept: 'application/json;odata.metadata=none',
+            'OData-Version': '4.0',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+          },
+        }
+      );
+
+      const item =
+        'd' in response.data && response.data.d ? response.data.d : (response.data as SharePointListItem);
+      const responseEtag = response.headers['etag'] || response.headers['@odata.etag'];
+      const itemWithEtag =
+        responseEtag && !this.getEtag(item) ? { ...item, '@odata.etag': responseEtag } : item;
+
+      const conflictInfo = this.convertItemToConflictInfo(itemWithEtag);
 
       return {
         success: true,
@@ -456,7 +471,7 @@ export class ConflictDetector {
       originalVersion: etag,
       currentVersion: etag,
       lastModifiedBy: item.Editor?.Title || 'Unknown',
-      lastModifiedByEmail: item.Editor?.Email,
+      lastModifiedByEmail: item.Editor?.EMail || item.Editor?.Email,
       lastModified: new Date(item.Modified),
       originalModified: new Date(item.Modified),
       itemId: this.itemId,

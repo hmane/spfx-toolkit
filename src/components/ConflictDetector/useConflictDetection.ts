@@ -48,7 +48,7 @@ export const useConflictDetection = ({
   }, []);
 
   const initialize = useCallback(async (): Promise<boolean> => {
-    if (!enabled || !listId || !itemId || !sp) {
+    if (!enabled || !listId || !itemId) {
       return false;
     }
 

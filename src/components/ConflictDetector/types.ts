@@ -98,7 +98,8 @@ export interface SharePointListItem {
   Modified: string;
   Editor?: {
     Title: string;
-    Email: string;
+    Email?: string;
+    EMail?: string;
   };
   'odata.etag'?: string;
   '@odata.etag'?: string;
