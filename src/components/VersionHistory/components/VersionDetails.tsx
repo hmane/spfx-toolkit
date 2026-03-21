@@ -48,6 +48,22 @@ export const VersionDetails: React.FC<IVersionDetailsProps> = props => {
     const parts = version.versionLabel.split('.');
     return parts.length > 1 ? parts[1] === '0' : true;
   }, [version.versionLabel]);
+  const comparedToLabel = React.useMemo(() => {
+    const [major, minor] = version.versionLabel.split('.').map(part => Number(part));
+    if (Number.isNaN(major)) {
+      return 'the previous version';
+    }
+
+    if (!Number.isNaN(minor) && minor > 0) {
+      return `v${major}.${minor - 1}`;
+    }
+
+    if (major > 1) {
+      return `v${major - 1}.0`;
+    }
+
+    return 'the previous version';
+  }, [version.versionLabel]);
 
   return (
     <div className='version-details'>
@@ -149,6 +165,14 @@ export const VersionDetails: React.FC<IVersionDetailsProps> = props => {
 
       {/* Field changes section */}
       <div className='version-details-changes'>
+        <div className='version-details-section-header'>
+          <div>
+            <div className='version-details-section-title'>What changed</div>
+            <div className='version-details-section-subtitle'>
+              Comparing {`v${version.versionLabel}`} with {comparedToLabel}
+            </div>
+          </div>
+        </div>
         {version.hasChanges ? (
           <FieldChangesTable changes={version.changedFields} itemInfo={itemInfo} />
         ) : (

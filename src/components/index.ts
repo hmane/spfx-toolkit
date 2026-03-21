@@ -1,4 +1,5 @@
 export * from './Card';
+export * from './Comments';
 export * from './ConflictDetector';
 export * from './DocumentLink';
 export * from './ErrorBoundary';

@@ -1,0 +1,368 @@
+import * as React from 'react';
+import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
+import { Icon } from '@fluentui/react/lib/Icon';
+import { MentionsInput, Mention } from 'react-mentions';
+import type { IPrincipal } from '../../../types/listItemTypes';
+import type { ICommentLink } from '../Comments.types';
+
+export interface ICommentInputProps {
+  inputReturn: {
+    text: string;
+    editorValue: string;
+    mentions: IPrincipal[];
+    links: ICommentLink[];
+    activeTrigger: '@' | '#' | null;
+    triggerQuery: string;
+    handleKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    handleChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    handleEditorChange: (
+      event: { target: { value: string } },
+      newValue: string,
+      newPlainTextValue: string,
+      mentions: Array<{ id: string; display: string; childIndex: number }>
+    ) => void;
+    handlePaste: (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    insertMention: (user: IPrincipal) => void;
+    insertLink: (link: ICommentLink) => void;
+    dismissTrigger: () => void;
+    inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement>;
+    resolvingUrl: boolean;
+    registerMention: (user: IPrincipal) => void;
+    registerLink: (link: ICommentLink) => void;
+  };
+  preferredUsers: IPrincipal[];
+  linkSuggestions: ICommentLink[];
+  onResolveMentions?: (query: string) => Promise<IPrincipal[]>;
+  onResolveLinkSuggestions?: (query: string) => Promise<ICommentLink[]>;
+  onPost: () => void;
+  posting: boolean;
+  variant?: 'classic' | 'chat' | 'compact' | 'timeline';
+}
+
+export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => {
+  const {
+    inputReturn,
+    preferredUsers,
+    linkSuggestions,
+    onResolveMentions,
+    onResolveLinkSuggestions,
+    onPost,
+    posting,
+    variant = 'classic',
+  } = props;
+
+  const {
+    text,
+    editorValue,
+    activeTrigger,
+    handleKeyDown,
+    handleEditorChange,
+    handlePaste,
+    inputRef,
+    resolvingUrl,
+    registerMention,
+    registerLink,
+  } = inputReturn;
+
+  const handleSubmit = React.useCallback(() => {
+    if (!text.trim() || posting) return;
+    onPost();
+  }, [text, posting, onPost]);
+
+  const handleKeyPress = React.useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Ctrl/Cmd + Enter to post
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !activeTrigger) {
+        e.preventDefault();
+        handleSubmit();
+        return;
+      }
+      handleKeyDown(e);
+    },
+    [handleKeyDown, handleSubmit, activeTrigger]
+  );
+
+  const hasMentionTrigger = preferredUsers.length > 0 || !!onResolveMentions;
+  const hasLinkTrigger = linkSuggestions.length > 0 || !!onResolveLinkSuggestions;
+
+  const placeholder = React.useMemo(() => {
+    const parts = ['Write a comment...'];
+    if (hasMentionTrigger) parts.push('@ to mention');
+    if (hasLinkTrigger) parts.push('# to link');
+    return parts.join(' ');
+  }, [hasMentionTrigger, hasLinkTrigger]);
+
+  const isCompact = variant === 'compact';
+  const suggestionsHostRef = React.useRef<HTMLDivElement | null>(null);
+  const [isFocused, setIsFocused] = React.useState(false);
+  const isExpanded = isFocused || !!text.trim() || posting;
+
+  const resolveMentionSuggestions = React.useCallback(
+    async (query: string, callback: (results: Array<{ id: string; display: string }>) => void) => {
+      const normalizedQuery = query.trim().toLowerCase();
+
+      const preferredMatches = (normalizedQuery
+        ? preferredUsers.filter((user) => {
+            if (isExcludedMentionPrincipal(user)) return false;
+            const value = `${user.title || ''} ${user.email || ''} ${user.loginName || ''}`.toLowerCase();
+            return value.includes(normalizedQuery);
+          })
+        : preferredUsers.filter((user) => !isExcludedMentionPrincipal(user))
+      ).map((user) => {
+        registerMention(user);
+        return {
+          id: user.email || user.id || '',
+          display: user.title || user.email || 'Unknown',
+        };
+      });
+
+      // Always show the provided user list immediately, even while a background search runs.
+      callback(preferredMatches);
+
+      if (!onResolveMentions || normalizedQuery.length < 1) {
+        return;
+      }
+
+      try {
+        const remote = await onResolveMentions(query);
+        const seen = new Set(preferredMatches.map((item) => item.id.toLowerCase()));
+        const remoteMatches = remote
+          .filter((user) => {
+            if (isExcludedMentionPrincipal(user)) return false;
+            const key = (user.email || user.id || '').toLowerCase();
+            return !!key && !seen.has(key);
+          })
+          .map((user) => {
+            registerMention(user);
+            return {
+              id: user.email || user.id || '',
+              display: user.title || user.email || 'Unknown',
+            };
+          });
+        callback([...preferredMatches, ...remoteMatches]);
+      } catch {
+        // Keep the immediate preferred list result on background-search failure.
+      }
+    },
+    [onResolveMentions, preferredUsers, registerMention]
+  );
+
+  const resolveLinkSuggestions = React.useCallback(
+    async (query: string, callback: (results: Array<{ id: string; display: string }>) => void) => {
+      const staticMatches = (query
+        ? linkSuggestions.filter((link) => link.name.toLowerCase().includes(query.toLowerCase()))
+        : linkSuggestions
+      ).map((link) => {
+        registerLink(link);
+        return {
+          id: link.url,
+          display: link.name,
+        };
+      });
+
+      if (!onResolveLinkSuggestions || query.length < 1) {
+        callback(staticMatches);
+        return;
+      }
+
+      try {
+        const remote = await onResolveLinkSuggestions(query);
+        const seen = new Set(staticMatches.map((item) => item.id));
+        const remoteMatches = remote
+          .filter((link) => !seen.has(link.url))
+          .map((link) => {
+            registerLink(link);
+            return {
+              id: link.url,
+              display: link.name,
+            };
+          });
+        callback([...staticMatches, ...remoteMatches]);
+      } catch {
+        callback(staticMatches);
+      }
+    },
+    [linkSuggestions, onResolveLinkSuggestions, registerLink]
+  );
+
+  const editorStyles = React.useMemo(
+    () => ({
+      control: {
+        backgroundColor: '#fff',
+        fontSize: isCompact ? 12 : 13,
+        fontWeight: 400,
+        minHeight: isCompact ? 30 : isExpanded ? 84 : 38,
+      },
+      '&multiLine': {
+        control: {
+          fontFamily: 'inherit',
+          minHeight: isCompact ? 30 : isExpanded ? 84 : 38,
+        },
+        highlighter: {
+          padding: isCompact ? '6px 10px' : isExpanded ? '10px 44px 32px 12px' : '8px 44px 8px 12px',
+          border: 'none',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+        },
+        input: {
+          padding: isCompact ? '6px 10px' : isExpanded ? '10px 44px 32px 12px' : '8px 44px 8px 12px',
+          border: 'none',
+          outline: 'none',
+          minHeight: isCompact ? 30 : isExpanded ? 84 : 38,
+          boxSizing: 'border-box',
+        },
+      },
+      suggestions: {
+        list: {
+          backgroundColor: 'white',
+          border: '1px solid rgba(0,0,0,0.15)',
+          fontSize: 14,
+        },
+        item: {
+          padding: '0',
+          '&focused': {
+            backgroundColor: 'var(--spfx-comments-primary-subtle)',
+          },
+        },
+      },
+    }),
+    [isCompact, isExpanded]
+  );
+
+  return (
+    <div className={`spfx-comments-input-wrap spfx-comments-input-${variant}`}>
+      <div ref={suggestionsHostRef} />
+      <div className={`spfx-comments-input-shell ${isCompact ? 'compact' : ''}`}>
+        <div
+          className={`spfx-comments-input-editor ${isCompact ? 'compact' : ''} ${isExpanded ? 'expanded' : 'collapsed'}`}
+        >
+          <MentionsInput
+            value={editorValue}
+            onChange={handleEditorChange}
+            onKeyDown={handleKeyPress}
+            onPaste={handlePaste}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={placeholder}
+            disabled={posting}
+            style={editorStyles}
+            className={`spfx-comments-mentions-input ${isCompact ? 'compact' : ''}`}
+            suggestionsPortalHost={suggestionsHostRef.current}
+            allowSuggestionsAboveCursor={true}
+            a11ySuggestionsListLabel="Comment suggestions"
+            inputRef={(el) => {
+              (inputRef as React.MutableRefObject<HTMLInputElement | HTMLTextAreaElement | null>).current = el;
+            }}
+          >
+            <Mention
+              trigger="@"
+              markup="@[__display__](__id__)"
+              data={resolveMentionSuggestions}
+              displayTransform={(_id, display) => `@${display}`}
+              appendSpaceOnAdd={true}
+              className="spfx-comments-mentions-token mention"
+              renderSuggestion={(suggestion, _search, highlightedDisplay, _index, focused) => (
+                <div className={`spfx-comments-dropdown-item ${focused ? 'active' : ''}`}>
+                  <div
+                    className="spfx-comments-dropdown-avatar"
+                    style={{ backgroundColor: getAvatarColor(String(suggestion.display || '')) }}
+                  >
+                    {getInitials(String(suggestion.display || ''))}
+                  </div>
+                  <div className="spfx-comments-dropdown-info">
+                    <div className="spfx-comments-dropdown-name">{highlightedDisplay}</div>
+                    {suggestion.id && <div className="spfx-comments-dropdown-email">{suggestion.id}</div>}
+                  </div>
+                </div>
+              )}
+            />
+            <Mention
+              trigger="#"
+              markup="#[__display__](__id__)"
+              data={resolveLinkSuggestions}
+              displayTransform={(_id, display) => `#${display}`}
+              appendSpaceOnAdd={true}
+              className="spfx-comments-mentions-token link"
+              renderSuggestion={(suggestion, _search, highlightedDisplay, _index, focused) => (
+                <div className={`spfx-comments-dropdown-item ${focused ? 'active' : ''}`}>
+                  <div className="spfx-comments-dropdown-link-icon">
+                    <Icon iconName={getFileIconName(String(suggestion.id || ''))} />
+                  </div>
+                  <div className="spfx-comments-dropdown-info">
+                    <div className="spfx-comments-dropdown-name">{highlightedDisplay}</div>
+                    {suggestion.id && (
+                      <div className="spfx-comments-dropdown-email">{String(suggestion.id)}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            />
+          </MentionsInput>
+          <button
+            className={`spfx-comments-post-btn ${isCompact ? 'compact' : ''}`}
+            onClick={handleSubmit}
+            disabled={!text.trim() || posting}
+            aria-label="Post comment"
+            type="button"
+          >
+            {posting ? <Spinner size={SpinnerSize.xSmall} /> : <Icon iconName="Send" />}
+          </button>
+        </div>
+      </div>
+
+      {resolvingUrl && (
+        <div className="spfx-comments-resolving">
+          <Spinner size={SpinnerSize.xSmall} label="Resolving URL..." />
+        </div>
+      )}
+    </div>
+  );
+});
+
+CommentInput.displayName = 'CommentInput';
+
+function getInitials(name: string): string {
+  const parts = name.split(/[\s@.]/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0] || '?')[0].toUpperCase();
+}
+
+const AVATAR_COLORS = ['#0078d4', '#038387', '#8764b8', '#ca5010', '#498205', '#d13438', '#8e562e', '#0063b1'];
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getFileIconName(value?: string): string {
+  const fileType = value?.split('.').pop()?.toLowerCase();
+  switch (fileType) {
+    case 'xlsx':
+    case 'xls':
+      return 'ExcelDocument';
+    case 'docx':
+    case 'doc':
+      return 'WordDocument';
+    case 'pptx':
+    case 'ppt':
+      return 'PowerPointDocument';
+    case 'pdf':
+      return 'PDF';
+    default:
+      return 'Page';
+  }
+}
+
+function isExcludedMentionPrincipal(user: IPrincipal): boolean {
+  const values = [user.title, user.email, user.loginName]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+
+  return values.some((value) =>
+    value === 'everyone' ||
+    value === 'everyone except external users' ||
+    value.includes('everyone except external users') ||
+    value.includes('everyone') ||
+    value.includes('spo-grid-all-users')
+  );
+}

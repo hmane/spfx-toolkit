@@ -19,6 +19,10 @@ export interface IPermissionPrincipal {
   isLimitedAccess?: boolean;
   isSharingLink?: boolean;
   sharingLinkType?: 'anonymous' | 'organization' | 'specific';
+  sharingLinkKind?: number;
+  sharingLinkUrl?: string;
+  sharingLinkMembersCount?: number;
+  sharingLinkIconName?: string;
   actualUsers?: IPermissionPrincipal[];
   inheritedFrom?: string;
 

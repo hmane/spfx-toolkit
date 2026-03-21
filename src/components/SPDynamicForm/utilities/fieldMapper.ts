@@ -10,11 +10,35 @@ export function mapSharePointFieldType(
 ): SPFieldType {
   // Handle special cases first
   if (typeAsString) {
-    const typeStr = typeAsString.toLowerCase();
-
-    if (typeStr === 'taxonomyfieldtype' || typeStr === 'taxonomyfieldtypemulti') {
+    if (typeAsString === 'TaxonomyFieldType') {
       return SPFieldType.TaxonomyFieldType;
     }
+
+    if (typeAsString === 'TaxonomyFieldTypeMulti') {
+      return SPFieldType.TaxonomyFieldTypeMulti;
+    }
+
+    if (typeAsString === 'UserMulti') {
+      return SPFieldType.UserMulti;
+    }
+
+    if (typeAsString === 'LookupMulti') {
+      return SPFieldType.LookupMulti;
+    }
+
+    if (typeAsString === 'Currency') {
+      return SPFieldType.Currency;
+    }
+
+    if (typeAsString === 'Integer') {
+      return SPFieldType.Integer;
+    }
+
+    if (typeAsString === 'Counter') {
+      return SPFieldType.Counter;
+    }
+
+    const typeStr = typeAsString.toLowerCase();
 
     if (typeStr === 'location') {
       return SPFieldType.Text; // Location fields can be treated as text for now
@@ -42,7 +66,7 @@ export function mapSharePointFieldType(
     case 9: // Number
       return SPFieldType.Number;
     case 10: // Currency
-      return SPFieldType.Number; // Treat currency as number
+      return SPFieldType.Currency;
     case 11: // URL
       return SPFieldType.URL;
     case 15: // MultiChoice
@@ -98,6 +122,7 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
       break;
 
     case SPFieldType.User:
+    case SPFieldType.UserMulti:
       config.allowMultiple = field.AllowMultipleValues || false;
       config.selectionMode = field.SelectionMode; // 0 = PeopleOnly, 1 = PeopleAndGroups
       config.selectionGroup = field.SelectionGroup; // Group ID to limit selection
@@ -105,6 +130,7 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
       break;
 
     case SPFieldType.Lookup:
+    case SPFieldType.LookupMulti:
       config.lookupListId = field.LookupList;
       config.lookupField = field.LookupField || 'Title';
       config.lookupWebId = field.LookupWebId; // For cross-site lookups
@@ -114,6 +140,7 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
       break;
 
     case SPFieldType.TaxonomyFieldType:
+    case SPFieldType.TaxonomyFieldTypeMulti:
       config.termSetId = field.TermSetId;
       config.anchorId = field.AnchorId;
       config.allowMultiple = field.AllowMultipleValues || false;
@@ -164,7 +191,10 @@ export function buildFieldMetadata(field: any, order: number = 0): IFieldMetadat
   };
 
   // Set lookup-specific properties
-  if (fieldType === SPFieldType.Lookup && fieldConfig.lookupListId) {
+  if (
+    (fieldType === SPFieldType.Lookup || fieldType === SPFieldType.LookupMulti) &&
+    fieldConfig.lookupListId
+  ) {
     metadata.isLookup = true;
     metadata.lookupListId = fieldConfig.lookupListId;
   }

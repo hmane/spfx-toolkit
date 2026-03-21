@@ -111,9 +111,6 @@ export function applyFieldOverrides(
     if (override.required !== undefined) {
       updated.required = override.required;
     }
-    if (override.disabled !== undefined) {
-      updated.readOnly = override.disabled;
-    }
     if (override.hidden !== undefined) {
       updated.hidden = override.hidden;
     }

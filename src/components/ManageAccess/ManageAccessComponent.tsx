@@ -30,6 +30,10 @@ interface IManageAccessCache {
   sharingInfoPending: Map<string, Promise<any>>;
 }
 
+function getManageAccessCacheKey(listId: string, itemId: number): string {
+  return `sharing_${listId}_${itemId}`;
+}
+
 // Get ManageAccess-specific cache for sharing info
 function getManageAccessCache(): IManageAccessCache {
   const win = window as any;
@@ -40,6 +44,13 @@ function getManageAccessCache(): IManageAccessCache {
     };
   }
   return win[MANAGE_ACCESS_CACHE_KEY];
+}
+
+function invalidateSharingInfoCache(listId: string, itemId: number): void {
+  const cache = getManageAccessCache();
+  const key = getManageAccessCacheKey(listId, itemId);
+  cache.sharingInfo.delete(key);
+  cache.sharingInfoPending.delete(key);
 }
 
 // NOTE: We no longer call getCurrentUserEffectivePermissions to avoid EffectiveBasePermissions spam.
@@ -59,6 +70,28 @@ interface IPermissionsResult {
  */
 interface ISharingInfoResponse {
   permissionsInformation?: {
+    links?: {
+      results?: Array<{
+        linkDetails?: {
+          IsEditLink?: boolean;
+          LinkKind?: number;
+          Scope?: number;
+          Url?: string;
+          ShareLinkUrl?: string;
+        };
+        linkMembers?: {
+          results?: Array<{
+            id: number;
+            name: string;
+            email: string;
+            loginName: string;
+            principalType: number;
+            userPrincipalName?: string;
+            isExternal?: boolean;
+          }>;
+        };
+      }>;
+    };
     principals?: {
       results?: Array<{
         principal: {
@@ -91,13 +124,51 @@ function roleToPermissionLevel(role: number): 'view' | 'edit' {
   return role === 1 ? 'view' : 'edit';
 }
 
+function getSharingLinkPresentation(linkDetails?: {
+  LinkKind?: number;
+  Scope?: number;
+}): {
+  type: 'anonymous' | 'organization' | 'specific';
+  label: string;
+  iconName: string;
+} | null {
+  const linkKind = linkDetails?.LinkKind;
+  const scope = linkDetails?.Scope;
+
+  if (linkKind === 4 || linkKind === 5 || scope === 0) {
+    return {
+      type: 'anonymous',
+      label: 'Anyone with the link',
+      iconName: 'Globe',
+    };
+  }
+
+  if (linkKind === 2 || linkKind === 3 || scope === 1) {
+    return null;
+  }
+
+  if (linkKind === 1) {
+    return {
+      type: 'specific',
+      label: 'People with existing access',
+      iconName: 'Link',
+    };
+  }
+
+  return {
+    type: 'specific',
+    label: 'Specific people',
+    iconName: 'Link',
+  };
+}
+
 /**
  * Fetch sharing information using SharePoint's native GetSharingInformation API
  * This is the same API SharePoint uses in its Manage Access panel
  */
 async function getSharedSharingInfo(listId: string, itemId: number): Promise<ISharingInfoResponse | null> {
   const cache = getManageAccessCache();
-  const key = `sharing_${listId}_${itemId}`;
+  const key = getManageAccessCacheKey(listId, itemId);
 
   // Return cached data if valid
   const cached = cache.sharingInfo.get(key);
@@ -211,11 +282,32 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
 
       // Get current user info for permission checking
       const currentUserLoginName = SPContext.currentUser?.loginName?.toLowerCase() || '';
+      const currentUserEmail = SPContext.currentUser?.email?.toLowerCase() || '';
+      const currentUserValue = SPContext.currentUser?.value?.toLowerCase() || '';
       const currentUserId = SPContext.currentUser?.id;
       let currentUserCanManage = false;
 
       // Track groups with edit permissions to check user membership later
       const groupsWithEditAccess: number[] = [];
+
+      const isCurrentUser = (principal: {
+        id?: number | string;
+        loginName?: string | null;
+        email?: string | null;
+        userPrincipalName?: string | null;
+      }): boolean => {
+        const principalId = principal.id !== undefined ? String(principal.id) : '';
+        const principalLogin = principal.loginName?.toLowerCase() || '';
+        const principalEmail = principal.email?.toLowerCase() || '';
+        const principalUpn = principal.userPrincipalName?.toLowerCase() || '';
+
+        return !!(
+          (currentUserId && principalId === String(currentUserId)) ||
+          (currentUserLoginName && principalLogin === currentUserLoginName) ||
+          (currentUserValue && principalLogin === currentUserValue) ||
+          (currentUserEmail && (principalEmail === currentUserEmail || principalUpn === currentUserEmail))
+        );
+      };
 
       // Process principals from GetSharingInformation response
       const principals = sharingInfo.permissionsInformation?.principals?.results || [];
@@ -232,7 +324,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         const hasEditRole = role === 3 || role === 9; // 3=FullControl, 9=Edit
 
         // Check if this is the current user directly
-        if (!isGroup && principal.loginName?.toLowerCase() === currentUserLoginName) {
+        if (!isGroup && isCurrentUser(principal)) {
           if (hasEditRole) {
             currentUserCanManage = true;
           }
@@ -272,6 +364,43 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         processedPrincipals.add(principalKey);
       }
 
+      const sharingLinks = sharingInfo.permissionsInformation?.links?.results || [];
+      sharingLinks.forEach((sharingLink, index) => {
+        const linkDetails = sharingLink.linkDetails;
+        if (!linkDetails) {
+          return;
+        }
+
+        const presentation = getSharingLinkPresentation(linkDetails);
+        if (!presentation) {
+          return;
+        }
+
+        const linkUrl = linkDetails.Url || linkDetails.ShareLinkUrl || '';
+        const canEdit = !!linkDetails.IsEditLink;
+        const linkKey = `link_${presentation.type}_${canEdit ? 'edit' : 'view'}`;
+        if (processedPrincipals.has(linkKey)) {
+          return;
+        }
+
+        const linkMembers = sharingLink.linkMembers?.results || [];
+
+        permissionsList.push({
+          id: linkKey,
+          displayName: presentation.label,
+          permissionLevel: canEdit ? 'edit' : 'view',
+          isGroup: false,
+          canBeRemoved: false,
+          isSharingLink: true,
+          sharingLinkType: presentation.type,
+          sharingLinkKind: linkDetails.LinkKind,
+          sharingLinkUrl: linkUrl || undefined,
+          sharingLinkMembersCount: linkMembers.length,
+          sharingLinkIconName: presentation.iconName,
+        });
+        processedPrincipals.add(linkKey);
+      });
+
       // If user doesn't have direct edit access, check if they're in a group with edit access
       if (!currentUserCanManage && groupsWithEditAccess.length > 0 && currentUserId) {
         try {
@@ -285,6 +414,18 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
           // If we can't get groups, fall back to no manage permissions
           SPContext.logger.warn('ManageAccess: Could not check group membership', groupError);
         }
+      }
+
+      if (!currentUserCanManage) {
+        const siteAdmins = sharingInfo.permissionsInformation?.siteAdmins?.results || [];
+        currentUserCanManage = siteAdmins.some((siteAdmin: any) =>
+          isCurrentUser({
+            id: siteAdmin?.id ?? siteAdmin?.Id,
+            loginName: siteAdmin?.loginName ?? siteAdmin?.LoginName,
+            email: siteAdmin?.email ?? siteAdmin?.Email,
+            userPrincipalName: siteAdmin?.userPrincipalName ?? siteAdmin?.UserPrincipalName,
+          })
+        );
       }
 
       SPContext.logger.info('ManageAccess permissions loaded', {
@@ -316,8 +457,9 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
       });
 
       return processedPermissions.sort((a, b) => {
-        if (a.isGroup && !b.isGroup) return -1;
-        if (!a.isGroup && b.isGroup) return 1;
+        if (a.isGroup !== b.isGroup) {
+          return a.isGroup ? 1 : -1;
+        }
 
         if (!a.isGroup && !b.isGroup) {
           if (!a.inheritedFrom && b.inheritedFrom) return -1;
@@ -401,6 +543,26 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
 
       for (const user of users) {
         try {
+          if (user.principalType === 8) {
+            const hasExistingGroup = permissions.some(
+              p =>
+                p.isGroup &&
+                (p.id === String(user.id ?? user.ID) ||
+                  p.displayName.toLowerCase() === String(user.text || user.displayName || '').toLowerCase())
+            );
+
+            if (hasExistingGroup) {
+              existingUsers.push(user.text || user.displayName);
+            } else {
+              validatedUsers.push({
+                ...user,
+                id: String(user.id ?? user.ID ?? ''),
+                loginName: user.loginName || user.LoginName,
+              });
+            }
+            continue;
+          }
+
           const ensuredUser = await SPContext.sp.web.ensureUser(user.loginName || user.email);
 
           const hasExisting = permissions.some(
@@ -456,10 +618,11 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
       const success = await onPermissionChanged('add', principals);
 
       if (success) {
+        invalidateSharingInfoCache(listId, itemId);
         await loadPermissions();
       }
     },
-    [onPermissionChanged, loadPermissions]
+    [onPermissionChanged, loadPermissions, listId, itemId]
   );
 
   const handleRemovePermission = React.useCallback(
@@ -467,14 +630,25 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
       const success = await onPermissionChanged('remove', [principal]);
 
       if (success) {
+        invalidateSharingInfoCache(listId, itemId);
         await loadPermissions();
       }
     },
-    [onPermissionChanged, loadPermissions]
+    [onPermissionChanged, loadPermissions, listId, itemId]
   );
 
   const renderPermissionAvatar = React.useCallback(
     (permission: IPermissionPrincipal, index: number): React.ReactElement => {
+      if (permission.isSharingLink) {
+        return (
+          <div key={`link-${index}`} className='manage-access-avatar-container'>
+            <div className='manage-access-sharing-link-avatar' title={permission.displayName}>
+              <Icon iconName={permission.sharingLinkIconName || 'Link'} />
+            </div>
+          </div>
+        );
+      }
+
       if (permission.isGroup) {
         return (
           <div key={`group-${index}`} className='manage-access-avatar-container'>

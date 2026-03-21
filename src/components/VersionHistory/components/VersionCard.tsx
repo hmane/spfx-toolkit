@@ -20,7 +20,7 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
     onClick();
   }, [onClick]);
 
-  const handleKeyPress = React.useCallback(
+  const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
@@ -38,6 +38,11 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
   }, [version.versionLabel]);
 
   const commentPreview = version.checkInComment ? version.checkInComment.trim() : '';
+  const highlightFields = React.useMemo(
+    () => version.changedFields.filter(field => field.isSignificant).slice(0, 2),
+    [version.changedFields]
+  );
+  const extraFieldCount = Math.max(version.changedFields.length - highlightFields.length, 0);
 
   const handleDownload = React.useCallback(
     (event: React.MouseEvent) => {
@@ -67,7 +72,7 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
     <div
       className={`version-card ${isSelected ? 'selected' : ''}`}
       onClick={handleClick}
-      onKeyPress={handleKeyPress}
+      onKeyDown={handleKeyDown}
       role='button'
       tabIndex={0}
       aria-label={`Version ${version.versionLabel} by ${version.modifiedByName}`}
@@ -88,6 +93,8 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
 
       {/* Card content */}
       <div className='version-card-content'>
+        <div className='version-card-author'>{version.modifiedByName}</div>
+
         {/* Version and badges */}
         <div className='version-card-header'>
           <span className='version-card-version'>v{version.versionLabel}</span>
@@ -135,6 +142,20 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
                   </span>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {highlightFields.length > 0 && (
+          <div className='version-card-highlights'>
+            <span className='version-card-highlights-label'>Changed</span>
+            {highlightFields.map(field => (
+              <span key={field.internalName} className='version-card-highlight-pill'>
+                {field.displayName}
+              </span>
+            ))}
+            {extraFieldCount > 0 && (
+              <span className='version-card-highlights-more'>+{extraFieldCount} more</span>
             )}
           </div>
         )}

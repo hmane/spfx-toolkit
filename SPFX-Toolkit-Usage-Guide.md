@@ -1335,7 +1335,135 @@ const RichDocumentLink: React.FC = () => (
 
 ---
 
-### 10. GroupUsersPicker - Group-Based People Picker
+### 10. Comments - SharePoint List Item Comments
+
+**Bundle Impact:** Medium (~15-25KB)
+**Use Case:** List item discussions, @mentions with notifications, document linking, audit timelines
+**Peer Dependencies:** `@pnp/sp@^3.20.1`, `@fluentui/react@8.106.4`
+
+#### Basic Usage
+
+```typescript
+import { Comments } from 'spfx-toolkit/components/Comments';
+
+const MyComponent: React.FC = () => {
+  return (
+    <Comments
+      listId="00000000-0000-0000-0000-000000000000"
+      itemId={42}
+    />
+  );
+};
+```
+
+#### With @Mentions and #Links
+
+```typescript
+import { Comments } from 'spfx-toolkit/components/Comments';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+import type { IPrincipal } from 'spfx-toolkit/types';
+
+const MyComponent: React.FC = () => {
+  const preferredUsers: IPrincipal[] = [
+    { id: '1', email: 'sarah@contoso.com', title: 'Sarah Mitchell', jobTitle: 'PM' },
+    { id: '2', email: 'john@contoso.com', title: 'John Doe', jobTitle: 'Analyst' },
+  ];
+
+  const linkSuggestions = [
+    { name: 'Budget 2026.xlsx', url: 'https://contoso.sharepoint.com/...', fileType: 'xlsx', group: 'Finance' },
+    { name: 'Project Plan.docx', url: 'https://contoso.sharepoint.com/...', fileType: 'docx', group: 'Planning' },
+  ];
+
+  return (
+    <Comments
+      listId={listId}
+      itemId={42}
+      preferredUsers={preferredUsers}
+      onResolveMentions={async (query) => {
+        const results = await SPContext.sp.web.siteUsers
+          .filter(`substringof('${query}', Title)`)();
+        return results.map(u => ({
+          id: String(u.Id),
+          email: u.Email,
+          title: u.Title,
+        }));
+      }}
+      linkSuggestions={linkSuggestions}
+      onCommentAdded={(comment) => console.log('Posted:', comment)}
+      onError={(error) => console.error('Comments error:', error)}
+    />
+  );
+};
+```
+
+#### Layout Variants
+
+```typescript
+// Classic (default) — PnP ListItemComments replacement
+<Comments listId={listId} itemId={42} layout="classic" />
+
+// Chat — Teams/Slack-style bubbles with day grouping
+<Comments listId={listId} itemId={42} layout="chat" />
+
+// Compact — Dense rows for side panels, expand on click
+<Comments listId={listId} itemId={42} layout="compact" />
+
+// Timeline — Audit trail with system events
+<Comments
+  listId={listId}
+  itemId={42}
+  layout="timeline"
+  systemEvents={[
+    { id: '1', text: 'Status changed to <strong>In Review</strong>', date: new Date(), type: 'info' },
+    { id: '2', text: 'Approved by <strong>John Doe</strong>', date: new Date(), type: 'success' },
+  ]}
+/>
+```
+
+#### Key Features
+
+| Feature | Details |
+|---------|---------|
+| **@mentions** | Preferred users list + custom directory resolver via `onResolveMentions`. SharePoint sends email notifications automatically. |
+| **#links** | Static `linkSuggestions` + dynamic `onResolveLinkSuggestions`. Rendered using toolkit `DocumentLink` with hover card and preview modal. |
+| **Paste URL resolution** | Pasted SharePoint URLs auto-resolve to document names via SP REST API. |
+| **Search** | Client-side search across loaded comments (text, author, mentions, links). |
+| **Special characters** | Proper HTML entity encoding/decoding — fixes PnP component bugs with `<`, `>`, `&`. |
+| **Text copy** | All comment text is selectable (`user-select: text`). |
+| **4 layouts** | Classic, Chat, Compact, Timeline — switch via `layout` prop. |
+
+#### Props Reference
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `listId` | `string` | Required | SharePoint list GUID |
+| `itemId` | `number` | Required | List item ID |
+| `preferredUsers` | `IPrincipal[]` | `[]` | Users shown first in @ dropdown |
+| `onResolveMentions` | `(query) => Promise<IPrincipal[]>` | - | Directory search callback |
+| `linkSuggestions` | `ICommentLink[]` | `[]` | Static # link suggestions |
+| `onResolveLinkSuggestions` | `(query) => Promise<ICommentLink[]>` | - | Dynamic link search |
+| `enableLinkResolution` | `boolean` | `true` | Auto-resolve pasted SP URLs |
+| `layout` | `'classic' \| 'chat' \| 'compact' \| 'timeline'` | `'classic'` | Layout variant |
+| `numberCommentsPerPage` | `5 \| 10 \| 15 \| 20` | `10` | Pagination size |
+| `highlightedCommentId` | `number` | - | Scroll-to and highlight |
+| `sortOrder` | `'newest' \| 'oldest'` | `'newest'` | Comment sort order |
+| `enableSearch` | `boolean` | `true` | Show search bar |
+| `enableDocumentPreview` | `boolean` | `true` | DocumentLink preview on # click |
+| `label` | `string` | - | Label above component |
+| `systemEvents` | `ISystemEvent[]` | `[]` | System events (timeline only) |
+| `onCommentAdded` | `(comment) => void` | - | Post callback |
+| `onCommentDeleted` | `(commentId) => void` | - | Delete callback |
+| `onCommentLiked` | `(commentId, isLiked) => void` | - | Like/unlike callback |
+| `onMentioned` | `(user) => void` | - | Mention callback |
+| `onLinkAdded` | `(link) => void` | - | Link added callback |
+| `onError` | `(error) => void` | - | Error handler |
+| `className` | `string` | - | Custom CSS class |
+
+**Reused Toolkit Components:** `UserPersona` (mention rendering), `DocumentLink` (link rendering + preview), `IPrincipal` (user type), `SPContext` (SP API calls), `sanitizeHtml` (system event safety).
+
+---
+
+### 11. GroupUsersPicker - Group-Based People Picker
 
 **Bundle Impact:** Medium (~45KB + DevExtreme SelectBox/TagBox)  
 **Use Case:** Approval workflows, audience targeting, form people fields  
@@ -1412,7 +1540,7 @@ const GroupPickerForm: React.FC = () => {
 
 ---
 
-### 11. spForm System - React Hook Form Building Blocks
+### 12. spForm System - React Hook Form Building Blocks
 
 **Bundle Impact:** High (300–500KB with DevExtreme + RHF)  
 **Use Case:** Complex business forms, wizard flows, validated edit experiences  
@@ -1816,7 +1944,7 @@ For detailed documentation:
 
 ---
 
-### 12. SPField Suite - SharePoint Field Controls
+### 13. SPField Suite - SharePoint Field Controls
 
 **Bundle Impact:** Medium–High (varies per field; relies on DevExtreme + RHF)  
 **Use Case:** List form replacements, data collection aligned with SharePoint field types
@@ -2002,7 +2130,7 @@ Check these common issues:
 
 ---
 
-### 13. Lazy Components - On-Demand Heavy Features
+### 14. Lazy Components - On-Demand Heavy Features
 
 **Bundle Impact:** Wrapper only (~3–5KB) + deferred component chunk  
 **Use Case:** Reduce initial bundle size by loading heavy components on demand
@@ -5266,6 +5394,7 @@ SPContext.reset(): void;
 | ConflictDetector | `listTitle`, `itemId`, `children` | `checkInterval`, `onConflictDetected`, `onConflictResolved` |
 | GroupViewer | `groupId` OR `groupName` | `showMembers`, `showOwner`, `showDescription`, `maxMembers` |
 | ErrorBoundary | `children` | `fallback`, `onError`, `onReset`, `showRetryButton` |
+| Comments | `listId`, `itemId` | `layout`, `preferredUsers`, `onResolveMentions`, `linkSuggestions`, `enableSearch`, `enableDocumentPreview`, `numberCommentsPerPage`, `systemEvents` |
 | DocumentLink | One of: `documentUrl`, `documentUniqueId`, or (`documentId` + `libraryName`) | `layout`, `enableHoverCard`, `onClick`, `previewMode`, `previewTarget`, `enableCache` |
 | GroupUsersPicker | `groupName`, `maxUserCount` | `selectedUsers`, `ensureUser`, `useCache`, `itemRender` |
 | spForm Controls | `name`, `control` | Field-specific props (`items`, `placeholder`, `rules`, etc.) |
@@ -5306,6 +5435,10 @@ import type { IConflictDetectorProps } from 'spfx-toolkit/components/ConflictDet
 // GroupViewer
 import { GroupViewer } from 'spfx-toolkit/components/GroupViewer';
 import type { IGroupViewerProps } from 'spfx-toolkit/components/GroupViewer';
+
+// Comments
+import { Comments, useComments, useCommentInput, useCommentSearch } from 'spfx-toolkit/components/Comments';
+import type { ICommentsProps, IComment, ICommentLink, ISystemEvent, CommentLayout } from 'spfx-toolkit/components/Comments';
 
 // DocumentLink
 import { DocumentLink, useDocumentMetadata } from 'spfx-toolkit/components/DocumentLink';

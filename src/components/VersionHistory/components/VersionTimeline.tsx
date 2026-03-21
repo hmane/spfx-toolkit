@@ -236,14 +236,66 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     return labels;
   }, [filterState, userOptions, showMajorFilter]);
 
+  const groupedVersions = React.useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOfMonth = new Date(startOfToday.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const groups = versions.reduce<Record<string, typeof versions>>((acc, version) => {
+      const modified = version.modified;
+      let key = 'earlier';
+
+      if (modified >= startOfToday) {
+        key = 'today';
+      } else if (modified >= startOfWeek) {
+        key = 'week';
+      } else if (modified >= startOfMonth) {
+        key = 'month';
+      }
+
+      acc[key] = [...(acc[key] || []), version];
+      return acc;
+    }, {});
+
+    const sections = [
+      { key: 'today', label: 'Today' },
+      { key: 'week', label: 'Last 7 days' },
+      { key: 'month', label: 'Last 30 days' },
+      { key: 'earlier', label: 'Earlier' },
+    ];
+
+    return sections
+      .map(section => ({
+        ...section,
+        versions: groups[section.key] || [],
+      }))
+      .filter(section => section.versions.length > 0);
+  }, [versions]);
+
+  const timelineSummary = React.useMemo(() => {
+    if (!versions.length) {
+      return 'No versions match the current view.';
+    }
+
+    if (activeFilterLabels.length > 0) {
+      return `Showing ${versions.length} filtered version${versions.length === 1 ? '' : 's'}.`;
+    }
+
+    return 'Newest versions first. Select a version to inspect changes.';
+  }, [versions.length, activeFilterLabels.length]);
+
   return (
     <div className='version-timeline'>
       {/* Header */}
       <div className='version-timeline-header'>
-        <Text className='version-timeline-title'>Versions</Text>
-        <Text className='version-timeline-count'>
-          {versions.length} version{versions.length !== 1 ? 's' : ''}
-        </Text>
+        <div className='version-timeline-header-row'>
+          <Text className='version-timeline-title'>Versions</Text>
+          <Text className='version-timeline-count'>
+            {versions.length} version{versions.length !== 1 ? 's' : ''}
+          </Text>
+        </div>
+        <Text className='version-timeline-summary'>{timelineSummary}</Text>
       </div>
 
       {/* Quick filters */}
@@ -299,7 +351,7 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
       {/* Filter toggle */}
       <div className='version-timeline-filter-toggle'>
         <DefaultButton
-          text={filtersExpanded ? 'Hide Filters' : 'Show Filters'}
+          text={filtersExpanded ? 'Hide advanced filters' : 'More filters'}
           iconProps={{ iconName: filtersExpanded ? 'ChevronUp' : 'ChevronDown' }}
           onClick={onToggleFilters}
           disabled={isLoading}
@@ -382,18 +434,25 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
       {/* Version list */}
       {!isLoading && versions.length > 0 && (
         <div className='version-timeline-list'>
-          {versions.map((version, index) => (
-            <VersionCard
-              key={`${version.versionLabel}-${index}`}
-              version={version}
-              isSelected={selectedVersion?.versionLabel === version.versionLabel}
-              onClick={() => onSelectVersion(version)}
-              onDownloadVersion={onDownloadVersion}
-              onCopyLink={showCopyActions ? onCopyVersionLink : undefined}
-              showMajorBadge={showMajorFilter}
-              showCopyActions={showCopyActions}
-              itemType={props.itemType}
-            />
+          {groupedVersions.map(section => (
+            <div key={section.key} className='version-timeline-section'>
+              {groupedVersions.length > 1 && (
+                <div className='version-timeline-section-heading'>{section.label}</div>
+              )}
+              {section.versions.map((version, index) => (
+                <VersionCard
+                  key={`${section.key}-${version.versionLabel}-${index}`}
+                  version={version}
+                  isSelected={selectedVersion?.versionLabel === version.versionLabel}
+                  onClick={() => onSelectVersion(version)}
+                  onDownloadVersion={onDownloadVersion}
+                  onCopyLink={showCopyActions ? onCopyVersionLink : undefined}
+                  showMajorBadge={showMajorFilter}
+                  showCopyActions={showCopyActions}
+                  itemType={props.itemType}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

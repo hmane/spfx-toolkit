@@ -473,8 +473,12 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // Check permissions
-      const hasPermission = await checkPermissions();
+      // Detect item type first so permission probing can validate the real versions endpoint.
+      const detectedItemType = await detectItemType();
+      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
+
+      // Check permissions against the actual version history surface instead of only item readability.
+      const hasPermission = await checkPermissions(detectedItemType);
       if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       if (!hasPermission) {
@@ -492,10 +496,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         }));
         return;
       }
-
-      // Detect item type
-      const detectedItemType = await detectItemType();
-      if (currentRequestId !== loadRequestIdRef.current || !isMountedRef.current) return;
 
       // Load item info
       const itemInfo = await loadItemInfo(detectedItemType);
@@ -558,9 +558,24 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     loadVersionHistory();
   }, [loadVersionHistory]);
 
-  const checkPermissions = async (): Promise<boolean> => {
+  const checkPermissions = async (itemType: 'document' | 'list'): Promise<boolean> => {
     try {
-      await SPContext.sp.web.lists.getById(listId).items.getById(itemId).select('Id')();
+      if (itemType === 'document') {
+        const item = await SPContext.sp.web.lists
+          .getById(listId)
+          .items.getById(itemId)
+          .select('FileRef', 'File/ServerRelativeUrl')
+          .expand('File')();
+
+        const fileRef = item.File?.ServerRelativeUrl || item.FileRef;
+        if (!fileRef) {
+          return false;
+        }
+
+        await SPContext.sp.web.getFileByServerRelativePath(fileRef).versions.select('ID')();
+      } else {
+        await SPContext.sp.web.lists.getById(listId).items.getById(itemId).versions.select('ID')();
+      }
       return true;
     } catch (error) {
       SPContext.logger.warn('Permission check failed', { error, listId, itemId });
@@ -753,7 +768,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       return Array.isArray(versions) ? versions : [];
     } catch (error) {
       SPContext.logger.error('Failed to load versions', error, { listId, itemId, itemType });
-      return [];
+      throw error instanceof Error ? error : new Error('Failed to load versions');
     }
   };
 
@@ -770,13 +785,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
       if (!fields || !Array.isArray(fields)) {
         SPContext.logger.warn('No fields returned from SharePoint', { listId });
-        return [];
-      }
-
-      const currentItem = await SPContext.sp.web.lists.getById(listId).items.getById(itemId)();
-
-      if (!currentItem) {
-        SPContext.logger.warn('Current item not found', { listId, itemId });
         return [];
       }
 
@@ -1059,6 +1067,9 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     onClose();
   }, [onClose]);
 
+  const popupWidth = 'calc(100vw - 48px)';
+  const popupHeight = 'calc(100vh - 48px)';
+
   if (state.isLoading) {
     return (
       <Popup
@@ -1067,8 +1078,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         dragEnabled={false}
         closeOnOutsideClick={false}
         showTitle={false}
-        width='95vw'
-        height='95vh'
+        width={popupWidth}
+        height={popupHeight}
         className='version-history-popup'
       >
         <div className='version-history-loading-container'>
@@ -1086,8 +1097,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         dragEnabled={false}
         closeOnOutsideClick={false}
         showTitle={false}
-        width='95vw'
-        height='95vh'
+        width={popupWidth}
+        height={popupHeight}
         className='version-history-popup'
       >
         <div className='version-history-error-container'>
@@ -1127,8 +1138,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         dragEnabled={false}
         closeOnOutsideClick={false}
         showTitle={false}
-        width='95vw'
-        height='95vh'
+        width={popupWidth}
+        height={popupHeight}
         className='version-history-popup'
       >
         <div className='version-history-empty-container'>
@@ -1147,8 +1158,8 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       dragEnabled={false}
       closeOnOutsideClick={true}
       showTitle={false}
-      width='95vw'
-      height='95vh'
+      width={popupWidth}
+      height={popupHeight}
       className='version-history-popup'
     >
       <ScrollView width='100%' height='100%'>
@@ -1177,14 +1188,15 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
                   Copy link
                 </button>
               )}
-              <button
-                className='version-history-secondary-button'
-                type='button'
-                onClick={handleExport}
-              >
-                <Icon iconName='ExcelDocument' />
-                Export
-              </button>
+	              <button
+	                className='version-history-secondary-button'
+	                type='button'
+	                onClick={handleExport}
+	                title='Export all loaded versions to CSV'
+	              >
+	                <Icon iconName='ExcelDocument' />
+	                Export all CSV
+	              </button>
               <button
                 className='version-history-icon-button'
                 onClick={handleClose}

@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPFx Toolkit — Comments Component Layouts</title>
+<style>
+  :root {
+    --sp-primary: #0078d4;
+    --sp-primary-hover: #106ebe;
+    --sp-primary-light: #deecf9;
+    --sp-primary-subtle: #eff6fc;
+    --sp-danger: #d13438;
+    --sp-success: #107c10;
+    --sp-warning: #ffb900;
+    --sp-text: #323130;
+    --sp-text-secondary: #605e5c;
+    --sp-text-tertiary: #a19f9d;
+    --sp-border: #edebe9;
+    --sp-border-strong: #d2d0ce;
+    --sp-bg: #ffffff;
+    --sp-bg-subtle: #faf9f8;
+    --sp-bg-hover: #f3f2f1;
+    --sp-shadow-sm: 0 1.6px 3.6px 0 rgba(0,0,0,.08), 0 .3px .9px 0 rgba(0,0,0,.06);
+    --sp-shadow-md: 0 3.2px 7.2px 0 rgba(0,0,0,.10), 0 .6px 1.8px 0 rgba(0,0,0,.08);
+    --sp-shadow-lg: 0 6.4px 14.4px 0 rgba(0,0,0,.12), 0 1.2px 3.6px 0 rgba(0,0,0,.10);
+    --sp-radius: 4px;
+    --sp-radius-lg: 8px;
+    --link-color: #6b3fa0;
+    --link-bg: #f3eefb;
+    --mention-color: #0078d4;
+    --mention-bg: #deecf9;
+    --chat-bubble-self: #e1f0ff;
+    --chat-bubble-other: #f3f2f1;
+    --timeline-line: #c8c6c4;
+    --system-bg: #fff4ce;
+    --system-border: #ffb900;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f5f5f5;
+    color: var(--sp-text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Header ─── */
+  .page-header {
+    background: var(--sp-bg);
+    border-bottom: 1px solid var(--sp-border);
+    padding: 24px 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--sp-shadow-sm);
+  }
+  .page-header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .page-header p { font-size: 13px; color: var(--sp-text-secondary); margin-bottom: 16px; }
+
+  /* ─── Layout Switcher ─── */
+  .layout-switcher {
+    display: flex;
+    gap: 4px;
+    background: var(--sp-bg-subtle);
+    border-radius: 6px;
+    padding: 3px;
+    width: fit-content;
+  }
+  .layout-btn {
+    padding: 7px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--sp-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .layout-btn:hover { background: var(--sp-bg); color: var(--sp-text); }
+  .layout-btn.active {
+    background: var(--sp-bg);
+    color: var(--sp-primary);
+    font-weight: 600;
+    box-shadow: var(--sp-shadow-sm);
+  }
+  .layout-btn svg { width: 16px; height: 16px; }
+
+  /* ─── Main Grid ─── */
+  .layouts-container { padding: 32px 40px; max-width: 1400px; margin: 0 auto; }
+
+  .layout-card {
+    background: var(--sp-bg);
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius-lg);
+    box-shadow: var(--sp-shadow-sm);
+    overflow: hidden;
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+  .layout-card.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .layout-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--sp-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .layout-card-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .layout-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-default { background: var(--sp-primary-light); color: var(--sp-primary); }
+  .badge-modern { background: #e8f5e9; color: #2e7d32; }
+  .badge-dense { background: #fff3e0; color: #e65100; }
+  .badge-audit { background: #fce4ec; color: #c62828; }
+
+  .feature-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .feature-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--sp-bg-subtle);
+    color: var(--sp-text-secondary);
+    border: 1px solid var(--sp-border);
+  }
+
+  /* ─── Shared: Avatar ─── */
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; letter-spacing: -0.3px;
+  }
+  .avatar-sm { width: 24px; height: 24px; font-size: 10px; }
+  .avatar-xs { width: 20px; height: 20px; font-size: 9px; }
+  .av-blue { background: #0078d4; }
+  .av-teal { background: #038387; }
+  .av-purple { background: #8764b8; }
+  .av-orange { background: #ca5010; }
+  .av-green { background: #498205; }
+
+  /* ─── User Persona (mini version of spfx-toolkit UserPersona) ─── */
+  .user-persona {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--mention-bg);
+    color: var(--mention-color);
+    padding: 1px 8px 1px 2px;
+    border-radius: 12px;
+    font-size: inherit;
+    font-weight: 600;
+    cursor: default;
+    transition: background 0.1s;
+    text-decoration: none;
+    position: relative;
+  }
+  .user-persona:hover { background: #c7dff7; }
+  .user-persona .persona-avatar {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: white; flex-shrink: 0;
+  }
+  .user-persona .persona-name { font-size: inherit; }
+
+  /* Persona tooltip on hover */
+  .user-persona .persona-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--sp-bg);
+    border: 1px solid var(--sp-border-strong);
+    border-radius: var(--sp-radius);
+    box-shadow: var(--sp-shadow-lg);
+    padding: 10px 14px;
+    white-space: nowrap;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .user-persona:hover .persona-tooltip { display: flex; gap: 10px; align-items: center; }
+  .persona-tooltip .tooltip-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+  }
+  .persona-tooltip .tooltip-info { display: flex; flex-direction: column; }
+  .persona-tooltip .tooltip-name { font-size: 13px; font-weight: 600; color: var(--sp-text); }
+  .persona-tooltip .tooltip-email { font-size: 11px; color: var(--sp-text-tertiary); font-weight: 400; }
+  .persona-tooltip .tooltip-title { font-size: 11px; color: var(--sp-text-secondary); font-weight: 400; }
+
+  /* ─── Shared: Link Chip ─── */
+  .link-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--link-bg); color: var(--link-color);
+    padding: 1px 8px 1px 5px; border-radius: 3px;
+    font-size: inherit; font-weight: 600; cursor: pointer;
+    transition: all 0.1s; text-decoration: none;
+    border-bottom: 1px dashed rgba(107, 63, 160, 0.3);
+  }
+  .link-chip:hover { background: #e8ddf5; border-bottom-color: var(--link-color); }
+  .link-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  /* ─── Shared: Comment Text ─── */
+  .comment-text {
+    user-select: text; cursor: text;
+    font-size: 14px; line-height: 1.55; color: var(--sp-text); word-break: break-word;
+  }
+
+  /* ─── Shared: Like / Delete ─── */
+  .like-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: none; background: none; color: var(--sp-text-tertiary);
+    font-size: 12px; cursor: pointer; padding: 3px 6px;
+    border-radius: 3px; transition: all 0.15s; font-family: inherit;
+  }
+  .like-btn:hover { background: var(--sp-bg-hover); color: var(--sp-text-secondary); }
+  .like-btn.liked { color: var(--sp-danger); }
+  .like-btn.liked:hover { background: #fde7e8; }
+  .like-btn svg { width: 14px; height: 14px; }
+
+  .delete-btn {
+    display: inline-flex; align-items: center;
+    border: none; background: none; color: var(--sp-text-tertiary);
+    cursor: pointer; padding: 3px 6px; border-radius: 3px;
+    transition: all 0.15s; opacity: 0;
+  }
+  .delete-btn:hover { background: #fde7e8; color: var(--sp-danger); }
+  .delete-btn svg { width: 13px; height: 13px; }
+
+  /* ─── Shared: Search Bar ─── */
+  .search-bar {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--sp-border);
+    position: relative;
+  }
+  .search-bar input {
+    width: 100%;
+    border: 1px solid var(--sp-border-strong);
+    border-radius: var(--sp-radius);
+    padding: 7px 12px 7px 32px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    color: var(--sp-text);
+    transition: border-color 0.15s;
+    background: var(--sp-bg-subtle);
+  }
+  .search-bar input:focus { border-color: var(--sp-primary); background: var(--sp-bg); }
+  .search-bar input::placeholder { color: var(--sp-text-tertiary); }
+  .search-bar .search-icon {
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    color: var(--sp-text-tertiary);
+    pointer-events: none;
+  }
+  .search-bar .search-clear {
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px; height: 20px;
+    border: none; background: none;
+    color: var(--sp-text-tertiary);
+    cursor: pointer;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+  }
+  .search-bar .search-clear:hover { background: var(--sp-bg-hover); color: var(--sp-text); }
+  .search-bar .search-clear.visible { display: flex; }
+  .search-results-count {
+    font-size: 11px;
+    color: var(--sp-text-tertiary);
+    padding: 4px 0 0 32px;
+    display: none;
+  }
+  .search-results-count.visible { display: block; }
+  .search-highlight { background: #fff2cc; border-radius: 2px; padding: 0 1px; }
+
+  /* ─── Shared: Input Area ─── */
+  .comment-input-wrap {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--sp-border);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    position: relative;
+  }
+  .comment-input {
+    flex: 1;
+    border: 1px solid var(--sp-border-strong);
+    border-radius: var(--sp-radius);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    color: var(--sp-text);
+    transition: border-color 0.15s;
+    min-height: 36px;
+    max-height: 120px;
+    line-height: 1.45;
+  }
+  .comment-input:focus { border-color: var(--sp-primary); }
+  .comment-input::placeholder { color: var(--sp-text-tertiary); }
+  .post-btn {
+    padding: 7px 20px;
+    background: var(--sp-primary);
+    color: white;
+    border: none;
+    border-radius: var(--sp-radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+    height: 36px;
+  }
+  .post-btn:hover { background: var(--sp-primary-hover); }
+
+  .timestamp { font-size: 12px; color: var(--sp-text-tertiary); white-space: nowrap; }
+  .username { font-size: 13px; font-weight: 600; color: var(--sp-text); }
+
+  /* ─── Pagination ─── */
+  .pagination-bar {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 20px; border-top: 1px solid var(--sp-border);
+    font-size: 12px; color: var(--sp-text-tertiary);
+  }
+  .pagination-bar button {
+    padding: 4px 10px;
+    border: 1px solid var(--sp-border-strong);
+    background: var(--sp-bg);
+    border-radius: var(--sp-radius);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--sp-primary);
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .pagination-bar button:hover { background: var(--sp-primary-subtle); }
+  .pagination-bar button:disabled { opacity: 0.4; cursor: default; }
+
+  /* ─── Suggestion Dropdown ─── */
+  .suggestion-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50px;
+    width: 260px;
+    background: var(--sp-bg);
+    border: 1px solid var(--sp-border-strong);
+    border-radius: var(--sp-radius);
+    box-shadow: var(--sp-shadow-lg);
+    z-index: 50;
+    overflow: hidden;
+    display: none;
+  }
+  .suggestion-dropdown.visible { display: block; }
+  .suggestion-header {
+    padding: 6px 12px;
+    font-size: 11px; font-weight: 600;
+    color: var(--sp-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: var(--sp-bg-subtle);
+    border-bottom: 1px solid var(--sp-border);
+  }
+  .suggestion-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; cursor: pointer; transition: background 0.1s;
+  }
+  .suggestion-item:hover, .suggestion-item.active { background: var(--sp-primary-subtle); }
+  .suggestion-item .suggestion-email { font-size: 11px; color: var(--sp-text-tertiary); }
+
+  /* ════════════════════════════════════════════
+     LAYOUT 1: CLASSIC
+     ════════════════════════════════════════════ */
+  .classic-comment {
+    display: flex; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--sp-border);
+    transition: background 0.1s; position: relative;
+  }
+  .classic-comment:hover { background: var(--sp-bg-subtle); }
+  .classic-comment:hover .delete-btn { opacity: 1; }
+  .classic-comment:last-child { border-bottom: none; }
+  .classic-comment-body { flex: 1; min-width: 0; }
+  .classic-comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .classic-comment-actions { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
+
+  /* ════════════════════════════════════════════
+     LAYOUT 2: CHAT
+     ════════════════════════════════════════════ */
+  .chat-comments { padding: 16px 20px; }
+  .chat-day-divider {
+    display: flex; align-items: center; gap: 12px; margin: 16px 0 12px;
+  }
+  .chat-day-divider::before, .chat-day-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--sp-border);
+  }
+  .chat-day-divider span {
+    font-size: 11px; font-weight: 600; color: var(--sp-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .chat-message {
+    display: flex; gap: 10px; margin-bottom: 12px; max-width: 85%; position: relative;
+  }
+  .chat-message:hover .delete-btn { opacity: 1; }
+  .chat-message.self { margin-left: auto; flex-direction: row-reverse; }
+  .chat-bubble { padding: 10px 14px; border-radius: 12px; min-width: 0; }
+  .chat-message:not(.self) .chat-bubble { background: var(--chat-bubble-other); border-top-left-radius: 4px; }
+  .chat-message.self .chat-bubble { background: var(--chat-bubble-self); border-top-right-radius: 4px; }
+  .chat-bubble-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .chat-bubble .comment-text { font-size: 13px; }
+  .chat-bubble-footer { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .chat-bubble-footer .timestamp { font-size: 11px; }
+  .chat-reactions { display: flex; gap: 4px; margin-top: 4px; }
+  .chat-reaction {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px; border-radius: 12px;
+    background: var(--sp-bg); border: 1px solid var(--sp-border);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .chat-reaction:hover { border-color: var(--sp-primary); background: var(--sp-primary-subtle); }
+  .chat-reaction.active { border-color: var(--sp-primary); background: var(--sp-primary-light); }
+  .chat-reaction-count { font-size: 11px; color: var(--sp-text-secondary); }
+
+  .chat-input-wrap {
+    border-top: 1px solid var(--sp-border);
+    padding: 12px 20px; display: flex; gap: 8px; align-items: flex-end;
+  }
+  .chat-input {
+    flex: 1; border: 1px solid var(--sp-border-strong); border-radius: 20px;
+    padding: 8px 16px; font-size: 13px; font-family: inherit;
+    outline: none; color: var(--sp-text); transition: border-color 0.15s;
+  }
+  .chat-input:focus { border-color: var(--sp-primary); }
+  .chat-input::placeholder { color: var(--sp-text-tertiary); }
+  .chat-send-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--sp-primary); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .chat-send-btn:hover { background: var(--sp-primary-hover); transform: scale(1.05); }
+  .chat-send-btn svg { width: 16px; height: 16px; fill: white; }
+
+  /* ════════════════════════════════════════════
+     LAYOUT 3: COMPACT
+     ════════════════════════════════════════════ */
+  .compact-comment {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 20px; border-bottom: 1px solid var(--sp-border);
+    cursor: pointer; transition: background 0.1s; position: relative;
+  }
+  .compact-comment:hover { background: var(--sp-bg-subtle); }
+  .compact-comment:hover .delete-btn { opacity: 1; }
+  .compact-comment-text {
+    flex: 1; min-width: 0; font-size: 13px; color: var(--sp-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    user-select: text; cursor: text; line-height: 1.4;
+  }
+  .compact-comment-text .user-persona, .compact-comment-text .link-chip {
+    font-size: 12px; padding: 0 5px;
+  }
+  .compact-meta {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .compact-username { font-size: 12px; font-weight: 600; color: var(--sp-text-secondary); white-space: nowrap; }
+  .compact-timestamp { font-size: 11px; color: var(--sp-text-tertiary); white-space: nowrap; }
+  .compact-expanded {
+    display: none; padding: 8px 20px 12px 52px;
+    border-bottom: 1px solid var(--sp-border);
+    background: var(--sp-bg-subtle); animation: expandIn 0.15s ease;
+  }
+  .compact-expanded.visible { display: block; }
+  @keyframes expandIn { from { opacity: 0; } to { opacity: 1; } }
+  .compact-expanded .comment-text { font-size: 13px; margin-bottom: 6px; }
+  .compact-expanded-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+  .compact-input-wrap {
+    display: flex; gap: 8px; padding: 8px 20px;
+    border-bottom: 1px solid var(--sp-border); align-items: center;
+  }
+  .compact-input {
+    flex: 1; border: 1px solid var(--sp-border-strong); border-radius: var(--sp-radius);
+    padding: 6px 10px; font-size: 12px; font-family: inherit;
+    outline: none; color: var(--sp-text);
+  }
+  .compact-input:focus { border-color: var(--sp-primary); }
+  .compact-post-btn {
+    padding: 5px 14px; background: var(--sp-primary); color: white;
+    border: none; border-radius: var(--sp-radius);
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+
+  /* ════════════════════════════════════════════
+     LAYOUT 4: TIMELINE
+     ════════════════════════════════════════════ */
+  .timeline-comments { padding: 20px 20px 0; }
+  .timeline-item { display: flex; gap: 0; position: relative; padding-bottom: 0; }
+  .timeline-rail {
+    display: flex; flex-direction: column; align-items: center;
+    width: 44px; flex-shrink: 0; position: relative;
+  }
+  .timeline-rail::after {
+    content: ''; position: absolute; top: 40px; bottom: 0; left: 50%;
+    width: 2px; background: var(--timeline-line); transform: translateX(-50%);
+  }
+  .timeline-item:last-child .timeline-rail::after { display: none; }
+  .timeline-content { flex: 1; min-width: 0; padding: 0 0 20px 12px; position: relative; }
+  .timeline-content:hover .delete-btn { opacity: 1; }
+  .timeline-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .timeline-comment-body {
+    background: var(--sp-bg-subtle); border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius); padding: 10px 14px; transition: border-color 0.15s;
+  }
+  .timeline-comment-body:hover { border-color: var(--sp-border-strong); }
+  .timeline-system .timeline-comment-body {
+    background: var(--system-bg); border-color: var(--system-border); border-left: 3px solid var(--system-border);
+  }
+  .timeline-system .timeline-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--system-bg); border: 2px solid var(--system-border);
+    display: flex; align-items: center; justify-content: center; z-index: 1;
+  }
+  .timeline-system .timeline-icon svg { width: 16px; height: 16px; fill: #946200; }
+  .timeline-actions { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
+
+  .timeline-input-wrap { display: flex; gap: 0; padding: 0 0 20px; }
+  .timeline-input-rail {
+    display: flex; flex-direction: column; align-items: center; width: 44px; flex-shrink: 0;
+  }
+  .timeline-input-content { flex: 1; padding-left: 12px; }
+  .timeline-input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .timeline-input-content .comment-input { flex: 1; }
+
+  /* ─── Document Link Modal ─── */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 1000;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-content {
+    background: var(--sp-bg); border-radius: var(--sp-radius-lg);
+    box-shadow: var(--sp-shadow-lg); width: 560px; max-width: 90vw;
+    overflow: hidden; animation: modalSlideIn 0.2s ease;
+  }
+  @keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--sp-border);
+  }
+  .modal-header h3 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .modal-close {
+    width: 32px; height: 32px; border: none; background: none; border-radius: var(--sp-radius);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--sp-text-secondary); transition: all 0.1s;
+  }
+  .modal-close:hover { background: var(--sp-bg-hover); }
+  .modal-close svg { width: 16px; height: 16px; }
+
+  .modal-body { padding: 20px; }
+  .modal-doc-info {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--sp-bg-subtle);
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius);
+    margin-bottom: 16px;
+  }
+  .modal-file-icon {
+    width: 44px; height: 44px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .modal-file-icon.excel { background: linear-gradient(135deg, #107c41, #33a06f); }
+  .modal-file-icon.pptx { background: linear-gradient(135deg, #d04423, #e36c4f); }
+  .modal-file-icon.word { background: linear-gradient(135deg, #185abd, #4a86d8); }
+  .modal-file-icon.pdf { background: linear-gradient(135deg, #d13438, #e36467); }
+  .modal-doc-details { flex: 1; min-width: 0; }
+  .modal-doc-name { font-size: 14px; font-weight: 600; color: var(--sp-text); margin-bottom: 2px; }
+  .modal-doc-meta { font-size: 12px; color: var(--sp-text-secondary); }
+
+  .modal-url-section { margin-bottom: 4px; }
+  .modal-url-label {
+    font-size: 12px; font-weight: 600; color: var(--sp-text-secondary);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .modal-url-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--sp-bg-subtle);
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius);
+    padding: 0;
+    overflow: hidden;
+  }
+  .modal-url-text {
+    flex: 1; padding: 9px 12px;
+    font-size: 13px; color: var(--sp-primary);
+    font-family: 'Consolas', 'Courier New', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    user-select: all; cursor: text;
+  }
+  .modal-copy-btn {
+    padding: 9px 14px;
+    background: var(--sp-bg);
+    border: none;
+    border-left: 1px solid var(--sp-border);
+    font-size: 12px; font-weight: 600;
+    color: var(--sp-primary);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .modal-copy-btn:hover { background: var(--sp-primary-subtle); }
+  .modal-copy-btn.copied { color: var(--sp-success); }
+  .modal-copy-btn svg { width: 14px; height: 14px; }
+
+  /* ─── Grid ─── */
+  .layouts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 1100px) { .layouts-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 768px) {
+    .page-header { padding: 16px 20px; }
+    .layouts-container { padding: 20px; }
+    .layout-switcher { flex-wrap: wrap; }
+    .chat-message { max-width: 92%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG Symbols -->
+<svg style="display:none">
+  <symbol id="icon-heart" viewBox="0 0 16 16"><path d="M8 14s-5.5-3.5-5.5-7A3.5 3.5 0 018 4a3.5 3.5 0 015.5 3c0 3.5-5.5 7-5.5 7z"/></symbol>
+  <symbol id="icon-heart-filled" viewBox="0 0 16 16"><path fill="currentColor" d="M8 14s-5.5-3.5-5.5-7A3.5 3.5 0 018 4a3.5 3.5 0 015.5 3c0 3.5-5.5 7-5.5 7z"/></symbol>
+  <symbol id="icon-delete" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4"/></symbol>
+  <symbol id="icon-send" viewBox="0 0 16 16"><path d="M1 1l14 7-14 7V9.5L10 8 1 6.5z"/></symbol>
+  <symbol id="icon-doc" viewBox="0 0 16 16"><path fill="currentColor" d="M4 1h5l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 0v4h4"/></symbol>
+  <symbol id="icon-close" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M4 4l8 8M12 4l-8 8"/></symbol>
+  <symbol id="icon-system" viewBox="0 0 16 16"><path fill="currentColor" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM8.75 8a.75.75 0 01-1.5 0V4.5a.75.75 0 011.5 0V8z"/></symbol>
+  <symbol id="icon-search" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M11.5 11.5L14 14M7 12A5 5 0 107 2a5 5 0 000 10z"/></symbol>
+  <symbol id="icon-copy" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" d="M5 5V2.5A1.5 1.5 0 016.5 1h7A1.5 1.5 0 0115 2.5v7a1.5 1.5 0 01-1.5 1.5H11M1 6.5A1.5 1.5 0 012.5 5h7A1.5 1.5 0 0111 6.5v7a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 011 13.5z"/></symbol>
+  <symbol id="icon-check" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 8.5l3.5 3.5 6.5-8"/></symbol>
+</svg>
+
+<!-- Header -->
+<header class="page-header">
+  <h1>Comments Component — Layout Variants</h1>
+  <p>SPFx Toolkit · Input first, search, @mentions with UserPersona, #links with URL dialog</p>
+  <div class="layout-switcher">
+    <button class="layout-btn active" data-layout="all" onclick="switchLayout('all')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      All
+    </button>
+    <button class="layout-btn" data-layout="classic" onclick="switchLayout('classic')">Classic</button>
+    <button class="layout-btn" data-layout="chat" onclick="switchLayout('chat')">Chat</button>
+    <button class="layout-btn" data-layout="compact" onclick="switchLayout('compact')">Compact</button>
+    <button class="layout-btn" data-layout="timeline" onclick="switchLayout('timeline')">Timeline</button>
+  </div>
+</header>
+
+<div class="layouts-container">
+  <div class="layouts-grid" id="layoutsGrid">
+
+    <!-- ════════════ CLASSIC ════════════ -->
+    <div class="layout-card visible" data-layout="classic">
+      <div class="layout-card-header">
+        <h2>Classic <span class="layout-badge badge-default">Default</span></h2>
+        <div class="feature-tags">
+          <span class="feature-tag">@mentions</span>
+          <span class="feature-tag">#links</span>
+          <span class="feature-tag">search</span>
+        </div>
+      </div>
+      <div class="layout-card-body">
+
+        <!-- INPUT FIRST -->
+        <div class="comment-input-wrap" style="position:relative;">
+          <div class="avatar avatar-sm av-orange">RK</div>
+          <textarea class="comment-input" rows="1" placeholder="Write a comment... @ to mention, # to link" onfocus="showSuggestion('mentionSuggestion1')" onblur="hideSuggestion('mentionSuggestion1')"></textarea>
+          <button class="post-btn">Post</button>
+          <div class="suggestion-dropdown" id="mentionSuggestion1">
+            <div class="suggestion-header">Preferred</div>
+            <div class="suggestion-item active">
+              <div class="avatar avatar-sm av-blue">SM</div>
+              <div><div class="username">Sarah Mitchell</div><div class="suggestion-email">sarah.mitchell@contoso.com</div></div>
+            </div>
+            <div class="suggestion-item">
+              <div class="avatar avatar-sm av-teal">JD</div>
+              <div><div class="username">John Doe</div><div class="suggestion-email">john.doe@contoso.com</div></div>
+            </div>
+            <div class="suggestion-header">Directory</div>
+            <div class="suggestion-item">
+              <div class="avatar avatar-sm av-green">AJ</div>
+              <div><div class="username">Alex Johnson</div><div class="suggestion-email">alex.johnson@contoso.com</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="search-bar">
+          <svg class="search-icon"><use href="#icon-search"/></svg>
+          <input placeholder="Search comments..." oninput="handleSearch(this, 'classicComments')" />
+          <button class="search-clear" onclick="clearSearch(this)"><svg style="width:12px;height:12px"><use href="#icon-close"/></svg></button>
+          <div class="search-results-count"></div>
+        </div>
+
+        <!-- COMMENTS -->
+        <div id="classicComments">
+          <div class="classic-comment" data-searchable>
+            <div class="avatar av-blue">SM</div>
+            <div class="classic-comment-body">
+              <div class="classic-comment-header">
+                <span class="username">Sarah Mitchell</span>
+                <span class="timestamp">Mar 18, 2026 · 2:45 PM</span>
+              </div>
+              <div class="comment-text">
+                <span class="user-persona">
+                  <span class="persona-avatar av-teal">JD</span>
+                  <span class="persona-name">@John Doe</span>
+                  <span class="persona-tooltip">
+                    <span class="tooltip-avatar av-teal">JD</span>
+                    <span class="tooltip-info">
+                      <span class="tooltip-name">John Doe</span>
+                      <span class="tooltip-title">Senior Financial Analyst</span>
+                      <span class="tooltip-email">john.doe@contoso.com</span>
+                    </span>
+                  </span>
+                </span>
+                can you review the updated figures in
+                <a class="link-chip" href="#" onclick="openModal(event, 'Budget 2026.xlsx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx', 'excel')">
+                  <svg><use href="#icon-doc"/></svg>Budget 2026.xlsx
+                </a>
+                before the quarterly meeting? The projections for Q3 &amp; Q4 need a second look.
+              </div>
+              <div class="classic-comment-actions">
+                <button class="like-btn liked" onclick="toggleLike(this)"><svg><use href="#icon-heart-filled"/></svg><span>3</span></button>
+                <button class="delete-btn"><svg><use href="#icon-delete"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="classic-comment" data-searchable>
+            <div class="avatar av-teal">JD</div>
+            <div class="classic-comment-body">
+              <div class="classic-comment-header">
+                <span class="username">John Doe</span>
+                <span class="timestamp">Mar 18, 2026 · 3:12 PM</span>
+              </div>
+              <div class="comment-text">
+                Reviewed the numbers — Q3 looks solid. I've added my notes to the "Assumptions" tab. Also looped in
+                <span class="user-persona">
+                  <span class="persona-avatar av-purple">MG</span>
+                  <span class="persona-name">@Maria Garcia</span>
+                  <span class="persona-tooltip">
+                    <span class="tooltip-avatar av-purple">MG</span>
+                    <span class="tooltip-info">
+                      <span class="tooltip-name">Maria Garcia</span>
+                      <span class="tooltip-title">APAC Regional Director</span>
+                      <span class="tooltip-email">maria.garcia@contoso.com</span>
+                    </span>
+                  </span>
+                </span>
+                since she owns the APAC forecast.
+              </div>
+              <div class="classic-comment-actions">
+                <button class="like-btn" onclick="toggleLike(this)"><svg><use href="#icon-heart"/></svg><span>1</span></button>
+                <button class="delete-btn"><svg><use href="#icon-delete"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="classic-comment" data-searchable>
+            <div class="avatar av-purple">MG</div>
+            <div class="classic-comment-body">
+              <div class="classic-comment-header">
+                <span class="username">Maria Garcia</span>
+                <span class="timestamp">Mar 18, 2026 · 4:01 PM</span>
+              </div>
+              <div class="comment-text">
+                Thanks for tagging me! I'll update the APAC section by EOD. Here's the latest data:
+                <a class="link-chip" href="#" onclick="openModal(event, 'APAC-Revenue-Q3.pptx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/APAC-Revenue-Q3.pptx', 'pptx')">
+                  <svg><use href="#icon-doc"/></svg>APAC-Revenue-Q3.pptx
+                </a>
+              </div>
+              <div class="classic-comment-actions">
+                <button class="like-btn" onclick="toggleLike(this)"><svg><use href="#icon-heart"/></svg><span>0</span></button>
+                <button class="delete-btn"><svg><use href="#icon-delete"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pagination-bar">
+          <button disabled>&laquo; Prev</button>
+          <span>Showing 3 of 12 comments</span>
+          <button>Next &raquo;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ CHAT ════════════ -->
+    <div class="layout-card visible" data-layout="chat">
+      <div class="layout-card-header">
+        <h2>Chat <span class="layout-badge badge-modern">Modern</span></h2>
+        <div class="feature-tags">
+          <span class="feature-tag">bubbles</span>
+          <span class="feature-tag">reactions</span>
+          <span class="feature-tag">search</span>
+        </div>
+      </div>
+      <div class="layout-card-body">
+
+        <!-- INPUT FIRST -->
+        <div class="chat-input-wrap" style="border-top:none; border-bottom:1px solid var(--sp-border);">
+          <input class="chat-input" placeholder="Type a message... @ to mention, # to link" />
+          <button class="chat-send-btn"><svg><use href="#icon-send"/></svg></button>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="search-bar">
+          <svg class="search-icon"><use href="#icon-search"/></svg>
+          <input placeholder="Search messages..." oninput="handleSearch(this, 'chatComments')" />
+          <button class="search-clear" onclick="clearSearch(this)"><svg style="width:12px;height:12px"><use href="#icon-close"/></svg></button>
+          <div class="search-results-count"></div>
+        </div>
+
+        <div class="chat-comments" id="chatComments">
+          <div class="chat-day-divider"><span>Today</span></div>
+
+          <div class="chat-message" data-searchable>
+            <div class="avatar avatar-sm av-blue">SM</div>
+            <div class="chat-bubble">
+              <div class="chat-bubble-header"><span class="username">Sarah Mitchell</span></div>
+              <div class="comment-text">
+                <span class="user-persona">
+                  <span class="persona-avatar av-teal">JD</span>
+                  <span class="persona-name">@John Doe</span>
+                  <span class="persona-tooltip">
+                    <span class="tooltip-avatar av-teal">JD</span>
+                    <span class="tooltip-info"><span class="tooltip-name">John Doe</span><span class="tooltip-title">Senior Financial Analyst</span><span class="tooltip-email">john.doe@contoso.com</span></span>
+                  </span>
+                </span>
+                can you review
+                <a class="link-chip" href="#" onclick="openModal(event, 'Budget 2026.xlsx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx', 'excel')">
+                  <svg><use href="#icon-doc"/></svg>Budget 2026.xlsx
+                </a>
+                before the quarterly meeting?
+              </div>
+              <div class="chat-bubble-footer"><span class="timestamp">2:45 PM</span></div>
+              <div class="chat-reactions">
+                <span class="chat-reaction active" onclick="this.classList.toggle('active')">&#128077; <span class="chat-reaction-count">2</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-message self" data-searchable>
+            <div class="avatar avatar-sm av-orange">RK</div>
+            <div class="chat-bubble">
+              <div class="comment-text">
+                On it! The Q3 &amp; Q4 projections look different from what
+                <span class="user-persona">
+                  <span class="persona-avatar av-purple">MG</span>
+                  <span class="persona-name">@Maria Garcia</span>
+                  <span class="persona-tooltip">
+                    <span class="tooltip-avatar av-purple">MG</span>
+                    <span class="tooltip-info"><span class="tooltip-name">Maria Garcia</span><span class="tooltip-title">APAC Regional Director</span><span class="tooltip-email">maria.garcia@contoso.com</span></span>
+                  </span>
+                </span>
+                shared last week.
+              </div>
+              <div class="chat-bubble-footer">
+                <span class="timestamp">3:12 PM</span>
+                <span style="font-size:11px; color: var(--sp-success);">&#10003;</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-message" data-searchable>
+            <div class="avatar avatar-sm av-purple">MG</div>
+            <div class="chat-bubble">
+              <div class="chat-bubble-header"><span class="username">Maria Garcia</span></div>
+              <div class="comment-text">
+                Updated data is in
+                <a class="link-chip" href="#" onclick="openModal(event, 'APAC-Revenue-Q3.pptx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/APAC-Revenue-Q3.pptx', 'pptx')">
+                  <svg><use href="#icon-doc"/></svg>APAC-Revenue-Q3.pptx
+                </a>
+                — should reconcile the differences.
+              </div>
+              <div class="chat-bubble-footer"><span class="timestamp">4:01 PM</span></div>
+              <div class="chat-reactions">
+                <span class="chat-reaction active" onclick="this.classList.toggle('active')">&#10084;&#65039; <span class="chat-reaction-count">3</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ COMPACT ════════════ -->
+    <div class="layout-card visible" data-layout="compact">
+      <div class="layout-card-header">
+        <h2>Compact <span class="layout-badge badge-dense">Dense</span></h2>
+        <div class="feature-tags">
+          <span class="feature-tag">expandable</span>
+          <span class="feature-tag">side panels</span>
+          <span class="feature-tag">search</span>
+        </div>
+      </div>
+      <div class="layout-card-body">
+
+        <!-- INPUT FIRST -->
+        <div class="compact-input-wrap">
+          <div class="avatar avatar-xs av-orange">RK</div>
+          <input class="compact-input" placeholder="Add a comment..." />
+          <button class="compact-post-btn">Post</button>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="search-bar">
+          <svg class="search-icon"><use href="#icon-search"/></svg>
+          <input placeholder="Search..." oninput="handleSearch(this, 'compactComments')" />
+          <button class="search-clear" onclick="clearSearch(this)"><svg style="width:12px;height:12px"><use href="#icon-close"/></svg></button>
+          <div class="search-results-count"></div>
+        </div>
+
+        <div id="compactComments">
+          <div class="compact-comment" onclick="toggleCompact(this)" data-searchable>
+            <div class="avatar avatar-sm av-blue">SM</div>
+            <span class="compact-comment-text">
+              <span class="user-persona"><span class="persona-avatar av-teal" style="width:14px;height:14px;font-size:7px">JD</span><span class="persona-name">@John Doe</span></span>
+              can you review the updated figures in <span class="link-chip" style="font-size:12px" onclick="openModal(event, 'Budget 2026.xlsx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx', 'excel')"><svg style="width:11px;height:11px"><use href="#icon-doc"/></svg>Budget 2026.xlsx</span> before the quarterly...
+            </span>
+            <div class="compact-meta">
+              <span class="compact-username">Sarah M.</span>
+              <span class="compact-timestamp">2h</span>
+              <button class="like-btn liked" style="font-size:11px" onclick="event.stopPropagation(); toggleLike(this)"><svg style="width:12px;height:12px"><use href="#icon-heart-filled"/></svg><span>3</span></button>
+            </div>
+          </div>
+          <div class="compact-expanded" id="compactExp1">
+            <div class="comment-text">
+              <span class="user-persona"><span class="persona-avatar av-teal">JD</span><span class="persona-name">@John Doe</span></span>
+              can you review the updated figures in
+              <a class="link-chip" href="#" onclick="openModal(event, 'Budget 2026.xlsx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx', 'excel')"><svg><use href="#icon-doc"/></svg>Budget 2026.xlsx</a>
+              before the quarterly meeting? The projections for Q3 &amp; Q4 need a second look.
+            </div>
+            <div class="compact-expanded-actions">
+              <span class="timestamp">Mar 18, 2026 · 2:45 PM</span>
+              <button class="delete-btn" style="opacity:1"><svg><use href="#icon-delete"/></svg></button>
+            </div>
+          </div>
+
+          <div class="compact-comment" onclick="toggleCompact(this)" data-searchable>
+            <div class="avatar avatar-sm av-teal">JD</div>
+            <span class="compact-comment-text">Reviewed the numbers — Q3 looks solid. Added notes to "Assumptions" tab. Looped in <span class="user-persona"><span class="persona-avatar av-purple" style="width:14px;height:14px;font-size:7px">MG</span><span class="persona-name">@Maria Garcia</span></span>...</span>
+            <div class="compact-meta">
+              <span class="compact-username">John D.</span>
+              <span class="compact-timestamp">1h</span>
+              <button class="like-btn" style="font-size:11px" onclick="event.stopPropagation(); toggleLike(this)"><svg style="width:12px;height:12px"><use href="#icon-heart"/></svg><span>1</span></button>
+            </div>
+          </div>
+          <div class="compact-expanded">
+            <div class="comment-text">Reviewed the numbers — Q3 looks solid. I've added my notes to the "Assumptions" tab. Also looped in <span class="user-persona"><span class="persona-avatar av-purple">MG</span><span class="persona-name">@Maria Garcia</span></span> since she owns the APAC forecast.</div>
+            <div class="compact-expanded-actions"><span class="timestamp">Mar 18, 2026 · 3:12 PM</span><button class="delete-btn" style="opacity:1"><svg><use href="#icon-delete"/></svg></button></div>
+          </div>
+
+          <div class="compact-comment" onclick="toggleCompact(this)" data-searchable>
+            <div class="avatar avatar-sm av-purple">MG</div>
+            <span class="compact-comment-text">Thanks for tagging me! Updated APAC section. Latest: <span class="link-chip" style="font-size:12px" onclick="openModal(event, 'APAC-Revenue-Q3.pptx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/APAC-Revenue-Q3.pptx', 'pptx')"><svg style="width:11px;height:11px"><use href="#icon-doc"/></svg>APAC-Revenue-Q3.pptx</span></span>
+            <div class="compact-meta">
+              <span class="compact-username">Maria G.</span>
+              <span class="compact-timestamp">28m</span>
+              <button class="like-btn" style="font-size:11px" onclick="event.stopPropagation(); toggleLike(this)"><svg style="width:12px;height:12px"><use href="#icon-heart"/></svg><span>0</span></button>
+            </div>
+          </div>
+          <div class="compact-expanded">
+            <div class="comment-text">Thanks for tagging me! I'll update the APAC section by EOD. Here's the latest: <a class="link-chip" href="#" onclick="openModal(event, 'APAC-Revenue-Q3.pptx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/APAC-Revenue-Q3.pptx', 'pptx')"><svg><use href="#icon-doc"/></svg>APAC-Revenue-Q3.pptx</a></div>
+            <div class="compact-expanded-actions"><span class="timestamp">Mar 18, 2026 · 4:01 PM</span><button class="delete-btn" style="opacity:1"><svg><use href="#icon-delete"/></svg></button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ TIMELINE ════════════ -->
+    <div class="layout-card visible" data-layout="timeline">
+      <div class="layout-card-header">
+        <h2>Timeline <span class="layout-badge badge-audit">Audit</span></h2>
+        <div class="feature-tags">
+          <span class="feature-tag">audit trail</span>
+          <span class="feature-tag">system events</span>
+          <span class="feature-tag">search</span>
+        </div>
+      </div>
+      <div class="layout-card-body">
+
+        <!-- INPUT FIRST -->
+        <div style="padding: 12px 20px 0 20px; border-bottom: 1px solid var(--sp-border); padding-bottom: 12px;">
+          <div style="display:flex; gap:0;">
+            <div style="display:flex; flex-direction:column; align-items:center; width:44px; flex-shrink:0;">
+              <div class="avatar av-orange">RK</div>
+            </div>
+            <div style="flex:1; padding-left:12px;">
+              <div style="display:flex; gap:8px; align-items:flex-end;">
+                <textarea class="comment-input" rows="1" placeholder="Add to the timeline..." style="flex:1"></textarea>
+                <button class="post-btn">Post</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEARCH -->
+        <div class="search-bar">
+          <svg class="search-icon"><use href="#icon-search"/></svg>
+          <input placeholder="Search timeline..." oninput="handleSearch(this, 'timelineComments')" />
+          <button class="search-clear" onclick="clearSearch(this)"><svg style="width:12px;height:12px"><use href="#icon-close"/></svg></button>
+          <div class="search-results-count"></div>
+        </div>
+
+        <div class="timeline-comments" id="timelineComments">
+          <!-- System -->
+          <div class="timeline-item timeline-system" data-searchable>
+            <div class="timeline-rail">
+              <div class="timeline-icon"><svg><use href="#icon-system"/></svg></div>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="username" style="color:#946200;">System</span>
+                <span class="timestamp">Mar 18, 2026 · 2:30 PM</span>
+              </div>
+              <div class="timeline-comment-body">
+                <div class="comment-text" style="font-size:13px;">Item status changed from <strong>Draft</strong> to <strong>In Review</strong>. Approval workflow initiated.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- User 1 -->
+          <div class="timeline-item" data-searchable>
+            <div class="timeline-rail"><div class="avatar av-blue">SM</div></div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="username">Sarah Mitchell</span>
+                <span class="timestamp">Mar 18, 2026 · 2:45 PM</span>
+              </div>
+              <div class="timeline-comment-body">
+                <div class="comment-text">
+                  <span class="user-persona">
+                    <span class="persona-avatar av-teal">JD</span>
+                    <span class="persona-name">@John Doe</span>
+                    <span class="persona-tooltip">
+                      <span class="tooltip-avatar av-teal">JD</span>
+                      <span class="tooltip-info"><span class="tooltip-name">John Doe</span><span class="tooltip-title">Senior Financial Analyst</span><span class="tooltip-email">john.doe@contoso.com</span></span>
+                    </span>
+                  </span>
+                  can you review
+                  <a class="link-chip" href="#" onclick="openModal(event, 'Budget 2026.xlsx', 'https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx', 'excel')"><svg><use href="#icon-doc"/></svg>Budget 2026.xlsx</a>
+                  before the quarterly meeting?
+                </div>
+              </div>
+              <div class="timeline-actions">
+                <button class="like-btn liked" onclick="toggleLike(this)"><svg><use href="#icon-heart-filled"/></svg><span>3</span></button>
+                <button class="delete-btn"><svg><use href="#icon-delete"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- User 2 -->
+          <div class="timeline-item" data-searchable>
+            <div class="timeline-rail"><div class="avatar av-teal">JD</div></div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="username">John Doe</span>
+                <span class="timestamp">Mar 18, 2026 · 3:12 PM</span>
+              </div>
+              <div class="timeline-comment-body">
+                <div class="comment-text">
+                  Reviewed — Q3 solid. Added notes to "Assumptions". Looped in
+                  <span class="user-persona"><span class="persona-avatar av-purple">MG</span><span class="persona-name">@Maria Garcia</span></span>
+                  for APAC.
+                </div>
+              </div>
+              <div class="timeline-actions">
+                <button class="like-btn" onclick="toggleLike(this)"><svg><use href="#icon-heart"/></svg><span>1</span></button>
+                <button class="delete-btn"><svg><use href="#icon-delete"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Approval -->
+          <div class="timeline-item timeline-system" data-searchable>
+            <div class="timeline-rail">
+              <div class="timeline-icon"><svg style="fill:var(--sp-success)"><use href="#icon-system"/></svg></div>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="username" style="color:var(--sp-success);">System</span>
+                <span class="timestamp">Mar 18, 2026 · 5:00 PM</span>
+              </div>
+              <div class="timeline-comment-body" style="background:#e8f5e9; border-color:var(--sp-success); border-left:3px solid var(--sp-success);">
+                <div class="comment-text" style="font-size:13px; color:#1b5e20;">&#10003; Approved by <strong>John Doe</strong>. Status changed to <strong>Approved</strong>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Document URL Modal -->
+<div class="modal-overlay" id="docModal" onclick="closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <svg style="width:18px;height:18px;fill:var(--sp-text-secondary)"><use href="#icon-doc"/></svg>
+        <span id="modalTitle">Document</span>
+      </h3>
+      <button class="modal-close" onclick="closeModal()"><svg><use href="#icon-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-doc-info">
+        <div class="modal-file-icon excel" id="modalIcon">XL</div>
+        <div class="modal-doc-details">
+          <div class="modal-doc-name" id="modalDocName">Budget 2026.xlsx</div>
+          <div class="modal-doc-meta">Modified by Sarah Mitchell · Mar 18, 2026</div>
+        </div>
+      </div>
+      <div class="modal-url-section">
+        <div class="modal-url-label">Document URL</div>
+        <div class="modal-url-box">
+          <div class="modal-url-text" id="modalUrl">https://contoso.sharepoint.com/sites/finance/Shared%20Documents/Budget%202026.xlsx</div>
+          <button class="modal-copy-btn" onclick="copyUrl(this)">
+            <svg><use href="#icon-copy"/></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Layout Switcher
+  function switchLayout(layout) {
+    const grid = document.getElementById('layoutsGrid');
+    const cards = document.querySelectorAll('.layout-card');
+    const btns = document.querySelectorAll('.layout-btn');
+    btns.forEach(b => b.classList.toggle('active', b.dataset.layout === layout));
+    if (layout === 'all') {
+      grid.classList.add('layouts-grid');
+      cards.forEach(c => c.classList.add('visible'));
+    } else {
+      grid.classList.remove('layouts-grid');
+      cards.forEach(c => c.classList.toggle('visible', c.dataset.layout === layout));
+    }
+  }
+
+  // Like Toggle
+  function toggleLike(btn) {
+    event.stopPropagation();
+    const isLiked = btn.classList.toggle('liked');
+    const countEl = btn.querySelector('span');
+    const svgUse = btn.querySelector('use');
+    let count = parseInt(countEl.textContent);
+    countEl.textContent = isLiked ? count + 1 : Math.max(0, count - 1);
+    svgUse.setAttribute('href', isLiked ? '#icon-heart-filled' : '#icon-heart');
+  }
+
+  // Compact Expand/Collapse
+  function toggleCompact(el) {
+    const expanded = el.nextElementSibling;
+    if (expanded && expanded.classList.contains('compact-expanded')) {
+      const wasVisible = expanded.classList.contains('visible');
+      document.querySelectorAll('.compact-expanded').forEach(e => e.classList.remove('visible'));
+      if (!wasVisible) expanded.classList.add('visible');
+    }
+  }
+
+  // Search
+  function handleSearch(input, containerId) {
+    const query = input.value.trim().toLowerCase();
+    const container = document.getElementById(containerId);
+    const items = container.querySelectorAll('[data-searchable]');
+    const clearBtn = input.parentElement.querySelector('.search-clear');
+    const countEl = input.parentElement.querySelector('.search-results-count');
+
+    clearBtn.classList.toggle('visible', query.length > 0);
+
+    if (!query) {
+      items.forEach(item => {
+        item.style.display = '';
+        // Also show associated expanded panels for compact
+        if (item.nextElementSibling && item.nextElementSibling.classList.contains('compact-expanded')) {
+          item.nextElementSibling.style.display = '';
+        }
+      });
+      countEl.classList.remove('visible');
+      return;
+    }
+
+    let matchCount = 0;
+    items.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      const matches = text.includes(query);
+      item.style.display = matches ? '' : 'none';
+      if (matches) matchCount++;
+      // Hide expanded panels for hidden compact items
+      if (item.nextElementSibling && item.nextElementSibling.classList.contains('compact-expanded')) {
+        item.nextElementSibling.style.display = matches ? '' : 'none';
+        if (!matches) item.nextElementSibling.classList.remove('visible');
+      }
+    });
+
+    countEl.textContent = matchCount + ' of ' + items.length + ' comments match';
+    countEl.classList.add('visible');
+  }
+
+  function clearSearch(btn) {
+    const input = btn.parentElement.querySelector('input');
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  }
+
+  // Document Modal
+  function openModal(e, name, url, type) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('modalTitle').textContent = name;
+    document.getElementById('modalDocName').textContent = name;
+    document.getElementById('modalUrl').textContent = url;
+
+    const icon = document.getElementById('modalIcon');
+    icon.className = 'modal-file-icon';
+    if (type === 'excel') { icon.classList.add('excel'); icon.textContent = 'XL'; }
+    else if (type === 'pptx') { icon.classList.add('pptx'); icon.textContent = 'PP'; }
+    else if (type === 'word') { icon.classList.add('word'); icon.textContent = 'W'; }
+    else if (type === 'pdf') { icon.classList.add('pdf'); icon.textContent = 'PDF'; }
+    else { icon.classList.add('excel'); icon.textContent = '?'; }
+
+    document.getElementById('docModal').classList.add('visible');
+  }
+
+  function closeModal(e) {
+    if (!e || e.target === e.currentTarget || e.target.closest('.modal-close')) {
+      document.getElementById('docModal').classList.remove('visible');
+    }
+  }
+
+  function copyUrl(btn) {
+    const url = document.getElementById('modalUrl').textContent;
+    navigator.clipboard.writeText(url).then(() => {
+      const svgUse = btn.querySelector('use');
+      const label = btn.querySelector('span');
+      svgUse.setAttribute('href', '#icon-check');
+      label.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        svgUse.setAttribute('href', '#icon-copy');
+        label.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  // Keyboard: Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal({ target: { closest: () => true }, currentTarget: document.getElementById('docModal') });
+  });
+
+  // Suggestion dropdown
+  function showSuggestion(id) { setTimeout(() => document.getElementById(id).classList.add('visible'), 300); }
+  function hideSuggestion(id) { setTimeout(() => document.getElementById(id).classList.remove('visible'), 200); }
+
+  // Auto-expand first compact
+  document.addEventListener('DOMContentLoaded', () => {
+    const first = document.querySelector('#compactExp1');
+    if (first) first.classList.add('visible');
+  });
+</script>
+</body>
+</html>

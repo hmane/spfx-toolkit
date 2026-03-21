@@ -4,7 +4,6 @@ import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Panel, PanelType } from '@fluentui/react/lib/Panel';
-import { Separator } from '@fluentui/react/lib/Separator';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
@@ -136,6 +135,21 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
     setUserToRemove(null);
   }, []);
 
+  const renderSectionHeader = React.useCallback(
+    (iconName: string, label: string, count: number): React.ReactElement => (
+      <div className='manage-access-section-header'>
+        <div className='manage-access-section-title'>
+          <Icon iconName={iconName} className='manage-access-section-icon' />
+          <Text variant='small'>{label}</Text>
+        </div>
+        <Text variant='small' className='manage-access-section-count'>
+          {count}
+        </Text>
+      </div>
+    ),
+    []
+  );
+
   const renderPermissionOption = React.useCallback((option?: IDropdownOption): JSX.Element => {
     if (!option) return <div />;
 
@@ -169,11 +183,21 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
   const renderPermissionItem = React.useCallback(
     (permission: IPermissionPrincipal): React.ReactElement => {
       const canRemove = enabled && canManagePermissions && permission.canBeRemoved;
+      const sharingLinkMembersText =
+        permission.isSharingLink && permission.sharingLinkMembersCount
+          ? `${permission.sharingLinkMembersCount} ${
+              permission.sharingLinkMembersCount === 1 ? 'person' : 'people'
+            }`
+          : '';
 
       return (
         <div key={permission.id} className='manage-access-permission-item'>
           <div className='manage-access-permission-persona'>
-            {permission.isGroup ? (
+            {permission.isSharingLink ? (
+              <div className='manage-access-sharing-link-avatar' title={permission.displayName}>
+                <Icon iconName={permission.sharingLinkIconName || 'Link'} />
+              </div>
+            ) : permission.isGroup ? (
               <GroupViewer
                 groupId={Number.parseInt(permission.id, 10)}
                 groupName={permission.displayName}
@@ -192,9 +216,17 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
               {permission.email && (
                 <Text className='manage-access-permission-email'>{permission.email}</Text>
               )}
+              {sharingLinkMembersText && (
+                <Text className='manage-access-permission-email'>{sharingLinkMembersText}</Text>
+              )}
               {permission.inheritedFrom && (
                 <Text className='manage-access-permission-details'>
                   via {permission.inheritedFrom}
+                </Text>
+              )}
+              {permission.isSharingLink && permission.sharingLinkUrl && (
+                <Text className='manage-access-permission-details'>
+                  Sharing link
                 </Text>
               )}
             </div>
@@ -223,7 +255,7 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
             {canRemove && (
               <TooltipHost content='Remove access'>
                 <IconButton
-                  iconProps={{ iconName: 'Delete' }}
+                  iconProps={{ iconName: 'Blocked2' }}
                   onClick={() => handleRemoveClick(permission)}
                   className='manage-access-remove-button'
                   ariaLabel={`Remove access for ${permission.displayName}`}
@@ -256,10 +288,16 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
     );
   }, [showRemoveDialog, userToRemove, handleConfirmRemove, handleCancelRemove]);
 
-  const groups = permissions.filter(p => p.isGroup);
   const users = permissions.filter(p => !p.isGroup && !p.isSharingLink && !p.inheritedFrom);
-  const sharedUsers = permissions.filter(p => !p.isGroup && (p.isSharingLink || p.inheritedFrom));
+  const groups = permissions.filter(p => p.isGroup);
+  const links = permissions.filter(p => p.isSharingLink);
+  const sharedUsers = permissions.filter(p => !p.isGroup && !p.isSharingLink && !!p.inheritedFrom);
   const showPermissionDropdown = permissionTypes === 'both';
+  const totalVisibleEntries = users.length + groups.length + links.length + sharedUsers.length;
+  const panelDescription =
+    enabled && canManagePermissions
+      ? 'Review access, grant permissions, and remove entries that no longer need access.'
+      : 'Review the users, groups, and links that currently have access to this item.';
 
   return (
     <>
@@ -310,21 +348,57 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
           },
         }}
       >
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div
-            style={{
-              flex: 1,
-              padding: 'clamp(12px, 2.5vw, 20px)',
-              overflowY: 'auto',
-            }}
-          >
+        <div className='manage-access-panel-body'>
+          <div className='manage-access-panel-content'>
             <Stack tokens={{ childrenGap: 16 }}>
+              <div className='manage-access-panel-summary'>
+                <Text variant='medium' className='manage-access-panel-summary-title'>
+                  {enabled && canManagePermissions ? 'Manage item access' : 'Current access overview'}
+                </Text>
+                <Text variant='small' className='manage-access-panel-summary-description'>
+                  {panelDescription}
+                </Text>
+                {totalVisibleEntries > 0 && (
+                  <div className='manage-access-summary-chips'>
+                    {users.length > 0 && (
+                      <div className='manage-access-summary-chip'>
+                        <Icon iconName='Contact' />
+                        <span>{users.length} users</span>
+                      </div>
+                    )}
+                    {groups.length > 0 && (
+                      <div className='manage-access-summary-chip'>
+                        <Icon iconName='People' />
+                        <span>{groups.length} groups</span>
+                      </div>
+                    )}
+                    {links.length > 0 && (
+                      <div className='manage-access-summary-chip'>
+                        <Icon iconName='Link' />
+                        <span>{links.length} links</span>
+                      </div>
+                    )}
+                    {sharedUsers.length > 0 && (
+                      <div className='manage-access-summary-chip'>
+                        <Icon iconName='Share' />
+                        <span>{sharedUsers.length} inherited</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Only show grant access section if enabled */}
               {enabled && canManagePermissions && (
                 <Stack tokens={{ childrenGap: 12 }} className='manage-access-grant-section'>
-                  <Text variant='medium' styles={{ root: { fontWeight: 600 } }}>
-                    Grant access
-                  </Text>
+                  <div className='manage-access-grant-header'>
+                    <Text variant='medium' className='manage-access-grant-title'>
+                      Grant access
+                    </Text>
+                    <Text variant='small' className='manage-access-grant-description'>
+                      Add people or SharePoint groups and choose what they can do.
+                    </Text>
+                  </div>
 
                   {showInlineMessage && inlineMessage && (
                     <MessageBar
@@ -361,67 +435,69 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
                       </Stack>
                     )}
 
-                    {showPermissionDropdown && (
-                      <Dropdown
-                        placeholder='Select permission level'
-                        options={PermissionLevelOptions.map(option => ({
-                          key: option.key,
-                          text: option.text,
-                          data: { icon: option.iconName },
-                        }))}
-                        selectedKey={selectedPermissionLevel}
-                        onChange={handlePermissionLevelChange}
-                        onRenderOption={renderPermissionOption}
-                        className='manage-access-permission-dropdown'
+                    <div className='manage-access-grant-controls'>
+                      {showPermissionDropdown && (
+                        <Dropdown
+                          placeholder='Select permission level'
+                          options={PermissionLevelOptions.map(option => ({
+                            key: option.key,
+                            text: option.text,
+                            data: { icon: option.iconName },
+                          }))}
+                          selectedKey={selectedPermissionLevel}
+                          onChange={handlePermissionLevelChange}
+                          onRenderOption={renderPermissionOption}
+                          className='manage-access-permission-dropdown'
+                        />
+                      )}
+
+                      <PrimaryButton
+                        text={isGrantingAccess ? 'Granting...' : 'Grant access'}
+                        disabled={selectedUsers.length === 0 || isGrantingAccess || isValidatingUsers}
+                        onClick={handleGrantAccessClick}
+                        iconProps={isGrantingAccess ? { iconName: 'Sync' } : { iconName: 'Add' }}
+                        className='manage-access-grant-button'
                       />
-                    )}
-
-                    <PrimaryButton
-                      text={isGrantingAccess ? 'Granting...' : 'Grant access'}
-                      disabled={selectedUsers.length === 0 || isGrantingAccess || isValidatingUsers}
-                      onClick={handleGrantAccessClick}
-                      iconProps={isGrantingAccess ? { iconName: 'Sync' } : { iconName: 'Add' }}
-                      styles={{
-                        root: {
-                          maxWidth: '150px',
-                        },
-                      }}
-                    />
+                    </div>
                   </Stack>
-
-                  <Separator />
                 </Stack>
               )}
 
               {/* People with access section - always visible */}
               <Stack tokens={{ childrenGap: 16 }}>
-                <Text variant='medium' styles={{ root: { fontWeight: 600 } }}>
-                  People with access
-                </Text>
+                <div className='manage-access-list-header'>
+                  <Text variant='medium' className='manage-access-list-title'>
+                    Access entries
+                  </Text>
+                  <Text variant='small' className='manage-access-list-subtitle'>
+                    Users appear first, followed by groups and sharing links.
+                  </Text>
+                </div>
+
+                {users.length > 0 && (
+                  <Stack tokens={{ childrenGap: 8 }}>
+                    {renderSectionHeader('Contact', 'Users', users.length)}
+                    <Stack tokens={{ childrenGap: 6 }}>{users.map(renderPermissionItem)}</Stack>
+                  </Stack>
+                )}
 
                 {groups.length > 0 && (
                   <Stack tokens={{ childrenGap: 8 }}>
-                    <Text variant='small' styles={{ root: { fontWeight: 600, color: '#605e5c' } }}>
-                      Groups ({groups.length})
-                    </Text>
+                    {renderSectionHeader('People', 'Groups', groups.length)}
                     <Stack tokens={{ childrenGap: 6 }}>{groups.map(renderPermissionItem)}</Stack>
                   </Stack>
                 )}
 
-                {users.length > 0 && (
+                {links.length > 0 && (
                   <Stack tokens={{ childrenGap: 8 }}>
-                    <Text variant='small' styles={{ root: { fontWeight: 600, color: '#605e5c' } }}>
-                      Users ({users.length})
-                    </Text>
-                    <Stack tokens={{ childrenGap: 6 }}>{users.map(renderPermissionItem)}</Stack>
+                    {renderSectionHeader('Link', 'Links', links.length)}
+                    <Stack tokens={{ childrenGap: 6 }}>{links.map(renderPermissionItem)}</Stack>
                   </Stack>
                 )}
 
                 {sharedUsers.length > 0 && (
                   <Stack tokens={{ childrenGap: 8 }}>
-                    <Text variant='small' styles={{ root: { fontWeight: 600, color: '#605e5c' } }}>
-                      Shared ({sharedUsers.length})
-                    </Text>
+                    {renderSectionHeader('Share', 'Inherited access', sharedUsers.length)}
                     <Stack tokens={{ childrenGap: 6 }}>
                       {sharedUsers.map(renderPermissionItem)}
                     </Stack>

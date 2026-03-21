@@ -110,19 +110,24 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     lookupFieldConfig,
     cacheFields,
     onBeforeLoad,
-    onAfterLoad: onAfterLoad as any,
     onError: handleFieldLoadError,
   });
 
   // Don't include fields in dependency to prevent infinite loops
   // The parent's onAfterLoad already has access to fields if needed
   const fieldsRef = React.useRef(fields);
+  const hasTriggeredAfterLoadRef = React.useRef(false);
   React.useEffect(() => {
     fieldsRef.current = fields;
   }, [fields]);
 
+  React.useEffect(() => {
+    hasTriggeredAfterLoadRef.current = false;
+  }, [listId, itemId, mode, contentTypeId, fields]);
+
   const handleDataAfterLoad = React.useCallback((data: any, item: any) => {
-    if (onAfterLoad) {
+    if (onAfterLoad && !hasTriggeredAfterLoadRef.current) {
+      hasTriggeredAfterLoadRef.current = true;
       onAfterLoad(data as T, fieldsRef.current);
     }
   }, [onAfterLoad]);
@@ -208,6 +213,19 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       reset(itemData as any, { keepDefaultValues: false });
     }
   }, [itemData, defaultValues, reset, mode]);
+
+  React.useEffect(() => {
+    if (!onAfterLoad || hasTriggeredAfterLoadRef.current) {
+      return;
+    }
+
+    if (mode !== 'new' || fieldsLoading || dataLoading || fields.length === 0) {
+      return;
+    }
+
+    hasTriggeredAfterLoadRef.current = true;
+    onAfterLoad(defaultValues as T, fields);
+  }, [onAfterLoad, mode, fieldsLoading, dataLoading, fields, defaultValues]);
 
   // Watch for field changes
   React.useEffect(() => {
@@ -303,6 +321,20 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       scrollToFirstError();
     }
   }, [errors, scrollToFirstError]);
+
+  React.useEffect(() => {
+    if (!enableDirtyCheck || !isDirty || isSubmitting || mode === 'view') {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [enableDirtyCheck, isDirty, isSubmitting, mode]);
 
   // Handle form submission
   const handleFormSubmit = React.useCallback(

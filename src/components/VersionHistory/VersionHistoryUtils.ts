@@ -650,12 +650,15 @@ export function filterVersions(
       case 'custom':
         if (filterState.customDateStart) {
           startDate = filterState.customDateStart;
+          const endDate = filterState.customDateEnd
+            ? new Date(filterState.customDateEnd.getTime())
+            : null;
+          if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+          }
           filtered = filtered.filter(version => {
             const versionDate = version.modified;
-            return (
-              versionDate >= startDate &&
-              (!filterState.customDateEnd || versionDate <= filterState.customDateEnd)
-            );
+            return versionDate >= startDate && (!endDate || versionDate <= endDate);
           });
         }
         return filtered;
@@ -713,6 +716,20 @@ export function exportAllToCSV(versions: IVersionInfo[], itemInfo: IItemInfo): v
   const rows: any[] = [];
 
   versions.forEach(version => {
+    if (!version.changedFields.length) {
+      rows.push({
+        Version: version.versionLabel,
+        'Modified By': version.modifiedByName,
+        'Modified Date': formatAbsoluteTime(version.modified),
+        'Field Name': '(no metadata changes)',
+        'Previous Value': '',
+        'New Value': '',
+        'Change Type': '',
+        Comment: version.checkInComment || '',
+      });
+      return;
+    }
+
     version.changedFields.forEach(change => {
       rows.push({
         Version: version.versionLabel,

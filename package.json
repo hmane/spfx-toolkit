@@ -31,6 +31,11 @@
       "import": "./lib/components/Card/index.js",
       "require": "./lib/components/Card/index.js"
     },
+    "./components/Comments": {
+      "types": "./lib/components/Comments/index.d.ts",
+      "import": "./lib/components/Comments/index.js",
+      "require": "./lib/components/Comments/index.js"
+    },
     "./components/ConflictDetector": {
       "types": "./lib/components/ConflictDetector/index.d.ts",
       "import": "./lib/components/ConflictDetector/index.js",

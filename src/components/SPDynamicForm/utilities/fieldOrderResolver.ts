@@ -16,20 +16,44 @@ export async function loadFieldsFromContentType(
     const list = getListByNameOrId(SPContext.sp, listId);
 
     // Get ContentType fields with order
-    const contentType = await list.contentTypes.getById(contentTypeId)();
-    const fields = await list.contentTypes.getById(contentTypeId).fields();
+    const contentTypeRef = list.contentTypes.getById(contentTypeId);
+    const contentType = await contentTypeRef();
+    const [fields, fieldLinks] = await Promise.all([contentTypeRef.fields(), contentTypeRef.fieldLinks()]);
 
     SPContext.logger.info(
       `Loaded ${fields.length} fields from ContentType "${contentType.Name}"`
     );
 
-    // Build field metadata with order from FieldLinks
+    const metadataByInternalName = new Map<string, IFieldMetadata>();
+    fields.forEach((field, index) => {
+      const metadata = buildFieldMetadata(field, index);
+      metadataByInternalName.set(metadata.internalName, metadata);
+    });
+
     const fieldMetadata: IFieldMetadata[] = [];
-    for (let i = 0; i < fields.length; i++) {
-      const field = fields[i];
-      const metadata = buildFieldMetadata(field, i);
+
+    fieldLinks.forEach((fieldLink, index) => {
+      const fieldInternalName = fieldLink.FieldInternalName || fieldLink.Name;
+      if (!fieldInternalName) {
+        return;
+      }
+
+      const metadata = metadataByInternalName.get(fieldInternalName);
+      if (!metadata) {
+        return;
+      }
+
+      metadata.order = index;
+      metadata.hidden = metadata.hidden || fieldLink.Hidden;
+      metadata.required = metadata.required || fieldLink.Required;
       fieldMetadata.push(metadata);
-    }
+      metadataByInternalName.delete(fieldInternalName);
+    });
+
+    metadataByInternalName.forEach((metadata) => {
+      metadata.order = fieldMetadata.length;
+      fieldMetadata.push(metadata);
+    });
 
     const duration = timer();
     SPContext.logger.success(
@@ -62,15 +86,8 @@ export async function loadFieldsFromList(listId: string): Promise<IFieldMetadata
 
     SPContext.logger.info(`Loaded ${fields.length} fields from list`);
 
-    // Build field metadata (order by Title alphabetically)
-    const fieldMetadata = fields
-      .map((field, index) => buildFieldMetadata(field, index))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-    // Reassign order after sorting
-    fieldMetadata.forEach((field, index) => {
-      field.order = index;
-    });
+    // Preserve SharePoint's returned order instead of imposing an alphabetical fallback.
+    const fieldMetadata = fields.map((field, index) => buildFieldMetadata(field, index));
 
     const duration = timer();
     SPContext.logger.success(`Loaded ${fieldMetadata.length} fields from list in ${duration}ms`);
