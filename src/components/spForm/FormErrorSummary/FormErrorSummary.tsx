@@ -8,7 +8,7 @@ import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { Icon } from '@fluentui/react/lib/Icon';
-import { useFormContext } from '../context';
+import { useFormContext, useFormStateContext } from '../context';
 
 export interface IFormErrorSummaryProps {
   /**
@@ -62,13 +62,14 @@ const FormErrorSummary: React.FC<IFormErrorSummaryProps> = ({
   onErrorClick,
 }) => {
   const formContext = useFormContext();
+  const formState = useFormStateContext();
   const [hoveredError, setHoveredError] = React.useState<string | null>(null);
 
-  if (!formContext?.formState?.errors) {
+  if (!formContext || !formState?.errors) {
     return null;
   }
 
-  const errors = Object.entries(formContext.formState.errors);
+  const errors = Object.entries(formState.errors);
 
   if (errors.length === 0) {
     return null;
