@@ -63,6 +63,7 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
   const [userToRemove, setUserToRemove] = React.useState<IPermissionPrincipal | null>(null);
   const [isGrantingAccess, setIsGrantingAccess] = React.useState(false);
   const [isValidatingUsers, setIsValidatingUsers] = React.useState(false);
+  const [isRemoving, setIsRemoving] = React.useState(false);
   const [peoplePickerKey, setPeoplePickerKey] = React.useState(0);
 
   React.useEffect(() => {
@@ -119,6 +120,7 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
   const handleConfirmRemove = React.useCallback(async (): Promise<void> => {
     if (!userToRemove) return;
 
+    setIsRemoving(true);
     try {
       await onRemovePermission(userToRemove);
       setShowRemoveDialog(false);
@@ -127,6 +129,8 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
       SPContext.logger.error('ManageAccessPanel failed to remove permission', error);
       setShowRemoveDialog(false);
       setUserToRemove(null);
+    } finally {
+      setIsRemoving(false);
     }
   }, [userToRemove, onRemovePermission]);
 
@@ -281,12 +285,16 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
         }}
       >
         <DialogFooter>
-          <PrimaryButton onClick={handleConfirmRemove} text='Remove' />
-          <DefaultButton onClick={handleCancelRemove} text='Cancel' />
+          <PrimaryButton
+            onClick={handleConfirmRemove}
+            text={isRemoving ? 'Removing...' : 'Remove'}
+            disabled={isRemoving}
+          />
+          <DefaultButton onClick={handleCancelRemove} text='Cancel' disabled={isRemoving} />
         </DialogFooter>
       </Dialog>
     );
-  }, [showRemoveDialog, userToRemove, handleConfirmRemove, handleCancelRemove]);
+  }, [showRemoveDialog, userToRemove, handleConfirmRemove, handleCancelRemove, isRemoving]);
 
   const users = permissions.filter(p => !p.isGroup && !p.isSharingLink && !p.inheritedFrom);
   const groups = permissions.filter(p => p.isGroup);
@@ -327,11 +335,11 @@ export const ManageAccessPanel: React.FC<IManageAccessPanelProps> = props => {
             flexDirection: 'column',
           },
           header: {
-            borderBottom: '1px solid #e1dfdd',
+            borderBottom: '1px solid var(--neutralLight, #e1dfdd)',
             padding: '16px 24px',
             position: 'sticky',
             top: 0,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--white, #ffffff)',
             zIndex: 1001,
           },
           root: {

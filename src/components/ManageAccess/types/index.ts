@@ -100,16 +100,6 @@ export interface IManageAccessComponentProps {
   onError?: (error: string) => void;
 }
 
-export interface IManageAccessComponentState {
-  isLoading: boolean;
-  showManageAccessPanel: boolean;
-  permissions: IPermissionPrincipal[];
-  currentUserPermissions: string[];
-  canManagePermissions: boolean;
-  inlineMessage: string;
-  showInlineMessage: boolean;
-}
-
 export interface IPermissionLevelOption {
   key: 'view' | 'edit';
   text: string;

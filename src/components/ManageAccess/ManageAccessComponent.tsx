@@ -348,7 +348,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         const permissionPrincipal: IPermissionPrincipal = {
           id: principal.id.toString(),
           displayName: principal.name,
-          email: principal.email || '',
+          email: principal.email || undefined,
           loginName: principal.loginName,
           permissionLevel,
           isGroup,
@@ -450,8 +450,11 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
       const processedPermissions = permissionsList.map(permission => {
         if (!permission.isGroup && !permission.isValidForPersona) {
           const normalizedUpn = PersonaUtils.normalizeUpn(permission);
-          permission.normalizedEmail = normalizedUpn;
-          permission.isValidForPersona = PersonaUtils.canUsePersona(permission);
+          return {
+            ...permission,
+            normalizedEmail: normalizedUpn,
+            isValidForPersona: PersonaUtils.canUsePersona(permission),
+          };
         }
         return permission;
       });
@@ -520,7 +523,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     hasLoadedRef.current = false;
     loadingRef.current = false;
     loadPermissions();
-  }, [itemId, listId]); // Only depend on stable props, not the callback
+  }, [loadPermissions]);
 
   const showInlineMessageHandler = React.useCallback((message: string): void => {
     setInlineMessage(message);
@@ -540,6 +543,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
     async (users: any[]): Promise<any[]> => {
       const validatedUsers: any[] = [];
       const existingUsers: string[] = [];
+      const failedUsers: string[] = [];
 
       for (const user of users) {
         try {
@@ -568,7 +572,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
           const hasExisting = permissions.some(
             p =>
               p.id === ensuredUser.data.Id.toString() ||
-              p.email?.toLowerCase() === (user.email || '').toLowerCase()
+              (user.email && p.email && p.email.toLowerCase() === user.email.toLowerCase())
           );
 
           if (hasExisting) {
@@ -581,18 +585,29 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
             });
           }
         } catch (error) {
+          const userName = user.text || user.displayName || user.email || user.loginName || 'Unknown user';
+          failedUsers.push(userName);
           SPContext.logger.error('ManageAccess failed to ensure user', error, {
             user: user.email || user.loginName,
           });
         }
       }
 
+      const messages: string[] = [];
       if (existingUsers.length > 0) {
-        showInlineMessageHandler(
+        messages.push(
           `${existingUsers.join(', ')} already ${
             existingUsers.length === 1 ? 'has' : 'have'
           } access to this item.`
         );
+      }
+      if (failedUsers.length > 0) {
+        messages.push(
+          `Could not validate: ${failedUsers.join(', ')}.`
+        );
+      }
+      if (messages.length > 0) {
+        showInlineMessageHandler(messages.join(' '));
       }
 
       return validatedUsers;
@@ -615,26 +630,38 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         canBeRemoved: true,
       }));
 
-      const success = await onPermissionChanged('add', principals);
+      try {
+        const success = await onPermissionChanged('add', principals);
 
-      if (success) {
-        invalidateSharingInfoCache(listId, itemId);
-        await loadPermissions();
+        if (success) {
+          invalidateSharingInfoCache(listId, itemId);
+          await loadPermissions();
+        }
+      } catch (error) {
+        SPContext.logger.error('ManageAccess failed to grant access', error);
+        showInlineMessageHandler('Failed to grant access. Please try again.');
+        throw error;
       }
     },
-    [onPermissionChanged, loadPermissions, listId, itemId]
+    [onPermissionChanged, loadPermissions, listId, itemId, showInlineMessageHandler]
   );
 
   const handleRemovePermission = React.useCallback(
     async (principal: IPermissionPrincipal): Promise<void> => {
-      const success = await onPermissionChanged('remove', [principal]);
+      try {
+        const success = await onPermissionChanged('remove', [principal]);
 
-      if (success) {
-        invalidateSharingInfoCache(listId, itemId);
-        await loadPermissions();
+        if (success) {
+          invalidateSharingInfoCache(listId, itemId);
+          await loadPermissions();
+        }
+      } catch (error) {
+        SPContext.logger.error('ManageAccess failed to remove permission', error);
+        showInlineMessageHandler('Failed to remove access. Please try again.');
+        throw error;
       }
     },
-    [onPermissionChanged, loadPermissions, listId, itemId]
+    [onPermissionChanged, loadPermissions, listId, itemId, showInlineMessageHandler]
   );
 
   const renderPermissionAvatar = React.useCallback(
@@ -653,7 +680,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         return (
           <div key={`group-${index}`} className='manage-access-avatar-container'>
             <GroupViewer
-              groupId={parseInt(permission.id)}
+              groupId={parseInt(permission.id, 10)}
               groupName={permission.displayName}
               displayMode='icon'
               size={32}
@@ -692,7 +719,7 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
 
     return (
       <TooltipHost content={tooltip}>
-        <div className='manage-access-permission-indicator'>
+        <div className='manage-access-permission-indicator' tabIndex={0} aria-label={tooltip}>
           <Icon iconName={iconName} />
         </div>
       </TooltipHost>
@@ -717,7 +744,19 @@ export const ManageAccessComponent: React.FC<IManageAccessComponentProps> = prop
         {renderPermissionIndicator()}
         {visiblePermissions.map((permission, index) => renderPermissionAvatar(permission, index))}
         {remainingCount > 0 && (
-          <div className='manage-access-remaining' onClick={() => setShowManageAccessPanel(true)}>
+          <div
+            className='manage-access-remaining'
+            role='button'
+            tabIndex={0}
+            aria-label={`${remainingCount} more people have access. Click to see all.`}
+            onClick={() => setShowManageAccessPanel(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowManageAccessPanel(true);
+              }
+            }}
+          >
             <Text variant='small'>+{remainingCount}</Text>
           </div>
         )}
