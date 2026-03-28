@@ -6,8 +6,6 @@
 import * as React from 'react';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Stack } from '@fluentui/react/lib/Stack';
-import { Text } from '@fluentui/react/lib/Text';
-import { Icon } from '@fluentui/react/lib/Icon';
 import { useFormContext, useFormStateContext } from '../context';
 
 export interface IFormErrorSummaryProps {
@@ -24,8 +22,8 @@ export interface IFormErrorSummaryProps {
   maxErrors?: number;
 
   /**
-   * Show field labels/names before error message
-   * @default false
+   * Show field labels before error message
+   * @default true
    */
   showFieldLabels?: boolean;
 
@@ -50,161 +48,196 @@ export interface IFormErrorSummaryProps {
    * Callback when error item is clicked
    */
   onErrorClick?: (fieldName: string) => void;
+
+  /**
+   * Only show errors for these fields. If not provided, shows all errors.
+   */
+  filterFields?: string[];
+
+  /**
+   * Custom function to get a human-readable label for a field name.
+   * Falls back to the form context registry label, then the raw field name.
+   */
+  getFieldLabel?: (fieldName: string) => string;
 }
 
-const FormErrorSummary: React.FC<IFormErrorSummaryProps> = ({
-  position = 'top',
-  maxErrors,
-  showFieldLabels = false,
-  clickToScroll = true,
-  compact = false,
-  className = '',
-  onErrorClick,
-}) => {
-  const formContext = useFormContext();
-  const formState = useFormStateContext();
-  const [hoveredError, setHoveredError] = React.useState<string | null>(null);
+/**
+ * Flatten nested react-hook-form errors into [fieldName, error] pairs.
+ * Handles field arrays (e.g., items[0].name) and nested objects.
+ */
+function flattenErrors(
+  errors: Record<string, any>,
+  prefix = ''
+): Array<[string, { message?: string }]> {
+  const result: Array<[string, { message?: string }]> = [];
 
-  if (!formContext || !formState?.errors) {
-    return null;
+  for (const [key, value] of Object.entries(errors)) {
+    if (!value) continue;
+    const fieldName = prefix ? `${prefix}.${key}` : key;
+
+    if (value.message !== undefined) {
+      result.push([fieldName, value]);
+    } else if (typeof value === 'object' && !value.type) {
+      result.push(...flattenErrors(value, fieldName));
+    }
   }
 
-  const errors = Object.entries(formState.errors);
+  return result;
+}
 
-  if (errors.length === 0) {
-    return null;
-  }
+const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps>(
+  (
+    {
+      position = 'top',
+      maxErrors,
+      showFieldLabels = true,
+      clickToScroll = true,
+      compact = false,
+      className = '',
+      onErrorClick,
+      filterFields,
+      getFieldLabel,
+    },
+    ref
+  ) => {
+    const formContext = useFormContext();
+    const formState = useFormStateContext();
 
-  // Filter out errors without messages
-  const errorsWithMessages = errors.filter(([_, error]) => {
-    const errorMessage = (error as any)?.message;
-    return errorMessage && typeof errorMessage === 'string' && errorMessage.trim() !== '';
-  });
-
-  if (errorsWithMessages.length === 0) {
-    return null;
-  }
-
-  const displayErrors = maxErrors ? errorsWithMessages.slice(0, maxErrors) : errorsWithMessages;
-  const hasMoreErrors = maxErrors && errorsWithMessages.length > maxErrors;
-
-  const handleErrorClick = (fieldName: string) => {
-    if (clickToScroll) {
-      formContext.scrollToField(fieldName, { behavior: 'smooth', block: 'center' });
-
-      // Focus after a delay to allow scroll to complete
-      setTimeout(() => {
-        formContext.focusField(fieldName);
-      }, 300);
+    if (!formContext || !formState?.errors) {
+      return null;
     }
 
-    onErrorClick?.(fieldName);
-  };
+    const allErrors = flattenErrors(formState.errors as Record<string, any>);
 
-  const handleKeyDown = (e: React.KeyboardEvent, fieldName: string) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleErrorClick(fieldName);
+    // Filter to specific fields if requested
+    const errors = filterFields
+      ? allErrors.filter(([fieldName]) => filterFields.includes(fieldName))
+      : allErrors;
+
+    if (errors.length === 0) {
+      return null;
     }
-  };
 
-  const positionClass = position === 'sticky' ? 'spfx-form-error-summary-sticky' : '';
-  const compactClass = compact ? 'spfx-form-error-summary-compact' : '';
+    // Filter out errors without meaningful messages
+    const errorsWithMessages = errors.filter(([_, error]) => {
+      const errorMessage = error?.message;
+      return errorMessage && typeof errorMessage === 'string' && errorMessage.trim() !== '';
+    });
 
-  // Spacing based on compact mode
-  const containerGap = compact ? 4 : 12;
-  const itemGap = compact ? 0 : 4;
-  const itemPadding = compact ? '2px 0' : '4px 0';
+    if (errorsWithMessages.length === 0) {
+      return null;
+    }
 
-  return (
-    <MessageBar
-      messageBarType={MessageBarType.error}
-      isMultiline
-      className={`spfx-form-error-summary ${positionClass} ${compactClass} ${className}`}
-      role='alert'
-      aria-live='assertive'
-    >
-      <Stack tokens={{ childrenGap: containerGap }}>
-        {!compact && (
-          <Text styles={{ root: { fontWeight: 600 } }}>
-            Please fix the following {errorsWithMessages.length} error{errorsWithMessages.length > 1 ? 's' : ''}:
-          </Text>
-        )}
+    const displayErrors = maxErrors ? errorsWithMessages.slice(0, maxErrors) : errorsWithMessages;
+    const hasMoreErrors = maxErrors && errorsWithMessages.length > maxErrors;
 
-        <Stack tokens={{ childrenGap: itemGap }}>
-          {displayErrors.map(([fieldName, error], index) => {
-            const field = formContext.registry.get(fieldName);
-            const label = showFieldLabels && field?.label ? field.label : null;
-            const errorMessage = (error as any)?.message as string | undefined;
-            const isHovered = hoveredError === fieldName;
+    const resolveLabel = (fieldName: string): string => {
+      if (getFieldLabel) return getFieldLabel(fieldName);
+      const field = formContext.registry.get(fieldName);
+      return field?.label || fieldName;
+    };
 
-            return (
-              <div
-                key={fieldName}
-                className='spfx-form-error-summary-item'
-                onClick={() => handleErrorClick(fieldName)}
-                onKeyDown={(e) => handleKeyDown(e, fieldName)}
-                onMouseEnter={() => setHoveredError(fieldName)}
-                onMouseLeave={() => setHoveredError(null)}
-                role='button'
-                tabIndex={0}
-                style={{
-                  cursor: clickToScroll ? 'pointer' : 'default',
-                  padding: itemPadding,
-                  transition: 'all 0.15s ease',
-                  borderRadius: '2px',
-                  marginLeft: '-4px',
-                  paddingLeft: '4px',
-                  paddingRight: '4px',
-                  backgroundColor: isHovered ? 'rgba(209, 52, 56, 0.05)' : 'transparent',
-                }}
-              >
-                <Stack horizontal tokens={{ childrenGap: compact ? 6 : 8 }} verticalAlign='center'>
-                  <Icon
-                    iconName='ErrorBadge'
-                    style={{
-                      color: '#d13438',
-                      fontSize: compact ? '12px' : '14px',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontSize: compact ? '12px' : '14px',
-                      lineHeight: compact ? '16px' : '20px',
-                      textDecoration: isHovered && clickToScroll ? 'underline dotted' : 'none',
-                      textUnderlineOffset: '2px',
-                    }}
-                  >
-                    {label && <strong>{label}: </strong>}
-                    {errorMessage}
-                  </Text>
-                </Stack>
-              </div>
-            );
-          })}
+    const handleErrorClick = (fieldName: string) => {
+      if (clickToScroll) {
+        formContext.scrollToField(fieldName, { behavior: 'smooth', block: 'center' });
 
-          {hasMoreErrors && (
-            <Text
-              variant='small'
-              styles={{
-                root: {
-                  marginTop: compact ? 4 : 8,
-                  fontStyle: 'italic',
-                  fontSize: compact ? '11px' : '12px',
-                  color: '#605e5c',
-                }
-              }}
-            >
-              ...and {errorsWithMessages.length - maxErrors!} more error
-              {errorsWithMessages.length - maxErrors! > 1 ? 's' : ''}
-            </Text>
-          )}
-        </Stack>
-      </Stack>
-    </MessageBar>
-  );
-};
+        setTimeout(() => {
+          formContext.focusField(fieldName);
+        }, 300);
+      }
 
-export default React.memo(FormErrorSummary);
+      onErrorClick?.(fieldName);
+    };
+
+    const positionClass = position === 'sticky' ? 'spfx-form-error-summary-sticky' : '';
+    const compactClass = compact ? 'spfx-form-error-summary-compact' : '';
+    const listMargin = compact ? '4px 0 0 0' : '8px 0 0 0';
+    const itemMargin = compact ? '2px' : '4px';
+
+    return (
+      <div
+        ref={ref}
+        role='alert'
+        tabIndex={-1}
+        style={{ outline: 'none' }}
+      >
+        <MessageBar
+          messageBarType={MessageBarType.error}
+          isMultiline
+          className={`spfx-form-error-summary ${positionClass} ${compactClass} ${className}`}
+          styles={{ root: { borderRadius: '4px' } }}
+        >
+          <Stack tokens={{ childrenGap: compact ? 4 : 12 }}>
+            {!compact && (
+              <span style={{ fontWeight: 600 }}>
+                Please fix the following {errorsWithMessages.length} error
+                {errorsWithMessages.length > 1 ? 's' : ''}:
+              </span>
+            )}
+
+            <ul style={{ margin: listMargin, paddingLeft: '20px' }}>
+              {displayErrors.map(([fieldName, error]) => {
+                const label = showFieldLabels ? resolveLabel(fieldName) : null;
+                const errorMessage = error?.message;
+
+                return (
+                  <li key={fieldName} style={{ marginBottom: itemMargin }}>
+                    {label && clickToScroll ? (
+                      <>
+                        <button
+                          type='button'
+                          onClick={() => handleErrorClick(fieldName)}
+                          aria-label={`Go to ${label} field`}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            margin: 0,
+                            font: 'inherit',
+                            fontWeight: 600,
+                            color: 'var(--themePrimary, #0078d4)',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          {label}
+                        </button>
+                        : {errorMessage}
+                      </>
+                    ) : label ? (
+                      <>
+                        <span style={{ fontWeight: 600 }}>{label}</span>: {errorMessage}
+                      </>
+                    ) : (
+                      errorMessage
+                    )}
+                  </li>
+                );
+              })}
+
+              {hasMoreErrors && (
+                <li
+                  style={{
+                    marginTop: compact ? 4 : 8,
+                    fontStyle: 'italic',
+                    fontSize: compact ? '11px' : '12px',
+                    color: 'var(--neutralSecondary, #605e5c)',
+                    listStyle: 'none',
+                    marginLeft: '-20px',
+                  }}
+                >
+                  ...and {errorsWithMessages.length - maxErrors!} more error
+                  {errorsWithMessages.length - maxErrors! > 1 ? 's' : ''}
+                </li>
+              )}
+            </ul>
+          </Stack>
+        </MessageBar>
+      </div>
+    );
+  }
+);
+
+FormErrorSummary.displayName = 'FormErrorSummary';
+
+export default FormErrorSummary;

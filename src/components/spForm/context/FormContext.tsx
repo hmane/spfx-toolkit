@@ -178,7 +178,7 @@ const FormProviderWithState: React.FC<IFormProviderProps & {
         if (field?.ref?.current) {
           const focusableElement = findFocusableElement(field.ref.current);
           if (focusableElement) {
-            focusableElement.focus();
+            focusableElement.focus({ preventScroll: true });
             return true;
           }
         }
@@ -278,7 +278,7 @@ export const FormProvider: React.FC<IFormProviderProps> = ({
         if (field?.ref?.current) {
           const focusableElement = findFocusableElement(field.ref.current);
           if (focusableElement) {
-            focusableElement.focus();
+            focusableElement.focus({ preventScroll: true });
             return true;
           }
         }
