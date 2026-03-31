@@ -28,6 +28,14 @@ const STATIC_ASSET_GLOBS = [
 ];
 
 const DECLARATION_GLOBS = ['src/**/*.d.ts'];
+const LIB_CASE_COMPATIBILITY_ALIASES = [
+  {
+    js: path.join(CJS_OUT_DIR, 'utilities', 'cssLoader.js'),
+    dts: path.join(CJS_OUT_DIR, 'utilities', 'cssLoader.d.ts'),
+    jsTarget: './CssLoader',
+    dtsTarget: './CssLoader',
+  },
+];
 
 function runTSC({ project, watch = false, label }) {
   return new Promise((resolve, reject) => {
@@ -210,6 +218,19 @@ function generateCompatibilityProxies(done) {
   done();
 }
 
+function generateLibCompatibilityAliases(done) {
+  console.log('Generating lib compatibility aliases...');
+
+  LIB_CASE_COMPATIBILITY_ALIASES.forEach(alias => {
+    fs.mkdirSync(path.dirname(alias.js), { recursive: true });
+    fs.writeFileSync(alias.js, `'use strict';\n\nmodule.exports = require('${alias.jsTarget}');\n`);
+    fs.writeFileSync(alias.dts, `export * from '${alias.dtsTarget}';\n`);
+  });
+
+  console.log('Lib compatibility aliases generated');
+  done();
+}
+
 function generateLibPackageJson(done) {
   console.log('Generating debug package manifests...');
 
@@ -271,6 +292,7 @@ const build = gulp.series(
   clean,
   gulp.parallel(buildTypeScript, ...BUILD_TARGETS.map(target => copyAssetsToTarget(target))),
   validateBuild,
+  generateLibCompatibilityAliases,
   generateCompatibilityProxies
 );
 
