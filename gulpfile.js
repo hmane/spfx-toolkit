@@ -30,10 +30,16 @@ const STATIC_ASSET_GLOBS = [
 const DECLARATION_GLOBS = ['src/**/*.d.ts'];
 const LIB_CASE_COMPATIBILITY_ALIASES = [
   {
+    js: path.join(CJS_OUT_DIR, 'utilities', 'CssLoader.js'),
+    dts: path.join(CJS_OUT_DIR, 'utilities', 'CssLoader.d.ts'),
+    jsTarget: './CssLoader/index',
+    dtsTarget: './CssLoader/index',
+  },
+  {
     js: path.join(CJS_OUT_DIR, 'utilities', 'cssLoader.js'),
     dts: path.join(CJS_OUT_DIR, 'utilities', 'cssLoader.d.ts'),
-    jsTarget: './CssLoader',
-    dtsTarget: './CssLoader',
+    jsTarget: './CssLoader/index',
+    dtsTarget: './CssLoader/index',
   },
 ];
 

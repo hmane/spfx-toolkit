@@ -186,11 +186,6 @@
       "import": "./lib/utilities/userPhotoHelper/index.js",
       "require": "./lib/utilities/userPhotoHelper/index.js"
     },
-    "./utilities/cssLoader": {
-      "types": "./lib/utilities/cssLoader.d.ts",
-      "import": "./lib/utilities/cssLoader.js",
-      "require": "./lib/utilities/cssLoader.js"
-    },
     "./utilities/CssLoader": {
       "types": "./lib/utilities/CssLoader/index.d.ts",
       "import": "./lib/utilities/CssLoader/index.js",
