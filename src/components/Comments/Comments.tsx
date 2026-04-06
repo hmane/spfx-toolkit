@@ -8,7 +8,8 @@
 import * as React from 'react';
 import { SPContext } from '../../utilities/context';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
-import type { ICommentsProps } from './Comments.types';
+import { confirm } from '../../utilities/dialogService';
+import type { IComment, ICommentsProps } from './Comments.types';
 import { COMMENTS_DEFAULTS } from './Comments.types';
 import { useComments } from './hooks/useComments';
 import { useCommentInput } from './hooks/useCommentInput';
@@ -36,7 +37,12 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
     sortOrder = COMMENTS_DEFAULTS.sortOrder,
     enableSearch = COMMENTS_DEFAULTS.enableSearch,
     enableDocumentPreview = COMMENTS_DEFAULTS.enableDocumentPreview,
+    enableCommentCollapse = COMMENTS_DEFAULTS.enableCommentCollapse,
+    collapsedMaxLines = COMMENTS_DEFAULTS.collapsedMaxLines,
     label,
+    confirmDelete = COMMENTS_DEFAULTS.confirmDelete,
+    deleteConfirmationTitle = COMMENTS_DEFAULTS.deleteConfirmationTitle,
+    deleteConfirmationMessage = COMMENTS_DEFAULTS.deleteConfirmationMessage,
     onCommentAdded,
     onCommentDeleted,
     onCommentLiked,
@@ -46,6 +52,7 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
     className,
     systemEvents = [],
   } = props;
+  const [activeHighlightedCommentId, setActiveHighlightedCommentId] = React.useState<number | undefined>(highlightedCommentId);
 
   // Check SPContext readiness
   const isReady = SPContext.isReady();
@@ -58,13 +65,25 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
     }
   }, [isReady]);
 
+  React.useEffect(() => {
+    setActiveHighlightedCommentId(highlightedCommentId);
+  }, [highlightedCommentId]);
+
+  const handleCommentAdded = React.useCallback(
+    (comment: IComment) => {
+      setActiveHighlightedCommentId(comment.id);
+      onCommentAdded?.(comment);
+    },
+    [onCommentAdded]
+  );
+
   // Core CRUD hook
   const commentsHook = useComments({
     listId,
     itemId,
     pageSize: numberCommentsPerPage,
     sortOrder,
-    onCommentAdded,
+    onCommentAdded: handleCommentAdded,
     onCommentDeleted,
     onCommentLiked,
     onError,
@@ -94,6 +113,31 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
     }
   }, [commentsHook, inputHook]);
 
+  React.useEffect(() => {
+    if (!activeHighlightedCommentId) {
+      return;
+    }
+
+    void commentsHook.loadCommentById(activeHighlightedCommentId);
+  }, [activeHighlightedCommentId, commentsHook.loadCommentById]);
+
+  const handleDelete = React.useCallback(
+    async (commentId: number) => {
+      if (confirmDelete) {
+        const confirmed = await confirm(deleteConfirmationMessage, {
+          title: deleteConfirmationTitle,
+        });
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      await commentsHook.deleteComment(commentId);
+    },
+    [commentsHook, confirmDelete, deleteConfirmationMessage, deleteConfirmationTitle]
+  );
+
   // Pagination
   const { currentPage, totalCount, hasMore } = commentsHook.state;
   const hasNextPage = hasMore;
@@ -118,17 +162,27 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
     );
   }
 
-  const displayComments = enableSearch ? searchHook.filteredComments : commentsHook.state.comments;
+  const showSearch = enableSearch && commentsHook.state.totalCount > 0;
+  const displayComments = showSearch ? searchHook.filteredComments : commentsHook.state.comments;
+  const hasSearchQuery = showSearch && !!searchHook.query.trim();
+  const emptyStateMessage = hasSearchQuery ? 'No matching comments found.' : 'No comments yet. Be the first to comment!';
+  const shouldRenderEmptyState =
+    !commentsHook.state.loading &&
+    displayComments.length === 0 &&
+    !(layout === 'timeline' && !hasSearchQuery && systemEvents.length > 0);
 
   const layoutProps = {
     comments: displayComments,
     loading: commentsHook.state.loading,
     enableDocumentPreview,
     currentUserEmail,
-    highlightedCommentId,
+    highlightedCommentId: activeHighlightedCommentId,
+    searchQuery: showSearch ? searchHook.query : '',
+    enableCommentCollapse,
+    collapsedMaxLines,
     onLike: commentsHook.likeComment,
     onUnlike: commentsHook.unlikeComment,
-    onDelete: commentsHook.deleteComment,
+    onDelete: handleDelete,
   };
 
   return (
@@ -160,14 +214,19 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
       />
 
       {/* Search */}
-      {enableSearch && <CommentSearch searchReturn={searchHook} />}
+      {showSearch && <CommentSearch searchReturn={searchHook} />}
 
-      {/* Layout-specific rendering */}
-      {layout === 'classic' && <ClassicLayout {...layoutProps} />}
-      {layout === 'chat' && <ChatLayout {...layoutProps} />}
-      {layout === 'compact' && <CompactLayout {...layoutProps} />}
-      {layout === 'timeline' && (
-        <TimelineLayout {...layoutProps} systemEvents={systemEvents} />
+      {shouldRenderEmptyState ? (
+        <div className="spfx-comments-empty">{emptyStateMessage}</div>
+      ) : (
+        <>
+          {layout === 'classic' && <ClassicLayout {...layoutProps} />}
+          {layout === 'chat' && <ChatLayout {...layoutProps} />}
+          {layout === 'compact' && <CompactLayout {...layoutProps} />}
+          {layout === 'timeline' && (
+            <TimelineLayout {...layoutProps} systemEvents={systemEvents} />
+          )}
+        </>
       )}
 
       {/* Pagination */}
@@ -182,7 +241,7 @@ export const Comments: React.FC<ICommentsProps> = (props) => {
           </button>
           <span className="spfx-comments-page-info">
             Page {currentPage + 1}
-            {enableSearch && searchHook.query.trim() && (
+            {showSearch && searchHook.query.trim() && (
               <> &middot; {searchHook.matchCount} of {searchHook.totalCount} loaded</>
             )}
           </span>

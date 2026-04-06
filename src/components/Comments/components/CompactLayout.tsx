@@ -9,15 +9,18 @@ export interface ICompactLayoutProps {
   comments: IComment[];
   loading: boolean;
   enableDocumentPreview: boolean;
+  enableCommentCollapse: boolean;
+  collapsedMaxLines: number;
   currentUserEmail: string;
+  searchQuery?: string;
   highlightedCommentId?: number;
   onLike: (id: number) => void;
   onUnlike: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => void | Promise<void>;
 }
 
 export const CompactLayout: React.FC<ICompactLayoutProps> = React.memo((props) => {
-  const { comments, loading, enableDocumentPreview, currentUserEmail, highlightedCommentId, onLike, onUnlike, onDelete } = props;
+  const { comments, loading, enableDocumentPreview, currentUserEmail, searchQuery, highlightedCommentId, onLike, onUnlike, onDelete } = props;
   const [expandedId, setExpandedId] = React.useState<number | null>(null);
 
   const toggleExpand = React.useCallback((id: number) => {
@@ -88,7 +91,11 @@ export const CompactLayout: React.FC<ICompactLayoutProps> = React.memo((props) =
             </div>
             {isExpanded && (
               <div className="spfx-comments-compact-expanded">
-                <CommentText comment={comment} enableDocumentPreview={enableDocumentPreview} />
+                <CommentText
+                  comment={comment}
+                  enableDocumentPreview={enableDocumentPreview}
+                  searchQuery={searchQuery}
+                />
                 <div className="spfx-comments-compact-expanded-actions">
                   <span className="spfx-comments-timestamp">
                     {comment.createdDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}

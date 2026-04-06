@@ -9,15 +9,30 @@ export interface IClassicLayoutProps {
   comments: IComment[];
   loading: boolean;
   enableDocumentPreview: boolean;
+  enableCommentCollapse: boolean;
+  collapsedMaxLines: number;
   currentUserEmail: string;
+  searchQuery?: string;
   highlightedCommentId?: number;
   onLike: (id: number) => void;
   onUnlike: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => void | Promise<void>;
 }
 
 export const ClassicLayout: React.FC<IClassicLayoutProps> = React.memo((props) => {
-  const { comments, loading, enableDocumentPreview, currentUserEmail, highlightedCommentId, onLike, onUnlike, onDelete } = props;
+  const {
+    comments,
+    loading,
+    enableDocumentPreview,
+    enableCommentCollapse,
+    collapsedMaxLines,
+    currentUserEmail,
+    searchQuery,
+    highlightedCommentId,
+    onLike,
+    onUnlike,
+    onDelete,
+  } = props;
 
   const highlightRef = React.useRef<HTMLDivElement>(null);
 
@@ -55,7 +70,7 @@ export const ClassicLayout: React.FC<IClassicLayoutProps> = React.memo((props) =
               <UserPersona
                 userIdentifier={comment.author.email || comment.author.id}
                 displayName={comment.author.title}
-                size={40}
+                size={32}
                 displayMode="avatar"
               />
             </div>
@@ -69,7 +84,13 @@ export const ClassicLayout: React.FC<IClassicLayoutProps> = React.memo((props) =
                   {formatTimestamp(comment.createdDate)}
                 </span>
               </div>
-              <CommentText comment={comment} enableDocumentPreview={enableDocumentPreview} />
+              <CommentText
+                comment={comment}
+                enableDocumentPreview={enableDocumentPreview}
+                enableCollapse={enableCommentCollapse}
+                collapsedMaxLines={collapsedMaxLines}
+                searchQuery={searchQuery}
+              />
               <CommentActions
                 commentId={comment.id}
                 likeCount={comment.likeCount}

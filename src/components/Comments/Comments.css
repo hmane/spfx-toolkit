@@ -46,10 +46,41 @@
 .spfx-comments-text {
   user-select: text;
   cursor: text;
+  display: block;
   font-size: 14px;
   line-height: 1.55;
   color: var(--spfx-comments-text);
   word-break: break-word;
+}
+
+.spfx-comments-text-content.collapsible.collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--spfx-comments-collapsed-lines, 8);
+  overflow: hidden;
+}
+
+.spfx-comments-read-more {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--spfx-comments-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.spfx-comments-read-more:hover {
+  text-decoration: underline;
+}
+
+.spfx-comments-search-highlight {
+  background: #fff1a8;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
 }
 
 .spfx-comments-username {
@@ -452,9 +483,17 @@
   text-overflow: ellipsis;
 }
 
-.spfx-comments-dropdown-email {
+.spfx-comments-dropdown-secondary {
   font-size: 11px;
   color: var(--spfx-comments-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spfx-comments-dropdown-tertiary {
+  font-size: 11px;
+  color: var(--spfx-comments-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

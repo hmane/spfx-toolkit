@@ -8,15 +8,29 @@ export interface IChatLayoutProps {
   comments: IComment[];
   loading: boolean;
   enableDocumentPreview: boolean;
+  enableCommentCollapse: boolean;
+  collapsedMaxLines: number;
   currentUserEmail: string;
+  searchQuery?: string;
   highlightedCommentId?: number;
   onLike: (id: number) => void;
   onUnlike: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => void | Promise<void>;
 }
 
 export const ChatLayout: React.FC<IChatLayoutProps> = React.memo((props) => {
-  const { comments, loading, enableDocumentPreview, currentUserEmail, highlightedCommentId, onLike, onUnlike, onDelete } = props;
+  const {
+    comments,
+    loading,
+    enableDocumentPreview,
+    enableCommentCollapse,
+    collapsedMaxLines,
+    currentUserEmail,
+    searchQuery,
+    highlightedCommentId,
+    onLike,
+    onUnlike,
+  } = props;
 
   if (loading) {
     return (
@@ -65,7 +79,13 @@ export const ChatLayout: React.FC<IChatLayoutProps> = React.memo((props) => {
                       <span className="spfx-comments-username">{comment.author.title}</span>
                     </div>
                   )}
-                  <CommentText comment={comment} enableDocumentPreview={enableDocumentPreview} />
+                  <CommentText
+                    comment={comment}
+                    enableDocumentPreview={enableDocumentPreview}
+                    enableCollapse={enableCommentCollapse}
+                    collapsedMaxLines={collapsedMaxLines}
+                    searchQuery={searchQuery}
+                  />
                   <div className="spfx-comments-chat-bubble-footer">
                     <span className="spfx-comments-timestamp">
                       {comment.createdDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}

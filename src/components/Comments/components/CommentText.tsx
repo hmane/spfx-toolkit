@@ -27,13 +27,26 @@ const LivePersona = React.lazy(() =>
 export interface ICommentTextProps {
   comment: IComment;
   enableDocumentPreview: boolean;
+  enableCollapse?: boolean;
+  collapsedMaxLines?: number;
+  searchQuery?: string;
   className?: string;
 }
 
 export const CommentText: React.FC<ICommentTextProps> = React.memo((props) => {
-  const { comment, enableDocumentPreview, className } = props;
+  const {
+    comment,
+    enableDocumentPreview,
+    enableCollapse = false,
+    collapsedMaxLines = 8,
+    searchQuery,
+    className,
+  } = props;
   const [previewLink, setPreviewLink] = React.useState<ICommentLink | null>(null);
   const [previewLoading, setPreviewLoading] = React.useState(true);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isCollapsible, setIsCollapsible] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement>(null);
 
   const segments = React.useMemo(
     () => parseCommentText(comment.text, comment.mentions, comment.links),
@@ -50,46 +63,95 @@ export const CommentText: React.FC<ICommentTextProps> = React.memo((props) => {
     window.open(previewLink.url, '_blank', 'noopener,noreferrer');
   }, [previewLink]);
 
+  React.useEffect(() => {
+    setIsExpanded(false);
+  }, [comment.id]);
+
+  React.useLayoutEffect(() => {
+    if (!enableCollapse) {
+      setIsCollapsible(false);
+      return;
+    }
+
+    if (isExpanded) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const element = contentRef.current;
+      if (!element) {
+        return;
+      }
+
+      setIsCollapsible(element.scrollHeight > element.clientHeight + 1);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [comment.id, enableCollapse, collapsedMaxLines, segments, isExpanded]);
+
   return (
     <>
-      <span className={`spfx-comments-text ${className || ''}`}>
-        {segments.map((segment, idx) => {
-          if (segment.type === 'text') {
-            return <span key={idx}>{renderTextWithUrls(segment.text || '')}</span>;
+      <div className={`spfx-comments-text ${className || ''}`}>
+        <div
+          ref={contentRef}
+          className={`spfx-comments-text-content ${enableCollapse ? 'collapsible' : ''} ${enableCollapse && !isExpanded ? 'collapsed' : ''}`}
+          style={
+            enableCollapse
+              ? ({ ['--spfx-comments-collapsed-lines' as string]: String(Math.max(1, collapsedMaxLines)) } as React.CSSProperties)
+              : undefined
           }
+        >
+          {segments.map((segment, idx) => {
+            if (segment.type === 'text') {
+              return <span key={idx}>{renderTextWithUrls(segment.text || '', searchQuery)}</span>;
+            }
 
-          if (segment.type === 'mention' && segment.mentionIndex !== undefined) {
-            const mention = comment.mentions[segment.mentionIndex];
-            if (!mention) return null;
+            if (segment.type === 'mention' && segment.mentionIndex !== undefined) {
+              const mention = comment.mentions[segment.mentionIndex];
+              if (!mention) return null;
 
-            return (
-              <span key={idx} className="spfx-comments-mention-inline">
-                <InlineMention mention={mention} />
-              </span>
-            );
-          }
+              return (
+                <span key={idx} className="spfx-comments-mention-inline">
+                  <InlineMention mention={mention} searchQuery={searchQuery} />
+                </span>
+              );
+            }
 
-          if (segment.type === 'link' && segment.linkIndex !== undefined) {
-            const link = comment.links[segment.linkIndex];
-            if (!link) return null;
+            if (segment.type === 'link' && segment.linkIndex !== undefined) {
+              const link = comment.links[segment.linkIndex];
+              if (!link) return null;
 
-            return (
-              <span key={idx} className="spfx-comments-link-inline">
-                <CommentLinkChip
-                  link={link}
-                  enableDocumentPreview={enableDocumentPreview}
-                  onOpenPreview={(selectedLink) => {
-                    setPreviewLoading(true);
-                    setPreviewLink(selectedLink);
-                  }}
-                />
-              </span>
-            );
-          }
+              return (
+                <span key={idx} className="spfx-comments-link-inline">
+                  <CommentLinkChip
+                    link={link}
+                    enableDocumentPreview={enableDocumentPreview}
+                    searchQuery={searchQuery}
+                    onOpenPreview={(selectedLink) => {
+                      setPreviewLoading(true);
+                      setPreviewLink(selectedLink);
+                    }}
+                  />
+                </span>
+              );
+            }
 
-          return null;
-        })}
-      </span>
+            return null;
+          })}
+        </div>
+        {enableCollapse && isCollapsible && (
+          <button
+            type="button"
+            className="spfx-comments-read-more"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? 'Show less' : 'Read more'}
+          </button>
+        )}
+      </div>
       {previewLink && enableDocumentPreview && (
         <Modal
           isOpen={true}
@@ -152,10 +214,10 @@ CommentText.displayName = 'CommentText';
  */
 const URL_REGEX = /(https?:\/\/[^\s<>]+)/g;
 
-function renderTextWithUrls(text: string): React.ReactNode {
+function renderTextWithUrls(text: string, searchQuery?: string): React.ReactNode {
   if (!text) return null;
   const parts = text.split(URL_REGEX);
-  if (parts.length === 1) return text; // No URLs found
+  if (parts.length === 1) return highlightMatches(text, searchQuery);
 
   return parts.map((part, i) => {
     if (URL_REGEX.test(part)) {
@@ -175,7 +237,7 @@ function renderTextWithUrls(text: string): React.ReactNode {
         </a>
       );
     }
-    return part;
+    return <React.Fragment key={i}>{highlightMatches(part, searchQuery)}</React.Fragment>;
   });
 }
 
@@ -192,8 +254,9 @@ const LINK_ICON_BY_TYPE: Record<string, string> = {
 const CommentLinkChip: React.FC<{
   link: ICommentLink;
   enableDocumentPreview: boolean;
+  searchQuery?: string;
   onOpenPreview: (link: ICommentLink) => void;
-}> = ({ link, enableDocumentPreview, onOpenPreview }) => {
+}> = ({ link, enableDocumentPreview, searchQuery, onOpenPreview }) => {
   const extension = (link.fileType || link.url.split('.').pop() || '').toLowerCase();
   const iconName = LINK_ICON_BY_TYPE[extension] || 'Page';
   const handlePreviewClick = () => onOpenPreview(link);
@@ -203,11 +266,11 @@ const CommentLinkChip: React.FC<{
       <button
         type="button"
         className="spfx-comments-link-chip spfx-comments-link-chip-button"
-        title={link.url}
+        title={link.secondaryText || link.url}
         onClick={handlePreviewClick}
       >
         <Icon iconName={iconName} className="spfx-comments-link-chip-icon" />
-        <span className="spfx-comments-link-chip-text">{link.name}</span>
+        <span className="spfx-comments-link-chip-text">{highlightMatches(link.name, searchQuery)}</span>
       </button>
     );
   }
@@ -218,10 +281,10 @@ const CommentLinkChip: React.FC<{
       target="_blank"
       rel="noopener noreferrer"
       className="spfx-comments-link-chip"
-      title={`${link.url} (opens in new tab)`}
+      title={`${link.secondaryText || link.url} (opens in new tab)`}
     >
       <Icon iconName={iconName} className="spfx-comments-link-chip-icon" />
-      <span className="spfx-comments-link-chip-text">{link.name}</span>
+      <span className="spfx-comments-link-chip-text">{highlightMatches(link.name, searchQuery)}</span>
       <span className="spfx-comments-external-link-icon" aria-hidden="true">↗</span>
     </a>
   );
@@ -229,22 +292,57 @@ const CommentLinkChip: React.FC<{
 
 const InlineMention: React.FC<{
   mention: { id?: string; email?: string; title?: string };
-}> = ({ mention }) => {
-  const displayName = `@${mention.title || mention.email || 'Unknown'}`;
+  searchQuery?: string;
+}> = ({ mention, searchQuery }) => {
+  const displayText = `@${mention.title || mention.email || 'Unknown'}`;
   const upn = mention.email || mention.id || '';
   const serviceScope = SPContext.isReady() ? SPContext.spfxContext.serviceScope : undefined;
 
   if (!upn || !serviceScope) {
-    return <span className="spfx-comments-mention-text">{displayName}</span>;
+    return <span className="spfx-comments-mention-text">{highlightMatches(displayText, searchQuery)}</span>;
   }
 
   return (
-    <React.Suspense fallback={<span className="spfx-comments-mention-text">{displayName}</span>}>
+    <React.Suspense fallback={<span className="spfx-comments-mention-text">{highlightMatches(displayText, searchQuery)}</span>}>
       <LivePersona
         upn={upn}
         serviceScope={serviceScope}
-        template={<span className="spfx-comments-mention-text">{displayName}</span>}
+        template={<span className="spfx-comments-mention-text">{highlightMatches(displayText, searchQuery)}</span>}
       />
     </React.Suspense>
   );
 };
+
+function highlightMatches(text: string, searchQuery?: string): React.ReactNode {
+  const query = (searchQuery || '').trim();
+  if (!query || !text) {
+    return text;
+  }
+
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let startIndex = 0;
+  let matchIndex = lowerText.indexOf(lowerQuery, startIndex);
+
+  while (matchIndex !== -1) {
+    if (matchIndex > startIndex) {
+      parts.push(text.slice(startIndex, matchIndex));
+    }
+
+    const endIndex = matchIndex + query.length;
+    parts.push(
+      <mark key={`${matchIndex}-${endIndex}`} className="spfx-comments-search-highlight">
+        {text.slice(matchIndex, endIndex)}
+      </mark>
+    );
+    startIndex = endIndex;
+    matchIndex = lowerText.indexOf(lowerQuery, startIndex);
+  }
+
+  if (startIndex < text.length) {
+    parts.push(text.slice(startIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}

@@ -77,7 +77,7 @@ export function useComments(options: UseCommentsOptions): IUseCommentsReturn {
         const response = await spHttpClient.fetch(requestUrl, SPHttpClient.configurations.v1, {
           method: 'GET',
           headers: {
-            Accept: 'application/json;odata=nometadata',
+            Accept: 'application/json;odata.metadata=none',
           },
         });
         const json = await response.json();
@@ -93,37 +93,44 @@ export function useComments(options: UseCommentsOptions): IUseCommentsReturn {
     [getCommentsEndpoint, itemId, listId, pageSize]
   );
 
+  const applyLoadedComments = React.useCallback(
+    (page: number, response: any[]) => {
+      if (!mountedRef.current) return;
+
+      const allFetched: IComment[] = (response || []).map(mapSPCommentToIComment);
+      const hasMore = allFetched.length > pageSize;
+      const comments = hasMore ? allFetched.slice(0, pageSize) : allFetched;
+
+      comments.sort((a, b) => {
+        const diff = a.createdDate.getTime() - b.createdDate.getTime();
+        return sortOrder === 'newest' ? -diff : diff;
+      });
+
+      const fetchedIds = new Set(comments.map((c) => c.id));
+      const remainingOptimistic = optimisticCommentsRef.current.filter((c) => !fetchedIds.has(c.id));
+      optimisticCommentsRef.current = remainingOptimistic;
+      const mergedComments = mergeCommentsForPage(comments, remainingOptimistic, pageSize, sortOrder);
+
+      setState((prev) => ({
+        ...prev,
+        comments: mergedComments,
+        loading: false,
+        currentPage: page,
+        totalCount: (page * pageSize) + comments.length + remainingOptimistic.length + (hasMore ? 1 : 0),
+        hasMore,
+      }));
+
+      return comments;
+    },
+    [pageSize, sortOrder]
+  );
+
   const loadComments = React.useCallback(
     async (page: number) => {
       try {
         setState((prev) => ({ ...prev, loading: true, error: null }));
         const response = await loadCommentsResponse(page);
-
-        if (!mountedRef.current) return;
-
-        const allFetched: IComment[] = (response || []).map(mapSPCommentToIComment);
-        const hasMore = allFetched.length > pageSize;
-        const comments = hasMore ? allFetched.slice(0, pageSize) : allFetched;
-
-        // Sort client-side
-        comments.sort((a, b) => {
-          const diff = a.createdDate.getTime() - b.createdDate.getTime();
-          return sortOrder === 'newest' ? -diff : diff;
-        });
-
-        const fetchedIds = new Set(comments.map((c) => c.id));
-        const remainingOptimistic = optimisticCommentsRef.current.filter((c) => !fetchedIds.has(c.id));
-        optimisticCommentsRef.current = remainingOptimistic;
-        const mergedComments = mergeCommentsForPage(comments, remainingOptimistic, pageSize, sortOrder);
-
-        setState((prev) => ({
-          ...prev,
-          comments: mergedComments,
-          loading: false,
-          currentPage: page,
-          totalCount: (page * pageSize) + comments.length + remainingOptimistic.length + (hasMore ? 1 : 0),
-          hasMore,
-        }));
+        applyLoadedComments(page, response);
       } catch (error: any) {
         if (!mountedRef.current) return;
         const err = error instanceof Error ? error : new Error(String(error));
@@ -132,7 +139,7 @@ export function useComments(options: UseCommentsOptions): IUseCommentsReturn {
         SPContext.isReady() && SPContext.logger.error('Comments: Failed to load', error);
       }
     },
-    [loadCommentsResponse, pageSize, sortOrder, onError]
+    [applyLoadedComments, loadCommentsResponse, onError]
   );
 
   // Initial load
@@ -278,6 +285,39 @@ export function useComments(options: UseCommentsOptions): IUseCommentsReturn {
     [loadComments]
   );
 
+  const loadCommentById = React.useCallback(
+    async (commentId: number): Promise<boolean> => {
+      try {
+        setState((prev) => ({ ...prev, loading: true, error: null }));
+
+        let page = 0;
+        while (true) {
+          const response = await loadCommentsResponse(page);
+          const loadedComments = applyLoadedComments(page, response) || [];
+          const hasMore = Array.isArray(response) && response.length > pageSize;
+
+          if (loadedComments.some((comment) => comment.id === commentId)) {
+            return true;
+          }
+
+          if (!hasMore) {
+            return false;
+          }
+
+          page += 1;
+        }
+      } catch (error: any) {
+        if (!mountedRef.current) return false;
+        const err = error instanceof Error ? error : new Error(String(error));
+        setState((prev) => ({ ...prev, loading: false, error: err }));
+        onError?.(err);
+        SPContext.isReady() && SPContext.logger.error('Comments: Failed to locate comment', error);
+        return false;
+      }
+    },
+    [applyLoadedComments, loadCommentsResponse, onError, pageSize]
+  );
+
   const refresh = React.useCallback(async () => {
     await loadComments(state.currentPage);
   }, [loadComments, state.currentPage]);
@@ -289,6 +329,7 @@ export function useComments(options: UseCommentsOptions): IUseCommentsReturn {
     likeComment,
     unlikeComment,
     loadPage,
+    loadCommentById,
     refresh,
   };
 }

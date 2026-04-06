@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Callout, DirectionalHint } from '@fluentui/react/lib/Callout';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Icon } from '@fluentui/react/lib/Icon';
+import { SPContext } from '../../../utilities/context';
 import type { ICommentLink } from '../Comments.types';
 
 export interface ILinkDropdownProps {
@@ -122,6 +123,7 @@ export const LinkDropdown: React.FC<ILinkDropdownProps> = React.memo((props) => 
                   className={`spfx-comments-dropdown-item ${idx === activeIndex ? 'active' : ''}`}
                   role="option"
                   aria-selected={idx === activeIndex}
+                  title={`${link.name}\n${getLinkSecondaryText(link)}${link.description ? `\n${link.description}` : ''}`}
                   onClick={() => onSelect(link)}
                   onMouseEnter={() => setActiveIndex(idx)}
                 >
@@ -130,7 +132,10 @@ export const LinkDropdown: React.FC<ILinkDropdownProps> = React.memo((props) => 
                   </div>
                   <div className="spfx-comments-dropdown-info">
                     <div className="spfx-comments-dropdown-name">{link.name}</div>
-                    <div className="spfx-comments-dropdown-email">{truncateUrl(link.url)}</div>
+                    <div className="spfx-comments-dropdown-secondary">{getLinkSecondaryText(link)}</div>
+                    {link.description && (
+                      <div className="spfx-comments-dropdown-tertiary">{link.description}</div>
+                    )}
                   </div>
                 </div>
               );
@@ -150,6 +155,18 @@ export const LinkDropdown: React.FC<ILinkDropdownProps> = React.memo((props) => 
 
 LinkDropdown.displayName = 'LinkDropdown';
 
+function getLinkSecondaryText(link: ICommentLink): string {
+  if (link.secondaryText && link.secondaryText.trim()) {
+    const trimmed = link.secondaryText.trim();
+    if (looksLikePathOrUrl(trimmed)) {
+      return formatLinkLocation(trimmed);
+    }
+    return trimmed;
+  }
+
+  return formatLinkLocation(link.url);
+}
+
 function getFileIconName(fileType?: string): string {
   switch (fileType?.toLowerCase()) {
     case 'xlsx': case 'xls': return 'ExcelDocument';
@@ -161,7 +178,75 @@ function getFileIconName(fileType?: string): string {
   }
 }
 
-function truncateUrl(url: string, maxLen = 50): string {
-  if (url.length <= maxLen) return url;
-  return url.substring(0, maxLen - 3) + '...';
+function formatLinkLocation(url: string, maxLen = 64): string {
+  const parsed = parseUrlSafely(url);
+
+  try {
+    if (!parsed) {
+      return truncateMiddle(url, maxLen);
+    }
+
+    const path = decodeURIComponent(parsed.pathname || '').replace(/\/{2,}/g, '/');
+    const currentWebUrl = getCurrentWebUrl();
+
+    if (currentWebUrl && parsed.origin === currentWebUrl.origin) {
+      const currentWebPath = normalizePath(currentWebUrl.pathname);
+      const normalizedPath = normalizePath(path);
+
+      if (currentWebPath && normalizedPath.startsWith(`${currentWebPath}/`)) {
+        return truncateMiddle(normalizedPath.slice(currentWebPath.length + 1), maxLen);
+      }
+
+      return truncateMiddle(normalizedPath.replace(/^\/+/, ''), maxLen);
+    }
+
+    const display = `${parsed.host}${path}`;
+    return truncateMiddle(display, maxLen);
+  } catch {
+    return truncateMiddle(url, maxLen);
+  }
+}
+
+function parseUrlSafely(url: string): URL | null {
+  try {
+    return new URL(url, window.location.origin);
+  } catch {
+    try {
+      return new URL(encodeURI(url), window.location.origin);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function looksLikePathOrUrl(value: string): boolean {
+  return value.indexOf('/') !== -1 || value.indexOf('://') !== -1;
+}
+
+function getCurrentWebUrl(): URL | null {
+  try {
+    const webUrl = SPContext.webAbsoluteUrl || window.location.origin;
+    return new URL(webUrl, window.location.origin);
+  } catch {
+    return null;
+  }
+}
+
+function normalizePath(path: string): string {
+  if (!path) {
+    return '';
+  }
+
+  return path.replace(/\/{2,}/g, '/').replace(/\/$/, '');
+}
+
+function truncateMiddle(value: string, maxLen: number): string {
+  if (value.length <= maxLen) {
+    return value;
+  }
+
+  const available = maxLen - 3;
+  const head = Math.ceil(available * 0.6);
+  const tail = Math.max(0, available - head);
+  return `${value.slice(0, head)}...${value.slice(value.length - tail)}`;
 }

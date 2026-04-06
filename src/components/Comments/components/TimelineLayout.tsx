@@ -12,11 +12,14 @@ export interface ITimelineLayoutProps {
   systemEvents: ISystemEvent[];
   loading: boolean;
   enableDocumentPreview: boolean;
+  enableCommentCollapse: boolean;
+  collapsedMaxLines: number;
   currentUserEmail: string;
+  searchQuery?: string;
   highlightedCommentId?: number;
   onLike: (id: number) => void;
   onUnlike: (id: number) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => void | Promise<void>;
 }
 
 type TimelineEntry =
@@ -25,8 +28,8 @@ type TimelineEntry =
 
 export const TimelineLayout: React.FC<ITimelineLayoutProps> = React.memo((props) => {
   const {
-    comments, systemEvents, loading, enableDocumentPreview,
-    currentUserEmail, highlightedCommentId, onLike, onUnlike, onDelete,
+    comments, systemEvents, loading, enableDocumentPreview, enableCommentCollapse, collapsedMaxLines,
+    currentUserEmail, searchQuery, highlightedCommentId, onLike, onUnlike, onDelete,
   } = props;
 
   // Merge comments and system events, sorted by date
@@ -96,7 +99,7 @@ export const TimelineLayout: React.FC<ITimelineLayoutProps> = React.memo((props)
               <UserPersona
                 userIdentifier={comment.author.email || comment.author.id}
                 displayName={comment.author.title}
-                size={40}
+                size={32}
                 displayMode="avatar"
               />
             </div>
@@ -108,7 +111,13 @@ export const TimelineLayout: React.FC<ITimelineLayoutProps> = React.memo((props)
                 </span>
               </div>
               <div className="spfx-comments-timeline-body">
-                <CommentText comment={comment} enableDocumentPreview={enableDocumentPreview} />
+                <CommentText
+                  comment={comment}
+                  enableDocumentPreview={enableDocumentPreview}
+                  enableCollapse={enableCommentCollapse}
+                  collapsedMaxLines={collapsedMaxLines}
+                  searchQuery={searchQuery}
+                />
               </div>
               <CommentActions
                 commentId={comment.id}

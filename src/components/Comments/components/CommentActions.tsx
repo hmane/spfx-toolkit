@@ -8,7 +8,7 @@ export interface ICommentActionsProps {
   canDelete: boolean;
   onLike: (commentId: number) => void;
   onUnlike: (commentId: number) => void;
-  onDelete: (commentId: number) => void;
+  onDelete: (commentId: number) => void | Promise<void>;
   compact?: boolean;
 }
 
@@ -24,7 +24,7 @@ export const CommentActions: React.FC<ICommentActionsProps> = React.memo((props)
   }, [commentId, isLiked, onLike, onUnlike]);
 
   const handleDeleteClick = React.useCallback(() => {
-    onDelete(commentId);
+    void onDelete(commentId);
   }, [commentId, onDelete]);
 
   return (

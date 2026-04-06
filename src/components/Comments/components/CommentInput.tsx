@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { MentionsInput, Mention } from 'react-mentions';
+import { SPContext } from '../../../utilities/context';
 import type { IPrincipal } from '../../../types/listItemTypes';
 import type { ICommentLink } from '../Comments.types';
 
@@ -104,7 +105,7 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
       const preferredMatches = (normalizedQuery
         ? preferredUsers.filter((user) => {
             if (isExcludedMentionPrincipal(user)) return false;
-            const value = `${user.title || ''} ${user.email || ''} ${user.loginName || ''}`.toLowerCase();
+            const value = `${user.title || ''} ${user.email || ''} ${user.loginName || ''} ${user.jobTitle || ''}`.toLowerCase();
             return value.includes(normalizedQuery);
           })
         : preferredUsers.filter((user) => !isExcludedMentionPrincipal(user))
@@ -113,6 +114,7 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
         return {
           id: user.email || user.id || '',
           display: user.title || user.email || 'Unknown',
+          secondaryText: getMentionSecondaryText(user),
         };
       });
 
@@ -137,6 +139,7 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
             return {
               id: user.email || user.id || '',
               display: user.title || user.email || 'Unknown',
+              secondaryText: getMentionSecondaryText(user),
             };
           });
         callback([...preferredMatches, ...remoteMatches]);
@@ -157,6 +160,9 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
         return {
           id: link.url,
           display: link.name,
+          secondaryText: getSuggestionLinkSecondaryText(link),
+          description: link.description,
+          fileType: link.fileType,
         };
       });
 
@@ -175,6 +181,9 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
             return {
               id: link.url,
               display: link.name,
+              secondaryText: getSuggestionLinkSecondaryText(link),
+              description: link.description,
+              fileType: link.fileType,
             };
           });
         callback([...staticMatches, ...remoteMatches]);
@@ -271,7 +280,13 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
                   </div>
                   <div className="spfx-comments-dropdown-info">
                     <div className="spfx-comments-dropdown-name">{highlightedDisplay}</div>
-                    {suggestion.id && <div className="spfx-comments-dropdown-email">{suggestion.id}</div>}
+                    {(suggestion as { secondaryText?: string }).secondaryText ? (
+                      <div className="spfx-comments-dropdown-secondary">
+                        {(suggestion as { secondaryText?: string }).secondaryText}
+                      </div>
+                    ) : suggestion.id ? (
+                      <div className="spfx-comments-dropdown-email">{suggestion.id}</div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -286,12 +301,21 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
               renderSuggestion={(suggestion, _search, highlightedDisplay, _index, focused) => (
                 <div className={`spfx-comments-dropdown-item ${focused ? 'active' : ''}`}>
                   <div className="spfx-comments-dropdown-link-icon">
-                    <Icon iconName={getFileIconName(String(suggestion.id || ''))} />
+                    <Icon
+                      iconName={getFileIconName(String((suggestion as { fileType?: string }).fileType || suggestion.id || ''))}
+                    />
                   </div>
                   <div className="spfx-comments-dropdown-info">
                     <div className="spfx-comments-dropdown-name">{highlightedDisplay}</div>
-                    {suggestion.id && (
-                      <div className="spfx-comments-dropdown-email">{String(suggestion.id)}</div>
+                    {(suggestion as { secondaryText?: string }).secondaryText && (
+                      <div className="spfx-comments-dropdown-secondary">
+                        {(suggestion as { secondaryText?: string }).secondaryText}
+                      </div>
+                    )}
+                    {(suggestion as { description?: string }).description && (
+                      <div className="spfx-comments-dropdown-tertiary">
+                        {(suggestion as { description?: string }).description}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -334,6 +358,10 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+function getMentionSecondaryText(user: IPrincipal): string {
+  return String(user.jobTitle || user.email || '').trim();
+}
+
 function getFileIconName(value?: string): string {
   const fileType = value?.split('.').pop()?.toLowerCase();
   switch (fileType) {
@@ -351,6 +379,67 @@ function getFileIconName(value?: string): string {
     default:
       return 'Page';
   }
+}
+
+function getSuggestionLinkSecondaryText(link: ICommentLink): string {
+  const rawValue = (link.secondaryText || link.url || '').trim();
+  return formatSuggestionLinkPath(rawValue);
+}
+
+function formatSuggestionLinkPath(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  const parsed = parseUrlSafely(value);
+  if (!parsed) {
+    return value;
+  }
+
+  const normalizedPath = decodeURIComponent(parsed.pathname || value).replace(/\/{2,}/g, '/');
+  const currentWebUrl = getCurrentWebUrl();
+
+  if (currentWebUrl && parsed.origin === currentWebUrl.origin) {
+    const currentWebPath = normalizePath(currentWebUrl.pathname);
+    const path = normalizePath(normalizedPath);
+
+    if (currentWebPath && path.indexOf(`${currentWebPath}/`) === 0) {
+      return path.slice(currentWebPath.length + 1);
+    }
+
+    return path.replace(/^\/+/, '');
+  }
+
+  return `${parsed.host}${normalizedPath}`;
+}
+
+function parseUrlSafely(url: string): URL | null {
+  try {
+    return new URL(url, window.location.origin);
+  } catch {
+    try {
+      return new URL(encodeURI(url), window.location.origin);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function getCurrentWebUrl(): URL | null {
+  try {
+    const webUrl = SPContext.webAbsoluteUrl || window.location.origin;
+    return new URL(webUrl, window.location.origin);
+  } catch {
+    return null;
+  }
+}
+
+function normalizePath(path: string): string {
+  if (!path) {
+    return '';
+  }
+
+  return path.replace(/\/{2,}/g, '/').replace(/\/$/, '');
 }
 
 function isExcludedMentionPrincipal(user: IPrincipal): boolean {

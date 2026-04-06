@@ -5,6 +5,7 @@
  * All IDs are numeric to match SharePoint comment API responses.
  */
 
+import type * as React from 'react';
 import type { IPrincipal } from '../../types/listItemTypes';
 
 // ─── Layout Types ───
@@ -18,6 +19,10 @@ export interface ICommentLink {
   name: string;
   /** Full URL */
   url: string;
+  /** Optional secondary text for dropdown display */
+  secondaryText?: string;
+  /** Optional tertiary text for dropdown display */
+  description?: string;
   /** File extension hint (e.g., 'xlsx', 'docx', 'pdf') */
   fileType?: string;
   /** Group header in dropdown (e.g., 'Recent Documents', 'Pinned') */
@@ -182,8 +187,33 @@ export interface ICommentsProps {
    */
   enableDocumentPreview?: boolean;
 
+  /**
+   * Collapse long comments and show a "Read more" toggle.
+   * Applied to classic/chat/timeline layouts.
+   * @default true
+   */
+  enableCommentCollapse?: boolean;
+
+  /**
+   * Maximum visible lines before showing "Read more".
+   * @default 8
+   */
+  collapsedMaxLines?: number;
+
   /** Label displayed above the component */
   label?: string;
+
+  /**
+   * Confirm before deleting a comment.
+   * @default true
+   */
+  confirmDelete?: boolean;
+
+  /** Confirmation dialog title for comment deletion */
+  deleteConfirmationTitle?: React.ReactNode;
+
+  /** Confirmation dialog body for comment deletion */
+  deleteConfirmationMessage?: React.ReactNode;
 
   // ─── Callbacks ───
 
@@ -241,6 +271,7 @@ export interface IUseCommentsReturn {
   likeComment: (commentId: number) => Promise<void>;
   unlikeComment: (commentId: number) => Promise<void>;
   loadPage: (page: number) => Promise<void>;
+  loadCommentById: (commentId: number) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -294,4 +325,9 @@ export const COMMENTS_DEFAULTS = {
   enableSearch: true,
   enableDocumentPreview: true,
   enableLinkResolution: true,
+  enableCommentCollapse: true,
+  collapsedMaxLines: 8,
+  confirmDelete: true,
+  deleteConfirmationTitle: 'Delete comment?',
+  deleteConfirmationMessage: 'This comment will be permanently removed.',
 };
