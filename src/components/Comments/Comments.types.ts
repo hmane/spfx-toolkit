@@ -129,8 +129,9 @@ export interface ICommentsProps {
   preferredUsers?: IPrincipal[];
 
   /**
-   * Custom resolver for @ mention search. Primary path for directory search.
-   * If not provided, only preferredUsers are shown (no automatic Graph fallback).
+   * Optional custom resolver for @ mention search.
+   * Results are merged with the built-in resolver when available.
+   * Without a custom resolver, the component uses built-in Graph/PeoplePicker search.
    */
   onResolveMentions?: (query: string) => Promise<IPrincipal[]>;
 

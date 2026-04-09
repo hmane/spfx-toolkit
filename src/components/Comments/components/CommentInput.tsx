@@ -5,6 +5,15 @@ import { MentionsInput, Mention } from 'react-mentions';
 import { SPContext } from '../../../utilities/context';
 import type { IPrincipal } from '../../../types/listItemTypes';
 import type { ICommentLink } from '../Comments.types';
+import {
+  dedupeMentionPrincipals,
+  getMentionPrincipalKey,
+  rankMentionPrincipals,
+  resolveBuiltInMentionPrincipals,
+} from '../utils/mentionSearch';
+
+const MENTION_REMOTE_SEARCH_DEBOUNCE_MS = 250;
+const MIN_REMOTE_MENTION_QUERY_LENGTH = 2;
 
 export interface ICommentInputProps {
   inputReturn: {
@@ -83,7 +92,7 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
     [handleKeyDown, handleSubmit, activeTrigger]
   );
 
-  const hasMentionTrigger = preferredUsers.length > 0 || !!onResolveMentions;
+  const hasMentionTrigger = preferredUsers.length > 0 || !!onResolveMentions || SPContext.isReady();
   const hasLinkTrigger = linkSuggestions.length > 0 || !!onResolveLinkSuggestions;
 
   const placeholder = React.useMemo(() => {
@@ -97,19 +106,28 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
   const suggestionsHostRef = React.useRef<HTMLDivElement | null>(null);
   const [isFocused, setIsFocused] = React.useState(false);
   const isExpanded = isFocused || !!text.trim() || posting;
+  const mentionRequestIdRef = React.useRef(0);
+  const mentionDebounceRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   const resolveMentionSuggestions = React.useCallback(
     async (query: string, callback: (results: Array<{ id: string; display: string }>) => void) => {
       const normalizedQuery = query.trim().toLowerCase();
+      const requestId = ++mentionRequestIdRef.current;
+      const isEmptyQuery = normalizedQuery.length === 0;
+      const shouldResolveTenantSearch = normalizedQuery.length >= MIN_REMOTE_MENTION_QUERY_LENGTH;
 
-      const preferredMatches = (normalizedQuery
-        ? preferredUsers.filter((user) => {
+      const preferredPrincipals = rankMentionPrincipals(
+        normalizedQuery
+          ? preferredUsers.filter((user) => {
             if (isExcludedMentionPrincipal(user)) return false;
             const value = `${user.title || ''} ${user.email || ''} ${user.loginName || ''} ${user.jobTitle || ''}`.toLowerCase();
             return value.includes(normalizedQuery);
           })
-        : preferredUsers.filter((user) => !isExcludedMentionPrincipal(user))
-      ).map((user) => {
+          : preferredUsers.filter((user) => !isExcludedMentionPrincipal(user)),
+        query
+      );
+
+      const preferredMatches = preferredPrincipals.map((user) => {
         registerMention(user);
         return {
           id: user.email || user.id || '',
@@ -121,20 +139,42 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
       // Always show the provided user list immediately, even while a background search runs.
       callback(preferredMatches);
 
-      if (!onResolveMentions || normalizedQuery.length < 1) {
+      if (mentionDebounceRef.current) {
+        clearTimeout(mentionDebounceRef.current);
+        mentionDebounceRef.current = undefined;
+      }
+
+      if (!isEmptyQuery && !shouldResolveTenantSearch) {
         return;
       }
 
-      try {
-        const remote = await onResolveMentions(query);
-        const seen = new Set(preferredMatches.map((item) => item.id.toLowerCase()));
-        const remoteMatches = remote
-          .filter((user) => {
-            if (isExcludedMentionPrincipal(user)) return false;
-            const key = (user.email || user.id || '').toLowerCase();
-            return !!key && !seen.has(key);
-          })
-          .map((user) => {
+      const loadRemoteResults = async (): Promise<void> => {
+        try {
+          const [customResults, builtInResults] = await Promise.all([
+            onResolveMentions
+              ? onResolveMentions(query).catch(() => [])
+              : Promise.resolve([] as IPrincipal[]),
+            resolveBuiltInMentionPrincipals(query),
+          ]);
+
+          if (requestId !== mentionRequestIdRef.current) {
+            return;
+          }
+
+          const preferredKeys = new Set(preferredPrincipals.map((user) => getMentionPrincipalKey(user)).filter(Boolean));
+
+          const mergedRemoteResults = rankMentionPrincipals(
+            dedupeMentionPrincipals(customResults
+              .concat(builtInResults)
+              .filter((user) => !isExcludedMentionPrincipal(user))
+              .filter((user) => {
+                const key = getMentionPrincipalKey(user);
+                return !!key && !preferredKeys.has(key);
+              })),
+            query
+          );
+
+          const remoteMatches = mergedRemoteResults.map((user) => {
             registerMention(user);
             return {
               id: user.email || user.id || '',
@@ -142,13 +182,33 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
               secondaryText: getMentionSecondaryText(user),
             };
           });
-        callback([...preferredMatches, ...remoteMatches]);
-      } catch {
-        // Keep the immediate preferred list result on background-search failure.
+
+          callback([...preferredMatches, ...remoteMatches]);
+        } catch {
+          // Keep the immediate preferred list result on background-search failure.
+        }
+      };
+
+      if (isEmptyQuery) {
+        void loadRemoteResults();
+        return;
       }
+
+      mentionDebounceRef.current = setTimeout(() => {
+        mentionDebounceRef.current = undefined;
+        void loadRemoteResults();
+      }, MENTION_REMOTE_SEARCH_DEBOUNCE_MS);
     },
     [onResolveMentions, preferredUsers, registerMention]
   );
+
+  React.useEffect(() => {
+    return () => {
+      if (mentionDebounceRef.current) {
+        clearTimeout(mentionDebounceRef.current);
+      }
+    };
+  }, []);
 
   const resolveLinkSuggestions = React.useCallback(
     async (query: string, callback: (results: Array<{ id: string; display: string }>) => void) => {

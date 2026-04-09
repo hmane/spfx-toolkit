@@ -45,14 +45,14 @@ export interface ICommentsProps {
   preferredUsers?: IPrincipal[];
 
   /**
-   * Custom resolver for @ mention search. This is the PRIMARY path for directory search.
-   * If not provided, only preferredUsers are shown (no automatic Graph fallback).
-   * This avoids implicit Graph API permission requirements.
+   * Optional custom resolver for @ mention search.
+   * Results are merged with the built-in resolver when available.
+   * Without a custom resolver, the component uses built-in Graph/PeoplePicker search.
    *
-   * Example using PnP people search:
+   * Example custom resolver:
    *   onResolveMentions={async (query) => {
-   *     const results = await SPContext.sp.web.siteUsers.filter(`substringof('${query}', Title)`)();
-   *     return results.map(u => ({ id: String(u.Id), email: u.Email, title: u.Title }));
+   *     const users = await customDirectory.searchUsers(query);
+   *     return users.map(u => ({ id: u.mail, email: u.mail, title: u.displayName }));
    *   }}
    */
   onResolveMentions?: (query: string) => Promise<IPrincipal[]>;
@@ -243,12 +243,12 @@ export interface ISystemEvent {
 2. Fluent UI `Callout` opens below the cursor position
 3. Dropdown shows:
    - **"Preferred"** section: `preferredUsers` prop (always shown first, filtered by query)
-   - **"Directory"** section: Results from `onResolveMentions` callback (if provided)
-   - If neither prop is provided, `@` trigger is disabled (no empty dropdown)
+   - **"Directory"** section: Built-in Graph/PeoplePicker results, merged with `onResolveMentions` (if provided)
+   - If no preferred or directory matches are found, the dropdown stays hidden
 4. User selects a person → `@DisplayName` chip inserted in input
-5. Typing after `@` filters preferred list locally; calls `onResolveMentions` with debounce (300ms)
+5. Typing after `@` filters preferred list locally; tenant-wide directory search starts at 2+ characters with debounce
 
-**Note:** There is no implicit Graph API fallback. The consuming project controls how directory search works via `onResolveMentions`. This avoids requiring Graph API permissions that the consuming SPFx web part may not have.
+**Note:** Built-in directory search prefers Graph (`me/people` for bare `@`, `/users` for typed search) and falls back to PeoplePicker search when Graph is unavailable or returns no typed results.
 
 **Storage Format:**
 - Text: `"Hello @mention{0}, please review"`
@@ -478,7 +478,7 @@ This eliminates the need for a custom `DocumentLinkModal.tsx` and `urlResolver.t
 |------|---------------|----------------------|
 | SP API calls | `SPContext` | `../../utilities/context` |
 | PnP SP instance | `SPContext.sp` | Via SPContext |
-| Directory search | Consumer-provided | Via `onResolveMentions` callback (optional, no implicit Graph dependency) |
+| Directory search | Built-in + optional custom merge | Graph/PeoplePicker via `SPContext`, merged with `onResolveMentions` when provided |
 | User display in mentions | `UserPersona` | `../UserPersona` |
 | Document link rendering | `DocumentLink` | `../DocumentLink` |
 | Document metadata fetching | `useDocumentMetadata` | `../DocumentLink` |

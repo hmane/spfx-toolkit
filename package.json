@@ -214,6 +214,17 @@
   "engines": {
     "node": ">=18 <23"
   },
+  "overrides": {
+    "@microsoft/sp-module-interfaces": {
+      "validator": "13.15.35"
+    },
+    "@rushstack/node-core-library": {
+      "validator": "13.15.35"
+    },
+    "adaptive-expressions": {
+      "fast-xml-parser": "5.5.10"
+    }
+  },
   "peerDependencies": {
     "@fluentui/react": "8.106.4",
     "@pnp/logging": "^4.16.0",
