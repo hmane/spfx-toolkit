@@ -613,9 +613,9 @@
 .spfx-comments-classic-item {
   display: flex;
   gap: 12px;
-  padding: 14px 20px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--spfx-comments-border);
-  transition: background 0.1s;
+  transition: background 0.1s, box-shadow 0.1s;
   position: relative;
 }
 
@@ -628,13 +628,20 @@
 }
 
 .spfx-comments-classic-item.highlighted {
-  background: var(--spfx-comments-primary-light);
+  background: var(--spfx-comments-primary-subtle);
+  box-shadow: inset 3px 0 0 var(--spfx-comments-primary);
   animation: spfx-comments-highlight-fade 3s ease-out;
 }
 
 @keyframes spfx-comments-highlight-fade {
-  0% { background: var(--spfx-comments-primary-light); }
-  100% { background: transparent; }
+  0% {
+    background: var(--spfx-comments-primary-light);
+    box-shadow: inset 3px 0 0 var(--spfx-comments-primary);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
 }
 
 .spfx-comments-classic-avatar {
