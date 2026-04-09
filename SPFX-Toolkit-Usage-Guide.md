@@ -1387,7 +1387,7 @@ const MyComponent: React.FC = () => {
 };
 ```
 
-`Comments` now performs built-in mention search using Graph/PeoplePicker services from `SPContext` when available. If you pass `onResolveMentions`, those results are merged with the built-in resolver instead of replacing it.
+`Comments` now performs built-in mention search using the same Graph query pattern as PnP `ListItemComments`. If you pass `onResolveMentions`, those results are appended after the built-in results instead of replacing them.
 
 #### Layout Variants
 
@@ -1417,7 +1417,7 @@ const MyComponent: React.FC = () => {
 
 | Feature | Details |
 |---------|---------|
-| **@mentions** | Preferred users list + built-in Graph/PeoplePicker search, optionally merged with `onResolveMentions`. SharePoint sends email notifications automatically. |
+| **@mentions** | Preferred users list + built-in Graph search matching PnP `ListItemComments`, with optional extra results from `onResolveMentions`. SharePoint sends email notifications automatically. |
 | **#links** | Static `linkSuggestions` + dynamic `onResolveLinkSuggestions`. Rendered using toolkit `DocumentLink` with hover card and preview modal. |
 | **Paste URL resolution** | Pasted SharePoint URLs auto-resolve to document names via SP REST API. |
 | **Search** | Client-side search across loaded comments (text, author, mentions, links). |
@@ -1432,7 +1432,7 @@ const MyComponent: React.FC = () => {
 | `listId` | `string` | Required | SharePoint list GUID |
 | `itemId` | `number` | Required | List item ID |
 | `preferredUsers` | `IPrincipal[]` | `[]` | Users shown first in @ dropdown |
-| `onResolveMentions` | `(query) => Promise<IPrincipal[]>` | - | Optional directory search callback merged with built-in mention search |
+| `onResolveMentions` | `(query) => Promise<IPrincipal[]>` | - | Optional directory search callback appended after built-in mention search |
 | `linkSuggestions` | `ICommentLink[]` | `[]` | Static # link suggestions |
 | `onResolveLinkSuggestions` | `(query) => Promise<ICommentLink[]>` | - | Dynamic link search |
 | `enableLinkResolution` | `boolean` | `true` | Auto-resolve pasted SP URLs |

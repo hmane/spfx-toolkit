@@ -163,15 +163,14 @@ export const CommentInput: React.FC<ICommentInputProps> = React.memo((props) => 
 
           const preferredKeys = new Set(preferredPrincipals.map((user) => getMentionPrincipalKey(user)).filter(Boolean));
 
-          const mergedRemoteResults = rankMentionPrincipals(
-            dedupeMentionPrincipals(customResults
-              .concat(builtInResults)
+          const mergedRemoteResults = dedupeMentionPrincipals(
+            builtInResults
+              .concat(customResults)
               .filter((user) => !isExcludedMentionPrincipal(user))
               .filter((user) => {
                 const key = getMentionPrincipalKey(user);
                 return !!key && !preferredKeys.has(key);
-              })),
-            query
+              })
           );
 
           const remoteMatches = mergedRemoteResults.map((user) => {
@@ -509,9 +508,12 @@ function isExcludedMentionPrincipal(user: IPrincipal): boolean {
 
   return values.some((value) =>
     value === 'everyone' ||
+    value === 'all users' ||
     value === 'everyone except external users' ||
     value.includes('everyone except external users') ||
+    value.includes('all users') ||
     value.includes('everyone') ||
-    value.includes('spo-grid-all-users')
+    value.includes('spo-grid-all-users') ||
+    value.includes('rolemanager')
   );
 }

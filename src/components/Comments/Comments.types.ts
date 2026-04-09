@@ -130,8 +130,9 @@ export interface ICommentsProps {
 
   /**
    * Optional custom resolver for @ mention search.
-   * Results are merged with the built-in resolver when available.
-   * Without a custom resolver, the component uses built-in Graph/PeoplePicker search.
+   * Results are appended after the built-in resolver when provided.
+   * Without a custom resolver, the component uses the same Graph query pattern as
+   * PnP ListItemComments for non-preferred users.
    */
   onResolveMentions?: (query: string) => Promise<IPrincipal[]>;
 

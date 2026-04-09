@@ -46,8 +46,9 @@ export interface ICommentsProps {
 
   /**
    * Optional custom resolver for @ mention search.
-   * Results are merged with the built-in resolver when available.
-   * Without a custom resolver, the component uses built-in Graph/PeoplePicker search.
+   * Results are appended after the built-in resolver when provided.
+   * Without a custom resolver, the component uses the same Graph query pattern as
+   * PnP ListItemComments for non-preferred users.
    *
    * Example custom resolver:
    *   onResolveMentions={async (query) => {
@@ -243,12 +244,12 @@ export interface ISystemEvent {
 2. Fluent UI `Callout` opens below the cursor position
 3. Dropdown shows:
    - **"Preferred"** section: `preferredUsers` prop (always shown first, filtered by query)
-   - **"Directory"** section: Built-in Graph/PeoplePicker results, merged with `onResolveMentions` (if provided)
+   - **"Directory"** section: Built-in Graph results using the same query pattern as PnP ListItemComments, with any `onResolveMentions` results appended after
    - If no preferred or directory matches are found, the dropdown stays hidden
 4. User selects a person → `@DisplayName` chip inserted in input
 5. Typing after `@` filters preferred list locally; tenant-wide directory search starts at 2+ characters with debounce
 
-**Note:** Built-in directory search prefers Graph (`me/people` for bare `@`, `/users` for typed search) and falls back to PeoplePicker search when Graph is unavailable or returns no typed results.
+**Note:** Built-in directory search follows PnP ListItemComments: bare `@` uses Graph `me/people`, typed search uses Graph `/users` with `mail ne null AND (startswith(mail,'q') OR startswith(displayName,'q'))`. Matching PnP behavior also means matching its Graph permission requirements.
 
 **Storage Format:**
 - Text: `"Hello @mention{0}, please review"`
@@ -478,7 +479,7 @@ This eliminates the need for a custom `DocumentLinkModal.tsx` and `urlResolver.t
 |------|---------------|----------------------|
 | SP API calls | `SPContext` | `../../utilities/context` |
 | PnP SP instance | `SPContext.sp` | Via SPContext |
-| Directory search | Built-in + optional custom merge | Graph/PeoplePicker via `SPContext`, merged with `onResolveMentions` when provided |
+| Directory search | Built-in + optional custom append | Graph via `SPContext`, following PnP ListItemComments query behavior |
 | User display in mentions | `UserPersona` | `../UserPersona` |
 | Document link rendering | `DocumentLink` | `../DocumentLink` |
 | Document metadata fetching | `useDocumentMetadata` | `../DocumentLink` |

@@ -1,18 +1,8 @@
 import type { IPrincipal } from '../../../types/listItemTypes';
 import { SPContext } from '../../../utilities/context';
-import SPPeopleSearchService from '@pnp/spfx-controls-react/lib/services/PeopleSearchService';
-import { PrincipalType } from '@pnp/spfx-controls-react/lib/controls/peoplepicker/PrincipalType';
-import type { IPeoplePickerUserItem } from '@pnp/spfx-controls-react/lib/controls/peoplepicker/IPeoplePicker';
 
 const DEFAULT_MENTION_SUGGESTION_LIMIT = 25;
 const MIN_REMOTE_MENTION_QUERY_LENGTH = 2;
-
-let cachedPeopleSearchService:
-  | {
-      absoluteUrl: string;
-      service: SPPeopleSearchService;
-    }
-  | undefined;
 
 export function getMentionPrincipalKey(user: IPrincipal): string {
   const candidates = [user.email, user.loginName, user.id, user.title];
@@ -78,12 +68,7 @@ export async function resolveBuiltInMentionPrincipals(query: string): Promise<IP
     return [];
   }
 
-  const graphResults = await searchGraphUsers(normalizedQuery);
-  if (graphResults.length > 0) {
-    return graphResults;
-  }
-
-  return searchPeoplePickerUsers(normalizedQuery);
+  return searchGraphUsers(normalizedQuery);
 }
 
 function normalizeMentionValue(value: string | undefined): string {
@@ -184,13 +169,11 @@ async function searchGraphUsers(query: string): Promise<IPrincipal[]> {
 
   const escapedQuery = escapeGraphFilterValue(query);
   const filter =
-    "(startswith(displayName,'" +
+    "mail ne null AND (startswith(mail,'" +
     escapedQuery +
-    "') or startswith(userPrincipalName,'" +
+    "') OR startswith(displayName,'" +
     escapedQuery +
-    "') or (mail ne null and startswith(mail,'" +
-    escapedQuery +
-    "')))";
+    "'))";
 
   const response = await graphClient
     .api('/users')
@@ -203,45 +186,6 @@ async function searchGraphUsers(query: string): Promise<IPrincipal[]> {
 
   const items = Array.isArray(response?.value) ? response.value : [];
   return dedupeMentionPrincipals(items.map(mapGraphUserToPrincipal).filter(hasMentionIdentity));
-}
-
-async function searchPeoplePickerUsers(query: string): Promise<IPrincipal[]> {
-  const service = getPeopleSearchService();
-  if (!service) {
-    return [];
-  }
-
-  const users = await service.searchPeople(
-    query,
-    DEFAULT_MENTION_SUGGESTION_LIMIT,
-    [PrincipalType.User],
-    undefined,
-    undefined,
-    false,
-    false
-  );
-
-  return dedupeMentionPrincipals(users.map(mapPeoplePickerUserToPrincipal).filter(hasMentionIdentity));
-}
-
-function getPeopleSearchService(): SPPeopleSearchService | undefined {
-  if (!SPContext.isReady()) {
-    return undefined;
-  }
-
-  const peoplePickerContext = SPContext.peoplepickerContext;
-  if (!peoplePickerContext?.absoluteUrl || !peoplePickerContext.spHttpClient) {
-    return undefined;
-  }
-
-  if (!cachedPeopleSearchService || cachedPeopleSearchService.absoluteUrl !== peoplePickerContext.absoluteUrl) {
-    cachedPeopleSearchService = {
-      absoluteUrl: peoplePickerContext.absoluteUrl,
-      service: new SPPeopleSearchService(peoplePickerContext, true),
-    };
-  }
-
-  return cachedPeopleSearchService.service;
 }
 
 async function tryGetGraphClient(): Promise<any | undefined> {
@@ -279,27 +223,15 @@ function mapGraphSuggestedPersonToPrincipal(user: any): IPrincipal {
 }
 
 function mapGraphUserToPrincipal(user: any): IPrincipal {
-  const email = String(user?.mail || user?.userPrincipalName || '').trim();
+  const email = String(user?.mail || '').trim();
 
   return {
     id: email || String(user?.id || '').trim(),
     email,
     title: String(user?.displayName || '').trim(),
-    loginName: String(user?.userPrincipalName || '').trim(),
-    department: String(user?.department || '').trim(),
-    jobTitle: String(user?.jobTitle || '').trim(),
-  };
-}
-
-function mapPeoplePickerUserToPrincipal(user: IPeoplePickerUserItem): IPrincipal {
-  const email = String(user.secondaryText || '').trim();
-
-  return {
-    id: email || String(user.id || user.loginName || '').trim(),
-    email,
-    title: String(user.text || '').trim(),
-    loginName: String(user.loginName || '').trim(),
-    picture: String(user.imageUrl || '').trim(),
+    loginName: '',
+    department: '',
+    jobTitle: '',
   };
 }
 
