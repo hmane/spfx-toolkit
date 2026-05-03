@@ -19,6 +19,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule } from '../validation';
 import '../spFields.css';
 
 /**
@@ -170,24 +171,27 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
   const validationRules = React.useMemo(() => {
     const baseRules: RegisterOptions = { ...rules };
 
-    // Initialize validate object if needed
-    if (!baseRules.validate) {
-      baseRules.validate = {};
-    }
-
     // Add required validation (check if Url property has value)
     if (required) {
-      (baseRules.validate as any).required = (val: ISPUrlFieldValue) =>
-        !!val?.Url || `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'required',
+        (val: ISPUrlFieldValue) =>
+          !!val?.Url || `${label || 'This field'} is required`
+      );
     }
 
     // Add URL format validation
     if (validateUrl) {
-      (baseRules.validate as any).validUrl = (val: ISPUrlFieldValue) =>
-        !val?.Url || urlRegex.test(val.Url) ||
-        (allowRelativeUrl
-          ? 'Please enter a valid URL or relative path'
-          : 'Please enter a valid URL (must start with http:// or https://)');
+      addValidateRule(
+        baseRules,
+        'validUrl',
+        (val: ISPUrlFieldValue) =>
+          !val?.Url || urlRegex.test(val.Url) ||
+          (allowRelativeUrl
+            ? 'Please enter a valid URL or relative path'
+            : 'Please enter a valid URL (must start with http:// or https://)')
+      );
     }
 
     return baseRules;

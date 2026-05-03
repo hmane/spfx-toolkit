@@ -215,6 +215,7 @@
     "node": ">=18 <23"
   },
   "overrides": {
+    "fast-xml-parser": "5.5.10",
     "@microsoft/sp-module-interfaces": {
       "validator": "13.15.35"
     },

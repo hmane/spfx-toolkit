@@ -1,12 +1,9 @@
 import { Checkbox } from '@fluentui/react/lib/Checkbox';
 import { DatePicker } from '@fluentui/react/lib/DatePicker';
-import { DefaultButton } from '@fluentui/react/lib/Button';
 import { Dropdown, IDropdownOption } from '@fluentui/react/lib/Dropdown';
 import { Icon } from '@fluentui/react/lib/Icon';
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { SearchBox } from '@fluentui/react/lib/SearchBox';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
-import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { DateRangeFilter, IVersionTimelineProps } from '../types';
 import { getUniqueUsers } from '../VersionHistoryUtils';
@@ -89,7 +86,8 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
   const currentUserOptionKey = React.useMemo(() => {
     if (!normalizedCurrentUser) return null;
     const match = userOptions.find(
-      option => typeof option.key === 'string' && option.key.toLowerCase() === normalizedCurrentUser
+      option =>
+        typeof option.key === 'string' && option.key.toLowerCase() === normalizedCurrentUser
     );
     return (match?.key as string) || null;
   }, [normalizedCurrentUser, userOptions]);
@@ -113,7 +111,7 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     if (showMajorFilter) {
       chips.push({
         key: 'major',
-        label: 'Major versions',
+        label: 'Major',
         active: filterState.showMajorOnly,
         description: 'Show only major versions',
         onClick: () => onFilterChange({ showMajorOnly: !filterState.showMajorOnly }),
@@ -122,7 +120,7 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
 
     chips.push({
       key: 'mine',
-      label: 'My edits',
+      label: 'Mine',
       active: isMineActive,
       disabled: !currentUserOptionKey,
       description: 'Show versions you modified',
@@ -149,10 +147,9 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
         }),
     });
 
-    // Add "Updates only" filter to show only versions with actual changes
     chips.push({
       key: 'updates',
-      label: 'Updates only',
+      label: 'Has changes',
       active: filterState.showUpdatesOnly,
       description: 'Show only versions with metadata or content changes',
       onClick: () => onFilterChange({ showUpdatesOnly: !filterState.showUpdatesOnly }),
@@ -180,16 +177,31 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     { key: 'custom', text: 'Custom range' },
   ];
 
+  // Count of filters that aren't surfaced as quick chips — drives the badge on the
+  // filter trigger so users know advanced filters are active.
+  const advancedActiveCount = React.useMemo(() => {
+    let count = 0;
+    if (filterState.filterByUser && !isMineActive) count += 1;
+    if (
+      filterState.filterDateRange &&
+      filterState.filterDateRange !== 'all' &&
+      filterState.filterDateRange !== 'month'
+    ) {
+      count += 1;
+    }
+    return count;
+  }, [filterState.filterByUser, filterState.filterDateRange, isMineActive]);
+
   const activeFilterLabels = React.useMemo(() => {
     const labels: string[] = [];
 
     if (filterState.searchQuery) {
-      labels.push(`Search: "${filterState.searchQuery}"`);
+      labels.push(`"${filterState.searchQuery}"`);
     }
 
     if (filterState.filterByUser) {
       const match = userOptions.find(option => option.key === filterState.filterByUser);
-      labels.push(`Modified by ${match?.text || filterState.filterByUser}`);
+      labels.push(match?.text || filterState.filterByUser);
     }
 
     switch (filterState.filterDateRange) {
@@ -216,7 +228,7 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
           const end = filterState.customDateEnd
             ? filterState.customDateEnd.toLocaleDateString()
             : '...';
-          labels.push(`Custom range ${start} - ${end}`);
+          labels.push(`${start} – ${end}`);
         } else {
           labels.push('Custom range');
         }
@@ -226,11 +238,11 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
     }
 
     if (filterState.showMajorOnly && showMajorFilter) {
-      labels.push('Major versions');
+      labels.push('Major only');
     }
 
     if (filterState.showUpdatesOnly) {
-      labels.push('Updates only');
+      labels.push('With changes');
     }
 
     return labels;
@@ -273,69 +285,64 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
       .filter(section => section.versions.length > 0);
   }, [versions]);
 
-  const timelineSummary = React.useMemo(() => {
-    if (!versions.length) {
-      return 'No versions match the current view.';
-    }
-
-    if (activeFilterLabels.length > 0) {
-      return `Showing ${versions.length} filtered version${versions.length === 1 ? '' : 's'}.`;
-    }
-
-    return 'Newest versions first. Select a version to inspect changes.';
-  }, [versions.length, activeFilterLabels.length]);
-
   return (
     <div className='version-timeline'>
-      {/* Header */}
-      <div className='version-timeline-header'>
-        <div className='version-timeline-header-row'>
-          <Text className='version-timeline-title'>Versions</Text>
-          <Text className='version-timeline-count'>
-            {versions.length} version{versions.length !== 1 ? 's' : ''}
-          </Text>
+      {/* Search + filter trigger + quick chips, all in one toolbar */}
+      <div className='version-timeline-toolbar'>
+        <div className='version-timeline-toolbar-row'>
+          <div className='version-timeline-search'>
+            <SearchBox
+              placeholder='Search versions'
+              value={filterState.searchQuery}
+              onChange={(_, newValue) => handleSearchChange(newValue)}
+              onClear={handleClearSearch}
+              disabled={isLoading}
+              underlined={false}
+            />
+          </div>
+          <button
+            type='button'
+            className={`version-timeline-filter-trigger ${filtersExpanded ? 'is-active' : ''}`}
+            onClick={onToggleFilters}
+            aria-expanded={filtersExpanded}
+            aria-label={filtersExpanded ? 'Hide advanced filters' : 'Show advanced filters'}
+            title={filtersExpanded ? 'Hide advanced filters' : 'Advanced filters'}
+            disabled={isLoading}
+          >
+            <Icon iconName='Filter' />
+            {advancedActiveCount > 0 && (
+              <span className='version-timeline-filter-trigger-badge'>{advancedActiveCount}</span>
+            )}
+          </button>
         </div>
-        <Text className='version-timeline-summary'>{timelineSummary}</Text>
+
+        {quickFilters.length > 0 && (
+          <div className='version-timeline-quick-filters'>
+            {quickFilters.map(filter => (
+              <button
+                key={filter.key}
+                className={`version-timeline-chip ${filter.active ? 'active' : ''} ${
+                  filter.disabled ? 'disabled' : ''
+                }`}
+                type='button'
+                onClick={filter.onClick}
+                disabled={filter.disabled || isLoading}
+                aria-pressed={filter.active}
+                title={filter.description}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Quick filters */}
-      {quickFilters.length > 0 && (
-        <div className='version-timeline-quick-filters'>
-          {quickFilters.map(filter => (
-            <button
-              key={filter.key}
-              className={`version-timeline-chip ${filter.active ? 'active' : ''} ${
-                filter.disabled ? 'disabled' : ''
-              }`}
-              type='button'
-              onClick={filter.onClick}
-              disabled={filter.disabled || isLoading}
-              aria-pressed={filter.active}
-              title={filter.description}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Search */}
-      <div className='version-timeline-search'>
-        <SearchBox
-          placeholder='Search...'
-          value={filterState.searchQuery}
-          onChange={(_, newValue) => handleSearchChange(newValue)}
-          onClear={handleClearSearch}
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* Active filter summary */}
+      {/* Inline active-filters note (subtle, single line, no banner) */}
       {activeFilterLabels.length > 0 && (
-        <div className='version-timeline-active-summary'>
-          <Icon iconName='Filter' className='version-timeline-active-icon' />
+        <div className='version-timeline-active-banner'>
           <span className='version-timeline-active-text'>
-            Filtering by {activeFilterLabels.join(' | ')}
+            {versions.length} match{versions.length === 1 ? '' : 'es'} ·{' '}
+            {activeFilterLabels.join(' · ')}
           </span>
           <button
             className='version-timeline-clear-button'
@@ -343,26 +350,14 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
             onClick={onClearFilters}
             disabled={isLoading}
           >
-            Clear all
+            Clear
           </button>
         </div>
       )}
 
-      {/* Filter toggle */}
-      <div className='version-timeline-filter-toggle'>
-        <DefaultButton
-          text={filtersExpanded ? 'Hide advanced filters' : 'More filters'}
-          iconProps={{ iconName: filtersExpanded ? 'ChevronUp' : 'ChevronDown' }}
-          onClick={onToggleFilters}
-          disabled={isLoading}
-          className='version-timeline-filter-button'
-        />
-      </div>
-
-      {/* Filters panel */}
+      {/* Advanced filters popover */}
       {filtersExpanded && (
         <div className='version-timeline-filters'>
-          {/* Modified by filter */}
           <div className='version-timeline-filter'>
             <Dropdown
               label='Modified by'
@@ -370,11 +365,10 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
               selectedKey={filterState.filterByUser || ''}
               onChange={handleUserFilterChange}
               disabled={isLoading}
-              placeholder='Select user'
+              placeholder='Anyone'
             />
           </div>
 
-          {/* Date range filter */}
           <div className='version-timeline-filter'>
             <Dropdown
               label='Date range'
@@ -385,7 +379,6 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
             />
           </div>
 
-          {/* Custom date range */}
           {filterState.filterDateRange === 'custom' && (
             <div className='version-timeline-custom-dates'>
               <div className='version-timeline-filter'>
@@ -410,7 +403,6 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
             </div>
           )}
 
-          {/* Major versions only */}
           {showMajorFilter && (
             <div className='version-timeline-filter'>
               <Checkbox
@@ -424,14 +416,14 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading */}
       {isLoading && (
         <div className='version-timeline-loading'>
           <Spinner size={SpinnerSize.large} label='Loading versions...' />
         </div>
       )}
 
-      {/* Version list */}
+      {/* List */}
       {!isLoading && versions.length > 0 && (
         <div className='version-timeline-list'>
           {groupedVersions.map(section => (
@@ -457,12 +449,25 @@ export const VersionTimeline: React.FC<IVersionTimelineProps> = props => {
         </div>
       )}
 
-      {/* No results */}
       {!isLoading && versions.length === 0 && (
-        <div className='version-timeline-no-results'>
-          <MessageBar messageBarType={MessageBarType.warning}>
-            <Text>No versions found matching your filters.</Text>
-          </MessageBar>
+        <div className='version-timeline-no-results' role='status' aria-live='polite'>
+          <div className='vh-empty'>
+            <div className='vh-empty-icon' aria-hidden='true'>
+              <Icon iconName='Filter' />
+            </div>
+            <div className='vh-empty-title'>No versions to show</div>
+            <div className='vh-empty-hint'>
+              {activeFilterLabels.length > 0
+                ? 'No versions match the current filters. Try widening the date range or clearing filters.'
+                : 'There are no versions yet for this item.'}
+            </div>
+            {activeFilterLabels.length > 0 && (
+              <button type='button' className='vh-empty-action' onClick={onClearFilters}>
+                <Icon iconName='ClearFilter' />
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

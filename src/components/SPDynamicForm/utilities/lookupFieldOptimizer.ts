@@ -1,6 +1,12 @@
 import { SPContext } from '../../../utilities/context';
 import { IFieldMetadata } from '../types/fieldMetadata';
 import { ILookupFieldConfig } from '../SPDynamicForm.types';
+import { effectiveMatcher, fieldMatches } from './fieldOverrideMatcher';
+
+/** Cancellation signal checked during async lookup optimization. */
+export interface IOptimizeOptions {
+  signal?: { readonly aborted: boolean };
+}
 
 /**
  * Optimizes lookup field rendering based on item count
@@ -19,8 +25,13 @@ export async function optimizeLookupField(
   try {
     const timer = SPContext.logger.startTimer('optimizeLookupField');
 
-    // Check for field-specific configuration
-    const fieldConfig = lookupFieldConfig?.find((c) => c.fieldName === field.internalName);
+    // Check for field-specific configuration. Honour both the new `field`
+    // matcher (string | RegExp | function) and the deprecated `fieldName` alias
+    // via `effectiveMatcher`.
+    const fieldConfig = lookupFieldConfig?.find((c) => {
+      const m = effectiveMatcher(c);
+      return m !== null && fieldMatches(m, field);
+    });
 
     // If render mode is explicitly set, use it
     if (fieldConfig?.renderMode) {
@@ -66,8 +77,10 @@ export async function optimizeLookupField(
 export async function optimizeLookupFields(
   fields: IFieldMetadata[],
   globalThreshold: number = 5000,
-  lookupFieldConfig?: ILookupFieldConfig[]
+  lookupFieldConfig?: ILookupFieldConfig[],
+  options: IOptimizeOptions = {}
 ): Promise<IFieldMetadata[]> {
+  const { signal } = options;
   const timer = SPContext.logger.startTimer('optimizeLookupFields');
 
   // Find all lookup fields
@@ -80,9 +93,14 @@ export async function optimizeLookupFields(
 
   SPContext.logger.info(`Optimizing ${lookupFields.length} lookup field(s)...`);
 
-  // Optimize all lookup fields in parallel
+  // Optimize all lookup fields in parallel; each checks the signal before side effects
   const optimizedLookups = await Promise.all(
-    lookupFields.map((field) => optimizeLookupField(field, globalThreshold, lookupFieldConfig))
+    lookupFields.map(async (field) => {
+      if (signal?.aborted) return field;
+      const result = await optimizeLookupField(field, globalThreshold, lookupFieldConfig);
+      if (signal?.aborted) return field;
+      return result;
+    })
   );
 
   // Create a map for quick lookup
@@ -102,18 +120,19 @@ export async function optimizeLookupFields(
  */
 export function getLookupRenderMode(
   field: IFieldMetadata,
-  fieldOverrideMode?: 'dropdown' | 'autocomplete'
+  fieldOverrideMode?: 'auto' | 'dropdown' | 'autocomplete'
 ): 'dropdown' | 'autocomplete' {
-  // 1. Field-level override takes precedence
-  if (fieldOverrideMode) {
+  // 1. Field-level override takes precedence — UNLESS it's 'auto' (the default,
+  //    meaning "let the optimizer decide based on item count").
+  if (fieldOverrideMode && fieldOverrideMode !== 'auto') {
     return fieldOverrideMode;
   }
 
-  // 2. Use recommended mode from optimization
-  if (field.recommendedRenderMode) {
+  // 2. Use recommended mode from optimization (also collapse 'auto' to size-driven default).
+  if (field.recommendedRenderMode && field.recommendedRenderMode !== 'auto') {
     return field.recommendedRenderMode;
   }
 
-  // 3. Default to dropdown
+  // 3. Default to dropdown (size-driven default if optimizer hasn't run).
   return 'dropdown';
 }

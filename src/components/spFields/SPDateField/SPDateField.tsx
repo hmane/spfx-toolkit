@@ -17,6 +17,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule } from '../validation';
 import '../spFields.css';
 
 /**
@@ -175,24 +176,35 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
 
     // Add min/max date validation
     if (minDate || maxDate || dateValidator) {
-      baseRules.validate = {
-        ...baseRules.validate,
-        ...(minDate && {
-          minDate: (val: Date) =>
+      if (minDate) {
+        addValidateRule(
+          baseRules,
+          'minDate',
+          (val: Date | undefined | null) =>
             !val || val >= minDate ||
-            `Date must be after ${minDate.toLocaleDateString()}`,
-        }),
-        ...(maxDate && {
-          maxDate: (val: Date) =>
+            `Date must be after ${minDate.toLocaleDateString()}`
+        );
+      }
+
+      if (maxDate) {
+        addValidateRule(
+          baseRules,
+          'maxDate',
+          (val: Date | undefined | null) =>
             !val || val <= maxDate ||
-            `Date must be before ${maxDate.toLocaleDateString()}`,
-        }),
-        ...(dateValidator && {
-          custom: (val: Date) =>
+            `Date must be before ${maxDate.toLocaleDateString()}`
+        );
+      }
+
+      if (dateValidator) {
+        addValidateRule(
+          baseRules,
+          'custom',
+          (val: Date | undefined | null) =>
             !val || dateValidator(val) ||
-            'Invalid date',
-        }),
-      };
+            'Invalid date'
+        );
+      }
     }
 
     return baseRules;

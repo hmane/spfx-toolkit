@@ -353,50 +353,14 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     [getVersionLink, copyToClipboard]
   );
 
-  const headerEyebrow = state.itemType === 'document' ? 'Document version history' : 'Version history';
+  const headerTitle = React.useMemo(
+    () => state.itemInfo?.title || 'Version history',
+    [state.itemInfo?.title]
+  );
 
-  const headerLocation = React.useMemo(() => {
-    if (!state.itemInfo?.itemUrl) {
-      return state.itemInfo?.listTitle || '';
-    }
-
-    const trimmed = state.itemInfo.itemUrl.replace(/^\/+/, '');
-    const segments = trimmed.split('/').filter(Boolean);
-
-    if (segments.length <= 1) {
-      return '';
-    }
-
-    let pathSegments = segments.slice(0, -1);
-
-    if (pathSegments.length > 2) {
-      const first = pathSegments[0].toLowerCase();
-      if (first === 'sites' || first === 'teams') {
-        pathSegments = pathSegments.slice(2);
-      }
-    }
-
-    if (!pathSegments.length) {
-      return state.itemInfo.listTitle || '';
-    }
-
-    return pathSegments.join(' / ');
-  }, [state.itemInfo]);
-
-  const headerBreadcrumb = React.useMemo(() => {
-    const segments: string[] = [];
-    if (headerLocation) {
-      segments.push(headerLocation);
-    }
-    if (state.itemInfo?.title) {
-      segments.push(state.itemInfo.title);
-    }
-    return segments.join(' / ') || state.itemInfo?.title || 'Version history';
-  }, [headerLocation, state.itemInfo]);
-
-  const headerSummary = React.useMemo(() => {
+  const headerSummaryChips = React.useMemo<string[]>(() => {
     if (!state.allVersions.length) {
-      return '';
+      return [];
     }
 
     const total = state.allVersions.length;
@@ -411,21 +375,21 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
 
     const lastUpdated = state.allVersions[0]?.modified;
 
-    const parts: string[] = [`${total} version${total === 1 ? '' : 's'}`];
+    const chips: string[] = [`${total} version${total === 1 ? '' : 's'}`];
 
     if (majorCount && majorCount !== total) {
-      parts.push(`${majorCount} major`);
+      chips.push(`${majorCount} major`);
     }
 
     if (contributors) {
-      parts.push(`${contributors} contributor${contributors === 1 ? '' : 's'}`);
+      chips.push(`${contributors} contributor${contributors === 1 ? '' : 's'}`);
     }
 
     if (lastUpdated) {
-      parts.push(`Updated ${formatRelativeTime(lastUpdated)}`);
+      chips.push(`Updated ${formatRelativeTime(lastUpdated)}`);
     }
 
-    return parts.join(' | ');
+    return chips;
   }, [state.allVersions]);
 
   const allVersionsAreMajor = React.useMemo(
@@ -1164,41 +1128,49 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     >
       <ScrollView width='100%' height='100%'>
         <div className='version-history'>
-          {/* Header */}
+          {/* Header — single tier: title + summary chips on the left, lean actions on the right */}
           <div className='version-history-header'>
             <div className='version-history-header-content'>
-              {headerEyebrow && (
-                <div className='version-history-header-eyebrow'>{headerEyebrow}</div>
-              )}
-              <div className='version-history-header-title-row'>
-                <Text className='version-history-header-title'>{headerBreadcrumb}</Text>
-              </div>
-              {headerSummary && (
-                <div className='version-history-header-summary'>{headerSummary}</div>
+              <Text
+                as='h2'
+                className='version-history-header-title'
+                title={state.itemInfo?.title || undefined}
+              >
+                {headerTitle}
+              </Text>
+              {headerSummaryChips.length > 0 && (
+                <div className='version-history-header-summary'>
+                  {headerSummaryChips.map(chip => (
+                    <span key={chip} className='version-history-header-summary-item'>
+                      {chip}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
             <div className='version-history-header-actions'>
               {allowCopyLink && (
                 <button
-                  className='version-history-secondary-button'
+                  className='version-history-icon-button'
                   type='button'
                   onClick={handleCopyItemLink}
+                  aria-label='Copy item link'
+                  title='Copy link to this item'
                 >
                   <Icon iconName='Link' />
-                  Copy link
                 </button>
               )}
-	              <button
-	                className='version-history-secondary-button'
-	                type='button'
-	                onClick={handleExport}
-	                title='Export all loaded versions to CSV'
-	              >
-	                <Icon iconName='ExcelDocument' />
-	                Export all CSV
-	              </button>
               <button
-                className='version-history-icon-button'
+                className='version-history-secondary-button'
+                type='button'
+                onClick={handleExport}
+                title='Export all loaded versions to CSV'
+              >
+                <Icon iconName='ExcelDocument' />
+                Export
+              </button>
+              <button
+                className='version-history-icon-button is-close'
                 onClick={handleClose}
                 aria-label='Close version history'
                 type='button'

@@ -17,6 +17,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule } from '../validation';
 import '../spFields.css';
 
 /**
@@ -120,7 +121,12 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     const baseRules: RegisterOptions = { ...rules };
 
     if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'requiredBoolean',
+        (val: boolean | undefined | null) =>
+          typeof val === 'boolean' || `${label || 'This field'} is required`
+      );
     }
 
     return baseRules;

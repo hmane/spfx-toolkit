@@ -286,7 +286,7 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
 /**
  * Format value for PnP.js operations (item.update(), items.add())
  */
-function formatValueForPnP(
+export function formatValueForPnP(
   fieldName: string,
   value: any,
   explicitType?: SPUpdateFieldType

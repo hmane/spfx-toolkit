@@ -25,6 +25,14 @@ export const useMaximize = (
   const backdropRef = useRef<HTMLElement>();
   const backdropClickHandlerRef = useRef<((event: MouseEvent) => void) | null>(null);
   const isMaximizingRef = useRef(false);
+  // Mirror isMaximized into a ref so the unmount cleanup (which has [] deps and
+  // therefore captures the initial isMaximized=false) can read the latest value.
+  // Without this, a card unmounted while maximized leaks the backdrop and leaves
+  // body.overflow:hidden.
+  const isMaximizedRef = useRef(false);
+  useEffect(() => {
+    isMaximizedRef.current = isMaximized;
+  }, [isMaximized]);
 
   const getCardElement = useCallback((): HTMLElement | null => {
     if (elementRef.current) return elementRef.current;
@@ -372,7 +380,8 @@ export const useMaximize = (
 
   useEffect(() => {
     return () => {
-      if (isMaximized) {
+      // Read from ref, not closure — see isMaximizedRef declaration above.
+      if (isMaximizedRef.current) {
         const element = getCardElement();
         if (element && originalStyleRef.current) {
           const original = originalStyleRef.current;

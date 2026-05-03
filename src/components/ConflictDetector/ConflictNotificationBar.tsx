@@ -35,10 +35,10 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
   onDismiss,
   onAction,
 }) => {
-  // Don't render if no conflict, error, or checking state
-  if (!conflictInfo?.hasConflict && !error && !isChecking) {
-    return null;
-  }
+  // ALL hooks must run before any conditional return, per the Rules of Hooks.
+  // Previously, the "skip render" early return sat above these hooks — when the
+  // conflict appeared/disappeared the hook count changed across renders and React
+  // threw "Rendered more/fewer hooks than during the previous render".
 
   const handleAction = useCallback(
     async (action: ConflictResolutionAction) => {
@@ -119,6 +119,73 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
     }
   }, [position]);
 
+  const conflictMessage = useMemo(() => {
+    if (!conflictInfo?.hasConflict) return '';
+    if (customMessage) return customMessage;
+
+    try {
+      return `This record was modified by ${conflictInfo.lastModifiedBy} on ${formatDateTime(
+        conflictInfo.lastModified
+      )}. Your changes might overwrite their updates.`;
+    } catch (messageError) {
+      SPContext.logger.error('Error creating conflict message:', messageError);
+      return 'This record has been modified by another user. Your changes might overwrite their updates.';
+    }
+  }, [
+    customMessage,
+    conflictInfo?.hasConflict,
+    conflictInfo?.lastModifiedBy,
+    conflictInfo?.lastModified,
+    formatDateTime,
+  ]);
+
+  const actionButtons = useMemo(() => {
+    if (!showActions || !conflictInfo?.hasConflict) {
+      return undefined;
+    }
+
+    const buttons: React.ReactNode[] = [];
+
+    if (onRefresh || onAction) {
+      buttons.push(
+        <MessageBarButton
+          key='refresh'
+          onClick={() =>
+            handleAction({
+              type: 'refresh',
+              message: 'User chose to refresh and reload the form',
+            })
+          }
+        >
+          Refresh & Reload
+        </MessageBarButton>
+      );
+    }
+
+    if (onOverwrite || onAction) {
+      buttons.push(
+        <MessageBarButton
+          key='overwrite'
+          onClick={() =>
+            handleAction({
+              type: 'overwrite',
+              message: 'User chose to continue and overwrite changes',
+            })
+          }
+        >
+          Continue Anyway
+        </MessageBarButton>
+      );
+    }
+
+    return buttons.length > 0 ? <div>{buttons}</div> : undefined;
+  }, [showActions, conflictInfo?.hasConflict, onRefresh, onAction, onOverwrite, handleAction]);
+
+  // Now safe to short-circuit — all hooks above ran unconditionally.
+  if (!conflictInfo?.hasConflict && !error && !isChecking) {
+    return null;
+  }
+
   // Error state
   if (error) {
     return (
@@ -152,66 +219,6 @@ export const ConflictNotificationBar: React.FC<ConflictNotificationBarProps> = (
       </div>
     );
   }
-
-  // Build conflict message - computed outside conditional for hooks compliance
-  const conflictMessage = useMemo(() => {
-    if (!conflictInfo?.hasConflict) return '';
-    if (customMessage) return customMessage;
-
-    try {
-      return `This record was modified by ${conflictInfo.lastModifiedBy} on ${formatDateTime(
-        conflictInfo.lastModified
-      )}. Your changes might overwrite their updates.`;
-    } catch (messageError) {
-      SPContext.logger.error('Error creating conflict message:', messageError);
-      return 'This record has been modified by another user. Your changes might overwrite their updates.';
-    }
-  }, [customMessage, conflictInfo?.hasConflict, conflictInfo?.lastModifiedBy, conflictInfo?.lastModified, formatDateTime]);
-
-  // Build action buttons - computed outside conditional for hooks compliance
-  const actionButtons = useMemo(() => {
-    if (!showActions || !conflictInfo?.hasConflict) {
-      return undefined;
-    }
-
-    const buttons: React.ReactNode[] = [];
-
-    // Add refresh action
-    if (onRefresh || onAction) {
-      buttons.push(
-        <MessageBarButton
-          key='refresh'
-          onClick={() =>
-            handleAction({
-              type: 'refresh',
-              message: 'User chose to refresh and reload the form',
-            })
-          }
-        >
-          Refresh & Reload
-        </MessageBarButton>
-      );
-    }
-
-    // Add overwrite action
-    if (onOverwrite || onAction) {
-      buttons.push(
-        <MessageBarButton
-          key='overwrite'
-          onClick={() =>
-            handleAction({
-              type: 'overwrite',
-              message: 'User chose to continue and overwrite changes',
-            })
-          }
-        >
-          Continue Anyway
-        </MessageBarButton>
-      );
-    }
-
-    return buttons.length > 0 ? <div>{buttons}</div> : undefined;
-  }, [showActions, conflictInfo?.hasConflict, onRefresh, onAction, onOverwrite, handleAction]);
 
   // Conflict detected state
   if (conflictInfo?.hasConflict) {

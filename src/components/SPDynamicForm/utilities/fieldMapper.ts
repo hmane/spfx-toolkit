@@ -10,6 +10,10 @@ export function mapSharePointFieldType(
 ): SPFieldType {
   // Handle special cases first
   if (typeAsString) {
+    if (typeAsString === 'OutcomeChoice') {
+      return SPFieldType.Choice;
+    }
+
     if (typeAsString === 'TaxonomyFieldType') {
       return SPFieldType.TaxonomyFieldType;
     }
@@ -45,7 +49,7 @@ export function mapSharePointFieldType(
     }
 
     if (typeStr === 'thumbnail' || typeStr === 'image') {
-      return SPFieldType.Text; // Image fields need special handling
+      return SPFieldType.Image;
     }
   }
 
@@ -107,6 +111,14 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
       config.choices = field.Choices || [];
       config.fillInChoice = field.FillInChoice || false;
       config.isMulti = fieldType === SPFieldType.MultiChoice;
+      break;
+
+    case SPFieldType.Currency:
+      config.minValue = field.MinimumValue;
+      config.maxValue = field.MaximumValue;
+      config.decimals = field.Decimals !== undefined ? field.Decimals : 2;
+      config.currencyLocaleId = field.CurrencyLocaleId;
+      config.currencySymbol = currencySymbolForLocale(field.CurrencyLocaleId);
       break;
 
     case SPFieldType.Number:
@@ -277,4 +289,34 @@ export function filterFieldsByMode(
  */
 export function sortFieldsByOrder(fields: IFieldMetadata[]): IFieldMetadata[] {
   return [...fields].sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Maps SharePoint CurrencyLocaleId to a currency symbol. The list is not
+ * exhaustive but covers the common locales SharePoint Online tenants use.
+ * Falls back to '$' when the locale is unknown — matching the pre-existing
+ * default behaviour for unknown currencies.
+ */
+const CURRENCY_SYMBOLS: Record<number, string> = {
+  1033: '$',   // en-US
+  2057: '£',   // en-GB
+  3081: '$',   // en-AU
+  3084: '$',   // fr-CA
+  4105: '$',   // en-CA
+  1031: '€',   // de-DE
+  1036: '€',   // fr-FR
+  1040: '€',   // it-IT
+  1041: '¥',   // ja-JP
+  2052: '¥',   // zh-CN
+  1043: '€',   // nl-NL
+  1053: 'kr',  // sv-SE
+  1049: '₽',   // ru-RU
+  1081: '₹',   // hi-IN
+  1078: 'R',   // af-ZA
+  1054: '฿',   // th-TH
+};
+
+function currencySymbolForLocale(localeId: number | undefined): string {
+  if (typeof localeId !== 'number') return '$';
+  return CURRENCY_SYMBOLS[localeId] || '$';
 }

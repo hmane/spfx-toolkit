@@ -1,8 +1,11 @@
 import * as React from 'react';
 import { Control, UseFormReturn, useController } from 'react-hook-form';
 import { IFieldMetadata } from '../types/fieldMetadata';
-import { IFieldOverride, IFieldRenderProps, ICustomFieldRenderer } from '../SPDynamicForm.types';
+import { IFieldOverride, IFieldRenderProps, ICustomFieldRenderer, IFieldExtension } from '../SPDynamicForm.types';
 import { SPFieldType } from '../../spFields/types';
+import { useFieldExtensions } from '../hooks/useFieldExtensions';
+import { SPDynamicFormFieldExtension } from './SPDynamicFormFieldExtension';
+import { SPDynamicFormFieldRevert } from './SPDynamicFormFieldRevert';
 import { buildFieldProps } from '../utilities/fieldConfigBuilder';
 import { getLookupRenderMode } from '../utilities/lookupFieldOptimizer';
 import { SPTextField, SPTextFieldMode } from '../../spFields/SPTextField';
@@ -11,7 +14,7 @@ import { SPBooleanField } from '../../spFields/SPBooleanField';
 import { SPDateField } from '../../spFields/SPDateField';
 import { SPChoiceField } from '../../spFields/SPChoiceField';
 import { SPUserField } from '../../spFields/SPUserField';
-import { SPLookupField } from '../../spFields/SPLookupField';
+import { SPLookupField, SPLookupDisplayMode } from '../../spFields/SPLookupField';
 import { SPUrlField } from '../../spFields/SPUrlField';
 import { SPTaxonomyField } from '../../spFields/SPTaxonomyField';
 import { SPDateTimeFormat } from '../../spFields/types';
@@ -38,6 +41,20 @@ export interface ISPDynamicFormFieldProps {
   readOnly?: boolean;
   showHelp?: boolean;
   form: UseFormReturn<any>;
+  /** Field extensions to render before/after this field. */
+  fieldExtensions?: IFieldExtension[];
+  /** Watched form values snapshot (narrow or compat mode) for extension compute/render. */
+  watchedFormValues?: Record<string, unknown>;
+  /** Whether the form is in multi-item bulk-edit mode. */
+  isMultiItem?: boolean;
+  /** Whether this field has been modified since the shared value was pre-filled. */
+  isDirty?: boolean;
+  /** Visually highlight the row when `isDirty` is true. Default: true in multi-item mode. */
+  showHighlightOnDirty?: boolean;
+  /** Render the per-field revert (↺) button in multi-item mode. Default: true. */
+  showRevertControl?: boolean;
+  /** Called when the user clicks the revert button for this field. */
+  onRevertField?: (fieldName: string) => void;
 }
 
 /**
@@ -56,6 +73,13 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     readOnly = false,
     showHelp = true,
     form,
+    fieldExtensions,
+    watchedFormValues,
+    isMultiItem = false,
+    isDirty = false,
+    showHighlightOnDirty = true,
+    showRevertControl = true,
+    onRevertField,
   } = props;
 
   // Use controller to get current value
@@ -63,6 +87,19 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     name: field.internalName,
     control,
   });
+
+  // Resolve extension runtimes (before/after) for this field
+  const extensionRuntimes = useFieldExtensions(
+    field,
+    fieldExtensions,
+    watchedFormValues || {},
+    mode
+  );
+
+  const beforeExtensions = extensionRuntimes.filter((r) => r.extension.position === 'before');
+  const afterExtensions = extensionRuntimes.filter(
+    (r) => (r.extension.position || 'after') === 'after'
+  );
 
   // Check if field should be hidden
   if (override?.hidden || field.hidden) {
@@ -74,13 +111,38 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
   fieldProps.disabled = disabled || fieldProps.disabled;
   fieldProps.readOnly = readOnly || fieldProps.readOnly;
 
-  // Add data attribute for scroll-to-error
+  // Add data attributes for scroll-to-error and imperative scrollToField
+  const dirtyRowClass = showHighlightOnDirty && isDirty ? ' is-dirty' : '';
   const wrapperProps = {
     'data-field': field.internalName,
+    'data-field-name': field.internalName,
+    className: `spfx-df-field-row${dirtyRowClass}`,
   };
 
   // Check for custom renderer
   if (customRenderer || override?.render) {
+    // `resolved` mirrors what `applyFieldOverrides` produced for this field,
+    // sourced from the (possibly mutated) `field` metadata so custom renderers
+    // see the same label / required / disabled / etc. as the standard renderer.
+    // `ctx` gives the renderer the full override-resolution context for any
+    // bespoke logic.
+    const resolved = {
+      label: field.displayName,
+      description: field.description,
+      placeholder: undefined,
+      required: !!field.required,
+      disabled: fieldProps.disabled,
+      readOnly: !!fieldProps.readOnly,
+      hidden: !!field.hidden,
+      defaultValue: field.defaultValue,
+    };
+
+    const renderCtx = {
+      field,
+      formValues: props.watchedFormValues || {},
+      mode,
+    };
+
     const renderProps: IFieldRenderProps = {
       field,
       control,
@@ -92,6 +154,8 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
       readOnly: fieldProps.readOnly,
       onChange: fieldState.onChange,
       form,
+      resolved,
+      ctx: renderCtx as any,
     };
 
     const customElement = override?.render
@@ -100,15 +164,38 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
 
     if (customElement) {
       return (
-        <div {...wrapperProps}>
-          <ErrorBoundary
-            onError={(err) => {
-              SPContext.logger.error(`Error rendering custom field "${field.internalName}"`, err);
-            }}
-          >
-            {customElement}
-          </ErrorBoundary>
-        </div>
+        <>
+          {beforeExtensions.map((r, i) => (
+            <SPDynamicFormFieldExtension
+              key={`before-${field.internalName}-${i}`}
+              extension={r.extension}
+              state={r.state}
+            />
+          ))}
+          <div {...wrapperProps}>
+            <ErrorBoundary
+              onError={(err) => {
+                SPContext.logger.error(`Error rendering custom field "${field.internalName}"`, err);
+              }}
+            >
+              {customElement}
+            </ErrorBoundary>
+            {isMultiItem && showRevertControl && onRevertField && (
+              <SPDynamicFormFieldRevert
+                fieldName={field.internalName}
+                isDirty={isDirty}
+                onRevert={onRevertField}
+              />
+            )}
+          </div>
+          {afterExtensions.map((r, i) => (
+            <SPDynamicFormFieldExtension
+              key={`after-${field.internalName}-${i}`}
+              extension={r.extension}
+              state={r.state}
+            />
+          ))}
+        </>
       );
     }
   }
@@ -220,24 +307,19 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
           );
         }
 
-        // Smart lookup rendering based on item count
+        // Smart lookup rendering: pass the resolved mode through to SPLookupField,
+        // which handles 'auto' (size-driven), 'dropdown', and 'autocomplete' natively.
         const renderMode = getLookupRenderMode(field, override?.lookupRenderMode);
 
-        if (renderMode === 'autocomplete') {
-          // TODO: Implement autocomplete lookup field
-          // For now, fall back to standard lookup
-          return (
-            <Stack tokens={{ childrenGap: 8 }}>
-              <MessageBar messageBarType={MessageBarType.info} isMultiline={false}>
-                Large lookup list ({field.lookupItemCount?.toLocaleString()} items) - autocomplete mode
-                (coming soon). Using dropdown for now.
-              </MessageBar>
-              <SPLookupField {...fieldPropsWithoutLabel} />
-            </Stack>
-          );
-        }
+        // Map our public-API mode strings to SPLookupDisplayMode values.
+        const displayMode =
+          renderMode === 'autocomplete'
+            ? SPLookupDisplayMode.Autocomplete
+            : renderMode === 'dropdown'
+            ? SPLookupDisplayMode.Dropdown
+            : SPLookupDisplayMode.Auto;
 
-        return <SPLookupField {...fieldPropsWithoutLabel} />;
+        return <SPLookupField {...fieldPropsWithoutLabel} displayMode={displayMode} />;
       }
 
       case SPFieldType.URL:
@@ -277,28 +359,53 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     }
   };
 
-  // Wrap in FormItem with horizontal responsive layout
+  // Wrap in FormItem with horizontal responsive layout, surrounded by extensions
   return (
-    <FormItem fieldName={field.internalName} {...wrapperProps}>
-      <FormLabel
-        isRequired={isRequired}
-        infoText={showHelp && field.description ? field.description : undefined}
-      >
-        {labelText}
-      </FormLabel>
-      <FormValue>
-        <ErrorBoundary
-          onError={(err) => {
-            SPContext.logger.error(`Error rendering field "${field.internalName}"`, err, {
-              fieldType: field.fieldType,
-              typeAsString: field.typeAsString,
-            });
-          }}
-        >
-          {renderFieldContent()}
-        </ErrorBoundary>
-      </FormValue>
-    </FormItem>
+    <>
+      {beforeExtensions.map((r, i) => (
+        <SPDynamicFormFieldExtension
+          key={`before-${field.internalName}-${i}`}
+          extension={r.extension}
+          state={r.state}
+        />
+      ))}
+      <div {...wrapperProps}>
+        <FormItem fieldName={field.internalName}>
+          <FormLabel
+            isRequired={isRequired}
+            infoText={showHelp && field.description ? field.description : undefined}
+          >
+            {labelText}
+          </FormLabel>
+          <FormValue>
+            <ErrorBoundary
+              onError={(err) => {
+                SPContext.logger.error(`Error rendering field "${field.internalName}"`, err, {
+                  fieldType: field.fieldType,
+                  typeAsString: field.typeAsString,
+                });
+              }}
+            >
+              {renderFieldContent()}
+            </ErrorBoundary>
+          </FormValue>
+        </FormItem>
+        {isMultiItem && showRevertControl && onRevertField && (
+          <SPDynamicFormFieldRevert
+            fieldName={field.internalName}
+            isDirty={isDirty}
+            onRevert={onRevertField}
+          />
+        )}
+      </div>
+      {afterExtensions.map((r, i) => (
+        <SPDynamicFormFieldExtension
+          key={`after-${field.internalName}-${i}`}
+          extension={r.extension}
+          state={r.state}
+        />
+      ))}
+    </>
   );
 });
 

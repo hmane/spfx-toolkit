@@ -384,7 +384,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     const shouldShowInput = appendOnly ? (!disabled && !readOnly) : (!disabled || !appendOnly);
 
     return (
-      <Stack className={`sp-text-field ${containerClass} ${className || ''}`}>
+      <Stack className={`sp-text-field ${isRichTextMode ? 'sp-text-field--richtext' : ''} ${containerClass} ${className || ''}`}>
         {label && (
           <Label required={required} disabled={disabled}>
             {label}
@@ -418,16 +418,19 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           <div ref={fieldRef as React.RefObject<HTMLDivElement>} style={{ width: '100%' }}>
             {isRichTextMode ? (
               <React.Suspense fallback={<Text>Loading rich text editor...</Text>}>
-                <RichText
-                  value={fieldValue || ''}
-                  onChange={(text: string) => {
-                    fieldOnChange(text);
-                    return text;
-                  }}
-                  isEditMode={!readOnly && !disabled}
-                  placeholder={placeholder}
-                  className={inputClassName}
-                />
+                <div className="sp-rich-text-field">
+                  <RichText
+                    value={effectiveFieldValue || ''}
+                    onChange={(text: string) => {
+                      setFieldValue(text);
+                      fieldOnChange(text);
+                      return text;
+                    }}
+                    isEditMode={!readOnly && !disabled}
+                    placeholder={placeholder}
+                    className={inputClassName}
+                  />
+                </div>
               </React.Suspense>
             ) : isMultiLine ? (
               <TextArea

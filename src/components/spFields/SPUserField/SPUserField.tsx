@@ -29,6 +29,7 @@ import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
+import { addValidateRule, hasValue } from '../validation';
 import './SPUserField.css';
 import '../spFields.css';
 import { ISPUserFieldProps, SPUserFieldDisplayMode, SPUserFieldValue } from './SPUserField.types';
@@ -341,25 +342,33 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     const baseRules: RegisterOptions = { ...rules };
 
     if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'requiredUser',
+        (val: SPUserFieldValue | SPUserFieldValue[] | undefined | null) =>
+          hasValue(val) || `${label || 'This field'} is required`
+      );
     }
 
     if (resolvedAllowMultiple) {
-      if (maxSelections && !baseRules.validate) {
-        baseRules.validate = {
-          maxSelections: (val: SPUserFieldValue[]) =>
+      if (maxSelections) {
+        addValidateRule(
+          baseRules,
+          'maxSelections',
+          (val: SPUserFieldValue[] | undefined | null) =>
             !val || val.length <= maxSelections! ||
-            `Maximum ${maxSelections} selections allowed`,
-        };
+            `Maximum ${maxSelections} selections allowed`
+        );
       }
 
       if (minSelections) {
-        if (!baseRules.validate) {
-          baseRules.validate = {};
-        }
-        (baseRules.validate as Record<string, any>).minSelections = (val: SPUserFieldValue[]) =>
-          !val || val.length >= minSelections! ||
-          `Minimum ${minSelections} selections required`;
+        addValidateRule(
+          baseRules,
+          'minSelections',
+          (val: SPUserFieldValue[] | undefined | null) =>
+            !val || val.length >= minSelections! ||
+            `Minimum ${minSelections} selections required`
+        );
       }
     }
 

@@ -47,7 +47,7 @@ export interface IFieldMetadata {
   lookupItemCount?: number;
 
   /** Recommended render mode based on item count */
-  recommendedRenderMode?: 'dropdown' | 'autocomplete';
+  recommendedRenderMode?: 'auto' | 'dropdown' | 'autocomplete';
 
   /** SharePoint field ID */
   fieldId?: string;

@@ -1,4 +1,4 @@
-/* SPDynamicForm Styles - Modern SaaS Design */
+/* SPDynamicForm Styles */
 
 .sp-dynamic-form {
   width: 100%;
@@ -30,6 +30,113 @@
 
 .sp-dynamic-form form {
   width: 100%;
+}
+
+.sp-dynamic-form-section {
+  width: 100%;
+}
+
+.sp-dynamic-form-section-header {
+  padding: 0 0 12px;
+  margin: 0 0 20px;
+  border-bottom: 1px solid #edebe9;
+}
+
+.sp-dynamic-form-section-title {
+  color: #323130;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.sp-dynamic-form-section-description {
+  color: #605e5c;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 2px;
+}
+
+.sp-dynamic-form .sp-rich-text-field {
+  width: 100%;
+}
+
+.sp-dynamic-form .sp-rich-text-field .pnp-richtext-quill-container {
+  width: 100%;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-container'] {
+  border: 1px solid #8a8886;
+  border-top: 0;
+  min-height: 132px;
+  background: #ffffff;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-editor'] {
+  min-height: 132px;
+  padding: 8px 12px;
+  color: #323130;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-editor']:focus {
+  outline: 2px solid #605e5c;
+  outline-offset: -2px;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] {
+  position: static !important;
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: auto !important;
+  min-height: 36px;
+  padding: 4px !important;
+  margin: 0 !important;
+  border: 1px solid #8a8886 !important;
+  border-bottom-color: #c8c6c4 !important;
+  box-shadow: none !important;
+  background: #ffffff !important;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] [class*='ms-Dropdown-container'] {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 120px;
+  max-width: 180px;
+  margin-right: 4px;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] [class*='ms-Dropdown-title'] {
+  height: 30px;
+  min-height: 30px;
+  line-height: 28px;
+  border-color: #c8c6c4;
+  color: #323130 !important;
+  background: #ffffff !important;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] [class*='ms-Button'] {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #323130 !important;
+  background: transparent !important;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] [class*='ms-Button']:hover,
+.sp-dynamic-form .sp-rich-text-field [class*='ql-toolbar'] [class*='ms-Button'][class*='is-checked'] {
+  background: #f3f2f1 !important;
+}
+
+.sp-dynamic-form .sp-rich-text-field [class*='ql-tooltip'] {
+  display: none !important;
 }
 
 /* Reduced Motion Support */

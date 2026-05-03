@@ -32,17 +32,29 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
 
   const relativeTime = formatRelativeTime(version.modified);
   const absoluteTime = formatAbsoluteTime(version.modified);
+
   const isMajor = React.useMemo(() => {
     const parts = version.versionLabel.split('.');
     return parts.length > 1 ? parts[1] === '0' : true;
   }, [version.versionLabel]);
 
   const commentPreview = version.checkInComment ? version.checkInComment.trim() : '';
-  const highlightFields = React.useMemo(
-    () => version.changedFields.filter(field => field.isSignificant).slice(0, 2),
+
+  // Up to 3 field names for the inline summary; the rest collapse into "+N more".
+  const previewFields = React.useMemo(
+    () => version.changedFields.slice(0, 3).map(f => f.displayName),
     [version.changedFields]
   );
-  const extraFieldCount = Math.max(version.changedFields.length - highlightFields.length, 0);
+  const extraFieldCount = Math.max(version.changedFields.length - previewFields.length, 0);
+
+  const sizeValue = typeof version.size === 'number' ? version.size : null;
+  const sizeDeltaValue = typeof version.sizeDelta === 'number' ? version.sizeDelta : null;
+  const showSizeInfo = itemType === 'document' && sizeValue !== null;
+  const showSizeDelta = itemType === 'document' && sizeDeltaValue !== null && sizeDeltaValue !== 0;
+
+  const canDownload = itemType === 'document' && !!version.fileUrl && !!onDownloadVersion;
+  const canCopy = showCopyActions && !!onCopyLink;
+  const hasQuickActions = canDownload || canCopy;
 
   const handleDownload = React.useCallback(
     (event: React.MouseEvent) => {
@@ -60,17 +72,11 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
     [onCopyLink, version]
   );
 
-  const sizeValue = typeof version.size === 'number' ? version.size : null;
-  const sizeDeltaValue = typeof version.sizeDelta === 'number' ? version.sizeDelta : null;
-  const canDownload = itemType === 'document' && !!version.fileUrl && !!onDownloadVersion;
-  const canCopy = showCopyActions && !!onCopyLink;
-  const hasQuickActions = canDownload || canCopy;
-  const showSizeInfo = itemType === 'document' && sizeValue !== null;
-  const showSizeDelta = itemType === 'document' && sizeDeltaValue !== null && sizeDeltaValue !== 0;
-
   return (
     <div
-      className={`version-card ${isSelected ? 'selected' : ''}`}
+      className={`version-card ${isSelected ? 'selected' : ''} ${
+        showMajorBadge && isMajor ? 'is-major' : ''
+      }`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       role='button'
@@ -78,101 +84,90 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
       aria-label={`Version ${version.versionLabel} by ${version.modifiedByName}`}
       aria-pressed={isSelected}
     >
-      {/* User avatar */}
+      {/* Timeline rail (dot + connecting line) */}
+      <div className='version-card-rail' aria-hidden='true'>
+        <div className='version-card-rail-dot' />
+        <div className='version-card-rail-line' />
+      </div>
+
+      {/* Avatar */}
       <div className='version-card-avatar'>
         <UserPersona
           userIdentifier={version.modifiedBy || version.modifiedByEmail}
           displayName={version.modifiedByName}
           email={version.modifiedByEmail}
-          size={32}
+          size={28}
           displayMode='avatar'
           showLivePersona={true}
           showSecondaryText={false}
         />
       </div>
 
-      {/* Card content */}
-      <div className='version-card-content'>
-        <div className='version-card-author'>{version.modifiedByName}</div>
+      {/* Top: author */}
+      <div className='version-card-author' title={version.modifiedByName}>
+        {version.modifiedByName}
+      </div>
 
-        {/* Version and badges */}
-        <div className='version-card-header'>
-          <span className='version-card-version'>v{version.versionLabel}</span>
-          {showMajorBadge && isMajor && <span className='version-card-badge major'>Major</span>}
-          {!version.hasChanges && (
-            <span className='version-card-nochange' title='No metadata changes'>
-              <Icon
-                iconName={itemType === 'document' ? 'Page' : 'Info'}
-                className='version-card-nochange-icon'
-              />
+      {/* Top right: version + time */}
+      <div className='version-card-meta-line'>
+        {showMajorBadge && isMajor && (
+          <span className='version-card-major-dot' aria-label='Major version' />
+        )}
+        <span className='version-card-version'>{version.versionLabel}</span>
+        <span className='version-card-time' title={absoluteTime}>
+          {relativeTime}
+        </span>
+      </div>
+
+      {/* Bottom: change summary OR placeholder for unchanged */}
+      <div className='version-card-summary'>
+        {version.hasChanges && previewFields.length > 0 ? (
+          <>
+            <span className='version-card-summary-count'>
+              {version.changedFields.length}{' '}
+              {version.changedFields.length === 1 ? 'change' : 'changes'}
             </span>
-          )}
-          <span className='version-card-time' title={absoluteTime}>
-            {relativeTime}
+            <span className='version-card-summary-fields'>
+              {previewFields.join(', ')}
+              {extraFieldCount > 0 ? `, +${extraFieldCount} more` : ''}
+            </span>
+          </>
+        ) : version.hasChanges ? (
+          <span className='version-card-summary-count'>
+            {version.changedFields.length}{' '}
+            {version.changedFields.length === 1 ? 'change' : 'changes'}
           </span>
-        </div>
-
-        {/* Change insights */}
-        {(version.hasChanges || showSizeInfo) && (
-          <div className='version-card-meta'>
-            {version.hasChanges && (
-              <div
-                className='version-card-changes'
-                title={`${version.changedFields.length} field change${
-                  version.changedFields.length === 1 ? '' : 's'
+        ) : (
+          <span className='version-card-summary-empty'>
+            {itemType === 'document' ? 'File update' : 'No metadata changes'}
+          </span>
+        )}
+        {showSizeInfo && sizeValue !== null && (
+          <span className='version-card-summary-size'>
+            · {formatFileSize(sizeValue)}
+            {showSizeDelta && (
+              <span
+                className={`version-card-summary-size-delta ${
+                  (sizeDeltaValue as number) > 0 ? 'increase' : 'decrease'
                 }`}
               >
-                {`${version.changedFields.length} ${
-                  version.changedFields.length === 1 ? 'change' : 'changes'
-                }`}
-              </div>
-            )}
-            {showSizeInfo && sizeValue !== null && (
-              <div className='version-card-size'>
-                <Icon iconName='Page' />
-                <span>{formatFileSize(sizeValue)}</span>
-                {showSizeDelta && (
-                  <span
-                    className={`version-card-size-delta ${
-                      (sizeDeltaValue as number) > 0 ? 'increase' : 'decrease'
-                    }`}
-                  >
-                    {(sizeDeltaValue as number) > 0 ? '+' : ''}
-                    {formatFileSize(Math.abs(sizeDeltaValue as number))}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {highlightFields.length > 0 && (
-          <div className='version-card-highlights'>
-            <span className='version-card-highlights-label'>Changed</span>
-            {highlightFields.map(field => (
-              <span key={field.internalName} className='version-card-highlight-pill'>
-                {field.displayName}
+                {' '}
+                ({(sizeDeltaValue as number) > 0 ? '+' : ''}
+                {formatFileSize(Math.abs(sizeDeltaValue as number))})
               </span>
-            ))}
-            {extraFieldCount > 0 && (
-              <span className='version-card-highlights-more'>+{extraFieldCount} more</span>
             )}
-          </div>
-        )}
-
-        {/* Comment preview */}
-        {commentPreview && (
-          <div className='version-card-comment' title={commentPreview}>
-            <Icon iconName='Feedback' className='version-card-comment-icon' />
-            <span>
-              {commentPreview.length > 90
-                ? `${commentPreview.slice(0, 90)}...`
-                : commentPreview}
-            </span>
-          </div>
+          </span>
         )}
       </div>
 
+      {/* Optional comment line */}
+      {commentPreview && (
+        <div className='version-card-comment' title={commentPreview}>
+          <span className='version-card-comment-text'>{commentPreview}</span>
+        </div>
+      )}
+
+      {/* Quick actions — visible on hover/select only */}
       {hasQuickActions && (
         <div className='version-card-actions' aria-label='Version quick actions'>
           {canDownload && (
@@ -183,6 +178,7 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
               title='Download this version'
             >
               <Icon iconName='Download' />
+              <span>Download</span>
             </button>
           )}
           {canCopy && (
@@ -193,6 +189,7 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
               title='Copy link to this version'
             >
               <Icon iconName='Link' />
+              <span>Copy link</span>
             </button>
           )}
         </div>

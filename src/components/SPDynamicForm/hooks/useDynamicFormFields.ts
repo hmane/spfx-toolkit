@@ -8,7 +8,6 @@ import {
 } from '../utilities/fieldOrderResolver';
 import { filterFieldsByMode, sortFieldsByOrder } from '../utilities/fieldMapper';
 import { resolveSections, flattenSections } from '../utilities/fieldGroupResolver';
-import { applyFieldOverrides } from '../utilities/fieldConfigBuilder';
 import { optimizeLookupFields } from '../utilities/lookupFieldOptimizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 
@@ -40,6 +39,19 @@ export interface IUseDynamicFormFieldsOptions {
   onBeforeLoad?: () => Promise<void | boolean>;
   onAfterLoad?: (fields: IFieldMetadata[]) => void;
   onError?: (error: Error) => void;
+  /**
+   * Applied after field order is resolved (post CT-discovery) but before optimisation
+   * and section resolution. Return a new array or mutate + return the same array.
+   */
+  onFieldLoadTransform?: (fields: IFieldMetadata[]) => IFieldMetadata[];
+}
+
+/** A content type available on the list — surfaced for the inline picker. */
+export interface IAvailableContentType {
+  id: string;       // ContentType StringValue (e.g. "0x0100ABC...")
+  name: string;
+  description?: string;
+  default: boolean; // true for the list's default CT (SP returns it first)
 }
 
 export interface IUseDynamicFormFieldsResult {
@@ -47,6 +59,7 @@ export interface IUseDynamicFormFieldsResult {
   sections: ISectionMetadata[];
   useSections: boolean;
   supportsAttachments: boolean;
+  availableContentTypes: IAvailableContentType[];
   loading: boolean;
   error: Error | null;
   reload: () => Promise<void>;
@@ -76,6 +89,7 @@ export function useDynamicFormFields(
     onBeforeLoad,
     onAfterLoad,
     onError,
+    onFieldLoadTransform,
   } = options;
 
   const [result, setResult] = React.useState<IFormFieldsResult>({
@@ -88,17 +102,25 @@ export function useDynamicFormFields(
   });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
+  const [availableContentTypes, setAvailableContentTypes] = React.useState<IAvailableContentType[]>([]);
 
   // Use refs for callbacks to avoid re-creating loadFields on every callback change
   const onBeforeLoadRef = React.useRef(onBeforeLoad);
   const onAfterLoadRef = React.useRef(onAfterLoad);
   const onErrorRef = React.useRef(onError);
+  const onFieldLoadTransformRef = React.useRef(onFieldLoadTransform);
+
+  // Increments on every load attempt; if a load completes after the counter
+  // has advanced (i.e., a newer load started or the component unmounted),
+  // its setStates are skipped.
+  const loadRequestIdRef = React.useRef(0);
 
   React.useEffect(() => {
     onBeforeLoadRef.current = onBeforeLoad;
     onAfterLoadRef.current = onAfterLoad;
     onErrorRef.current = onError;
-  }, [onBeforeLoad, onAfterLoad, onError]);
+    onFieldLoadTransformRef.current = onFieldLoadTransform;
+  }, [onBeforeLoad, onAfterLoad, onError, onFieldLoadTransform]);
 
   // Cache key for field metadata
   const cacheKey = React.useMemo(
@@ -127,6 +149,8 @@ export function useDynamicFormFields(
   );
 
   const loadFields = React.useCallback(async () => {
+    const myRequestId = ++loadRequestIdRef.current;
+
     try {
       setLoading(true);
       setError(null);
@@ -136,6 +160,7 @@ export function useDynamicFormFields(
       // Call onBeforeLoad using ref
       if (onBeforeLoadRef.current) {
         const proceed = await onBeforeLoadRef.current();
+        if (myRequestId !== loadRequestIdRef.current) return;
         if (proceed === false) {
           SPContext.logger.info('Field loading cancelled by onBeforeLoad');
           setLoading(false);
@@ -171,6 +196,8 @@ export function useDynamicFormFields(
       if (!fields) {
         fields = await resolveFieldOrder(listId, contentTypeId, useContentTypeOrder, fieldOrder);
 
+        if (myRequestId !== loadRequestIdRef.current) return;
+
         // Cache the fields with timestamp
         if (cacheFields) {
           try {
@@ -185,19 +212,42 @@ export function useDynamicFormFields(
         }
       }
 
+      // Apply consumer transform after cache read/write so one form instance
+      // cannot poison another instance sharing the same list/content-type cache.
+      if (typeof onFieldLoadTransformRef.current === 'function') {
+        try {
+          const transformed = onFieldLoadTransformRef.current(fields);
+          if (Array.isArray(transformed)) {
+            fields = transformed;
+          }
+        } catch (err) {
+          SPContext.logger.warn(
+            'SPDynamicForm: onFieldLoadTransform threw, using untransformed fields',
+            err
+          );
+        }
+      }
+
       // Filter to specified fields if provided
       if (specifiedFields && specifiedFields.length > 0) {
         fields = filterToSpecifiedFields(fields, specifiedFields);
       }
 
-      // Apply field overrides
-      fields = applyFieldOverrides(fields, fieldOverrides);
+      // NOTE: `applyFieldOverrides` is intentionally NOT called here. Phase 2
+      // moved override resolution to per-render in SPDynamicForm (so function-
+      // form `disabled`/`hidden`/`required`/etc. evaluate against the live
+      // override context — formValues, user, mode, contentTypeId). Calling it
+      // here with an empty fallback context would make function overrides
+      // evaluate prematurely and cache wrong results into the metadata.
 
       // Filter by mode and excluded fields
       fields = filterFieldsByMode(fields, mode, excludeFields);
 
-      // Optimize lookup fields
-      fields = await optimizeLookupFields(fields, lookupThreshold, lookupFieldConfig);
+      // Optimize lookup fields — pass a signal that reflects freshness in real time
+      const checkSignal = { get aborted() { return myRequestId !== loadRequestIdRef.current; } };
+      fields = await optimizeLookupFields(fields, lookupThreshold, lookupFieldConfig, { signal: checkSignal });
+
+      if (myRequestId !== loadRequestIdRef.current) return;
 
       // Sort fields by order
       fields = sortFieldsByOrder(fields);
@@ -211,10 +261,44 @@ export function useDynamicFormFields(
       try {
         const list = getListByNameOrId(SPContext.sp, listId);
         const listInfo = await list.select('EnableAttachments')();
+        if (myRequestId !== loadRequestIdRef.current) return;
         supportsAttachments = listInfo.EnableAttachments;
       } catch (err) {
         SPContext.logger.warn('Failed to check attachment support', err);
       }
+
+      if (myRequestId !== loadRequestIdRef.current) return;
+
+      // Discover the list's visible content types in parallel — non-fatal if it fails.
+      try {
+        const ctList = getListByNameOrId(SPContext.sp, listId);
+        const ctsRaw: any[] = await ctList.contentTypes
+          .select('Id', 'Name', 'Description', 'Hidden', 'ReadOnly')
+          .filter('Hidden eq false')();
+
+        if (myRequestId !== loadRequestIdRef.current) return;
+
+        const cts: IAvailableContentType[] = ctsRaw
+          .filter((ct) => {
+            const idStr = ct.Id?.StringValue ?? ct.Id ?? '';
+            // Drop folder content types (StringValue starts with 0x0120)
+            return !ct.ReadOnly && typeof idStr === 'string' && !idStr.startsWith('0x0120');
+          })
+          .map((ct, idx) => ({
+            id: ct.Id?.StringValue ?? ct.Id,
+            name: ct.Name,
+            description: ct.Description,
+            default: idx === 0, // SP returns default first
+          }));
+
+        setAvailableContentTypes(cts);
+      } catch (ctErr) {
+        if (myRequestId !== loadRequestIdRef.current) return;
+        SPContext.logger.warn('SPDynamicForm: failed to load content types', { listId, err: String(ctErr) });
+        setAvailableContentTypes([]);
+      }
+
+      if (myRequestId !== loadRequestIdRef.current) return;
 
       const finalResult: IFormFieldsResult = {
         fields,
@@ -240,6 +324,7 @@ export function useDynamicFormFields(
         supportsAttachments,
       });
     } catch (err) {
+      if (myRequestId !== loadRequestIdRef.current) return;
       const error = err as Error;
       setError(error);
       SPContext.logger.error('Failed to load form fields', error);
@@ -249,6 +334,7 @@ export function useDynamicFormFields(
         onErrorRef.current(error);
       }
     } finally {
+      if (myRequestId !== loadRequestIdRef.current) return;
       setLoading(false);
     }
   }, [
@@ -266,11 +352,18 @@ export function useDynamicFormFields(
     lookupFieldConfigStr,
     cacheFields,
     cacheKey,
+    onFieldLoadTransform,
   ]);
 
-  // Load fields on mount and when dependencies change
+  // Load fields on mount and when dependencies change. The cleanup invalidates
+  // any in-flight load by bumping loadRequestIdRef — its post-await setStates
+  // will short-circuit at the next staleness check.
   React.useEffect(() => {
     loadFields();
+    return () => {
+      // Invalidate the current request so its post-await setStates skip.
+      loadRequestIdRef.current++;
+    };
   }, [loadFields]);
 
   return {
@@ -278,6 +371,7 @@ export function useDynamicFormFields(
     sections: result.sections,
     useSections: result.useSections,
     supportsAttachments: result.supportsAttachments,
+    availableContentTypes,
     loading,
     error,
     reload: loadFields,

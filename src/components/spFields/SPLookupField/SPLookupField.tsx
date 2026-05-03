@@ -25,6 +25,7 @@ import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule, hasValue } from '../validation';
 import '../spFields.css';
 
 // Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
@@ -488,7 +489,12 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     const baseRules: RegisterOptions = { ...rules };
 
     if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'requiredLookup',
+        (val: ISPLookupFieldValue | ISPLookupFieldValue[] | undefined | null) =>
+          hasValue(val) || `${label || 'This field'} is required`
+      );
     }
 
     return baseRules;

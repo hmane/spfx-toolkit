@@ -212,7 +212,7 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
     control: control,
     rules: rules || (fieldMetadata.required ? { required: `${fieldMetadata.displayName} is required` } : undefined),
     value: value,
-    defaultValue: defaultValue || fieldMetadata.defaultValue,
+    defaultValue: defaultValue !== undefined ? defaultValue : fieldMetadata.defaultValue,
     onChange: onChange,
     onBlur: onBlur,
     onFocus: onFocus,

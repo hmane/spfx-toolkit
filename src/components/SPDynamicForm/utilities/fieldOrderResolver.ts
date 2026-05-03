@@ -32,7 +32,7 @@ export async function loadFieldsFromContentType(
 
     const fieldMetadata: IFieldMetadata[] = [];
 
-    fieldLinks.forEach((fieldLink, index) => {
+    fieldLinks.forEach((fieldLink: any, index) => {
       const fieldInternalName = fieldLink.FieldInternalName || fieldLink.Name;
       if (!fieldInternalName) {
         return;
@@ -46,6 +46,15 @@ export async function loadFieldsFromContentType(
       metadata.order = index;
       metadata.hidden = metadata.hidden || fieldLink.Hidden;
       metadata.required = metadata.required || fieldLink.Required;
+
+      // Content types can rebrand a field's label per-CT (e.g. "Title" → "Project Name").
+      // Honour `fieldLink.DisplayName` when it's set and meaningfully different from
+      // the site-column title — this lets admins customise labels without consumer code changes.
+      const ctDisplayName: string | undefined = fieldLink.DisplayName;
+      if (ctDisplayName && ctDisplayName.trim() && ctDisplayName !== metadata.displayName) {
+        metadata.displayName = ctDisplayName;
+      }
+
       fieldMetadata.push(metadata);
       metadataByInternalName.delete(fieldInternalName);
     });

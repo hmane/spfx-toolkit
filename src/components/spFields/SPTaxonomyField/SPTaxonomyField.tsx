@@ -41,6 +41,7 @@ import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule, hasValue } from '../validation';
 import '../spFields.css';
 
 /**
@@ -116,13 +117,33 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     inputRef,
   } = props;
 
+  // SharePoint returns the empty GUID for taxonomy fields without an anchor term.
+  // Passing it to ModernTaxonomyPicker as anchorTermId roots the tree at a non-existent
+  // term, so the picker renders no terms.
+  const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+  const sanitizeAnchorId = (id?: string): string | undefined =>
+    id && id !== EMPTY_GUID ? id : undefined;
+
+  const sanitizedInitialDataSource = React.useMemo<ITaxonomyDataSource | null>(
+    () =>
+      dataSource
+        ? { ...dataSource, anchorId: sanitizeAnchorId(dataSource.anchorId) }
+        : null,
+    // Only re-create when the meaningful primitives change, not on object identity
+    [dataSource?.termSetId, dataSource?.anchorId, dataSource?.termStoreName]
+  );
+
+  // Initialize loading=true when auto-load will run, to avoid a brief flash of the
+  // "configuration missing" warning before the effect kicks in.
+  const willAutoLoad = !!(columnName && listId);
+
   const [internalValue, setInternalValue] = React.useState<ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]>(
     defaultValue || (allowMultiple ? [] : null as any)
   );
   const [terms, setTerms] = React.useState<ISPTaxonomyFieldValue[]>([]);
-  const [loading, setLoading] = React.useState<boolean>(false);
+  const [loading, setLoading] = React.useState<boolean>(willAutoLoad);
   const [error, setError] = React.useState<string | null>(null);
-  const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(dataSource || null);
+  const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(sanitizedInitialDataSource);
   const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
   const [resolvedShowPath, setResolvedShowPath] = React.useState<boolean | undefined>(showPath);
 
@@ -153,9 +174,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   // Auto-load column metadata when columnName is provided
   React.useEffect(() => {
     if (!columnName || !listId) {
-      // If dataSource is provided directly, use it
-      if (dataSource) {
-        setResolvedDataSource(dataSource);
+      // If dataSource is provided directly, use it (sanitized)
+      if (sanitizedInitialDataSource) {
+        setResolvedDataSource(sanitizedInitialDataSource);
       }
       setResolvedAllowMultiple(allowMultiple);
       setResolvedShowPath(showPath);
@@ -163,6 +184,16 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     }
 
     let isMounted = true;
+
+    const fallbackToProvidedDataSource = (): boolean => {
+      if (sanitizedInitialDataSource?.termSetId) {
+        setResolvedDataSource(sanitizedInitialDataSource);
+        setResolvedAllowMultiple(allowMultiple);
+        setResolvedShowPath(showPath);
+        return true;
+      }
+      return false;
+    };
 
     const loadColumnMetadata = async () => {
       const sp = SPContext.tryGetSP();
@@ -184,24 +215,34 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         // Extract taxonomy field configuration
         const termSetId = (field as any).TermSetId;
-        const anchorId = (field as any).AnchorId;
+        const rawAnchorId = (field as any).AnchorId;
+        const anchorId = sanitizeAnchorId(rawAnchorId);
         const allowMultipleValues = (field as any).AllowMultipleValues || false;
         const isPathRendered = (field as any).IsPathRendered || false;
 
         if (!termSetId) {
-          setError(`Column "${columnName}" is not a taxonomy field or missing term set configuration`);
+          if (fallbackToProvidedDataSource()) {
+            SPContext.logger.warn(
+              'SPTaxonomyField: Column has no termSetId, using provided dataSource',
+              { columnName, listId }
+            );
+          } else {
+            setError(
+              `Column "${columnName}" is not a taxonomy field or missing term set configuration`
+            );
+          }
           setLoading(false);
           return;
         }
 
         const source: ITaxonomyDataSource = {
-          termSetId: termSetId,
-          anchorId: anchorId || undefined,
+          termSetId,
+          anchorId,
         };
 
         setResolvedDataSource(source);
-        setResolvedAllowMultiple(allowMultipleValues ?? allowMultiple);
-        setResolvedShowPath(isPathRendered ?? showPath);
+        setResolvedAllowMultiple(allowMultipleValues);
+        setResolvedShowPath(isPathRendered);
 
         SPContext.logger.info('SPTaxonomyField: Auto-loaded column metadata', {
           columnName,
@@ -213,12 +254,19 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       } catch (err: any) {
         if (!isMounted) return;
 
-        const errorMsg = `Failed to load column metadata for "${columnName}": ${err?.message || 'Unknown error'}`;
-        setError(errorMsg);
-        SPContext.logger.error('SPTaxonomyField: Failed to load column metadata', err, {
-          columnName,
-          listId,
-        });
+        if (fallbackToProvidedDataSource()) {
+          SPContext.logger.warn(
+            'SPTaxonomyField: Column metadata fetch failed, using provided dataSource',
+            { columnName, listId, error: err?.message }
+          );
+        } else {
+          const errorMsg = `Failed to load column metadata for "${columnName}": ${err?.message || 'Unknown error'}`;
+          setError(errorMsg);
+          SPContext.logger.error('SPTaxonomyField: Failed to load column metadata', err, {
+            columnName,
+            listId,
+          });
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -231,7 +279,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     return () => {
       isMounted = false;
     };
-  }, [columnName, listId, dataSource, allowMultiple, showPath]);
+    // sanitizedInitialDataSource is memoized on its primitive contents, so referential
+    // changes to the dataSource prop won't re-trigger this effect.
+  }, [columnName, listId, sanitizedInitialDataSource, allowMultiple, showPath]);
 
   // Create stable dataSource key to avoid re-fetches on object reference changes
   const dataSourceKey = React.useMemo(() => {
@@ -319,7 +369,12 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     const baseRules: RegisterOptions = { ...rules };
 
     if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'requiredTaxonomy',
+        (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[] | undefined | null) =>
+          hasValue(val) || `${label || 'This field'} is required`
+      );
     }
 
     return baseRules;

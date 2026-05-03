@@ -1,12 +1,11 @@
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { Icon } from '@fluentui/react/lib/Icon';
 import { SearchBox } from '@fluentui/react/lib/SearchBox';
-import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { IFieldChangesTableProps } from '../types';
 import { FieldChangeRow } from './FieldChangeRow';
 
 export const FieldChangesTable: React.FC<IFieldChangesTableProps> = props => {
-  const { changes, itemInfo } = props;
+  const { changes } = props;
 
   const [searchQuery, setSearchQuery] = React.useState('');
 
@@ -34,50 +33,65 @@ export const FieldChangesTable: React.FC<IFieldChangesTableProps> = props => {
 
   if (changes.length === 0) {
     return (
-      <div className='field-changes-empty'>
-        <MessageBar messageBarType={MessageBarType.info}>
-          <Text>No field changes detected in this version.</Text>
-        </MessageBar>
+      <div className='field-changes-empty' role='status'>
+        <div className='vh-empty'>
+          <div className='vh-empty-icon' aria-hidden='true'>
+            <Icon iconName='CheckMark' />
+          </div>
+          <div className='vh-empty-title'>No field changes</div>
+          <div className='vh-empty-hint'>
+            This version was saved without modifying any tracked metadata fields.
+          </div>
+        </div>
       </div>
     );
   }
 
-  const showSearch = changes.length > 5;
+  // Only show in-pane search when there are enough changes that scanning becomes work.
+  const showSearch = changes.length > 8;
 
   return (
-    <div className='field-changes-table'>
+    <>
       {showSearch && (
-        <div className='field-changes-search'>
+        <div className='version-details-search'>
           <SearchBox
-            placeholder='Search changes...'
+            placeholder='Search changes'
             value={searchQuery}
             onChange={(_, newValue) => handleSearchChange(newValue)}
             onClear={handleClearSearch}
+            underlined={false}
           />
         </div>
       )}
 
-      {/* Table header row */}
-      <div className='field-changes-table-header'>
-        <div className='field-changes-header-cell'>Field Name</div>
-        <div className='field-changes-header-cell'>Previous → New</div>
-        <div className='field-changes-header-cell' />
-      </div>
-
-      {/* Table body */}
-      <div className='field-changes-table-body'>
+      <div className='field-changes-list'>
         {filteredChanges.length > 0 ? (
           filteredChanges.map((change, index) => (
             <FieldChangeRow key={`${change.internalName}-${index}`} change={change} />
           ))
         ) : (
-          <div className='field-changes-no-results'>
-            <MessageBar messageBarType={MessageBarType.warning}>
-              No changes match your search query &quot;{searchQuery}&quot;
-            </MessageBar>
+          <div className='field-changes-no-results' role='status' aria-live='polite'>
+            <div className='vh-empty'>
+              <div className='vh-empty-icon' aria-hidden='true'>
+                <Icon iconName='Search' />
+              </div>
+              <div className='vh-empty-title'>No matching changes</div>
+              <div className='vh-empty-hint'>
+                Nothing matches &ldquo;<strong>{searchQuery}</strong>&rdquo;. Try a different
+                term or clear the filter.
+              </div>
+              <button
+                type='button'
+                className='vh-empty-action'
+                onClick={handleClearSearch}
+              >
+                <Icon iconName='ClearFilter' />
+                Clear search
+              </button>
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 };

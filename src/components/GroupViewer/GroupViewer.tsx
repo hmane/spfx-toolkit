@@ -60,6 +60,12 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const isMountedRef = React.useRef(true);
   const targetElementRef = React.useRef<HTMLDivElement>(null);
 
+  // Display sizing — hoisted to top level so the hooks always run on every render.
+  // Previously these were declared inside renderDisplayContent(), which is invoked
+  // from JSX and may be skipped depending on display mode → conditional hooks.
+  const iconSize = React.useMemo(() => Math.max(12, Math.round(size * 0.45)), [size]);
+  const fontSize = React.useMemo(() => Math.max(12, size * 0.35), [size]);
+
   // Special SharePoint groups that should not show member details
   const specialGroups = React.useMemo(
     () => [
@@ -768,11 +774,8 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
     );
   };
 
-  // Render display content
+  // Render display content (iconSize/fontSize are hoisted as top-level hooks)
   const renderDisplayContent = (): React.ReactElement => {
-    const iconSize = React.useMemo(() => Math.max(12, Math.round(size * 0.45)), [size]);
-    const fontSize = React.useMemo(() => Math.max(12, size * 0.35), [size]);
-
     switch (displayMode) {
       case 'icon':
         return (

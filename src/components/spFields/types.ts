@@ -209,6 +209,7 @@ export enum SPFieldType {
   Guid = 'Guid',
   Integer = 'Integer',
   Counter = 'Counter',
+  Image = 'Image',
 }
 
 /**

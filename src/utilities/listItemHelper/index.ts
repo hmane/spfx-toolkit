@@ -4,7 +4,8 @@
 
 // Primary extractor and updater factories
 export { createSPExtractor } from './spExtractor';
-export { createSPUpdater } from './spUpdater';
+export { createSPUpdater, formatValueForPnP } from './spUpdater';
+export type { SPUpdateFieldType } from './spUpdater';
 
 // ========================================
 // CONVENIENCE FUNCTIONS - Ready-to-use utilities

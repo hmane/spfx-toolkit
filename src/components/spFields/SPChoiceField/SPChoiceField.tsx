@@ -26,7 +26,9 @@ import {
   SPChoiceDisplayType
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
+import { validateCustomValue } from './utils/choiceFieldLoader';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule, hasValue } from '../validation';
 import '../spFields.css';
 
 /**
@@ -405,16 +407,86 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     ]
   );
 
+  const validateOtherSelection = React.useCallback(
+    (fieldValue: string | string[] | undefined | null): true | string => {
+      if (!otherEnabled) return true;
+
+      const values = Array.isArray(fieldValue)
+        ? fieldValue
+        : fieldValue
+        ? [fieldValue]
+        : [];
+
+      if (values.length === 0) return true;
+
+      const hasOtherPlaceholder = values.some(
+        v => String(v).toLowerCase() === otherOptionText.toLowerCase()
+      );
+
+      if (hasOtherPlaceholder) {
+        return (
+          validateCustomValue('', otherConfig.otherValidation) ||
+          'Custom value is required'
+        );
+      }
+
+      if (!metadata) return true;
+
+      const customValue = values.find(v => {
+        const safeValue = String(v || '');
+        return (
+          safeValue.length > 0 &&
+          safeValue.toLowerCase() !== otherOptionText.toLowerCase() &&
+          isOtherValue(safeValue)
+        );
+      });
+
+      if (!customValue) return true;
+
+      const customValueText = String(customValue);
+
+      if (!metadata.allowFillIn && !otherConfig.enableOtherOption) {
+        return 'This field does not allow custom values. The SharePoint column has "Allow fill-in choices" disabled.';
+      }
+
+      return validateCustomValue(customValueText, otherConfig.otherValidation) || true;
+    },
+    [otherEnabled, otherOptionText, otherConfig.otherValidation, otherConfig.enableOtherOption, metadata, isOtherValue]
+  );
+
   // Merge validation rules
   const validationRules = React.useMemo(() => {
     const baseRules: RegisterOptions = { ...rules };
 
     if (required && !baseRules.required) {
-      baseRules.required = `${label || 'This field'} is required`;
+      addValidateRule(
+        baseRules,
+        'requiredChoice',
+        (val: string | string[] | undefined | null) =>
+          hasValue(val) || `${label || 'This field'} is required`
+      );
+    }
+
+    const existingValidate = baseRules.validate as any;
+    if (typeof existingValidate === 'function') {
+      baseRules.validate = async (fieldValue: any) => {
+        const existingResult = await existingValidate(fieldValue);
+        if (existingResult !== true && existingResult !== undefined) {
+          return existingResult;
+        }
+        return validateOtherSelection(fieldValue);
+      };
+    } else if (existingValidate && typeof existingValidate === 'object') {
+      baseRules.validate = {
+        ...existingValidate,
+        otherChoiceValue: validateOtherSelection,
+      };
+    } else {
+      baseRules.validate = validateOtherSelection;
     }
 
     return baseRules;
-  }, [required, label, rules]);
+  }, [required, label, rules, validateOtherSelection]);
 
   // Styles
   const containerClass = mergeStyles({
@@ -445,7 +517,12 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   }
 
   // Combine all error sources - use for standalone mode validation display
-  const displayErrorMessage = errorMessage || invalidValueError || otherState.customValueError;
+  const otherSelectionError = validateOtherSelection(currentValue);
+  const displayErrorMessage =
+    errorMessage ||
+    invalidValueError ||
+    otherState.customValueError ||
+    (otherSelectionError === true ? undefined : otherSelectionError);
 
   // Common props for both SelectBox and TagBox
   const commonProps = {

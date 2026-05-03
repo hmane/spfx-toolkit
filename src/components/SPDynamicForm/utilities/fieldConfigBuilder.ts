@@ -2,6 +2,8 @@ import { RegisterOptions } from 'react-hook-form';
 import { IFieldMetadata } from '../types/fieldMetadata';
 import { IFieldOverride } from '../SPDynamicForm.types';
 import { SPFieldType } from '../../spFields/types';
+import { fieldMatches, effectiveMatcher, FieldMatcher } from './fieldOverrideMatcher';
+import { resolveOverrideValue, resolveLabelTransform, IOverrideContext } from './resolveOverrideValue';
 
 /**
  * Builds validation rules for a field based on its metadata
@@ -17,8 +19,9 @@ export function buildValidationRules(
     Object.assign(rules, override.validationRules);
   }
 
-  // Required validation
-  const isRequired = override?.required !== undefined ? override.required : field.required;
+  // Required validation — static-only; function form is already resolved into
+  // field.required by applyFieldOverrides before this is called.
+  const isRequired = typeof override?.required === 'boolean' ? override.required : field.required;
   if (isRequired && !rules.required) {
     rules.required = `${field.displayName} is required`;
   }
@@ -82,48 +85,129 @@ export function buildValidationRules(
 }
 
 /**
- * Applies field overrides to metadata
+ * Applies field overrides to metadata.
+ *
+ * Pre-Phase-2 this took only `(fields, overrides)` and applied static `label`,
+ * `required`, etc. by exact `fieldName` match. Phase 2 widens this to:
+ *   - matcher-based selection (`field: string | RegExp | function`)
+ *   - value-or-function props (so function-form `disabled`, `hidden`, etc. evaluate
+ *     against the current form-state context)
+ *
+ * MUST be called per-render from the form (not just once at field-load time)
+ * so function-form props see fresh `formValues` from the watched subset.
+ *
+ * The legacy two-arg signature `applyFieldOverrides(fields, overrides)` is still
+ * supported for backward compatibility; without a context, function-form props
+ * cannot be evaluated and are skipped (their default applies).
  */
 export function applyFieldOverrides(
   fields: IFieldMetadata[],
-  overrides?: IFieldOverride[]
+  overrides?: IFieldOverride[],
+  ctx?: IOverrideContext
 ): IFieldMetadata[] {
   if (!overrides || overrides.length === 0) {
     return fields;
   }
 
-  const overrideMap = new Map(overrides.map((o) => [o.fieldName, o]));
-
   return fields.map((field) => {
-    const override = overrideMap.get(field.internalName);
-    if (!override) {
-      return field;
-    }
+    // Pre-build a lightweight ctx for THIS field if the caller didn't supply one.
+    const fieldCtx: IOverrideContext = ctx
+      ? { ...ctx, field }
+      : { field, formValues: {}, mode: 'edit' };
+
+    // Find every override whose matcher selects this field; later ones win prop-by-prop.
+    const matched = overrides.filter((o) => {
+      const m = effectiveMatcher(o);
+      return m !== null && fieldMatches(m, field);
+    });
+    if (matched.length === 0) return field;
 
     const updated = { ...field };
 
-    if (override.label !== undefined) {
-      updated.displayName = override.label;
-    }
-    if (override.description !== undefined) {
-      updated.description = override.description;
-    }
-    if (override.required !== undefined) {
-      updated.required = override.required;
-    }
-    if (override.hidden !== undefined) {
-      updated.hidden = override.hidden;
-    }
-    if (override.defaultValue !== undefined) {
-      updated.defaultValue = override.defaultValue;
-    }
+    matched.forEach((override) => {
+      const resolvedLabel = resolveLabelTransform(override.label, updated.displayName, fieldCtx);
+      if (resolvedLabel !== updated.displayName) {
+        updated.displayName = resolvedLabel;
+      }
 
-    if (override.lookupRenderMode && updated.isLookup) {
-      updated.recommendedRenderMode = override.lookupRenderMode;
-    }
+      const resolvedDesc = resolveLabelTransform(override.description, updated.description ?? '', fieldCtx);
+      if (resolvedDesc !== (updated.description ?? '')) {
+        updated.description = resolvedDesc;
+      }
+
+      const resolvedRequired = resolveOverrideValue<boolean>(override.required, fieldCtx);
+      if (resolvedRequired !== undefined) updated.required = resolvedRequired;
+
+      const resolvedHidden = resolveOverrideValue<boolean>(override.hidden, fieldCtx);
+      if (resolvedHidden !== undefined) updated.hidden = resolvedHidden;
+
+      const resolvedReadOnly = resolveOverrideValue<boolean>(override.readOnly, fieldCtx);
+      if (resolvedReadOnly !== undefined) updated.readOnly = resolvedReadOnly;
+
+      // Resolved `disabled` is stored on the metadata (`__resolvedDisabled`) so
+      // `buildFieldProps` picks it up regardless of whether the override was a
+      // static boolean or a function. Without this, function-form `disabled`
+      // overrides would silently no-op (buildFieldProps only checked `typeof === 'boolean'`).
+      const resolvedDisabled = resolveOverrideValue<boolean>(override.disabled, fieldCtx);
+      if (resolvedDisabled !== undefined) {
+        (updated as any).__resolvedDisabled = resolvedDisabled;
+      }
+
+      const resolvedDefault = resolveOverrideValue<unknown>(override.defaultValue, fieldCtx);
+      if (resolvedDefault !== undefined) updated.defaultValue = resolvedDefault;
+
+      // Lookup render mode: 'auto' is the natural default — pass through. Otherwise
+      // record on metadata so getLookupRenderMode picks it up.
+      if (override.lookupRenderMode && updated.isLookup) {
+        updated.recommendedRenderMode = override.lookupRenderMode;
+      }
+    });
 
     return updated;
   });
+}
+
+/**
+ * Computes the union of field internal names that should drive reactive
+ * re-evaluation across the whole form: each rule/override/extension's matched
+ * field plus their explicit `dependsOn` lists. The form `useWatch`es exactly
+ * this set in narrow mode (when no rule omits `dependsOn`).
+ */
+export function collectWatchedFieldNames(args: {
+  fields: IFieldMetadata[];
+  overrides?: IFieldOverride[];
+  visibilityRules?: Array<{ field?: FieldMatcher; fieldName?: string; dependsOn?: string[] }>;
+  extensions?: Array<{ field: string; dependsOn?: string[] }>;
+}): string[] {
+  const names = new Set<string>();
+
+  const addMatched = (matcher: FieldMatcher | null | undefined) => {
+    if (!matcher) return;
+    if (typeof matcher === 'string') {
+      names.add(matcher);
+      return;
+    }
+    args.fields.forEach((f) => {
+      if (fieldMatches(matcher as FieldMatcher, f)) names.add(f.internalName);
+    });
+  };
+
+  (args.overrides || []).forEach((o) => {
+    addMatched(effectiveMatcher(o));
+    (o.dependsOn || []).forEach((n) => names.add(n));
+  });
+
+  (args.visibilityRules || []).forEach((r) => {
+    addMatched(effectiveMatcher(r));
+    (r.dependsOn || []).forEach((n) => names.add(n));
+  });
+
+  (args.extensions || []).forEach((e) => {
+    if (e.field) names.add(e.field);
+    (e.dependsOn || []).forEach((n) => names.add(n));
+  });
+
+  return Array.from(names);
 }
 
 /**
@@ -139,10 +223,25 @@ export function buildFieldProps(
   const props: any = {
     name: field.internalName,
     control,
-    label: override?.label || field.displayName,
-    description: override?.description || field.description,
-    required: override?.required !== undefined ? override.required : field.required,
-    disabled: override?.disabled || false,
+    // label: prefer the override's static value when it's a string; function form
+    // is already resolved into field.displayName by applyFieldOverrides.
+    label: typeof override?.label === 'string' ? override.label : field.displayName,
+    // description: same gating as label
+    description: typeof override?.description === 'string' ? override.description : field.description,
+    // required: static-only — the function form is already resolved into field.required
+    // by applyFieldOverrides before buildFieldProps is called.
+    required: typeof override?.required === 'boolean' ? override.required : field.required,
+    // disabled: static boolean override OR false. Function form is pre-resolved by
+    // applyFieldOverrides (into field metadata) for per-render evaluation.
+    // Prefer the resolved-disabled stamp left by applyFieldOverrides (handles both
+    // static boolean AND function form). Fall back to the raw override if it's a
+    // static boolean (legacy callers), then default to `false`.
+    disabled:
+      typeof (field as any).__resolvedDisabled === 'boolean'
+        ? (field as any).__resolvedDisabled
+        : typeof override?.disabled === 'boolean'
+        ? override.disabled
+        : false,
     readOnly: mode === 'view' || field.readOnly,
     rules: buildValidationRules(field, override),
   };

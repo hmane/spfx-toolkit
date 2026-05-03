@@ -1,17 +1,26 @@
 import * as React from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
-import { ISPDynamicFormProps, IFormButtonProps } from './SPDynamicForm.types';
+import { useForm, FormProvider, useWatch } from 'react-hook-form';
+import { ISPDynamicFormProps, IFormButtonProps, SPDynamicFormHandle } from './SPDynamicForm.types';
 import { useDynamicFormFields } from './hooks/useDynamicFormFields';
 import { useDynamicFormData } from './hooks/useDynamicFormData';
+import { useDynamicFormDataMulti } from './hooks/useDynamicFormDataMulti';
+import { reconcileAllFields } from './utilities/multiItemReconciler';
+import { buildMultiItemSubmitter } from './utilities/multiItemSubmitter';
 import { useDynamicFormValidation } from './hooks/useDynamicFormValidation';
 import { SPDynamicFormField } from './components/SPDynamicFormField';
 import { SPDynamicFormSection } from './components/SPDynamicFormSection';
+import { SPDynamicFormContentTypePicker } from './components/SPDynamicFormContentTypePicker';
+import { SPDynamicFormSavePreview } from './components/SPDynamicFormSavePreview';
 import { SPListItemAttachments } from '../SPListItemAttachments';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { PrimaryButton, DefaultButton } from '@fluentui/react/lib/Button';
 import { SPContext } from '../../utilities/context';
+import { applyFieldOverrides, collectWatchedFieldNames } from './utilities/fieldConfigBuilder';
+import { IFieldOverride } from './SPDynamicForm.types';
+import { IOverrideContext } from './utilities/resolveOverrideValue';
+import { fieldMatches, effectiveMatcher } from './utilities/fieldOverrideMatcher';
 import { FormProvider as SPFormProvider } from '../spForm/context/FormContext';
 import FormErrorSummary from '../spForm/FormErrorSummary/FormErrorSummary';
 import './SPDynamicForm.css';
@@ -21,8 +30,9 @@ import '../spForm/spfxForm.css';
  * SPDynamicForm - Dynamically generates forms from SharePoint list/library metadata
  * Supports New/Edit/View modes with automatic field rendering and validation
  */
-export function SPDynamicForm<T extends Record<string, any> = any>(
-  props: ISPDynamicFormProps<T>
+function SPDynamicFormInner<T extends Record<string, any> = any>(
+  props: ISPDynamicFormProps<T>,
+  ref: React.Ref<SPDynamicFormHandle>
 ) {
   const {
     listId,
@@ -37,6 +47,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     useContentTypeGroups = true,
     customContent,
     fieldVisibilityRules,
+    fieldExtensions,
     fieldOverrides,
     customFields,
     lookupThreshold = 5000,
@@ -66,17 +77,58 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     onCancel,
     onFieldChange,
     cacheFields = true,
+    availableContentTypes: availableContentTypesProp,
+    onContentTypeChange,
+    hideContentTypePicker,
     enableDirtyCheck = false,
     confirmOnCancel = false,
     confirmMessage = 'You have unsaved changes. Are you sure you want to cancel?',
     scrollToError = true,
     showFieldHelp = true,
+    onFieldLoadTransform,
+    debug,
+    onResolvedField,
+    multiItem,
+    onMultiItemSubmit,
   } = props;
 
   // State for attachment operations
   const [filesToAdd, setFilesToAdd] = React.useState<File[]>([]);
   const [filesToDelete, setFilesToDelete] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Backward-compat: fold legacy `customFields[]` into the unified override list,
+  // logging a one-time deprecation warning per session.
+  const customFieldsDeprecationWarnedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (customFields && customFields.length > 0 && !customFieldsDeprecationWarnedRef.current) {
+      customFieldsDeprecationWarnedRef.current = true;
+      SPContext.logger.warn(
+        'SPDynamicForm: `customFields` is deprecated and will be removed in v2. Use `fieldOverrides[].render` instead.',
+        { count: customFields.length }
+      );
+    }
+  }, [customFields]);
+
+  const customContentDeprecationWarnedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (customContent && customContent.length > 0 && !customContentDeprecationWarnedRef.current) {
+      customContentDeprecationWarnedRef.current = true;
+      SPContext.logger.warn(
+        'SPDynamicForm: `customContent` is deprecated and will be removed in v2. Use `fieldExtensions` instead.',
+        { count: customContent.length }
+      );
+    }
+  }, [customContent]);
+
+  const mergedOverrides = React.useMemo<IFieldOverride[]>(() => {
+    const fromCustomFields: IFieldOverride[] = (customFields || []).map((cf) => ({
+      field: cf.field,
+      fieldName: cf.fieldName,
+      render: cf.render,
+    }));
+    return [...fromCustomFields, ...(fieldOverrides || [])];
+  }, [customFields, fieldOverrides]);
 
   // Memoize error callback to prevent infinite loops
   const handleFieldLoadError = React.useCallback((err: Error) => {
@@ -87,18 +139,27 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     onError?.(err, 'load');
   }, [onError]);
 
+  // Effective content type. Explicit prop wins; in edit/view mode we adopt the
+  // item's actual ContentTypeId once it loads (filled in by the effect below,
+  // after useDynamicFormData returns). On first render this is just `contentTypeId`
+  // (or undefined → list-level fields); when adoption flips it, useDynamicFormFields
+  // re-keys and reloads with the correct CT, and resetKey re-resets the form.
+  const [adoptedItemCt, setAdoptedItemCt] = React.useState<string | undefined>(undefined);
+  const resolvedContentTypeId: string | undefined = contentTypeId ?? adoptedItemCt;
+
   // Load fields
   const {
     fields,
     sections,
     useSections,
     supportsAttachments,
+    availableContentTypes: discoveredContentTypes,
     loading: fieldsLoading,
     error: fieldsError,
   } = useDynamicFormFields({
     listId,
     mode,
-    contentTypeId,
+    contentTypeId: resolvedContentTypeId,
     fields: specifiedFields,
     excludeFields,
     fieldOrder,
@@ -111,6 +172,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     cacheFields,
     onBeforeLoad,
     onError: handleFieldLoadError,
+    onFieldLoadTransform,
   });
 
   // Don't include fields in dependency to prevent infinite loops
@@ -123,7 +185,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
 
   React.useEffect(() => {
     hasTriggeredAfterLoadRef.current = false;
-  }, [listId, itemId, mode, contentTypeId, fields]);
+  }, [listId, itemId, mode, resolvedContentTypeId, fields]);
 
   const handleDataAfterLoad = React.useCallback((data: any, item: any) => {
     if (onAfterLoad && !hasTriggeredAfterLoadRef.current) {
@@ -136,7 +198,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   const {
     data: itemData,
     originalItem,
-    attachments,
+    itemContentTypeId,
     loading: dataLoading,
     error: dataError,
   } = useDynamicFormData({
@@ -148,25 +210,95 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     onError: handleDataLoadError,
   });
 
-  // Build default values for new mode
+  // Multi-item mode: load all selected items in parallel and reconcile shared values.
+  const isMultiItem = !!multiItem && Array.isArray(multiItem.itemIds) && multiItem.itemIds.length > 0;
+  const multiItemIds = isMultiItem ? multiItem!.itemIds : [];
+
+  const multiData = useDynamicFormDataMulti(
+    listId,
+    isMultiItem ? multiItemIds : [],
+    fields
+  );
+
+  const reconciled = React.useMemo(() => {
+    if (!isMultiItem) return null;
+    return reconcileAllFields(
+      fields,
+      multiData.items,
+      multiItemIds,
+      multiItem?.reconcileMode || 'shared'
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiItem, fields, multiData.items, multiItemIds.join(','), multiItem?.reconcileMode]);
+
+  // Adoption effect for resolvedContentTypeId — the state + computed value are
+  // hoisted above useDynamicFormFields. Once useDynamicFormData reports the
+  // item's actual ContentTypeId, flip `adoptedItemCt` so the field hook re-keys
+  // and reloads with the correct CT. Skip when an explicit `contentTypeId` prop
+  // was passed.
+  React.useEffect(() => {
+    if (mode === 'new') return;
+    if (contentTypeId) return;
+    if (!itemContentTypeId) return;
+    if (adoptedItemCt === itemContentTypeId) return;
+    setAdoptedItemCt(itemContentTypeId);
+  }, [mode, contentTypeId, itemContentTypeId, adoptedItemCt]);
+
+  // In new mode, if no explicit CT prop, default to the list's default CT once discovered.
+  React.useEffect(() => {
+    if (mode !== 'new') return;
+    if (contentTypeId) return;
+    if (adoptedItemCt) return;
+    const dflt = discoveredContentTypes.find((c) => c.default);
+    if (dflt) setAdoptedItemCt(dflt.id);
+  }, [mode, contentTypeId, adoptedItemCt, discoveredContentTypes]);
+
+  // CT picker — narrows discovered CTs by `availableContentTypes` whitelist
+  // (when supplied), and decides whether to render the picker at all.
+  const ctOptionsToOffer = React.useMemo(() => {
+    if (!availableContentTypesProp || availableContentTypesProp.length === 0) {
+      return discoveredContentTypes;
+    }
+    const allow = new Set(availableContentTypesProp);
+    return discoveredContentTypes.filter((c) => allow.has(c.id));
+  }, [discoveredContentTypes, availableContentTypesProp]);
+
+  const showCtPicker =
+    mode === 'new' && !hideContentTypePicker && !contentTypeId && ctOptionsToOffer.length > 1;
+
+  const handleCtPickerChange = React.useCallback(
+    (id: string) => {
+      setAdoptedItemCt(id);
+      if (onContentTypeChange) onContentTypeChange(id);
+    },
+    [onContentTypeChange]
+  );
+
+  // Build default values — multi-item mode pre-fills shared values; new mode applies schema defaults.
   const defaultValues = React.useMemo(() => {
+    if (isMultiItem && reconciled) {
+      return reconciled.values as T;
+    }
+
     if (mode !== 'new') {
       return {} as T;
     }
 
     const defaults: any = {};
     fields.forEach((field) => {
-      // Apply field override default value first
-      const override = fieldOverrides?.find((o) => o.fieldName === field.internalName);
-      if (override?.defaultValue !== undefined) {
-        defaults[field.internalName] = override.defaultValue;
+      // Apply field override default value first (static only — function form
+      // is evaluated per-render by applyFieldOverrides, not at init time).
+      const override = mergedOverrides.find((o) => o.fieldName === field.internalName || o.field === field.internalName);
+      const staticDefault = typeof override?.defaultValue !== 'function' ? override?.defaultValue : undefined;
+      if (staticDefault !== undefined) {
+        defaults[field.internalName] = staticDefault;
       } else if (field.defaultValue !== undefined && field.defaultValue !== null) {
         defaults[field.internalName] = field.defaultValue;
       }
     });
 
     return defaults as T;
-  }, [mode, fields, fieldOverrides]);
+  }, [isMultiItem, reconciled, mode, fields, mergedOverrides]);
 
   // Determine initial form values based on mode and data availability
   const initialFormValues = React.useMemo(() => {
@@ -187,32 +319,85 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   const {
     control,
     handleSubmit,
-    formState: { errors, isDirty, isValid, isSubmitting: formIsSubmitting },
+    formState: { errors, isDirty, isValid, isSubmitting: formIsSubmitting, dirtyFields },
     reset,
     watch,
+    getValues,
+    setValue,
     setError: setFieldError,
     clearErrors,
   } = form;
 
-  // Reset form when data loads - use keepDefaultValues to preserve unmodified fields
+  // Track which record (listId + itemId + mode + CT + field-set size) we last
+  // reset for. The reset effect only fires when this key changes — protecting
+  // in-progress edits from being wiped by parent re-renders that happen to
+  // change a prop reference (most commonly an inline `fieldOverrides={[...]}`
+  // literal which recomputes `defaultValues` on identity, even when the
+  // underlying data is identical). When CT changes mid-edit (item adopted CT
+  // or explicit prop change), the key flips and the form re-resets to the new
+  // schema's defaults.
+  const lastResetKeyRef = React.useRef<string | null>(null);
+  const resetKey = React.useMemo(
+    () =>
+      `${listId}|${
+        isMultiItem ? `multi:${multiItemIds.join(',')}` : itemId ?? 'new'
+      }|${mode}|${resolvedContentTypeId ?? ''}|${fields.length}`,
+    [listId, isMultiItem, multiItemIds, itemId, mode, resolvedContentTypeId, fields.length]
+  );
+
+  // Reset form when the record being edited actually changes (not on every
+  // parent re-render). See `resetKey` above for the rationale.
+  //
+  // IMPORTANT: only mark the resetKey as "applied" AFTER an actual reset
+  // happens. In edit/view mode the field metadata typically loads before the
+  // item data, so this effect can fire once with `itemData === null`. If we
+  // marked the key prematurely, the later effect run (when itemData arrives)
+  // would early-return and the form would stay empty/stale.
   React.useEffect(() => {
-    if (mode === 'new' && Object.keys(defaultValues).length > 0) {
-      SPContext.logger.info('🔄 Resetting form for NEW mode', {
-        defaultValues,
-        fieldCount: Object.keys(defaultValues).length
+    if (fields.length === 0) return; // wait for fields to load
+    if (lastResetKeyRef.current === resetKey) return; // same record — don't clobber
+
+    // Multi-item mode — wait until reconciled values are ready, then reset.
+    if (isMultiItem) {
+      if (!reconciled) return;
+      lastResetKeyRef.current = resetKey;
+      SPContext.logger.info('🔄 Resetting form for MULTI-ITEM mode', {
+        itemCount: multiItemIds.length,
+        fieldCount: Object.keys(reconciled.values).length,
       });
-      reset(defaultValues as any, { keepDefaultValues: true });
-    } else if (itemData && mode !== 'new') {
-      // For edit/view modes, reset with loaded data
+      reset(reconciled.values as any, { keepDefaultValues: false });
+      return;
+    }
+
+    if (mode === 'new') {
+      // For new mode, the fields-loaded state IS the right state to mark — empty
+      // defaults are still a valid resolved state for a brand-new item.
+      lastResetKeyRef.current = resetKey;
+      if (Object.keys(defaultValues).length > 0) {
+        SPContext.logger.info('🔄 Resetting form for NEW mode', {
+          defaultValues,
+          fieldCount: Object.keys(defaultValues).length,
+        });
+        reset(defaultValues as any, { keepDefaultValues: true });
+      }
+      return;
+    }
+
+    // Edit / view mode — wait until itemData has actually loaded before marking
+    // the key. Until then, this effect will re-fire (deps include itemData) and
+    // try again. Once itemData arrives, we reset with it AND mark the key so
+    // future parent re-renders no longer trigger a reset.
+    if (itemData) {
+      lastResetKeyRef.current = resetKey;
       SPContext.logger.info('🔄 Resetting form for EDIT/VIEW mode', {
         mode,
         itemData,
         fieldCount: Object.keys(itemData).length,
-        fields: Object.keys(itemData)
+        fields: Object.keys(itemData),
       });
       reset(itemData as any, { keepDefaultValues: false });
     }
-  }, [itemData, defaultValues, reset, mode]);
+  }, [resetKey, defaultValues, itemData, mode, reset, fields.length, isMultiItem, reconciled, multiItemIds.length]);
 
   React.useEffect(() => {
     if (!onAfterLoad || hasTriggeredAfterLoadRef.current) {
@@ -248,6 +433,8 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     listId,
     itemId,
     originalItem,
+    fields,
+    contentTypeId: resolvedContentTypeId,
     filesToAdd,
     filesToDelete,
     onBeforeSubmit,
@@ -343,6 +530,24 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         setIsSubmitting(true);
         clearErrors(); // Clear previous errors
 
+        // Multi-item mode: build a bulk submitter from only the dirty fields.
+        if (isMultiItem) {
+          const changedFieldNames = Object.keys(dirtyFields).filter((k) => (dirtyFields as any)[k]);
+          const dirtyValues: Record<string, unknown> = {};
+          changedFieldNames.forEach((name) => {
+            dirtyValues[name] = (formData as any)[name];
+          });
+
+          const result = buildMultiItemSubmitter(listId, multiItemIds, dirtyValues, fields);
+
+          if (onMultiItemSubmit) {
+            await onMultiItemSubmit(result);
+          } else {
+            throw new Error('SPDynamicForm: multi-item mode requires onMultiItemSubmit');
+          }
+          return;
+        }
+
         // Run custom validation
         const customValidationPassed = await runCustomValidation(formData);
         if (!customValidationPassed) {
@@ -364,7 +569,20 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         setIsSubmitting(false);
       }
     },
-    [prepareSubmitResult, onSubmit, onError, runCustomValidation, clearErrors]
+    [prepareSubmitResult, onSubmit, onError, runCustomValidation, clearErrors,
+     isMultiItem, dirtyFields, listId, multiItemIds, fields, onMultiItemSubmit]
+  );
+
+  // Revert a single field back to its reconciled (shared) value.
+  const handleRevertField = React.useCallback(
+    (fieldName: string) => {
+      if (!isMultiItem || !reconciled) return;
+      setValue(fieldName as any, (reconciled.values as any)[fieldName] as any, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    },
+    [isMultiItem, reconciled, setValue]
   );
 
   // Handle cancel
@@ -394,6 +612,42 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     defaultValues,
     mode,
   ]);
+
+  // Expose imperative handle so parent components can call submit/reset/etc via ref.
+  React.useImperativeHandle(
+    ref,
+    (): SPDynamicFormHandle => ({
+      submit: async () => {
+        await new Promise<void>((resolve, reject) => {
+          handleSubmit(async (data) => {
+            try {
+              await handleFormSubmit(data);
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
+          }, () => {
+            // RHF calls the second handler on validation failure — resolve normally;
+            // the form already surfaces validation errors to the user.
+            resolve();
+          })();
+        });
+      },
+      reset: (values) => reset((values as any) || initialFormValues || {}),
+      scrollToField: (name, options) => {
+        const el = document.querySelector(`[data-field-name="${name}"]`) as HTMLElement | null;
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (options?.focus) {
+          const focusable = el.querySelector<HTMLElement>('input, textarea, [tabindex]');
+          focusable?.focus();
+        }
+      },
+      setFieldValue: (name, value, opts) => setValue(name as any, value as any, opts),
+      getFormValues: () => getValues(),
+    }),
+    [handleSubmit, handleFormSubmit, reset, initialFormValues, setValue, getValues]
+  );
 
   // Handle attachment changes
   const handleAttachmentsChange = React.useCallback(
@@ -427,8 +681,135 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     }
   }, [attachmentPosition, attachmentSectionName, useSections, sections]);
 
-  // Get current form values for visibility rules
-  const formValues = watch();
+  // Compatibility-mode trigger for visibility rules: if ANY rule omits `dependsOn`,
+  // we fall back to whole-form watching (v1 behaviour). Mixing narrow + wide
+  // subscriptions in the same form would be brittle, so a single omission flips
+  // the whole form into compat mode. Authors who want the perf win add `dependsOn`
+  // to every rule.
+  const hasUndeclaredVisibilityRule = React.useMemo(() => {
+    const ruleHasNone = !!(fieldVisibilityRules || []).find(
+      (r) => !r.dependsOn || r.dependsOn.length === 0
+    );
+    const extHasNone = !!(fieldExtensions || []).find(
+      (e) => e.compute && (!e.dependsOn || e.dependsOn.length === 0)
+    );
+    const legacyCustomContentNeedsAllValues = !!(customContent || []).find(
+      (c) => c.showWhen || c.render
+    );
+    return ruleHasNone || extHasNone || legacyCustomContentNeedsAllValues;
+  }, [fieldVisibilityRules, fieldExtensions, customContent]);
+
+  // Log a one-time warning when compat mode is active, so consumers see a clear
+  // migration path. The ref guards against repeating the warning on every render.
+  const visibilityCompatWarnedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (hasUndeclaredVisibilityRule && !visibilityCompatWarnedRef.current) {
+      visibilityCompatWarnedRef.current = true;
+      SPContext.logger.warn(
+        'SPDynamicForm: legacy whole-form watching is active for fieldVisibilityRules/customContent without declared dependencies.'
+      );
+    }
+  }, [hasUndeclaredVisibilityRule]);
+
+  // Narrow-mode dependent field names. Only consulted when compat mode is OFF.
+  // collectWatchedFieldNames unions: matched fields from overrides/rules + their
+  // explicit dependsOn lists — so function-form props re-evaluate when any
+  // dependency changes.
+  const dependentFieldNames = React.useMemo(() => {
+    if (hasUndeclaredVisibilityRule) return []; // compat mode — useWatch receives undefined and returns all values
+    return collectWatchedFieldNames({
+      fields,
+      overrides: mergedOverrides,
+      visibilityRules: fieldVisibilityRules,
+      extensions: fieldExtensions,
+    });
+  }, [hasUndeclaredVisibilityRule, fields, mergedOverrides, fieldVisibilityRules, fieldExtensions]);
+
+  // One useWatch call. `name` undefined → returns the entire form values object
+  // (compat mode). `name` array → returns an array in that order (narrow mode).
+  // Switching `name` between renders is safe — the hook is always called.
+  const watched = useWatch({
+    control,
+    name: hasUndeclaredVisibilityRule ? undefined : (dependentFieldNames as any),
+  });
+
+  const watchedValuesByName = React.useMemo(() => {
+    if (hasUndeclaredVisibilityRule) {
+      // Compat mode: useWatch returned the full values object (or undefined initially).
+      return (watched as Record<string, unknown> | undefined) || {};
+    }
+    // Narrow mode: useWatch returned an array aligned with dependentFieldNames.
+    const out: Record<string, unknown> = {};
+    if (Array.isArray(watched)) {
+      dependentFieldNames.forEach((name, i) => {
+        out[name] = (watched as unknown[])[i];
+      });
+    }
+    return out;
+  }, [watched, hasUndeclaredVisibilityRule, dependentFieldNames]);
+
+  // Stable user snapshot for override context — only changes when the user identity
+  // itself changes (which in practice never happens mid-session).
+  // Note: IPrincipal uses `title` for the display name, not `displayName`.
+  const overrideUserInfo = React.useMemo(
+    () => ({
+      loginName: SPContext.currentUser?.loginName,
+      email: SPContext.currentUser?.email,
+      displayName: SPContext.currentUser?.title,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // Override context built per-render so function-form props (disabled, hidden,
+  // required, etc.) see the current form state. `field` is set per-field inside
+  // applyFieldOverrides itself.
+  const overrideCtx = React.useMemo(
+    (): IOverrideContext => ({
+      field: undefined as any, // set per-field inside applyFieldOverrides
+      formValues: watchedValuesByName,
+      mode,
+      user: overrideUserInfo,
+      contentTypeId: resolvedContentTypeId,
+    }),
+    [watchedValuesByName, mode, overrideUserInfo, resolvedContentTypeId]
+  );
+
+  // Apply overrides reactively against the current form state — function-form
+  // disabled/hidden/required/etc. evaluate fresh each render. The watched subset
+  // (built from collectWatchedFieldNames) keeps re-renders narrow when every
+  // rule/override declares dependsOn; otherwise the form is in compat mode and
+  // watchedValuesByName is the full snapshot.
+  const finalFields = React.useMemo(
+    () => applyFieldOverrides(fields, mergedOverrides, overrideCtx),
+    [fields, mergedOverrides, overrideCtx]
+  );
+
+  // Emit debug logs / call onResolvedField for each resolved field after override application.
+  React.useEffect(() => {
+    if (!debug && !onResolvedField) return;
+    finalFields.forEach((resolved, i) => {
+      const orig = fields[i] ?? resolved;
+      if (onResolvedField) {
+        try {
+          onResolvedField(resolved, orig);
+        } catch {
+          // swallow consumer callback errors — don't break render
+        }
+      }
+      if (debug) {
+        SPContext.logger.info('SPDynamicForm:debug field resolved', {
+          field: resolved.internalName,
+          label: resolved.displayName,
+          hidden: resolved.hidden,
+          required: resolved.required,
+          readOnly: resolved.readOnly,
+          defaultValue: resolved.defaultValue,
+        });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finalFields, debug, onResolvedField]);
 
   // Check field visibility
   const isFieldVisible = React.useCallback(
@@ -437,13 +818,19 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         return true;
       }
 
-      const rule = fieldVisibilityRules.find((r) => r.fieldName === field.internalName);
+      // Honour both the new `field` matcher (string | RegExp | function) and the
+      // deprecated `fieldName` alias via `effectiveMatcher`. Without this, regex
+      // and function matchers on visibility rules silently no-op.
+      const rule = fieldVisibilityRules.find((r) => {
+        const m = effectiveMatcher(r);
+        return m !== null && fieldMatches(m, field);
+      });
       if (!rule) {
         return true;
       }
 
       try {
-        return rule.showWhen(formValues);
+        return rule.showWhen(watchedValuesByName);
       } catch (error) {
         SPContext.logger.error(
           `Error evaluating visibility rule for field "${field.internalName}"`,
@@ -452,7 +839,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         return true; // Show field on error
       }
     },
-    [fieldVisibilityRules, formValues]
+    [fieldVisibilityRules, watchedValuesByName]
   );
 
   // Render attachments
@@ -492,15 +879,27 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     );
   };
 
-  // Render field with visibility check
-  const renderField = (field: any, index?: number) => {
+  // Render field with visibility check.
+  // `field` here is already an override-resolved IFieldMetadata from `finalFields`.
+  const renderField = (field: any) => {
     // Check visibility
     if (!isFieldVisible(field)) {
       return null;
     }
 
-    const customFieldRenderer = customFields?.find((cf) => cf.fieldName === field.internalName);
-    const fieldOverride = fieldOverrides?.find((fo) => fo.fieldName === field.internalName);
+    // Find the first merged override that has a render function for this field.
+    // mergedOverrides = [customFields-as-overrides, ...fieldOverrides], so legacy
+    // customFields renderers are found here too.
+    const renderOverride = mergedOverrides.find((o) => {
+      const m = effectiveMatcher(o);
+      return m !== null && o.render !== undefined && fieldMatches(m, field);
+    });
+
+    // Find the first override that matches (for non-render props forwarded to SPDynamicFormField).
+    const fieldOverride = mergedOverrides.find((o) => {
+      const m = effectiveMatcher(o);
+      return m !== null && fieldMatches(m, field);
+    });
 
     return (
       <SPDynamicFormField
@@ -510,12 +909,19 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         mode={mode}
         listId={listId}
         override={fieldOverride}
-        customRenderer={customFieldRenderer}
+        customRenderer={renderOverride ? { field: renderOverride.field, fieldName: renderOverride.fieldName, render: renderOverride.render! } : undefined}
         error={errors[field.internalName]?.message as string}
         disabled={externalDisabled || isSubmitting || externalReadOnly}
         readOnly={externalReadOnly || mode === 'view'}
         showHelp={showFieldHelp}
         form={form}
+        fieldExtensions={fieldExtensions}
+        watchedFormValues={watchedValuesByName}
+        isMultiItem={isMultiItem}
+        isDirty={isMultiItem && !!(dirtyFields as any)[field.internalName]}
+        showHighlightOnDirty={multiItem?.highlightDirty !== false}
+        showRevertControl={multiItem?.showRevertControls !== false}
+        onRevertField={handleRevertField}
       />
     );
   };
@@ -526,12 +932,15 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       return null;
     }
 
+    const currentValues = hasUndeclaredVisibilityRule
+      ? watchedValuesByName
+      : getValues();
     const matchingContent = customContent.filter((c) => {
       if (c.position === position) {
         // Check showWhen condition
         if (c.showWhen) {
           try {
-            return c.showWhen(formValues as T);
+            return c.showWhen(currentValues as T);
           } catch (error) {
             SPContext.logger.error('Error evaluating custom content showWhen', error as Error);
             return false;
@@ -550,7 +959,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       <React.Fragment>
         {matchingContent.map((content, index) => (
           <React.Fragment key={`custom-content-${position}-${index}`}>
-            {content.render(formValues as T)}
+            {content.render(currentValues as T)}
           </React.Fragment>
         ))}
       </React.Fragment>
@@ -568,8 +977,8 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       );
     }
 
-    // Render fields with custom content
-    fields.forEach((field, index) => {
+    // Render fields with custom content — iterate finalFields (override-resolved)
+    finalFields.forEach((field, index) => {
       // Custom content before field
       const beforeContent = renderCustomContent(`before:${field.internalName}`);
       if (beforeContent) {
@@ -587,7 +996,7 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       }
 
       // Field
-      const renderedField = renderField(field, index);
+      const renderedField = renderField(field);
       if (renderedField) {
         elements.push(renderedField);
       }
@@ -636,19 +1045,22 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
           // Build section content with custom content support
           const sectionElements: React.ReactNode[] = [];
 
-          section.fields.forEach((field, index) => {
+          section.fields.forEach((field) => {
+            // Resolve the override-applied version of this field from finalFields.
+            const resolvedField = finalFields.find((f) => f.internalName === field.internalName) ?? field;
+
             // Custom content before field
-            const beforeContent = renderCustomContent(`before:${field.internalName}`);
+            const beforeContent = renderCustomContent(`before:${resolvedField.internalName}`);
             if (beforeContent) {
               sectionElements.push(
-                <React.Fragment key={`before-${field.internalName}`}>
+                <React.Fragment key={`before-${resolvedField.internalName}`}>
                   {beforeContent}
                 </React.Fragment>
               );
             }
 
             // Field
-            const renderedField = renderField(field, index);
+            const renderedField = renderField(resolvedField);
             if (renderedField) {
               sectionElements.push(renderedField);
             }
@@ -707,8 +1119,26 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
       disabled: externalDisabled || isSubmitting,
     };
 
+    // Optional save preview (multi-item only, opt-in via multiItem.showSavePreview).
+    // Lists what will be written to the N selected items so the user can confirm
+    // before kicking off a bulk update.
+    const savePreview =
+      isMultiItem && multiItem?.showSavePreview ? (
+        <SPDynamicFormSavePreview
+          itemCount={multiItemIds.length}
+          changedFieldLabels={Object.keys(dirtyFields)
+            .filter((k) => (dirtyFields as any)[k])
+            .map((name) => fields.find((f) => f.internalName === name)?.displayName || name)}
+        />
+      ) : null;
+
     if (renderButtons) {
-      return renderButtons(buttonProps);
+      return (
+        <>
+          {savePreview}
+          {renderButtons(buttonProps)}
+        </>
+      );
     }
 
     if (mode === 'view') {
@@ -716,28 +1146,31 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
     }
 
     return (
-      <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="center">
-        <PrimaryButton
-          text={saveButtonText}
-          onClick={buttonProps.onSave}
-          disabled={saveButtonDisabled}
-        />
-        <DefaultButton
-          text={cancelButtonText}
-          onClick={buttonProps.onCancel}
-          disabled={isSubmitting}
-        />
-        {enableDirtyCheck && isDirty && !isSubmitting && (
-          <MessageBar messageBarType={MessageBarType.info} isMultiline={false}>
-            You have unsaved changes
-          </MessageBar>
-        )}
-      </Stack>
+      <>
+        {savePreview}
+        <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="center">
+          <PrimaryButton
+            text={saveButtonText}
+            onClick={buttonProps.onSave}
+            disabled={saveButtonDisabled}
+          />
+          <DefaultButton
+            text={cancelButtonText}
+            onClick={buttonProps.onCancel}
+            disabled={isSubmitting}
+          />
+          {enableDirtyCheck && isDirty && !isSubmitting && (
+            <MessageBar messageBarType={MessageBarType.info} isMultiline={false}>
+              You have unsaved changes
+            </MessageBar>
+          )}
+        </Stack>
+      </>
     );
   };
 
   // Loading state
-  const isLoading = fieldsLoading || dataLoading || externalLoading;
+  const isLoading = fieldsLoading || dataLoading || (isMultiItem && multiData.loading) || externalLoading;
 
   if (isLoading) {
     return (
@@ -750,7 +1183,8 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   }
 
   // Error state
-  const error = fieldsError || dataError;
+  const loadError = isMultiItem ? (multiData.error ? new Error(multiData.error) : null) : null;
+  const error = fieldsError || dataError || loadError;
   if (error) {
     return (
       <div className={`sp-dynamic-form ${className || ''}`}>
@@ -782,6 +1216,15 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
         <SPFormProvider control={control} autoShowErrors={false}>
           <form onSubmit={handleSubmit(handleFormSubmit)}>
             <Stack tokens={{ childrenGap: 20 }}>
+              {showCtPicker && (
+                <SPDynamicFormContentTypePicker
+                  options={ctOptionsToOffer}
+                  selectedId={resolvedContentTypeId}
+                  onChange={handleCtPickerChange}
+                  disabled={fieldsLoading || dataLoading || isSubmitting}
+                />
+              )}
+
               {useSections ? renderSections() : renderFields()}
 
               {/* Error Summary - shows above buttons when there are validation errors */}
@@ -803,4 +1246,11 @@ export function SPDynamicForm<T extends Record<string, any> = any>(
   );
 }
 
-SPDynamicForm.displayName = 'SPDynamicForm';
+// forwardRef + generics workaround — cast the wrapped component back to the generic signature.
+export const SPDynamicForm = React.forwardRef(SPDynamicFormInner) as <
+  T extends Record<string, any> = any
+>(
+  props: ISPDynamicFormProps<T> & { ref?: React.Ref<SPDynamicFormHandle> }
+) => ReturnType<typeof SPDynamicFormInner>;
+
+(SPDynamicForm as any).displayName = 'SPDynamicForm';

@@ -1,5 +1,4 @@
 import { Icon } from '@fluentui/react/lib/Icon';
-import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Text } from '@fluentui/react/lib/Text';
 import * as React from 'react';
 import { UserPersona } from '../../UserPersona';
@@ -48,10 +47,11 @@ export const VersionDetails: React.FC<IVersionDetailsProps> = props => {
     const parts = version.versionLabel.split('.');
     return parts.length > 1 ? parts[1] === '0' : true;
   }, [version.versionLabel]);
+
   const comparedToLabel = React.useMemo(() => {
     const [major, minor] = version.versionLabel.split('.').map(part => Number(part));
     if (Number.isNaN(major)) {
-      return 'the previous version';
+      return 'previous';
     }
 
     if (!Number.isNaN(minor) && minor > 0) {
@@ -62,44 +62,42 @@ export const VersionDetails: React.FC<IVersionDetailsProps> = props => {
       return `v${major - 1}.0`;
     }
 
-    return 'the previous version';
+    return 'previous';
   }, [version.versionLabel]);
 
   return (
     <div className='version-details'>
-      {/* Header */}
+      {/* Sticky header */}
       <div className='version-details-header'>
-        <div className='version-details-info'>
-          <div className='version-details-pill-row'>
-            <span className='version-details-version'>v{version.versionLabel}</span>
-            {isMajor && <span className='version-details-badge major'>Major</span>}
+        <div className='version-details-header-info'>
+          <div className='version-details-version-line'>
+            <span className='version-details-version'>{version.versionLabel}</span>
+            {isMajor && <span className='version-details-tag major'>Major</span>}
             {!version.hasChanges && (
-              <span className='version-details-badge no-change'>Metadata unchanged</span>
+              <span className='version-details-tag no-change'>No metadata changes</span>
             )}
           </div>
           <div className='version-details-meta'>
-            <div className='version-details-meta-item'>
+            <span className='version-details-meta-item'>
               <UserPersona
                 userIdentifier={version.modifiedBy}
                 displayName={version.modifiedByName}
                 email={version.modifiedByEmail}
-                size={28}
+                size={24}
                 displayMode='avatarAndName'
                 showLivePersona={true}
                 showSecondaryText={false}
               />
-            </div>
-            <div className='version-details-meta-item'>
+            </span>
+            <span className='version-details-meta-item' title={formatAbsoluteTime(version.modified)}>
               <Icon iconName='Clock' className='version-details-meta-icon' />
-              <span>
-                {formatAbsoluteTime(version.modified)}
-                <span className='version-details-meta-sub'> - {relativeTime}</span>
-              </span>
-            </div>
-            <div className='version-details-meta-item'>
+              {relativeTime}
+              <span className='version-details-meta-sub'> · {formatAbsoluteTime(version.modified)}</span>
+            </span>
+            <span className='version-details-meta-item'>
               <Icon iconName='Tag' className='version-details-meta-icon' />
-              <span>{itemInfo.contentType}</span>
-            </div>
+              {itemInfo.contentType}
+            </span>
           </div>
         </div>
         <div className='version-details-actions'>
@@ -121,70 +119,75 @@ export const VersionDetails: React.FC<IVersionDetailsProps> = props => {
               type='button'
             >
               <Icon iconName='Download' />
-              {isDownloading ? 'Downloading...' : 'Download'}
+              {isDownloading ? 'Downloading…' : 'Download'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className='version-details-stats'>
-        <div className='version-details-stat'>
-          <Icon iconName='Edit' className='version-details-stat-icon' />
-          <span>
+      {/* Scrollable content */}
+      <div className='version-details-scroll'>
+        {/* Check-in comment as elegant blockquote */}
+        {version.checkInComment && (
+          <div className='version-details-comment'>
+            <Text className='version-details-comment-label'>Check-in note</Text>
+            <Text className='version-details-comment-text'>{version.checkInComment}</Text>
+          </div>
+        )}
+
+        {/* Comparison line — folds the old "stats bar" into a single readable sentence */}
+        <div className='version-details-compare'>
+          <span>Comparing</span>
+          <span className='version-details-compare-emphasis'>v{version.versionLabel}</span>
+          <span>with</span>
+          <span className='version-details-compare-emphasis'>{comparedToLabel}</span>
+          <span className='version-details-compare-divider'>·</span>
+          <span className='version-details-compare-stat'>
+            <Icon iconName='Edit' className='version-details-compare-stat-icon' />
             {version.changedFields.length} field
             {version.changedFields.length === 1 ? '' : 's'} changed
           </span>
+          {itemType === 'document' && sizeLabel && (
+            <>
+              <span className='version-details-compare-divider'>·</span>
+              <span className='version-details-compare-stat'>
+                <Icon iconName='Page' className='version-details-compare-stat-icon' />
+                {sizeLabel}
+                {sizeDeltaLabel && (
+                  <span
+                    className={`version-details-compare-size-delta ${
+                      version.sizeDelta && version.sizeDelta > 0 ? 'increase' : 'decrease'
+                    }`}
+                  >
+                    {' '}
+                    ({sizeDeltaLabel})
+                  </span>
+                )}
+              </span>
+            </>
+          )}
         </div>
-        {itemType === 'document' && sizeLabel && (
-          <div className='version-details-stat'>
-            <Icon iconName='Page' className='version-details-stat-icon' />
-            <span>
-              File size: {sizeLabel}
-              {sizeDeltaLabel && (
-                <span
-                  className={`version-details-size-delta ${
-                    version.sizeDelta && version.sizeDelta > 0 ? 'increase' : 'decrease'
-                  }`}
-                >
-                  {sizeDeltaLabel}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* Check-in comment banner */}
-      {version.checkInComment && (
-        <div className='version-details-comment'>
-          <Text className='version-details-comment-label'>Check-in comment</Text>
-          <Text className='version-details-comment-text'>{version.checkInComment}</Text>
-        </div>
-      )}
-
-      {/* Field changes section */}
-      <div className='version-details-changes'>
-        <div className='version-details-section-header'>
-          <div>
-            <div className='version-details-section-title'>What changed</div>
-            <div className='version-details-section-subtitle'>
-              Comparing {`v${version.versionLabel}`} with {comparedToLabel}
+        {/* Diff blocks */}
+        <div className='version-details-changes'>
+          {version.hasChanges ? (
+            <FieldChangesTable changes={version.changedFields} itemInfo={itemInfo} />
+          ) : (
+            <div className='version-details-no-changes' role='status'>
+              <div className='vh-empty'>
+                <div className='vh-empty-icon' aria-hidden='true'>
+                  <Icon iconName='CheckMark' />
+                </div>
+                <div className='vh-empty-title'>No metadata changes</div>
+                <div className='vh-empty-hint'>
+                  {itemType === 'document'
+                    ? 'No tracked fields were modified in this version. The file contents may still have changed.'
+                    : 'No tracked fields were modified in this version.'}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        {version.hasChanges ? (
-          <FieldChangesTable changes={version.changedFields} itemInfo={itemInfo} />
-        ) : (
-          <div className='version-details-no-changes'>
-            <MessageBar messageBarType={MessageBarType.info}>
-              <Text>No metadata changes detected in this version.</Text>
-              {itemType === 'document' && (
-                <Text>The file content may still have changed even if metadata stayed the same.</Text>
-              )}
-            </MessageBar>
-          </div>
-        )}
       </div>
     </div>
   );

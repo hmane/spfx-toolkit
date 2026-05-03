@@ -1,10 +1,11 @@
 import { Icon } from '@fluentui/react/lib/Icon';
 import { Text } from '@fluentui/react/lib/Text';
-import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import * as React from 'react';
 import { UserPersona } from '../../UserPersona';
 import { FieldType, IFieldChangeRowProps } from '../types';
 import { getFieldType } from '../VersionHistoryUtils';
+
+const TRUNCATE_THRESHOLD = 240;
 
 export const FieldChangeRow: React.FC<IFieldChangeRowProps> = props => {
   const { change } = props;
@@ -17,56 +18,11 @@ export const FieldChangeRow: React.FC<IFieldChangeRowProps> = props => {
 
   const fieldType = getFieldType(change.fieldType);
 
-  const isLongText = (value: string): boolean => {
-    return value.length > 150;
-  };
+  const isLongText = (value: string): boolean => value.length > TRUNCATE_THRESHOLD;
 
   const hasLongPrevious = isLongText(change.previousValueFormatted);
   const hasLongNew = isLongText(change.newValueFormatted);
   const needsExpansion = hasLongPrevious || hasLongNew;
-
-  const renderValue = (value: any, formattedValue: string, isNew: boolean): React.ReactNode => {
-    if (fieldType === FieldType.User || fieldType === FieldType.UserMulti) {
-      return renderUserValue(value, formattedValue);
-    }
-
-    if (needsExpansion && !isExpanded) {
-      const truncated =
-        formattedValue.length > 150 ? `${formattedValue.substring(0, 150)}...` : formattedValue;
-      return truncated;
-    }
-
-    if (fieldType === FieldType.URL && value && typeof value === 'object' && value.Url) {
-      return (
-        <a
-          href={value.Url}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='field-value-link'
-          onClick={e => e.stopPropagation()}
-        >
-          {value.Description || value.Url}
-          <Icon iconName='NavigateExternalInline' className='field-value-link-icon' />
-        </a>
-      );
-    }
-
-    if (fieldType === FieldType.Boolean) {
-      const isTrue =
-        value === true || value === 'true' || value === '1' || value === 1 || value === 'Yes';
-      return (
-        <span className='field-value-boolean'>
-          <Icon
-            iconName={isTrue ? 'CheckMark' : 'Cancel'}
-            className={`field-value-boolean-icon ${isTrue ? 'true' : 'false'}`}
-          />
-          {formattedValue}
-        </span>
-      );
-    }
-
-    return formattedValue;
-  };
 
   const renderUserValue = (value: any, formattedValue: string): React.ReactNode => {
     if (formattedValue === '(empty)') {
@@ -125,78 +81,114 @@ export const FieldChangeRow: React.FC<IFieldChangeRowProps> = props => {
     return formattedValue;
   };
 
-  const getChangeIcon = (): { iconName: string; className: string } => {
-    switch (change.changeType) {
-      case 'added':
-        return { iconName: 'CircleAdditionSolid', className: 'added' };
-      case 'removed':
-        return { iconName: 'StatusCircleErrorX', className: 'removed' };
-      case 'modified':
-        return { iconName: 'EditSolid12', className: 'modified' };
-      default:
-        return { iconName: 'Edit', className: 'modified' };
+  const renderValue = (value: any, formattedValue: string): React.ReactNode => {
+    if (fieldType === FieldType.User || fieldType === FieldType.UserMulti) {
+      return renderUserValue(value, formattedValue);
     }
+
+    if (needsExpansion && !isExpanded) {
+      const truncated =
+        formattedValue.length > TRUNCATE_THRESHOLD
+          ? `${formattedValue.substring(0, TRUNCATE_THRESHOLD)}…`
+          : formattedValue;
+      return truncated;
+    }
+
+    if (fieldType === FieldType.URL && value && typeof value === 'object' && value.Url) {
+      return (
+        <a
+          href={value.Url}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='field-value-link'
+          onClick={e => e.stopPropagation()}
+        >
+          {value.Description || value.Url}
+          <Icon iconName='NavigateExternalInline' className='field-value-link-icon' />
+        </a>
+      );
+    }
+
+    if (fieldType === FieldType.Boolean) {
+      const isTrue =
+        value === true || value === 'true' || value === '1' || value === 1 || value === 'Yes';
+      return (
+        <span className='field-value-boolean'>
+          <Icon
+            iconName={isTrue ? 'CheckMark' : 'Cancel'}
+            className={`field-value-boolean-icon ${isTrue ? 'true' : 'false'}`}
+          />
+          {formattedValue}
+        </span>
+      );
+    }
+
+    return formattedValue;
   };
 
-  const changeIcon = getChangeIcon();
+  const changeKind: 'added' | 'removed' | 'modified' =
+    change.changeType === 'added'
+      ? 'added'
+      : change.changeType === 'removed'
+      ? 'removed'
+      : 'modified';
+
+  const typeTagLabel =
+    changeKind === 'added' ? 'Added' : changeKind === 'removed' ? 'Removed' : 'Changed';
+
+  const previousIsEmpty = change.previousValueFormatted === '(empty)';
+  const newIsEmpty = change.newValueFormatted === '(empty)';
 
   return (
-    <div className={`field-change-row ${isExpanded ? 'expanded' : ''}`}>
-      {/* Field name column */}
-      <div className='field-change-cell field-name'>
-        <div className='field-name-content'>
-          <TooltipHost content={`Type: ${change.fieldType}`}>
-            <Icon
-              iconName={changeIcon.iconName}
-              className={`field-change-icon ${changeIcon.className}`}
-            />
-          </TooltipHost>
-          <Text className='field-name-text'>{change.displayName}</Text>
-        </div>
-      </div>
-
-      {/* Combined value column: Previous → New */}
-      <div className='field-change-cell field-values-cell'>
-        <div className='field-values'>
-          <span
-            className={`field-value-previous ${
-              change.previousValueFormatted === '(empty)' ? 'empty' : ''
-            }`}
-          >
-            {renderValue(change.previousValue, change.previousValueFormatted, false)}
-          </span>
-          <span className='field-value-arrow'>→</span>
-          <span
-            className={`field-value-new ${change.newValueFormatted === '(empty)' ? 'empty' : ''} ${
-              change.changeType === 'added' ? 'highlight-added' : ''
-            } ${change.changeType === 'modified' ? 'highlight-modified' : ''}`}
-          >
-            {renderValue(change.newValue, change.newValueFormatted, true)}
-          </span>
-        </div>
-      </div>
-
-      {/* Expand button for long text */}
-      {needsExpansion && (
-        <div className='field-change-cell field-expand'>
-          <TooltipHost content={isExpanded ? 'Show less' : 'Show more'}>
-            <Icon
-              iconName={isExpanded ? 'ChevronUp' : 'ChevronDown'}
-              className='field-expand-icon'
+    <div className={`field-change-block is-${changeKind}`}>
+      <div className='field-change-block-marker' aria-hidden='true' />
+      <div className='field-change-block-body'>
+        <div className='field-change-block-head'>
+          <Text className='field-change-name' title={`${change.displayName} (${change.fieldType})`}>
+            {change.displayName}
+          </Text>
+          <span className={`field-change-type-tag is-${changeKind}`}>{typeTagLabel}</span>
+          {needsExpansion && (
+            <button
+              type='button'
+              className='field-change-expand'
               onClick={toggleExpand}
-              role='button'
-              tabIndex={0}
-              onKeyPress={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  toggleExpand();
-                }
-              }}
+              aria-expanded={isExpanded}
               aria-label={isExpanded ? 'Collapse text' : 'Expand text'}
-            />
-          </TooltipHost>
+            >
+              <Icon iconName={isExpanded ? 'ChevronUp' : 'ChevronDown'} />
+              {isExpanded ? 'Less' : 'More'}
+            </button>
+          )}
         </div>
-      )}
+
+        <div className='field-change-diff'>
+          {/* Show "From" only when there was a previous value (skip for purely added) */}
+          {!previousIsEmpty && (
+            <div className='field-change-diff-row'>
+              <span className='field-change-diff-label'>From</span>
+              <span
+                className={`field-change-diff-value is-prev ${
+                  previousIsEmpty ? 'is-empty' : ''
+                }`}
+              >
+                {renderValue(change.previousValue, change.previousValueFormatted)}
+              </span>
+            </div>
+          )}
+
+          <div className='field-change-diff-row'>
+            <span className='field-change-diff-label'>
+              {previousIsEmpty ? 'Set to' : 'To'}
+            </span>
+            <span
+              className={`field-change-diff-value is-new ${newIsEmpty ? 'is-empty' : ''} is-${changeKind}`}
+            >
+              {renderValue(change.newValue, change.newValueFormatted)}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

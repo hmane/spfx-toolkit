@@ -16,6 +16,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPNumberFieldProps } from './SPNumberField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { addValidateRule } from '../validation';
 import '../spFields.css';
 
 /**
@@ -164,19 +165,25 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
 
     // Add min/max validation
     if (min !== undefined || max !== undefined) {
-      baseRules.validate = {
-        ...baseRules.validate,
-        ...(min !== undefined && {
-          min: (val: number) =>
-            val === undefined || val >= min ||
-            `Value must be at least ${min}`,
-        }),
-        ...(max !== undefined && {
-          max: (val: number) =>
-            val === undefined || val <= max ||
-            `Value must be at most ${max}`,
-        }),
-      };
+      if (min !== undefined) {
+        addValidateRule(
+          baseRules,
+          'min',
+          (val: number | undefined | null) =>
+            val === undefined || val === null || val >= min ||
+            `Value must be at least ${min}`
+        );
+      }
+
+      if (max !== undefined) {
+        addValidateRule(
+          baseRules,
+          'max',
+          (val: number | undefined | null) =>
+            val === undefined || val === null || val <= max ||
+            `Value must be at most ${max}`
+        );
+      }
     }
 
     return baseRules;

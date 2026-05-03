@@ -2,9 +2,9 @@ import * as React from 'react';
 import { FieldValues } from 'react-hook-form';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
-import { createSPExtractor } from '../../../utilities/listItemHelper';
 import { IFieldMetadata } from '../types/fieldMetadata';
-import { SPFieldType } from '../../spFields/types';
+import { extractItemValues } from '../utilities/extractItemValues';
+import { buildItemQueryFields } from '../utilities/itemQueryBuilder';
 
 export interface IUseDynamicFormDataOptions<T extends FieldValues = any> {
   listId: string;
@@ -18,15 +18,11 @@ export interface IUseDynamicFormDataOptions<T extends FieldValues = any> {
 export interface IUseDynamicFormDataResult<T extends FieldValues = any> {
   data: T | null;
   originalItem: any;
-  attachments: IAttachment[];
+  /** ContentTypeId.StringValue from the loaded item, or null when not yet loaded / not applicable. */
+  itemContentTypeId: string | null;
   loading: boolean;
   error: Error | null;
   reload: () => Promise<void>;
-}
-
-export interface IAttachment {
-  FileName: string;
-  ServerRelativeUrl: string;
 }
 
 /**
@@ -39,13 +35,18 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
   const [data, setData] = React.useState<T | null>(null);
   const [originalItem, setOriginalItem] = React.useState<any>(null);
-  const [attachments, setAttachments] = React.useState<IAttachment[]>([]);
+  const [itemContentTypeId, setItemContentTypeId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
   // Use refs for callbacks to prevent infinite loops
   const onAfterLoadRef = React.useRef(onAfterLoad);
   const onErrorRef = React.useRef(onError);
+
+  // Increments on every load attempt; if a load completes after the counter
+  // has advanced (i.e., a newer load started or the component unmounted),
+  // its setStates are skipped.
+  const loadRequestIdRef = React.useRef(0);
 
   React.useEffect(() => {
     onAfterLoadRef.current = onAfterLoad;
@@ -62,7 +63,6 @@ export function useDynamicFormData<T extends FieldValues = any>(
     if (mode === 'new') {
       setData({} as T);
       setOriginalItem(null);
-      setAttachments([]);
       return;
     }
 
@@ -76,6 +76,8 @@ export function useDynamicFormData<T extends FieldValues = any>(
       return;
     }
 
+    const myRequestId = ++loadRequestIdRef.current;
+
     try {
       setLoading(true);
       setError(null);
@@ -84,60 +86,7 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       const list = getListByNameOrId(SPContext.sp, listId);
 
-      // Build select and expand fields for complex types
-      // SharePoint REST API requires specific patterns for different field types:
-      // - User fields: select "FieldName/Id,FieldName/Title,FieldName/EMail", expand "FieldName"
-      // - Lookup fields: select "FieldName/Id,FieldName/Title", expand "FieldName"
-      // - Simple fields: just select "FieldName"
-      const selectFields: string[] = [];
-      const expandFields: string[] = [];
-
-      fields.forEach((field) => {
-        const fieldType = field.fieldType as SPFieldType | string;
-        const internalName = field.internalName;
-
-        switch (fieldType) {
-          case SPFieldType.User:
-          case SPFieldType.UserMulti:
-          case 'User':
-          case 'UserMulti':
-            // User fields need expanded properties for full user info
-            selectFields.push(
-              `${internalName}/Id`,
-              `${internalName}/Title`,
-              `${internalName}/EMail`,
-              `${internalName}/Name`
-            );
-            expandFields.push(internalName);
-            break;
-
-          case SPFieldType.Lookup:
-          case SPFieldType.LookupMulti:
-          case 'Lookup':
-          case 'LookupMulti':
-            // Lookup fields need Id and the display field (usually Title)
-            const displayField = field.fieldConfig?.lookupField || 'Title';
-            selectFields.push(
-              `${internalName}/Id`,
-              `${internalName}/${displayField}`
-            );
-            expandFields.push(internalName);
-            break;
-
-          case SPFieldType.TaxonomyFieldType:
-          case SPFieldType.TaxonomyFieldTypeMulti:
-          case 'TaxonomyFieldType':
-          case 'TaxonomyFieldTypeMulti':
-            // Taxonomy fields - just select the field, SharePoint returns the value directly
-            selectFields.push(internalName);
-            break;
-
-          default:
-            // Simple fields - just select by name
-            selectFields.push(internalName);
-            break;
-        }
-      });
+      const { selectFields, expandFields } = buildItemQueryFields(fields);
 
       // Load item with proper select/expand
       let itemQuery = list.items.getById(itemId).select(...selectFields);
@@ -148,142 +97,30 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       const item = await itemQuery();
 
+      if (myRequestId !== loadRequestIdRef.current) return;
+
       setOriginalItem(item);
 
-      // Extract field values using SPExtractor for consistent format
-      const extractor = createSPExtractor(item);
-      const formData: any = {};
+      // Capture the item's actual ContentTypeId so SPDynamicForm can adopt it as
+      // the effective CT in edit mode (matters when items live on a child CT but
+      // the developer didn't pass `contentTypeId`).
+      const ctIdRaw = (item as any)?.ContentTypeId;
+      const ctIdString =
+        typeof ctIdRaw === 'string'
+          ? ctIdRaw
+          : ctIdRaw && typeof ctIdRaw === 'object' && typeof ctIdRaw.StringValue === 'string'
+          ? ctIdRaw.StringValue
+          : null;
+      setItemContentTypeId(ctIdString);
 
+      // Extract field values using shared extractItemValues for consistent format
       SPContext.logger.info('🔍 SPDynamicForm: Starting field extraction', {
         itemId,
         fieldCount: fields.length,
         fieldNames: fields.map(f => f.internalName)
       });
 
-      fields.forEach((field) => {
-        try {
-          let value: any;
-          const rawValue = item[field.internalName];
-
-          SPContext.logger.info(`📝 Extracting field: ${field.internalName}`, {
-            fieldType: field.fieldType,
-            rawValueType: typeof rawValue,
-            rawValue: rawValue,
-            isArray: Array.isArray(rawValue)
-          });
-
-          // Use extractor methods based on field type for consistent formatting
-          switch (field.fieldType) {
-            case 'Text':
-              value = extractor.string(field.internalName);
-              break;
-
-            case 'Note':
-              value = extractor.string(field.internalName);
-              break;
-
-            case 'Number':
-            case 'Currency':
-            case 'Integer':
-            case 'Counter':
-              value = extractor.number(field.internalName);
-              break;
-
-            case 'Boolean':
-              value = extractor.boolean(field.internalName);
-              break;
-
-            case 'DateTime':
-              value = extractor.date(field.internalName);
-              break;
-
-            case 'Choice':
-              value = extractor.choice(field.internalName);
-              break;
-
-            case 'MultiChoice':
-              value = extractor.multiChoice(field.internalName);
-              break;
-
-            case 'User':
-              // Extract full IPrincipal object for SPUserField
-              // SPUserField needs the full user object to display name, email, photo
-              value = extractor.user(field.internalName) || null;
-              break;
-
-            case 'UserMulti':
-              // Extract IPrincipal[] for SPUserField
-              // SPUserField needs full user objects to display names, emails, photos
-              value = extractor.userMulti(field.internalName);
-              break;
-
-            case 'Lookup':
-              // Extract SPLookup and convert to {Id, Title} for SPLookupField
-              const lookup = extractor.lookup(field.internalName);
-              value = lookup && lookup.id ? { Id: lookup.id, Title: lookup.title || '' } : null;
-              SPContext.logger.info(`🔗 Lookup field extracted: ${field.internalName}`, {
-                extractedLookup: lookup,
-                convertedValue: value
-              });
-              break;
-
-            case 'LookupMulti':
-              // Extract SPLookup[] and convert to {Id, Title}[] for SPLookupField
-              const lookups = extractor.lookupMulti(field.internalName);
-              value = lookups.map(l => ({ Id: l.id!, Title: l.title || '' }));
-              SPContext.logger.info(`🔗 LookupMulti field extracted: ${field.internalName}`, {
-                extractedLookups: lookups,
-                convertedValue: value
-              });
-              break;
-
-            case 'TaxonomyFieldType':
-              // Extract SPTaxonomy for SPTaxonomyField
-              const taxonomy = extractor.taxonomy(field.internalName);
-              value = taxonomy ? {
-                Label: taxonomy.label,
-                TermGuid: taxonomy.termId,
-                WssId: taxonomy.wssId
-              } : null;
-              break;
-
-            case 'TaxonomyFieldTypeMulti':
-              // Extract SPTaxonomy[] for SPTaxonomyField
-              const taxonomies = extractor.taxonomyMulti(field.internalName);
-              value = taxonomies.map(t => ({
-                Label: t.label,
-                TermGuid: t.termId,
-                WssId: t.wssId
-              }));
-              break;
-
-            case 'URL':
-              // Extract SPUrl and convert to {Url, Description} for SPUrlField
-              const urlObj = extractor.url(field.internalName);
-              value = urlObj ? { Url: urlObj.url || '', Description: urlObj.description || '' } : null;
-              break;
-
-            default:
-              // Fallback: get raw value
-              value = item[field.internalName];
-              SPContext.logger.warn(`Unsupported field type for extraction: ${field.fieldType}`, {
-                field: field.internalName
-              });
-              break;
-          }
-
-          formData[field.internalName] = value;
-
-          SPContext.logger.info(`✅ Field extracted successfully: ${field.internalName}`, {
-            fieldType: field.fieldType,
-            finalValue: value,
-            valueType: typeof value
-          });
-        } catch (err) {
-          SPContext.logger.error(`❌ Failed to extract field "${field.internalName}"`, err as Error);
-          formData[field.internalName] = null;
-        }
-      });
+      const formData = extractItemValues(item as any, fields);
 
       SPContext.logger.info('📦 Final form data prepared', {
         formData,
@@ -291,15 +128,6 @@ export function useDynamicFormData<T extends FieldValues = any>(
       });
 
       setData(formData as T);
-
-      // Load attachments
-      try {
-        const attachmentFiles = await list.items.getById(itemId).attachmentFiles();
-        setAttachments(attachmentFiles);
-      } catch (err) {
-        SPContext.logger.warn('Failed to load attachments', err);
-        setAttachments([]);
-      }
 
       // Call onAfterLoad using ref
       if (onAfterLoadRef.current) {
@@ -310,9 +138,9 @@ export function useDynamicFormData<T extends FieldValues = any>(
       SPContext.logger.success(`Item data loaded successfully in ${duration}ms`, {
         itemId,
         fieldCount: fields.length,
-        attachmentCount: attachments.length,
       });
     } catch (err) {
+      if (myRequestId !== loadRequestIdRef.current) return;
       const error = err as Error;
       setError(error);
       SPContext.logger.error('Failed to load item data', error, { listId, itemId });
@@ -321,21 +149,32 @@ export function useDynamicFormData<T extends FieldValues = any>(
         onErrorRef.current(error, 'load');
       }
     } finally {
+      if (myRequestId !== loadRequestIdRef.current) return;
       setLoading(false);
     }
   }, [listId, itemId, mode, fieldsStr]);
 
-  // Load data when dependencies change
+  // Load data when dependencies change. The cleanup invalidates any in-flight
+  // load by bumping loadRequestIdRef — its post-await setStates will short-circuit.
   React.useEffect(() => {
     if (fields.length > 0) {
       loadData();
     }
+    return () => {
+      // Invalidate the current request so its post-await setStates skip.
+      loadRequestIdRef.current++;
+    };
   }, [loadData, fields.length]);
 
   return {
     data,
     originalItem,
-    attachments,
+    /**
+     * The item's ContentTypeId.StringValue (or null when not in edit/view mode
+     * or before the load completes). Consumers in edit mode can adopt this as
+     * the effective CT when the developer didn't pass `contentTypeId` explicitly.
+     */
+    itemContentTypeId,
     loading,
     error,
     reload: loadData,
