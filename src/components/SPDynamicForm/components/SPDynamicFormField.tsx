@@ -377,7 +377,7 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
           >
             {labelText}
           </FormLabel>
-          <FormValue>
+          <FormValue fieldName={field.internalName}>
             <ErrorBoundary
               onError={(err) => {
                 SPContext.logger.error(`Error rendering field "${field.internalName}"`, err, {

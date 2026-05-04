@@ -474,14 +474,18 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     const initialTerms = convertToTermInfo(fieldValue);
 
     return (
-      <Stack className={`sp-taxonomy-field ${containerClass} ${className || ''}`}>
+      <Stack className={`sp-taxonomy-field ${containerClass} ${className || ''} ${hasError ? 'has-error' : ''}`}>
         {description && (
           <Text variant="small" style={{ marginBottom: 4 }}>
             {description}
           </Text>
         )}
 
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div
+          ref={fieldRef as React.RefObject<HTMLDivElement>}
+          className={`sp-taxonomy-field-picker-wrapper ${hasError ? 'has-error' : ''}`}
+          aria-invalid={hasError}
+        >
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
             <ModernTaxonomyPicker
               context={spfxContext}

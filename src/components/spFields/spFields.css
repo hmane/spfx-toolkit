@@ -103,6 +103,25 @@
   display: none !important;
 }
 
+/* PnP taxonomy picker does not expose a DevExtreme-style isValid prop.
+   Apply a Fluent-compatible error border to the picker wrapper instead. */
+.sp-taxonomy-field-picker-wrapper.has-error {
+  border: 1px solid #a4262c;
+  border-radius: 2px;
+}
+
+.sp-taxonomy-field-picker-wrapper.has-error:focus-within {
+  outline: 1px solid #a4262c;
+  outline-offset: 0;
+}
+
+.sp-taxonomy-field-picker-wrapper.has-error [class*='ms-BasePicker-text'],
+.sp-taxonomy-field-picker-wrapper.has-error [class*='ms-TextField-fieldGroup'],
+.sp-taxonomy-field-picker-wrapper.has-error [class*='textField_'],
+.sp-taxonomy-field-picker-wrapper.has-error input {
+  border-color: #a4262c !important;
+}
+
 /* Hide DevExtreme's built-in validation messages for SP fields */
 /* Target all DevExtreme invalid messages within any container */
 .sp-choice-field .dx-invalid-message,

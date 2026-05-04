@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useFormContext } from '../context';
+import { useFormContext, useFormStateContext } from '../context';
 import FormError from '../FormError/FormError';
 import { useCharCount } from '../hooks/useCharCount';
 
@@ -97,6 +97,7 @@ const FormItem: React.FC<IFormItemProps> = ({
   fieldId,
 }) => {
   const formContext = useFormContext();
+  const liveFormState = useFormStateContext();
   const fieldRef = React.useRef<HTMLDivElement>(null);
 
   // Generate field ID
@@ -129,10 +130,11 @@ const FormItem: React.FC<IFormItemProps> = ({
   // 1. Form has been submitted (show all errors), OR
   // 2. This specific field has been touched AND has an error (revalidate on change), OR
   // 3. Error was set manually (via setError with type: 'manual')
-  const isFormSubmitted = formContext?.formState?.isSubmitted ?? false;
-  const isFieldTouched = fieldName ? formContext?.formState?.touchedFields?.[fieldName] : false;
-  const isFieldDirty = fieldName ? formContext?.formState?.dirtyFields?.[fieldName] : false;
-  const fieldErrorObj = fieldName ? formContext?.formState?.errors?.[fieldName] as { message?: string; type?: string } | undefined : undefined;
+  const formState = liveFormState || formContext?.formState;
+  const isFormSubmitted = formState?.isSubmitted ?? false;
+  const isFieldTouched = fieldName ? formState?.touchedFields?.[fieldName] : false;
+  const isFieldDirty = fieldName ? formState?.dirtyFields?.[fieldName] : false;
+  const fieldErrorObj = fieldName ? formState?.errors?.[fieldName] as { message?: string; type?: string } | undefined : undefined;
   const hasFieldError = !!fieldErrorObj;
   // Manual errors (set via setError with type: 'manual') should always be shown
   const isManualError = fieldErrorObj?.type === 'manual';

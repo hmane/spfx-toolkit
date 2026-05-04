@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useCharCount } from '../hooks/useCharCount';
-import { useFormContext } from '../context/FormContext';
+import { useFormContext, useFormStateContext } from '../context/FormContext';
 import FormError from '../FormError/FormError';
 
 export interface IFormValueProps {
@@ -88,6 +88,7 @@ const ErrorCharCountRow: React.FC<{
 
 const FormValue: React.FC<IFormValueProps> = ({ children, className = '', fieldName: fieldNameProp }) => {
   const formContext = useFormContext();
+  const liveFormState = useFormStateContext();
   const childrenArray = React.Children.toArray(children);
 
   const formControls: React.ReactNode[] = [];
@@ -121,10 +122,11 @@ const FormValue: React.FC<IFormValueProps> = ({ children, className = '', fieldN
   // Only show auto-error if no manual FormError children are provided
   let autoError: string | undefined;
   if (errors.length === 0 && fieldName && formContext?.autoShowErrors) {
-    const isFormSubmitted = formContext.formState?.isSubmitted ?? false;
-    const isFieldTouched = formContext.formState?.touchedFields?.[fieldName] ?? false;
-    const isFieldDirty = formContext.formState?.dirtyFields?.[fieldName] ?? false;
-    const fieldError = formContext.formState?.errors?.[fieldName] as { message?: string; type?: string } | undefined;
+    const formState = liveFormState || formContext.formState;
+    const isFormSubmitted = formState?.isSubmitted ?? false;
+    const isFieldTouched = formState?.touchedFields?.[fieldName] ?? false;
+    const isFieldDirty = formState?.dirtyFields?.[fieldName] ?? false;
+    const fieldError = formState?.errors?.[fieldName] as { message?: string; type?: string } | undefined;
     const hasFieldError = !!fieldError;
 
     // Check if error was set manually (e.g., via setError with type: 'manual')

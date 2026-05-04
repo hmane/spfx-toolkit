@@ -1213,7 +1213,7 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
   return (
     <div className={`sp-dynamic-form sp-dynamic-form-${mode} ${className || ''}`}>
       <FormProvider {...form}>
-        <SPFormProvider control={control} autoShowErrors={false}>
+        <SPFormProvider control={control} autoShowErrors={true}>
           <form onSubmit={handleSubmit(handleFormSubmit)}>
             <Stack tokens={{ childrenGap: 20 }}>
               {showCtPicker && (
