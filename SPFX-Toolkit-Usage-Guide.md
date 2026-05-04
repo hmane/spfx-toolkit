@@ -124,7 +124,7 @@ npm install react-dom@^17.0.1 --save
 npm install @pnp/spfx-controls-react@^3.22.0 --save  # For ManageAccess, PeoplePicker
 npm install devextreme@^22.2.3 --save  # For VersionHistory, spForm
 npm install devextreme-react@^22.2.3 --save
-npm install react-hook-form@^7.45.4 --save  # For spForm
+npm install react-hook-form@^7.45.4 --save  # For spForm, SPDynamicForm, SPField components
 npm install zustand@^4.3.9 --save  # For spForm state management
 ```
 
@@ -1272,8 +1272,8 @@ const MyChildComponent: React.FC = () => {
 
 ### 9. DocumentLink - Rich SharePoint File Links
 
-**Bundle Impact:** Medium (~45KB + optional hover-card assets)  
-**Use Case:** Document lists, dashboards, inline file actions  
+**Bundle Impact:** Medium (~45KB + optional hover-card assets)
+**Use Case:** Document lists, dashboards, inline file actions
 **Peer Dependencies:** `@pnp/spfx-controls-react@^3.22.0` (FileTypeIcon support)
 
 #### Basic Usage
@@ -1458,8 +1458,8 @@ const MyComponent: React.FC = () => {
 
 ### 11. GroupUsersPicker - Group-Based People Picker
 
-**Bundle Impact:** Medium (~45KB + DevExtreme SelectBox/TagBox)  
-**Use Case:** Approval workflows, audience targeting, form people fields  
+**Bundle Impact:** Medium (~45KB + DevExtreme SelectBox/TagBox)
+**Use Case:** Approval workflows, audience targeting, form people fields
 **Peer Dependencies:** `devextreme@^22.2.3`, `devextreme-react@^22.2.3`
 
 #### Basic Usage
@@ -1535,8 +1535,8 @@ const GroupPickerForm: React.FC = () => {
 
 ### 12. spForm System - React Hook Form Building Blocks
 
-**Bundle Impact:** High (300–500KB with DevExtreme + RHF)  
-**Use Case:** Complex business forms, wizard flows, validated edit experiences  
+**Bundle Impact:** High (300–500KB with DevExtreme + RHF)
+**Use Case:** Complex business forms, wizard flows, validated edit experiences
 **Peer Dependencies:** `react-hook-form`, `@hookform/resolvers`, `zod` (optional), `devextreme@^22.2.3`, `devextreme-react@^22.2.3`, `@pnp/spfx-controls-react` (for taxonomy/people)
 
 #### Quick Example
@@ -1937,9 +1937,361 @@ For detailed documentation:
 
 ---
 
-### 13. SPField Suite - SharePoint Field Controls
+### 13. SPDynamicForm - Metadata-Driven SharePoint Forms
 
-**Bundle Impact:** Medium–High (varies per field; relies on DevExtreme + RHF)  
+**Bundle Impact:** Medium-High (uses React Hook Form + SPField controls on demand)
+**Use Case:** New/Edit/View forms generated from SharePoint list metadata, content types, and field rules
+
+`SPDynamicForm` builds a complete form from a SharePoint list or library. It handles field loading, content type ordering, validation, attachments, sections, dirty checks, and developer-controlled save behavior.
+
+#### Basic Usage
+
+```typescript
+import * as React from 'react';
+import { SPDynamicForm } from 'spfx-toolkit/components/SPDynamicForm';
+import type { IFormSubmitResult } from 'spfx-toolkit/components/SPDynamicForm';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+
+export const ProjectNewForm: React.FC = () => {
+  const handleSubmit = async (result: IFormSubmitResult) => {
+    const item = await SPContext.sp.web.lists
+      .getByTitle('Projects')
+      .items.add(result.updates);
+
+    await result.attachments.uploadAll(item.data.Id);
+  };
+
+  return (
+    <SPDynamicForm
+      listId="Projects"
+      mode="new"
+      onSubmit={handleSubmit}
+    />
+  );
+};
+```
+
+For edit and view modes, pass `itemId`:
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  itemId={42}
+  onSubmit={async (result) => {
+    if (!result.hasChanges) return;
+
+    await SPContext.sp.web.lists
+      .getByTitle('Projects')
+      .items.getById(result.itemId!)
+      .update(result.updates);
+
+    await result.attachments.uploadAll(result.itemId);
+  }}
+/>
+```
+
+#### Content Type Behavior
+
+By default, `SPDynamicForm` uses content type field order when a content type is resolved. Manual `fieldOrder` wins only when you provide it.
+
+```typescript
+// Uses the selected/default content type field order.
+<SPDynamicForm
+  listId="Requests"
+  mode="new"
+  onSubmit={saveRequest}
+/>
+
+// Locks the form to one content type and uses that content type's field order.
+<SPDynamicForm
+  listId="Requests"
+  mode="new"
+  contentTypeId="0x0100A1B2..."
+  onSubmit={saveRequest}
+/>
+
+// Manual order wins over content type order.
+<SPDynamicForm
+  listId="Requests"
+  mode="new"
+  fieldOrder={['Title', 'RequestType', 'BusinessOwner', 'DueDate']}
+  onSubmit={saveRequest}
+/>
+```
+
+When more than one visible content type is available, the form can show an inline content type picker. Use `availableContentTypes` to whitelist choices or `hideContentTypePicker` to keep the picker hidden.
+
+```typescript
+const [contentTypeId, setContentTypeId] = React.useState<string>();
+
+<SPDynamicForm
+  listId="Requests"
+  mode="new"
+  availableContentTypes={[
+    '0x0100A1B2...', // Project Request
+    '0x0100C3D4...', // Exception Request
+  ]}
+  onContentTypeChange={setContentTypeId}
+  onSubmit={async (result) => {
+    await SPContext.sp.web.lists.getByTitle('Requests').items.add({
+      ...result.updates,
+      ContentTypeId: contentTypeId,
+    });
+  }}
+/>
+```
+
+#### Field Customization
+
+Use `fieldOverrides` for labels, descriptions, required state, default values, visibility, read-only state, validation, and full custom rendering. Prefer the `field` selector. It supports exact internal names, regular expressions, and predicates.
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="new"
+  fieldOverrides={[
+    {
+      field: 'Title',
+      label: 'Project name',
+      required: true,
+      description: 'Use a short, recognizable name.',
+      validationRules: {
+        minLength: { value: 3, message: 'Project name must be at least 3 characters.' },
+      },
+    },
+    {
+      field: /^Internal/i,
+      hidden: true,
+    },
+    {
+      field: 'ExecutiveSponsor',
+      readOnly: (ctx) => ctx.mode === 'edit',
+    },
+  ]}
+  onSubmit={saveProject}
+/>
+```
+
+For conditional customization, every function-based override that reads another field should declare `dependsOn`. This keeps large forms from watching every field.
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="new"
+  fieldOverrides={[
+    {
+      field: 'ExceptionReason',
+      hidden: (ctx) => ctx.formValues.RequestType !== 'Exception',
+      required: (ctx) => ctx.formValues.RequestType === 'Exception',
+      dependsOn: ['RequestType'],
+    },
+    {
+      field: 'ApprovalNotes',
+      label: (currentLabel, ctx) =>
+        ctx.formValues.Status === 'Rejected' ? 'Rejection notes' : currentLabel,
+      dependsOn: ['Status'],
+    },
+  ]}
+  onSubmit={saveProject}
+/>
+```
+
+#### Custom Field Renderer
+
+Use `fieldOverrides[].render` when you need to take over rendering for a field but still keep the dynamic form's metadata, RHF control, validation state, and resolved labels.
+
+```typescript
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { TextField } from '@fluentui/react/lib/TextField';
+
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  itemId={42}
+  fieldOverrides={[
+    {
+      field: 'Budget',
+      render: ({ value, onChange, error, resolved, readOnly }) => (
+        <>
+          <TextField
+            label={resolved?.label || 'Budget'}
+            prefix="$"
+            value={value ? String(value) : ''}
+            disabled={readOnly}
+            errorMessage={error}
+            onChange={(_, nextValue) => onChange(Number(nextValue || 0))}
+          />
+          {Number(value) > 100000 && (
+            <MessageBar messageBarType={MessageBarType.warning}>
+              Budgets above $100,000 require finance approval.
+            </MessageBar>
+          )}
+        </>
+      ),
+    },
+  ]}
+  onSubmit={saveProject}
+/>
+```
+
+`customFields` is still accepted for backward compatibility, but `fieldOverrides[].render` is the preferred API.
+
+#### Showing Content Based on a Taxonomy Selection
+
+Use `fieldExtensions` to render content before or after a field. Extensions can compute data asynchronously from the selected field value and can watch other fields through `dependsOn`.
+
+This example watches a managed metadata field named `Department`. When the user picks a taxonomy term, the extension loads guidance for that term and shows it directly below the taxonomy field.
+
+```typescript
+import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import type { ISPTaxonomyFieldValue } from 'spfx-toolkit/components/spFields';
+
+interface IDepartmentGuidance {
+  owner: string;
+  reviewSla: string;
+  note: string;
+}
+
+async function loadDepartmentGuidance(
+  term: ISPTaxonomyFieldValue | null
+): Promise<IDepartmentGuidance | null> {
+  if (!term?.TermGuid) return null;
+
+  const rows = await SPContext.sp.web.lists
+    .getByTitle('Department Guidance')
+    .items
+    .select('Title', 'Owner/Title', 'ReviewSla', 'GuidanceText')
+    .expand('Owner')
+    .filter(`TaxonomyTermGuid eq '${term.TermGuid}'`)
+    .top(1)();
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    owner: row.Owner?.Title || 'Unassigned',
+    reviewSla: row.ReviewSla || 'Standard',
+    note: row.GuidanceText || '',
+  };
+}
+
+<SPDynamicForm
+  listId="Projects"
+  mode="new"
+  fieldExtensions={[
+    {
+      field: 'Department',
+      position: 'after',
+      compute: ({ value }) =>
+        loadDepartmentGuidance(value as ISPTaxonomyFieldValue | null),
+      render: ({ computed, isLoading, error }) => {
+        if (isLoading) {
+          return <MessageBar>Loading department guidance...</MessageBar>;
+        }
+
+        if (error) {
+          return (
+            <MessageBar messageBarType={MessageBarType.warning}>
+              Department guidance could not be loaded.
+            </MessageBar>
+          );
+        }
+
+        if (!computed) return null;
+
+        return (
+          <MessageBar messageBarType={MessageBarType.info}>
+            Owner: {computed.owner}. Review SLA: {computed.reviewSla}. {computed.note}
+          </MessageBar>
+        );
+      },
+    },
+  ]}
+  onSubmit={saveProject}
+/>
+```
+
+For multi-select taxonomy fields, normalize the value first:
+
+```typescript
+compute: ({ value }) => {
+  const terms = Array.isArray(value) ? value : value ? [value] : [];
+  return loadGuidanceForTerms(terms as ISPTaxonomyFieldValue[]);
+}
+```
+
+`customContent` is still accepted for static compatibility scenarios, but `fieldExtensions` is better for field-adjacent, selection-driven UI.
+
+#### Bulk Edit Multiple Items
+
+Use `multiItem` when the same changes should be applied to several selected list items. The form pre-fills values that are shared across the selected items, tracks only dirty fields, and gives your handler an `apply()` function for batched saving.
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  multiItem={{
+    itemIds: selectedItemIds,
+    reconcileMode: 'shared',
+    showSavePreview: true,
+    showRevertControls: true,
+    highlightDirty: true,
+  }}
+  onMultiItemSubmit={async (result) => {
+    if (result.changedFieldNames.length === 0) return;
+
+    const outcomes = await result.apply();
+    const failures = outcomes.filter((item) => !item.success);
+
+    if (failures.length > 0) {
+      throw new Error(`${failures.length} items failed to update.`);
+    }
+  }}
+  onSubmit={() => {
+    // Required by the base props. Multi-item saves use onMultiItemSubmit.
+  }}
+/>
+```
+
+#### Imperative Form Control
+
+Use `ref` when a panel, dialog, or command bar needs to submit or reset the form from outside the default buttons.
+
+```typescript
+import { CommandBar } from '@fluentui/react/lib/CommandBar';
+import type { SPDynamicFormHandle } from 'spfx-toolkit/components/SPDynamicForm';
+
+const formRef = React.useRef<SPDynamicFormHandle>(null);
+
+<>
+  <CommandBar
+    items={[
+      { key: 'save', text: 'Save', onClick: () => formRef.current?.submit() },
+      { key: 'reset', text: 'Reset', onClick: () => formRef.current?.reset() },
+    ]}
+  />
+
+  <SPDynamicForm
+    ref={formRef}
+    listId="Projects"
+    mode="edit"
+    itemId={42}
+    showDefaultButtons={false}
+    onSubmit={saveProject}
+  />
+</>
+```
+
+#### Further Reading
+
+For the full prop reference and additional examples, see [SPDynamicForm README](../src/components/SPDynamicForm/README.md).
+
+---
+
+### 14. SPField Suite - SharePoint Field Controls
+
+**Bundle Impact:** Medium–High (varies per field; relies on DevExtreme + RHF)
 **Use Case:** List form replacements, data collection aligned with SharePoint field types
 
 #### Basic Usage
@@ -2123,9 +2475,9 @@ Check these common issues:
 
 ---
 
-### 14. Lazy Components - On-Demand Heavy Features
+### 15. Lazy Components - On-Demand Heavy Features
 
-**Bundle Impact:** Wrapper only (~3–5KB) + deferred component chunk  
+**Bundle Impact:** Wrapper only (~3–5KB) + deferred component chunk
 **Use Case:** Reduce initial bundle size by loading heavy components on demand
 
 ```typescript
