@@ -43,6 +43,78 @@ interface IVersionHistoryPersistedFilters {
   filtersExpanded?: boolean;
 }
 
+interface IResolvedVersionUser {
+  login: string;
+  displayName: string;
+  email: string;
+}
+
+function cleanUserText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed && trimmed !== '0' ? trimmed : '';
+}
+
+function pickUser(candidate: any): IResolvedVersionUser | null {
+  if (!candidate) return null;
+
+  if (typeof candidate === 'string') {
+    const value = cleanUserText(candidate);
+    return value ? { login: value, displayName: value, email: value.includes('@') ? value : '' } : null;
+  }
+
+  if (typeof candidate !== 'object') return null;
+
+  const email = cleanUserText(candidate.EMail || candidate.Email || candidate.email);
+  const login = cleanUserText(
+    candidate.Name ||
+      candidate.LoginName ||
+      candidate.loginName ||
+      candidate.UserName ||
+      candidate.UserPrincipalName ||
+      email
+  );
+  const displayName = cleanUserText(
+    candidate.Title ||
+      candidate.LookupValue ||
+      candidate.DisplayName ||
+      candidate.Name ||
+      candidate.LoginName ||
+      email
+  );
+
+  if (!displayName && !login && !email) return null;
+
+  return {
+    login: login || email || displayName,
+    displayName: displayName || login || email,
+    email,
+  };
+}
+
+function resolveVersionUser(version: any): IResolvedVersionUser {
+  const candidates = [
+    version.Editor,
+    version.ModifiedBy,
+    version.Modified_x0020_By,
+    version.CreatedBy,
+    version.Author,
+    version.File?.ModifiedBy,
+    version.File?.Author,
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = pickUser(candidate);
+    if (resolved) return resolved;
+  }
+
+  return {
+    login: '',
+    displayName: 'Unknown User',
+    email: '',
+  };
+}
+
 export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
   const {
     listId,
@@ -675,6 +747,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           // Build current version object with both file and list item data
           const currentListVersion = listVersionMap.get(currentFile.UIVersionLabel) || listItem;
           const currentVersion = {
+            ...currentListVersion,
             VersionLabel: currentFile.UIVersionLabel || '2.0',
             ID: 0,
             Created: listItem.Created,
@@ -690,8 +763,6 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             Author: listItem.Author,
             Editor: listItem.Editor,
             CreatedBy: listItem.Author,
-            // Merge list item field values for metadata comparison
-            ...currentListVersion,
           };
 
           // Merge file versions with list item versions to include metadata changes
@@ -702,6 +773,9 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             return {
               ...listVersion, // List item fields first (Title, custom columns, etc.)
               ...fileVersion, // File version fields override (Size, CheckInComment, etc.)
+              Author: listVersion.Author || fileVersion.Author || fileVersion.CreatedBy,
+              Editor: listVersion.Editor || fileVersion.Editor || fileVersion.CreatedBy,
+              CreatedBy: fileVersion.CreatedBy || listVersion.Editor || listVersion.Author,
               File: {
                 ...fileVersion.File,
                 ServerRelativeUrl: itemInfo.itemUrl,
@@ -784,27 +858,10 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
         const isCurrentVersion = i === 0;
         const modifiedDate = new Date(version.Modified || version.Created || Date.now());
 
-        // Extract user info
-        let modifiedBy = '';
-        let modifiedByName = 'Unknown User';
-        let modifiedByEmail = '';
-
-        if (version.Editor && typeof version.Editor === 'object') {
-          const editor = version.Editor;
-          modifiedBy = editor.EMail || editor.Email || editor.Name || '';
-          modifiedByName = editor.Title || 'Unknown User';
-          modifiedByEmail = editor.Email || editor.EMail || '';
-        } else if (version.CreatedBy && typeof version.CreatedBy === 'object') {
-          const createdBy = version.CreatedBy;
-          modifiedBy = createdBy.EMail || createdBy.Email || createdBy.LoginName || '';
-          modifiedByName = createdBy.Title || 'Unknown User';
-          modifiedByEmail = createdBy.Email || createdBy.EMail || '';
-        } else if (version.Author && typeof version.Author === 'object') {
-          const author = version.Author;
-          modifiedBy = author.EMail || author.Email || author.Name || '';
-          modifiedByName = author.Title || 'Unknown User';
-          modifiedByEmail = author.Email || author.EMail || '';
-        }
+        // Extract user info. SharePoint returns different shapes for current
+        // items, list item versions, and file versions, so resolve all common
+        // author/editor variants before falling back to Unknown User.
+        const userInfo = resolveVersionUser(version);
 
         const checkInComment = version.CheckInComment || version._CheckinComment || null;
 
@@ -833,9 +890,9 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
           versionId: version.VersionId || version.ID || i,
           isCurrentVersion,
           modified: modifiedDate,
-          modifiedBy,
-          modifiedByName,
-          modifiedByEmail,
+          modifiedBy: userInfo.login,
+          modifiedByName: userInfo.displayName,
+          modifiedByEmail: userInfo.email,
           checkInComment,
           size,
           sizeDelta,

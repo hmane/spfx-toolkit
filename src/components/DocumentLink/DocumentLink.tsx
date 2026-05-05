@@ -5,7 +5,7 @@ import { IDocumentLinkProps, IDocumentInfo, DocumentLinkError } from './Document
 import { useDocumentMetadata } from './hooks';
 import { DocumentIcon } from './components/DocumentIcon';
 import { DocumentHoverCard } from './components/DocumentHoverCard';
-import { downloadDocument, openPreviewNewTab } from './components/DocumentActions';
+import { downloadDocument } from './components/DocumentActions';
 import { DocumentPreviewModal } from './components/DocumentPreviewModal';
 import { formatFileSize, buildPreviewUrl } from './utils';
 import './DocumentLink.css';
@@ -93,9 +93,7 @@ export const DocumentLink: React.FC<IDocumentLinkProps> = ({
 
       try {
         if (onClick === 'preview' && previewTarget === 'newTab') {
-          e.preventDefault();
           e.stopPropagation();
-          openPreviewNewTab(document, previewMode);
           onAfterPreview?.(document);
           return;
         }

@@ -46,6 +46,13 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
     [version.changedFields]
   );
   const extraFieldCount = Math.max(version.changedFields.length - previewFields.length, 0);
+  const changedFieldsTitle = React.useMemo(
+    () =>
+      version.changedFields.length
+        ? version.changedFields.map(f => f.displayName).join(', ')
+        : undefined,
+    [version.changedFields]
+  );
 
   const sizeValue = typeof version.size === 'number' ? version.size : null;
   const sizeDeltaValue = typeof version.sizeDelta === 'number' ? version.sizeDelta : null;
@@ -81,8 +88,11 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
       onKeyDown={handleKeyDown}
       role='button'
       tabIndex={0}
-      aria-label={`Version ${version.versionLabel} by ${version.modifiedByName}`}
+      aria-label={`Version ${version.versionLabel} by ${version.modifiedByName}${
+        changedFieldsTitle ? `. Changed fields: ${changedFieldsTitle}` : ''
+      }`}
       aria-pressed={isSelected}
+      title={changedFieldsTitle ? `Changed fields: ${changedFieldsTitle}` : undefined}
     >
       {/* Timeline rail (dot + connecting line) */}
       <div className='version-card-rail' aria-hidden='true'>
@@ -120,7 +130,10 @@ export const VersionCard: React.FC<IVersionCardProps> = props => {
       </div>
 
       {/* Bottom: change summary OR placeholder for unchanged */}
-      <div className='version-card-summary'>
+      <div
+        className='version-card-summary'
+        title={changedFieldsTitle ? `Changed fields: ${changedFieldsTitle}` : undefined}
+      >
         {version.hasChanges && previewFields.length > 0 ? (
           <>
             <span className='version-card-summary-count'>

@@ -3,6 +3,7 @@ import { HoverCard, HoverCardType } from '@fluentui/react/lib/HoverCard';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { IconButton } from '@fluentui/react/lib/Button';
+import { Icon } from '@fluentui/react/lib/Icon';
 import { IDocumentInfo } from '../DocumentLink.types';
 import { formatFileSize } from '../utils';
 import { DocumentIcon } from './DocumentIcon';
@@ -84,8 +85,8 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
       <div
         style={{
           padding: '16px',
-          minWidth: '340px',
-          maxWidth: '420px',
+          minWidth: '360px',
+          maxWidth: '460px',
           backgroundColor: '#ffffff',
         }}
       >
@@ -257,12 +258,14 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    flexShrink: 0,
+                    paddingRight: 2,
                   }}
                   onMouseOver={(e) => (e.currentTarget.style.textDecoration = 'underline')}
                   onMouseOut={(e) => (e.currentTarget.style.textDecoration = 'none')}
                 >
                   View history
-                  <span style={{ fontSize: '10px' }}>→</span>
+                  <Icon iconName="ChevronRight" styles={{ root: { fontSize: 10, lineHeight: 1 } }} />
                 </a>
               </Stack>
             </>

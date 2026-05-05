@@ -1028,38 +1028,25 @@
 
 .field-change-block {
   display: grid;
-  grid-template-columns: 6px 1fr;
-  column-gap: 14px;
+  grid-template-columns: 1fr;
   padding: 14px 16px;
   background: var(--vh-surface);
   border: 1px solid var(--vh-rule);
-  border-radius: var(--vh-radius-md);
-  transition: border-color var(--vh-ms-fast) var(--vh-ease);
+  border-radius: var(--vh-radius-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition:
+    border-color var(--vh-ms-fast) var(--vh-ease),
+    box-shadow var(--vh-ms-fast) var(--vh-ease);
   animation: vh-fade-up var(--vh-ms-norm) var(--vh-ease);
 }
 
 .field-change-block:hover {
   border-color: var(--vh-text-faint);
+  box-shadow: var(--vh-shadow-soft);
 }
 
 .field-change-block-marker {
-  width: 6px;
-  height: 100%;
-  background: var(--vh-text-faint);
-  border-radius: 999px;
-  align-self: stretch;
-}
-
-.field-change-block.is-added .field-change-block-marker {
-  background: var(--vh-success);
-}
-
-.field-change-block.is-removed .field-change-block-marker {
-  background: var(--vh-danger);
-}
-
-.field-change-block.is-modified .field-change-block-marker {
-  background: var(--vh-primary);
+  display: none;
 }
 
 .field-change-block-body {
@@ -1189,7 +1176,7 @@
 
 .field-change-diff-value.is-new.is-added,
 .field-change-diff-value.is-new.is-modified {
-  background: var(--vh-success-tint);
+  background: var(--vh-surface-sunken);
   border-radius: var(--vh-radius-sm);
   padding: 1px 6px;
   font-weight: 500;
