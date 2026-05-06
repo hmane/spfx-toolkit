@@ -521,6 +521,7 @@ export class SPContext {
       remove: (siteUrlOrAlias: string) => SPContext.multiSiteManager.removeSite(siteUrlOrAlias),
       list: () => SPContext.multiSiteManager.listSites(),
       has: (siteUrlOrAlias: string) => SPContext.multiSiteManager.hasSite(siteUrlOrAlias),
+      onSiteChange: (listener: any) => SPContext.multiSiteManager.onSiteChange(listener),
     };
   }
 

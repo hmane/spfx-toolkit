@@ -126,6 +126,28 @@ export interface ISiteContext {
 }
 
 /**
+ * Discriminated event emitted by the multi-site manager when a site is connected
+ * or disconnected. Used by `SPDebug` to auto-attach/detach site loggers.
+ *
+ * See `docs/SPDebug-Requirements.md` "Multi-Site Logger Integration".
+ */
+export type SiteLifecycleEventType = 'added' | 'removed';
+
+export interface SiteLifecycleEvent {
+  type: SiteLifecycleEventType;
+  /** Friendly alias supplied at connection time, when present. */
+  alias?: string;
+  /** Normalized site URL. Always present. */
+  siteUrl: string;
+  /** Logger associated with the site. Present on `added`; may be present on `removed`. */
+  logger?: Logger;
+  /** Full site context. Present on `added`; may be present on `removed`. */
+  context?: ISiteContext;
+}
+
+export type SiteLifecycleListener = (event: SiteLifecycleEvent) => void;
+
+/**
  * API for managing multi-site connections
  */
 export interface IMultiSiteAPI {
@@ -216,4 +238,20 @@ export interface IMultiSiteAPI {
    * ```
    */
   has(siteUrlOrAlias: string): boolean;
+
+  /**
+   * Subscribe to multi-site lifecycle events (`added` / `removed`).
+   *
+   * Listener errors are isolated and never break site management. Returns an
+   * unsubscribe function.
+   *
+   * @example
+   * ```typescript
+   * const unsubscribe = SPContext.sites.onSiteChange(event => {
+   *   if (event.type === 'added') { ... }
+   *   if (event.type === 'removed') { ... }
+   * });
+   * ```
+   */
+  onSiteChange(listener: SiteLifecycleListener): () => void;
 }

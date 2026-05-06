@@ -242,7 +242,16 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     if (!itemContentTypeId) return;
     if (adoptedItemCt === itemContentTypeId) return;
     setAdoptedItemCt(itemContentTypeId);
-  }, [mode, contentTypeId, itemContentTypeId, adoptedItemCt]);
+    // Phase 5 audit: surface CT adoption so support traces show when an
+    // edit/view form switches schemas mid-flow (e.g. after item load).
+    SPContext.logger.info('SPDynamicForm: content type adopted from item', {
+      listId,
+      itemId,
+      mode,
+      previousContentTypeId: adoptedItemCt,
+      adoptedContentTypeId: itemContentTypeId,
+    });
+  }, [mode, contentTypeId, itemContentTypeId, adoptedItemCt, listId, itemId]);
 
   // In new mode, if no explicit CT prop, default to the list's default CT once discovered.
   React.useEffect(() => {
@@ -504,10 +513,19 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
 
   // Watch for errors and scroll to first one
   React.useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      scrollToFirstError();
-    }
-  }, [errors, scrollToFirstError]);
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.length === 0) return;
+    scrollToFirstError();
+    // Phase 5 audit: surface a structured summary when validation flags errors.
+    // We log internalNames only — values stay out of the log to avoid PII.
+    SPContext.logger.warn('SPDynamicForm: validation errors', {
+      listId,
+      contentTypeId: resolvedContentTypeId,
+      mode,
+      errorCount: errorKeys.length,
+      fields: errorKeys,
+    });
+  }, [errors, scrollToFirstError, listId, resolvedContentTypeId, mode]);
 
   React.useEffect(() => {
     if (!enableDirtyCheck || !isDirty || isSubmitting || mode === 'view') {
@@ -526,15 +544,33 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
   // Handle form submission
   const handleFormSubmit = React.useCallback(
     async (formData: T) => {
+      // Phase 5 audit: structured submit lifecycle (start/success/failure) so
+      // support traces can answer "did the user click save and what happened?".
+      // We log counts and identifiers only — never field values, to keep
+      // logger entries safe even before SPDebug redaction runs.
+      const dirtyFieldNames = Object.keys(dirtyFields).filter(
+        (k) => (dirtyFields as any)[k]
+      );
+      const submitContext = {
+        listId,
+        itemId,
+        contentTypeId: resolvedContentTypeId,
+        mode,
+        isMultiItem,
+        itemCount: isMultiItem ? multiItemIds.length : 1,
+        fieldCount: fields.length,
+        dirtyFieldCount: dirtyFieldNames.length,
+        dirtyFields: dirtyFieldNames,
+      };
+      SPContext.logger.info('SPDynamicForm: submit start', submitContext);
       try {
         setIsSubmitting(true);
         clearErrors(); // Clear previous errors
 
         // Multi-item mode: build a bulk submitter from only the dirty fields.
         if (isMultiItem) {
-          const changedFieldNames = Object.keys(dirtyFields).filter((k) => (dirtyFields as any)[k]);
           const dirtyValues: Record<string, unknown> = {};
-          changedFieldNames.forEach((name) => {
+          dirtyFieldNames.forEach((name) => {
             dirtyValues[name] = (formData as any)[name];
           });
 
@@ -545,6 +581,12 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
           } else {
             throw new Error('SPDynamicForm: multi-item mode requires onMultiItemSubmit');
           }
+          SPContext.logger.success('SPDynamicForm: multi-item submit success', {
+            listId,
+            contentTypeId: resolvedContentTypeId,
+            itemCount: multiItemIds.length,
+            dirtyFieldCount: dirtyFieldNames.length,
+          });
           return;
         }
 
@@ -559,9 +601,16 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
 
         if (result) {
           await onSubmit(result);
+          SPContext.logger.success('SPDynamicForm: submit success', {
+            listId,
+            itemId,
+            contentTypeId: resolvedContentTypeId,
+            mode,
+            dirtyFieldCount: dirtyFieldNames.length,
+          });
         }
       } catch (error) {
-        SPContext.logger.error('Form submission failed', error as Error);
+        SPContext.logger.error('Form submission failed', error as Error, submitContext);
         if (onError) {
           onError(error as Error, 'submit');
         }

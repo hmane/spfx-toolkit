@@ -17,10 +17,11 @@
 6. [Utilities](#utilities)
 7. [TypeScript Types](#typescript-types)
 8. [Bundle Size Optimization](#bundle-size-optimization)
-9. [Common Patterns](#common-patterns)
-10. [Troubleshooting](#troubleshooting)
-11. [Best Practices](#best-practices)
-12. [API Reference](#api-reference)
+9. [SPDebug — Debug Layer](#spdebug--debug-layer)
+10. [Common Patterns](#common-patterns)
+11. [Troubleshooting](#troubleshooting)
+12. [Best Practices](#best-practices)
+13. [API Reference](#api-reference)
 
 ---
 
@@ -5110,6 +5111,357 @@ open temp/webpack-bundle-analyzer/index.html
 - Duplicate dependencies
 
 There is no single reliable size target for every SPFx solution. Compare your app before and after import changes and focus on the largest real chunks in the analyzer output.
+
+---
+
+## SPDebug — Debug Layer
+
+`SPDebug` is a hidden, opt-in debug runtime and lazy-loaded panel for SPFx
+apps. It captures logs, snapshots, tables, metrics, timers, and workflow
+traces, and produces a Markdown support export. Disabled by default; safe to
+leave wired in production.
+
+The full specification lives in [`docs/SPDebug-Requirements.md`](./docs/SPDebug-Requirements.md).
+
+### Why SPDebug exists
+
+- **Developer support traces** — when a user reports an issue, ask them to
+  enable debug mode, reproduce, and email a Markdown export.
+- **Zero-cost when disabled** — capture methods early-return before walking
+  payloads. You can leave `SPDebug.*` calls in production code.
+- **No coupling** — toolkit components don't import the debug runtime; they
+  feed it through the existing `SPContext.logger` sink.
+- **Cross-file workflow tracing** — `correlationId` ties together a flow that
+  starts in a click handler, continues through services, and resumes through
+  correlation grouping after a page refresh.
+
+### Basic provider setup
+
+Mount `SPDebugProvider` once at the app root. Pass the primary logger and the
+sites API so the bridge attaches automatically. The panel is lazy-loaded — it
+is NOT rendered until the user opens it.
+
+```tsx
+import { SPContext } from 'spfx-toolkit/lib/utilities/context';
+import { SPDebugProvider } from 'spfx-toolkit/lib/components/debug';
+
+export default function AppRoot() {
+  return (
+    <SPDebugProvider
+      logger={SPContext.logger}
+      sites={SPContext.sites}
+      environment={SPContext.environment}
+    >
+      <App />
+    </SPDebugProvider>
+  );
+}
+```
+
+### Recommended production-safe setup
+
+Defaults already lock down production. The example below shows the explicit
+form so app authors can opt in for production support.
+
+```tsx
+<SPDebugProvider
+  logger={SPContext.logger}
+  sites={SPContext.sites}
+  environment={SPContext.environment}
+  // Production gating — both default to false. Flip these only after the app
+  // team has decided how production debug is governed (auth/feature flag/etc).
+  allowInProduction={false}
+  allowProgrammaticInProduction={false}
+  // Hard kill: overrides every other activation method including shortcuts.
+  // Wire this to a feature flag or a "debug user" check.
+  enabled={isDebugAdmin ? undefined : false}
+  panel={{ defaultDock: 'right', allowDockSwitch: true }}
+  persistence={{ mode: 'session', maxAgeMinutes: 60 }}
+  export={{ requireReview: 'production' }} // review modal in prod
+>
+  <App />
+</SPDebugProvider>
+```
+
+### Activation methods
+
+Highest precedence wins:
+
+1. `enabled={false}` provider prop — hard kill switch, blocks everything.
+2. `enabled={true}` provider prop — force on.
+3. Programmatic `SPDebug.enable()` / `SPDebug.disable()`.
+4. Query string: `?isDebug=true`, `?isDebug=1`, `?debug=true`, `?debug=1`.
+5. Session storage flag (sticky within the tab).
+6. Default off.
+
+In production with `allowInProduction === false`, the URL/session/shortcut
+paths are silently ignored. Programmatic activation is also blocked unless the
+provider opts in.
+
+### Capture vs panel visibility
+
+Two independent states:
+
+| State | Meaning |
+|---|---|
+| `captureEnabled` | Runtime is collecting entries. |
+| `panelVisible` | Debug UI is rendered. |
+
+Closing the panel does NOT stop capture. A support session can run with the
+panel hidden — open it only to export. Default keyboard shortcuts:
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Alt+D` | Toggle panel visibility. |
+| `Ctrl+Alt+Shift+D` | Toggle capture. |
+
+Disable shortcuts via `<SPDebugProvider activation={{ shortcuts: false }}>`
+when the host app already binds those keys.
+
+### Logger bridge
+
+When you pass `logger={SPContext.logger}` to the provider, every
+`SPContext.logger.info/warn/error/...` call lands in the SPDebug console
+automatically — no toolkit-component changes required. Atomic replay
+(`{ replay: true }`) means existing buffered entries arrive before any new
+ones, so no deduplication is needed.
+
+```ts
+// In app code — exactly the same call you already use:
+SPContext.logger.info('Form saved', { listId, fieldCount });
+
+// SPDebug picks this up via the sink. No SPDebug imports needed.
+```
+
+For multi-site apps, `sites={SPContext.sites}` auto-attaches every connected
+site's logger and detaches on disconnect. Site entries carry
+`source = 'Site/<alias>'` and `meta = { siteAlias, siteUrl }`.
+
+### Rich runtime — log/event/json/table/metric/timer/trace
+
+```ts
+import { SPDebug } from 'spfx-toolkit/lib/utilities/debug';
+
+// Plain log (source defaults to "App")
+SPDebug.log('Save button clicked');
+
+// Source-first methods
+SPDebug.info('App/SaveButton', 'clicked', { itemId: 123 });
+SPDebug.warn('App/Form', 'Validation slow', { ms: 1200 });
+SPDebug.error('Service/Claims', new Error('upstream 500'), { requestId });
+SPDebug.event('User/Action', 'submit', { trigger: 'keyboard' });
+
+// Snapshot row (latest-wins by key, rendered in the console stream)
+SPDebug.set('App/CurrentItem', currentItem);
+
+// JSON console entry (Console tab, expandable JSON tree)
+SPDebug.json('Form values', formValues, { source: 'App/EditForm' });
+
+// Table row (latest rows by key, rendered in the console stream)
+SPDebug.table('Search results', rows, {
+  source: 'Service/Search',
+  columns: [
+    { key: 'name', label: 'Name' },
+    { key: 'size', label: 'Size', format: 'fileSize' },
+    { key: 'modified', label: 'Modified', format: 'dateTime' },
+  ],
+});
+
+// Metric (Overview tab, compact stats)
+SPDebug.metric('selectedCount', selected.length, { source: 'App/Documents' });
+
+// Timer — emits one entry on .end(); idempotent
+const timer = SPDebug.timer('Load account', { source: 'Service/Accounts' });
+const data = await accountsService.load(id);
+timer.end({ status: 'success' });
+
+// Workflow trace — handle.step / .warn / .fail / .end
+const trace = SPDebug.startTrace('Save claim', {
+  source: 'App/Save',
+  correlationId: claimId, // primitive (string|number) only
+});
+trace.step('Validation passed');
+try {
+  await saveService.save(claim);
+  trace.step('Saved');
+  trace.end();
+} catch (err) {
+  trace.fail(err); // records error step + ends as 'error'
+}
+
+// Step a trace from a non-React service using only correlationId — no need to
+// pass the traceId around.
+SPDebug.stepByCorrelation('Save claim', claimId, 'Audit log written');
+```
+
+#### Source-scoped facade
+
+`SPDebug.scope(source)` returns a thin wrapper with the source bound on every
+method, including `info/warn/error/event/log/json/set/table/metric/timer/startTrace`.
+
+```ts
+const dbg = SPDebug.scope('App/SaveButton');
+
+dbg.info('Clicked', { itemId });
+dbg.json('Payload', payload);
+const t = dbg.timer('Save round-trip');
+await save();
+t.end();
+```
+
+### Hooks
+
+```tsx
+import {
+  useSPDebugEnabled,
+  useSPDebugValue,
+  useSPDebugTable,
+  useSPDebugTimer,
+  useSPDebugTrace,
+  useSPDebugSession,
+} from 'spfx-toolkit/lib/components/debug';
+
+function ClaimEditor({ claim }: Props) {
+  // Publish keyed snapshot when the claim id changes.
+  useSPDebugValue('Editor/CurrentClaim', claim, [claim.id]);
+
+  // Drive a timer from a loading flag.
+  const [loading, setLoading] = React.useState(false);
+  useSPDebugTimer('Editor/Load', loading);
+
+  // Trace bound to the component lifecycle.
+  const trace = useSPDebugTrace('Save claim', claim.id);
+
+  const onSubmit = async () => {
+    trace.step('Validation passed');
+    try {
+      await save(claim, { debugTraceId: trace.traceId });
+      trace.step('Saved');
+    } catch (err) {
+      trace.fail(err);
+    }
+  };
+
+  return /* ... */;
+}
+```
+
+**Closure-pinning footgun**: an effect closure captures whatever value you
+pass it, even when capture is off. Pass existing references — not synthetic
+objects you build in the render body — so the closure doesn't pin a fresh
+allocation:
+
+```tsx
+// ❌ creates a new object every render and pins it in the effect closure
+useSPDebugValue('snapshot', { items, selected }, [items, selected]);
+
+// ✅ pass existing references, one snapshot per concept
+useSPDebugValue('items', items, [items]);
+useSPDebugValue('selected', selected, [selected]);
+```
+
+### Production support session flow
+
+1. Support asks the user to enable debug mode (URL flag, in-app feature flag,
+   or a hidden admin switch — your call based on `allowInProduction`).
+2. User opens the panel (`Ctrl+Alt+D` or click the launcher pill).
+3. User clicks **Start session** and types a label like "tried to save twice".
+4. User reproduces the issue.
+5. User clicks **Stop session** and adds a note.
+6. User clicks **Export**. The review modal shows a Markdown preview before
+   letting the user copy or download.
+7. User emails the `.md` file to developers.
+
+Capture and Session are independent: starting a session bookmarks a window
+inside the rolling capture buffer. Pre-session entries appear in the export's
+`Pre-session context` block (for now, the timeline already includes them; a
+future polish can split them visually).
+
+### Export & review
+
+Two surfaces:
+
+- `SPDebug.export.markdown()` returns a string (consumed by the panel review
+  modal and by anything that wants to render the export inline).
+- `SPDebug.export.json()` returns a structured `ExportedSession` — useful for
+  uploading to a back-end ticket system if your app does that.
+
+Markdown sections (in order):
+
+1. Summary (timestamps, label, note, active-at-export marker)
+2. Eviction Summary
+3. Persistence Warnings (when present)
+4. Console rows (full, chronological)
+5. Entries grouped by source
+6. Snapshots (key → JSON)
+7. Tables (key → row count + meta)
+8. Workflows (traces grouped by `(name, correlationId)`)
+
+The panel itself is intentionally one main console stream. Logs, events,
+timers, JSON payloads, snapshots, tables, metrics, and workflow traces appear
+in one chronological list with different row templates. Use search and filters
+to narrow the stream instead of switching tabs.
+
+Review-before-export is governed by `export={{ requireReview: 'always' |
+'production' | 'never' }}` (default `'production'`). In production, users see
+a warning + preview before the copy/download buttons.
+
+### Privacy note
+
+SPDebug is a developer console. By default it captures the data your app sends
+to it, subject only to size limits and truncation. Do not log secrets or user
+data that should not be visible to developers. If a specific application needs
+extra sanitization for support workflows, use that application's own logging
+policy before values are sent to `SPDebug`.
+
+### Multi-site logging behavior
+
+When `sites={SPContext.sites}` is wired, every connected site's logger
+streams into SPDebug:
+
+- New site → bridge auto-attaches.
+- Site removed → bridge detaches that site's sink.
+- Each entry from a site logger is tagged with `source = 'Site/<alias>'` and
+  `meta = { siteAlias, siteUrl }`.
+
+Workflow, table, and snapshot rows do not have separate site sections;
+the source filter on the toolbar lets you narrow to a specific site.
+
+### Disabled-cost guarantee
+
+When `captureEnabled === false`:
+
+- All capture methods (`log`/`info`/`warn`/`error`/`event`/`set`/`json`/
+  `table`/`metric`/`timer`/`startTrace`/`step`/`endTrace`) early-return
+  before invoking `prepareForCapture`. No payloads are walked.
+- All hooks subscribe only to the `captureEnabled` flag (one boolean). They
+  re-render only when the flag flips, never when entries arrive.
+- The trace handle returned by `startTrace` is a no-op stub.
+
+This means you can leave `SPDebug.json('App/State', state)` calls in
+production code without measurable overhead.
+
+### Bundle and isolation
+
+- The runtime is at `spfx-toolkit/lib/utilities/debug` — small, no DevExtreme.
+- The panel module is internal and intentionally NOT a public package export.
+  Do not import it directly. It is loaded via dynamic `import()` from the
+  provider only when the panel becomes visible.
+- Toolkit components (`SPDynamicForm`, `VersionHistory`, `DocumentLink`,
+  `BatchBuilder`, etc.) do not import the debug runtime. They feed SPDebug
+  through `SPContext.logger`. The repo includes a regression test that fails
+  CI if a future change adds a forbidden import.
+
+### Common gotchas
+
+- **Forgot to wire `logger` and `sites` props** → toolkit logger entries don't
+  appear in the panel. Pass them on the provider.
+- **`enabled={false}` is intentional** — if you want to allow URL activation
+  again, pass `enabled={undefined}` (the default).
+- **CorrelationId must be primitive** — passing an object throws in dev and
+  warn-and-ignores in prod. Use the primitive id (`itemId`, `documentId`).
+- **Refresh ends running traces** — they become `abandoned` per spec. Use the
+  same `(name, correlationId)` after reload to start a fresh related trace.
 
 ---
 

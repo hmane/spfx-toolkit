@@ -1,7 +1,15 @@
 import { spfi, SPFI, SPFx } from '@pnp/sp';
 import { CacheModule } from '../modules/cache';
 import { SimpleLogger } from '../modules/logger';
-import type { ISiteContext, ISiteConfig, ContextConfig, SPFxContextInput, CacheStrategy } from '../types';
+import type {
+  CacheStrategy,
+  ContextConfig,
+  ISiteConfig,
+  ISiteContext,
+  SPFxContextInput,
+  SiteLifecycleEvent,
+  SiteLifecycleListener,
+} from '../types';
 import '@pnp/sp/webs';
 
 /**
@@ -14,6 +22,9 @@ export class MultiSiteContextManager {
 
   // Map of aliases to normalized URLs
   private aliases: Map<string, string> = new Map();
+
+  // Lifecycle listeners (added/removed events)
+  private lifecycleListeners: Set<SiteLifecycleListener> = new Set();
 
   // Primary SPFx context (for authentication)
   private primaryContext: SPFxContextInput;
@@ -147,6 +158,15 @@ export class MultiSiteContextManager {
         alias: config?.alias,
         cacheStrategy: cacheConfig.strategy,
       });
+
+      // 12. Notify lifecycle listeners (e.g. SPDebug auto-attach)
+      this.notifySiteChange({
+        type: 'added',
+        alias: siteContext.alias,
+        siteUrl: siteContext.siteUrl,
+        logger: siteContext.logger,
+        context: siteContext,
+      });
     } catch (error: any) {
       this.logger.error(`Failed to connect to site: ${normalized}`, error);
       throw error;
@@ -189,6 +209,43 @@ export class MultiSiteContextManager {
     }
 
     this.logger.info(`Disconnected from site: ${url}`, { alias: context.alias });
+
+    this.notifySiteChange({
+      type: 'removed',
+      alias: context.alias,
+      siteUrl: context.siteUrl,
+      logger: context.logger,
+      context,
+    });
+  }
+
+  /**
+   * Subscribe to site add/remove lifecycle events.
+   *
+   * See `docs/SPDebug-Requirements.md` "Multi-Site Logger Integration".
+   */
+  onSiteChange(listener: SiteLifecycleListener): () => void {
+    this.lifecycleListeners.add(listener);
+    return () => {
+      this.lifecycleListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Emit a lifecycle event to subscribed listeners.
+   *
+   * Errors raised by listeners are isolated and logged; one bad listener does not
+   * affect site management or other listeners.
+   */
+  notifySiteChange(event: SiteLifecycleEvent): void {
+    if (this.lifecycleListeners.size === 0) return;
+    this.lifecycleListeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (err) {
+        this.logger.warn('Site lifecycle listener threw; ignoring', { error: err });
+      }
+    });
   }
 
   /**
@@ -261,6 +318,19 @@ export class MultiSiteContextManager {
    * Clean up all site connections
    */
   cleanup(): void {
+    // Emit `removed` for each connected site before clearing internal state so
+    // subscribers (e.g. SPDebug) can detach site loggers cleanly.
+    if (this.lifecycleListeners.size > 0 && this.siteContexts.size > 0) {
+      this.siteContexts.forEach(context => {
+        this.notifySiteChange({
+          type: 'removed',
+          alias: context.alias,
+          siteUrl: context.siteUrl,
+          logger: context.logger,
+          context,
+        });
+      });
+    }
     this.siteContexts.clear();
     this.aliases.clear();
   }

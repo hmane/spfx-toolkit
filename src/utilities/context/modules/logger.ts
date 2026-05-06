@@ -4,7 +4,7 @@
  */
 
 import { LogLevel } from '@pnp/logging';
-import type { EnvironmentName, Logger } from '../types';
+import type { EnvironmentName, LogSink, LogSinkOptions, Logger } from '../types';
 
 interface LogEntry {
   level: LogLevel;
@@ -25,18 +25,79 @@ interface LoggerConfig {
 }
 
 /**
+ * Detect whether the current URL requests debug mode.
+ *
+ * Matches `?isDebug=true|1` or `?debug=true|1` (case-insensitive). Returns false
+ * outside browser contexts. Does not import or depend on SPDebug.
+ *
+ * See `docs/SPDebug-Requirements.md` "Logger Integration" / "Bootstrap Buffer".
+ */
+function isDebugBufferActiveFromUrl(): boolean {
+  if (typeof window === 'undefined' || !window.location) {
+    return false;
+  }
+  return /[?&](isDebug|debug)=(1|true)\b/i.test(window.location.search || '');
+}
+
+/**
  * Simple, high-performance logger
  */
 export class SimpleLogger implements Logger {
   private readonly config: LoggerConfig;
   private readonly timers = new Map<string, number>();
+  private readonly sinks = new Set<LogSink>();
   private entries: LogEntry[] = [];
 
   constructor(config: LoggerConfig) {
+    // When the URL has a recognized debug flag, raise the default ring buffer so
+    // boot-time entries survive until SPDebug attaches. Explicit caller config wins.
+    const defaultMaxEntries = isDebugBufferActiveFromUrl() ? 1000 : 100;
     this.config = {
-      maxEntries: 100, // Keep memory usage low
+      maxEntries: defaultMaxEntries,
       ...config,
     };
+  }
+
+  /**
+   * Subscribe to log entries.
+   *
+   * Atomic replay: when `options.replay === true`, all currently buffered entries are
+   * delivered to the sink synchronously inside this call BEFORE the sink is registered
+   * to receive new entries. In `SimpleLogger`'s synchronous logging flow this guarantees
+   * no duplicates and no missed entries on the same sink.
+   *
+   * Sink errors are caught and isolated so logging cannot break the host app.
+   *
+   * @returns Unsubscribe function.
+   */
+  addSink(sink: LogSink, options?: LogSinkOptions): () => void {
+    if (options?.replay) {
+      // Snapshot existing entries and deliver before subscribing to new entries.
+      // Because `log()` is synchronous and Set additions happen after this loop,
+      // no new entry can be delivered to this sink until replay is complete.
+      const snapshot = this.entries.slice();
+      for (const entry of snapshot) {
+        this.deliverToSink(sink, entry);
+      }
+    }
+
+    this.sinks.add(sink);
+
+    return () => {
+      this.sinks.delete(sink);
+    };
+  }
+
+  private deliverToSink(sink: LogSink, entry: LogEntry): void {
+    try {
+      sink(entry);
+    } catch (err) {
+      // Sink errors must never break logging or other sinks.
+      if (this.config.enableConsole) {
+        // eslint-disable-next-line no-console
+        console.warn('[SimpleLogger] sink threw; ignoring', err);
+      }
+    }
   }
 
   /**
@@ -123,6 +184,11 @@ export class SimpleLogger implements Logger {
     this.entries.push(entry);
     if (this.entries.length > this.config.maxEntries!) {
       this.entries = this.entries.slice(-this.config.maxEntries!);
+    }
+
+    // Fan out to subscribed sinks (errors isolated per-sink)
+    if (this.sinks.size > 0) {
+      this.sinks.forEach(sink => this.deliverToSink(sink, entry));
     }
 
     // Console output

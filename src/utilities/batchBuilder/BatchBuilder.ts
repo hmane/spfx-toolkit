@@ -128,12 +128,24 @@ export class BatchBuilder {
     const batches = splitIntoBatches(this.operations, this.config.batchSize || 100);
     const timer = SPContext.logger.startTimer('BatchBuilder.execute');
 
+    // Phase 5 audit: operation count by type lets support traces show which
+    // mutations a batch contains without logging payloads. Counts only.
+    const operationsByType: Record<string, number> = {};
+    for (const op of this.operations) {
+      operationsByType[op.operationType] =
+        (operationsByType[op.operationType] || 0) + 1;
+    }
+    const distinctLists = new Set<string>();
+    for (const op of this.operations) distinctLists.add(op.listName);
+
     SPContext.logger.info('BatchBuilder: Starting execution', {
       totalOperations: this.operations.length,
       batchCount: batches.length,
       batchSize: this.config.batchSize || 100,
       concurrency: this.config.enableConcurrency || false,
       cancellable: !!signal,
+      operationsByType,
+      distinctListCount: distinctLists.size,
     });
 
     const allResults: IOperationResult[] = [];

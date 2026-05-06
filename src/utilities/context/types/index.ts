@@ -145,6 +145,29 @@ export interface Logger {
   // Log management
   getEntries?(): LogEntry[];
   clear?(): void;
+
+  /**
+   * Subscribe to log entries.
+   *
+   * When `options.replay` is true, the logger atomically delivers all currently buffered
+   * entries to the sink before any new entries arrive on the same sink. The bridge does
+   * not need to deduplicate.
+   *
+   * Returns an unsubscribe function. Sink errors are isolated and never break logging.
+   *
+   * See `docs/SPDebug-Requirements.md` "Logger Integration" for the contract.
+   */
+  addSink?(sink: LogSink, options?: LogSinkOptions): () => void;
+}
+
+export type LogSink = (entry: LogEntry) => void;
+
+export interface LogSinkOptions {
+  /**
+   * When true, the logger delivers all currently buffered entries to the sink before
+   * any new entries are delivered to that same sink. No deduplication is required.
+   */
+  replay?: boolean;
 }
 
 export interface LogEntry {
@@ -275,4 +298,11 @@ export interface AuthProvider {
 }
 
 // Multi-site types - re-export from multi-site.types.ts
-export type { ISiteContext, ISiteConfig, IMultiSiteAPI } from './multi-site.types';
+export type {
+  ISiteContext,
+  ISiteConfig,
+  IMultiSiteAPI,
+  SiteLifecycleEvent,
+  SiteLifecycleEventType,
+  SiteLifecycleListener,
+} from './multi-site.types';

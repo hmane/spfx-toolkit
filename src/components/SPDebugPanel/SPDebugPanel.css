@@ -1,0 +1,420 @@
+/* SPDebug panel styles. Keep neutral — the panel is a developer tool, not
+ * marketing surface. No cards inside cards. */
+
+.spdebug-panel-shell {
+  position: fixed;
+  z-index: 1000000;
+  background: #ffffff;
+  color: #323130;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  border-left: 1px solid #edebe9;
+  border-top: 1px solid #edebe9;
+  overflow: hidden;
+}
+
+.spdebug-panel-shell.spdebug-dock-right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.spdebug-panel-shell.spdebug-dock-bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.spdebug-panel-shell.spdebug-maximized {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border: none;
+}
+
+.spdebug-header {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid #edebe9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #faf9f8;
+}
+
+.spdebug-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spdebug-header-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.spdebug-toolbar {
+  flex: 0 0 auto;
+  padding: 8px;
+  border-bottom: 1px solid #edebe9;
+  background: #ffffff;
+}
+
+.spdebug-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.spdebug-filter-row {
+  padding-top: 8px;
+}
+
+.spdebug-panel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.spdebug-panel-content .ms-Pivot {
+  flex: 0 0 auto;
+}
+
+.spdebug-panel-content .ms-Pivot + div {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.spdebug-tab-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.spdebug-data-pane,
+.spdebug-settings-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.spdebug-data-section,
+.spdebug-settings-section {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid #edebe9;
+}
+
+.spdebug-data-section:last-child,
+.spdebug-settings-section:last-child {
+  border-right: none;
+}
+
+.spdebug-section-heading {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #edebe9;
+  background: #faf9f8;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spdebug-dock-right:not(.spdebug-maximized) .spdebug-data-pane,
+.spdebug-dock-right:not(.spdebug-maximized) .spdebug-settings-pane {
+  grid-template-columns: 1fr;
+}
+
+.spdebug-dock-right:not(.spdebug-maximized) .spdebug-data-section,
+.spdebug-dock-right:not(.spdebug-maximized) .spdebug-settings-section {
+  border-right: none;
+  border-bottom: 1px solid #edebe9;
+}
+
+.spdebug-panel-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.spdebug-panel-body.spdebug-orient-horizontal {
+  flex-direction: row;
+}
+
+.spdebug-panel-body.spdebug-orient-vertical {
+  flex-direction: column;
+}
+
+.spdebug-panel-list {
+  flex: 1 1 60%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid #edebe9;
+}
+
+.spdebug-panel-detail {
+  flex: 1 1 40%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.spdebug-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.spdebug-list {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.spdebug-console-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.spdebug-console-row {
+  position: relative;
+  border-bottom: 1px solid #edebe9;
+  border-left: 3px solid transparent;
+}
+
+.spdebug-console-error {
+  border-left-color: #a80000;
+}
+
+.spdebug-console-warn {
+  border-left-color: #a4262c;
+}
+
+.spdebug-console-success {
+  border-left-color: #107c10;
+}
+
+.spdebug-console-summary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 8px 40px 8px 10px;
+  text-align: left;
+  font: inherit;
+}
+
+.spdebug-console-summary:hover,
+.spdebug-console-summary:focus-visible {
+  background: #f3f2f1;
+  outline: none;
+}
+
+.spdebug-console-time,
+.spdebug-console-meta,
+.spdebug-console-muted {
+  color: #605e5c;
+  font-size: 12px;
+}
+
+.spdebug-console-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spdebug-console-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.spdebug-console-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spdebug-console-copy {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+}
+
+.spdebug-console-details {
+  padding: 0 12px 10px 36px;
+}
+
+.spdebug-console-table-wrap {
+  padding: 0 12px 10px 36px;
+  overflow: auto;
+}
+
+.spdebug-console-table {
+  border-collapse: collapse;
+  min-width: 420px;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.spdebug-console-table th,
+.spdebug-console-table td {
+  border: 1px solid #edebe9;
+  padding: 4px 6px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spdebug-console-table th {
+  background: #faf9f8;
+  font-weight: 600;
+}
+
+.spdebug-console-steps {
+  margin: 0;
+  padding: 0 12px 10px 36px;
+}
+
+.spdebug-console-steps li {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.spdebug-detail-empty {
+  padding: 24px;
+  color: #605e5c;
+}
+
+.spdebug-resize-handle {
+  background: transparent;
+  cursor: ew-resize;
+}
+.spdebug-resize-vertical {
+  width: 6px;
+  cursor: ew-resize;
+  align-self: stretch;
+}
+.spdebug-resize-horizontal {
+  height: 6px;
+  cursor: ns-resize;
+}
+.spdebug-resize-handle:hover,
+.spdebug-resize-handle:focus-visible {
+  background: rgba(0, 120, 212, 0.2);
+  outline: none;
+}
+
+.spdebug-launcher {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1000000;
+}
+
+/* JSON tree */
+.spdebug-json-viewer {
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.spdebug-json-node {
+  padding-left: 4px;
+}
+.spdebug-json-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+}
+.spdebug-json-row:hover {
+  background: rgba(0, 120, 212, 0.06);
+}
+.spdebug-json-toggle,
+.spdebug-json-toggle-placeholder {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  text-align: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #605e5c;
+  font-size: 12px;
+  line-height: 14px;
+}
+.spdebug-json-key {
+  color: #5c2d91;
+  font-weight: 600;
+}
+.spdebug-json-value {
+  color: #323130;
+}
+.spdebug-json-summary {
+  color: #605e5c;
+}
+.spdebug-json-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  visibility: hidden;
+}
+.spdebug-json-row:hover .spdebug-json-actions,
+.spdebug-json-row:focus-within .spdebug-json-actions {
+  visibility: visible;
+}
+.spdebug-json-children {
+  border-left: 1px solid #edebe9;
+  margin-left: 6px;
+  padding-left: 6px;
+}
+
+.spdebug-toolbar-counts {
+  font-size: 12px;
+  color: #605e5c;
+  margin: 0 4px;
+  white-space: nowrap;
+}
+
+.spdebug-empty {
+  padding: 24px;
+  color: #605e5c;
+  text-align: center;
+}

@@ -136,6 +136,16 @@
       "import": "./lib/utilities/context/index.js",
       "require": "./lib/utilities/context/index.js"
     },
+    "./utilities/debug": {
+      "types": "./lib/utilities/debug/index.d.ts",
+      "import": "./lib/utilities/debug/index.js",
+      "require": "./lib/utilities/debug/index.js"
+    },
+    "./components/debug": {
+      "types": "./lib/components/debug/index.d.ts",
+      "import": "./lib/components/debug/index.js",
+      "require": "./lib/components/debug/index.js"
+    },
     "./utilities/context/pnpImports/*": {
       "types": "./lib/utilities/context/pnpImports/*.d.ts",
       "import": "./lib/utilities/context/pnpImports/*.js",
@@ -253,6 +263,8 @@
     "watch": "gulp watch",
     "validate": "gulp validate",
     "type-check": "tsc --noEmit",
+    "test": "node --test --test-reporter=spec",
+    "test:build": "npm run build && npm run test",
     "version:alpha": "npm version prerelease --preid=alpha --no-git-tag-version",
     "version:beta": "npm version prerelease --preid=beta --no-git-tag-version",
     "version:patch": "npm version patch --no-git-tag-version",

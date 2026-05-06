@@ -79,6 +79,17 @@ export function useDocumentMetadata(
 
   // Fetch document metadata
   const fetchDocument = React.useCallback(async (): Promise<void> => {
+    // Phase 5 audit: structured load lifecycle. We log the LOOKUP MODE — `url`
+    // / `uniqueId` / `id+library` — but never the URL itself; SPDebug's URL
+    // redaction would catch query strings, but we keep logger entries narrow
+    // by default.
+    const lookupMode = documentUrl
+      ? 'url'
+      : documentUniqueId
+      ? 'uniqueId'
+      : documentId && libraryName
+      ? 'idAndLibrary'
+      : 'invalid';
     try {
       if (!isMountedRef.current) return;
 
@@ -92,6 +103,15 @@ export function useDocumentMetadata(
           'INVALID_INPUT'
         );
       }
+
+      const cacheHit =
+        enableCache && cacheKey && documentCache.has(cacheKey) ? true : false;
+      SPContext.logger.info('DocumentLink: metadata load start', {
+        lookupMode,
+        libraryName,
+        cacheEnabled: enableCache,
+        cacheHit,
+      });
 
       // Check cache first
       if (enableCache && cacheKey && documentCache.has(cacheKey)) {
@@ -165,6 +185,17 @@ export function useDocumentMetadata(
         if (isMountedRef.current) {
           setDocument(docInfo);
         }
+        // Phase 5 audit: success log. Includes file type / size / version for
+        // diagnosis but never the URL, filename, or user fields — those can be
+        // PII in shared docs. SPDebug redaction is the second line of defense.
+        SPContext.logger.success('DocumentLink: metadata load success', {
+          lookupMode,
+          libraryName,
+          fileType: docInfo.fileType,
+          sizeBytes: docInfo.size,
+          version: docInfo.version,
+          checkedOut: !!docInfo.checkOutUser,
+        });
       } finally {
         // Clear pending request after completion
         if (cacheKey) {
@@ -183,7 +214,10 @@ export function useDocumentMetadata(
               err
             );
       setError(error);
-      SPContext.logger.error('useDocumentMetadata: Failed to fetch document', error);
+      SPContext.logger.error('useDocumentMetadata: Failed to fetch document', error, {
+        lookupMode,
+        libraryName,
+      });
     } finally {
       if (isMountedRef.current) {
         setLoading(false);

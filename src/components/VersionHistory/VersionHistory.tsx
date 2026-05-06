@@ -508,6 +508,10 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
     if (!isMountedRef.current) return;
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
+    // Phase 5 audit: a "load start" event makes support traces self-contained.
+    // The matching success/failure events already exist below.
+    SPContext.logger.info('VersionHistory: load start', { listId, itemId });
+
     try {
       // Detect item type first so permission probing can validate the real versions endpoint.
       const detectedItemType = await detectItemType();
