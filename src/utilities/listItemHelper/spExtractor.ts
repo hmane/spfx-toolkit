@@ -57,7 +57,11 @@ export function createSPExtractor(item: any) {
         // Extract first user from array and map to IPrincipal
         const firstUser = userObj[0];
         const mapped: IPrincipal = {
-          id: (firstUser.ID || firstUser.id || '').toString(),
+          // SharePoint REST returns `Id` (PascalCase) — must come first.
+          // `ID` and `id` are accepted as fallbacks for legacy / form-shaped
+          // payloads. Without `Id` here, expanded user payloads from PnP v3
+          // produce `id: ''` and the principal is dropped entirely.
+          id: (firstUser.Id || firstUser.ID || firstUser.id || '').toString(),
           email: firstUser.EMail || firstUser.email || undefined,
           title: firstUser.Title || firstUser.title || firstUser.text || undefined,
           value: firstUser.Name || firstUser.loginName || undefined,
@@ -72,7 +76,7 @@ export function createSPExtractor(item: any) {
 
       // Normal user object (non-array)
       const mapped: IPrincipal = {
-        id: (userObj.ID || userObj.id || '').toString(),
+        id: (userObj.Id || userObj.ID || userObj.id || '').toString(),
         email: userObj.EMail || userObj.email || undefined,
         title: userObj.Title || userObj.title || userObj.text || undefined,
         value: userObj.Name || userObj.loginName || undefined,
@@ -98,7 +102,8 @@ export function createSPExtractor(item: any) {
 
       return users
         .map(userObj => ({
-          id: (userObj.ID || userObj.id || '').toString(),
+          // PascalCase first — see note in `user()` above.
+          id: (userObj.Id || userObj.ID || userObj.id || '').toString(),
           email: userObj.EMail || userObj.email || undefined,
           title: userObj.Title || userObj.title || userObj.text || undefined,
           value: userObj.Name || userObj.loginName || undefined,
@@ -116,7 +121,9 @@ export function createSPExtractor(item: any) {
       const lookupObj = item[fieldName];
       if (!lookupObj || typeof lookupObj !== 'object') return undefined;
 
-      const id = lookupObj.ID || lookupObj.id;
+      // PascalCase `Id` is the canonical SP REST shape. `ID` and `id` are
+      // legacy / form-shaped fallbacks. See note in `user()` above.
+      const id = lookupObj.Id ?? lookupObj.ID ?? lookupObj.id;
       // Return undefined if no valid ID (required for a valid lookup)
       if (id === undefined || id === null) return undefined;
 
@@ -144,7 +151,8 @@ export function createSPExtractor(item: any) {
 
       return lookups
         .map(lookupObj => ({
-          id: lookupObj.ID || lookupObj.id || undefined,
+          // PascalCase first — see note in `user()` above.
+          id: lookupObj.Id ?? lookupObj.ID ?? lookupObj.id ?? undefined,
           title: lookupObj.Title || lookupObj.title || undefined,
         }))
         .filter(lookup => lookup.id !== undefined);
