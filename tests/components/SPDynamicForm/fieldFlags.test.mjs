@@ -53,6 +53,26 @@ describe('Audit Finding 2+4 — fetch-time vs render-time filtering split', () =
     );
   });
 
+  test('filterToEditableSchema drops SP taxonomy join + deprecated system fields', () => {
+    // Regression: SPO returns `TaxCatchAll` / `TaxCatchAllLabel` in `/fields`
+    // for any list with a taxonomy column, but `TaxCatchAllLabel` was
+    // deprecated on items and `$select`ing it returns 400 "property does
+    // not exist". Same for the deprecated `MetaInfo` field. These must be
+    // dropped at fetch time, before they reach the query builder.
+    const fields = [
+      makeField({ internalName: 'Title' }),
+      makeField({ internalName: 'TaxCatchAll' }),
+      makeField({ internalName: 'TaxCatchAllLabel' }),
+      makeField({ internalName: 'MetaInfo' }),
+      makeField({ internalName: 'Tags' }), // a real taxonomy field — keep
+    ];
+    const out = filterToEditableSchema(fields);
+    assert.deepEqual(
+      out.map((f) => f.internalName),
+      ['Title', 'Tags']
+    );
+  });
+
   test('filterToEditableSchema drops consumer-excluded fields', () => {
     const fields = [
       makeField({ internalName: 'A' }),

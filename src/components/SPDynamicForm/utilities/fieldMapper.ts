@@ -237,6 +237,16 @@ const SYSTEM_FIELDS: ReadonlyArray<string> = [
   '_ComplianceTag',
   '_ComplianceTagWrittenTime',
   '_ComplianceTagUserId',
+  // SharePoint's hidden taxonomy join fields. SP exposes these in `/fields`
+  // for any list with at least one taxonomy column, but they are NOT user-
+  // editable and `TaxCatchAllLabel` was deprecated on items in modern SPO
+  // (a `$select` referencing it returns 400 "property does not exist").
+  // Always exclude — overrides cannot un-hide these.
+  'TaxCatchAll',
+  'TaxCatchAllLabel',
+  // Deprecated SPO system field. Still appears in `/fields` on some lists
+  // but rejected by `$select` on items.
+  'MetaInfo',
 ];
 
 /**
