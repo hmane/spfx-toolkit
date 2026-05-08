@@ -98,11 +98,92 @@ export const MyViewForm: React.FC<{ itemId: number }> = ({ itemId }) => {
       listId="Tasks"
       mode="view"
       itemId={itemId}
-      onSubmit={() => {}} // Required but not used in view mode
+      // `onSubmit` is optional — view mode never submits. Pass it only if a
+      // custom button renderer needs a click handler for view mode.
     />
   );
 };
 ```
+
+### Auto-Save (Opt-In Built-In Writer)
+
+Skip the boilerplate `onSubmit` handler — set `autoSave` and the form persists changes for you. The built-in writer dispatches the right SP write API per field types in the change set, surfaces server-side validation errors as inline RHF errors, and uses `BatchBuilder` for multi-item saves.
+
+```typescript
+import {
+  SPDynamicForm,
+  type IAutoSaveResult,
+} from 'spfx-toolkit/components/SPDynamicForm';
+
+// Edit
+<SPDynamicForm
+  listId="Tasks"
+  mode="edit"
+  itemId={42}
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'updated' && result.ok) {
+      navigate(`/tasks/${result.itemId}`);
+    }
+  }}
+/>
+
+// New — onAfterSave receives the new item id
+<SPDynamicForm
+  listId="Tasks"
+  mode="new"
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'created') {
+      navigate(`/tasks/${result.itemId}`);
+    }
+  }}
+/>
+
+// Multi-item — runs through BatchBuilder, dirty fields only
+<SPDynamicForm
+  listId="Tasks"
+  mode="edit"
+  multiItem={{ itemIds: selectedIds }}
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'multi') {
+      const failed = result.itemResults.filter((r) => !r.success);
+      if (failed.length > 0) {
+        notify(`${failed.length} items failed to update.`);
+      } else {
+        notify(`Updated ${result.itemResults.length} items.`);
+      }
+    }
+  }}
+/>
+```
+
+**Method dispatch** — `autoSave` can be `true` (defaults to `'auto'`) or a config:
+
+| `method`       | Behavior                                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'auto'`       | Uses `validateUpdateListItem` when the change set contains `User` / `UserMulti` / `Lookup` / `LookupMulti` / `TaxonomyFieldType` / `TaxonomyFieldTypeMulti` / `MultiChoice`. Otherwise plain `update`. **Default.** |
+| `'update'`     | Always plain `update`. Fastest. No per-field server errors.                                                                                                                                                              |
+| `'validate'`   | Always `validateUpdateListItem`. Per-field server errors are piped to RHF via `setError` and the offending field shows the message inline.                                                                              |
+
+**`IAutoSaveResult`** is a discriminated union — narrow on `result.action`:
+
+```typescript
+type IAutoSaveResult =
+  | { action: 'created'; ok: true;  itemId: number; updates; response? }
+  | { action: 'updated'; ok: true;  itemId: number; updates; response? }
+  | { action: 'updated'; ok: false; itemId: number; fieldErrors: { fieldName; message }[] }
+  | { action: 'multi';   ok: boolean; itemResults: { itemId; success; error? }[] };
+```
+
+`onAfterSave` is invoked only when `ok === true`. The `ok: false` shape is handled internally — the form pipes per-field errors to RHF (`form.setError`) and short-circuits without calling `onAfterSave`.
+
+**What auto-save will NOT do:**
+
+- Won't run in `mode='view'` — throws if you trigger submit programmatically.
+- Won't run when `mode='edit'` and nothing changed (silent short-circuit). New mode still proceeds so you can create an item from CT defaults alone.
+- Won't replace your custom save logic — pass `onSubmit` instead when you need audit trails, transactional flows, backend coordination, etc.
 
 ## 🎨 Advanced Usage
 
@@ -759,11 +840,22 @@ export const CompleteExample: React.FC = () => {
 
 ### Required Props
 
-| Prop       | Type                                 | Description                       |
-| ---------- | ------------------------------------ | --------------------------------- |
-| `listId`   | `string`                             | List GUID or title                |
-| `mode`     | `'new' \| 'edit' \| 'view'`          | Form mode                         |
-| `onSubmit` | `(result: IFormSubmitResult) => void | Promise<void>`                    | Form submission handler |
+| Prop     | Type                          | Description        |
+| -------- | ----------------------------- | ------------------ |
+| `listId` | `string`                      | List GUID or title |
+| `mode`   | `'new' \| 'edit' \| 'view'`   | Form mode          |
+
+You must also configure ONE submit path: pass `onSubmit` for custom save logic, or `autoSave` for the built-in writer. View mode submits nothing, so neither is required there.
+
+### Submit Props
+
+| Prop          | Type                                                       | Description                                                                                                  |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `onSubmit`    | `(result: IFormSubmitResult) => void \| Promise<void>`     | Custom submit handler. Receives the prepared `IFormSubmitResult` (changes, updater, attachments, etc.).      |
+| `autoSave`    | `boolean \| { method?: 'auto' \| 'update' \| 'validate' }` | Opt in to the built-in writer. See [Auto-Save](#auto-save-opt-in-built-in-writer) below.                     |
+| `onAfterSave` | `(result: IAutoSaveResult) => void \| Promise<void>`       | Fires after a successful auto-save. Discriminated by `result.action`: `'created' \| 'updated' \| 'multi'`. |
+
+If both `onSubmit` AND `autoSave` are passed, `onSubmit` wins and a one-line warning is logged. Pass neither and the form throws on submit with a clear error.
 
 ### Item Props
 

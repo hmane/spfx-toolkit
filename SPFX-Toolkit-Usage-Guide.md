@@ -2047,6 +2047,8 @@ const [contentTypeId, setContentTypeId] = React.useState<string>();
 
 Use `fieldOverrides` for labels, descriptions, required state, default values, visibility, read-only state, validation, and full custom rendering. Prefer the `field` selector. It supports exact internal names, regular expressions, and predicates.
 
+> **`hidden` and `readOnly` overrides flip both directions.** A `hidden: false` override now un-hides a field marked hidden in the SP schema, and `readOnly: false` makes an SP-readOnly field editable in that mode. Overrides resolve at render time, after content-type FieldLink rules, so you don't have to fight the schema to surface a field.
+
 ```typescript
 <SPDynamicForm
   listId="Projects"
@@ -2249,11 +2251,124 @@ Use `multiItem` when the same changes should be applied to several selected list
       throw new Error(`${failures.length} items failed to update.`);
     }
   }}
-  onSubmit={() => {
-    // Required by the base props. Multi-item saves use onMultiItemSubmit.
+/>
+```
+
+For multi-item bulk saves with no custom logic, `autoSave` runs the same BatchBuilder path internally — drop `onMultiItemSubmit` and use `onAfterSave` instead. See the [Auto-Save](#auto-save-opt-in-built-in-writer) section for the multi-item example.
+
+#### Auto-Save (Opt-In Built-In Writer)
+
+Set `autoSave` and the form persists changes for you — no `onSubmit` boilerplate required. The form already builds a SharePoint-shaped payload via `spUpdater`; auto-save uses that payload and dispatches the right write API per field types in the change set.
+
+```typescript
+import {
+  SPDynamicForm,
+  type IAutoSaveResult,
+} from 'spfx-toolkit/components/SPDynamicForm';
+
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  itemId={42}
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'updated' && result.ok) {
+      navigate(`/projects/${result.itemId}`);
+    }
   }}
 />
 ```
+
+For new items the form returns the new id so callers can navigate or upload attachments:
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="new"
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'created') {
+      console.log('Created project', result.itemId);
+    }
+  }}
+/>
+```
+
+##### Method dispatch
+
+`autoSave` accepts either `true` (default `'auto'`) or a config:
+
+```typescript
+autoSave={{ method: 'auto' }}      // pick per change set
+autoSave={{ method: 'update' }}    // always plain update — fastest
+autoSave={{ method: 'validate' }}  // always validateUpdateListItem — server-side per-field errors
+```
+
+The `'auto'` policy upgrades to `validateUpdateListItem` whenever the change set contains a `User`, `UserMulti`, `Lookup`, `LookupMulti`, `TaxonomyFieldType`, `TaxonomyFieldTypeMulti`, or `MultiChoice` field. Server returns one entry per field with `HasException` and `ErrorMessage` — auto-save pipes those into RHF via `setError`, so the user sees inline messages on the offending fields.
+
+##### Server-side validation errors
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  itemId={42}
+  autoSave={{ method: 'validate' }}
+  onAfterSave={(result) => {
+    // Fires only when the server accepted every field.
+    // If validation rejected something, errors are shown inline and
+    // onAfterSave is NOT called.
+    notify('Project saved');
+  }}
+/>
+```
+
+##### Multi-item with auto-save
+
+Multi-item saves run through `BatchBuilder` — one batch, one `update` per id, dirty fields only.
+
+```typescript
+<SPDynamicForm
+  listId="Projects"
+  mode="edit"
+  multiItem={{ itemIds: selectedItemIds }}
+  autoSave
+  onAfterSave={(result) => {
+    if (result.action === 'multi') {
+      const failed = result.itemResults.filter((r) => !r.success);
+      if (failed.length > 0) {
+        notify(`${failed.length} items failed to update.`);
+      } else {
+        notify(`Updated ${result.itemResults.length} items.`);
+      }
+    }
+  }}
+/>
+```
+
+##### `IAutoSaveResult` discriminator
+
+The argument to `onAfterSave` is a discriminated union. Use `result.action` to narrow:
+
+```typescript
+type IAutoSaveResult =
+  | { action: 'created'; ok: true;  itemId: number; updates; response? }
+  | { action: 'updated'; ok: true;  itemId: number; updates; response? }
+  | { action: 'updated'; ok: false; itemId: number; fieldErrors: { fieldName; message }[] }
+  | { action: 'multi';   ok: boolean; itemResults: { itemId; success; error? }[] };
+```
+
+`onAfterSave` is invoked only when `ok === true`. The `ok: false` shape is dispatched internally so the form can pipe field errors to RHF before short-circuiting — consumers don't normally see it.
+
+##### Mutex with `onSubmit`
+
+`onSubmit` is now optional. Pass either `onSubmit` or `autoSave` (not both — `onSubmit` wins and a one-line warning is logged). Pass neither and the form throws on submit with a clear error.
+
+##### What auto-save does NOT do
+
+- **Won't run in `mode='view'`** — throws if you trigger submit programmatically.
+- **Won't run when `mode='edit'` and nothing changed** — short-circuits silently. New mode still proceeds (so you can create an item from CT defaults alone).
+- **Won't replace your custom save logic** — pass `onSubmit` instead when you need audit trails, transactional flows, backend coordination, etc.
 
 #### Imperative Form Control
 
