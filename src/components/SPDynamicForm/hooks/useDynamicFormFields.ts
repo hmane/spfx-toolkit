@@ -6,7 +6,7 @@ import {
   resolveFieldOrder,
   filterToSpecifiedFields,
 } from '../utilities/fieldOrderResolver';
-import { filterFieldsByMode, sortFieldsByOrder } from '../utilities/fieldMapper';
+import { filterToEditableSchema, sortFieldsByOrder } from '../utilities/fieldMapper';
 import { resolveSections, flattenSections } from '../utilities/fieldGroupResolver';
 import { optimizeLookupFields } from '../utilities/lookupFieldOptimizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
@@ -233,15 +233,18 @@ export function useDynamicFormFields(
         fields = filterToSpecifiedFields(fields, specifiedFields);
       }
 
-      // NOTE: `applyFieldOverrides` is intentionally NOT called here. Phase 2
-      // moved override resolution to per-render in SPDynamicForm (so function-
-      // form `disabled`/`hidden`/`required`/etc. evaluate against the live
-      // override context — formValues, user, mode, contentTypeId). Calling it
-      // here with an empty fallback context would make function overrides
-      // evaluate prematurely and cache wrong results into the metadata.
-
-      // Filter by mode and excluded fields
-      fields = filterFieldsByMode(fields, mode, excludeFields);
+      // NOTE: `applyFieldOverrides` is intentionally NOT called here.
+      // Override resolution runs per-render in SPDynamicForm so function-form
+      // `disabled`/`hidden`/`required`/etc. evaluate against the live
+      // override context — formValues, user, mode, contentTypeId.
+      //
+      // Audit: we deliberately apply only the absolute schema filter
+      // (system fields + excludeFields) at fetch time. Mode + hidden +
+      // readOnly filtering runs in `SPDynamicForm.tsx` AFTER overrides via
+      // `filterFieldsByModeFlags`, so overrides like `hidden: false` can
+      // un-hide a SP-hidden field and `readOnly: false` can promote a SP
+      // readOnly field to editable.
+      fields = filterToEditableSchema(fields, excludeFields);
 
       // Optimize lookup fields — pass a signal that reflects freshness in real time
       const checkSignal = { get aborted() { return myRequestId !== loadRequestIdRef.current; } };

@@ -30,6 +30,7 @@ import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
 import { addValidateRule, hasValue } from '../validation';
+import { isEmptyFieldValue } from '../hydrationKey';
 import './SPUserField.css';
 import '../spFields.css';
 import { ISPUserFieldProps, SPUserFieldDisplayMode, SPUserFieldValue } from './SPUserField.types';
@@ -64,6 +65,43 @@ import {
  * />
  * ```
  */
+/**
+ * Internal wrapper that bumps a `key` on the underlying PnP `<PeoplePicker>`
+ * when the field value transitions from "empty" → "non-empty" (or vice versa).
+ *
+ * Why: PnP's PeoplePicker consumes `defaultSelectedUsers` only on mount. In
+ * SPDynamicForm's edit/view flow, the picker can mount briefly with an empty
+ * value (during the fields-loaded → data-loading window) and then ignore the
+ * later `reset(itemData)`. Bumping a key forces React to remount the picker
+ * so the new `defaultSelectedUsers` is honored exactly once per transition.
+ *
+ * See `docs/SPDynamicForm` audit notes / `hydrationKey.ts`.
+ */
+const HydratedPeoplePicker: React.FC<{
+  fieldValue: SPUserFieldValue | SPUserFieldValue[];
+  defaultSelectedUsers: string[];
+  pickerProps: Record<string, unknown>;
+}> = ({ fieldValue, defaultSelectedUsers, pickerProps }) => {
+  const [hydrationKey, setHydrationKey] = React.useState(0);
+  const wasEmptyRef = React.useRef<boolean>(isEmptyFieldValue(fieldValue));
+
+  React.useEffect(() => {
+    const nowEmpty = isEmptyFieldValue(fieldValue);
+    if (wasEmptyRef.current !== nowEmpty) {
+      wasEmptyRef.current = nowEmpty;
+      setHydrationKey((k) => k + 1);
+    }
+  }, [fieldValue]);
+
+  return (
+    <PeoplePicker
+      key={'pp-' + hydrationKey}
+      {...(pickerProps as any)}
+      defaultSelectedUsers={defaultSelectedUsers}
+    />
+  );
+};
+
 export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
   const formContext = useFormContext();
@@ -479,37 +517,40 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         >
         {displayMode === SPUserFieldDisplayMode.PeoplePicker ? (
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
-              <PeoplePicker
-                context={SPContext.peoplepickerContext}
-                personSelectionLimit={resolvedAllowMultiple ? maxSelections : 1}
-                groupName={typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined}
-                showtooltip={true}
-                required={required}
-                disabled={disabled || readOnly || loading}
-                onChange={(items: any[]) => {
-                  // Convert PeoplePicker items to IPrincipal format
-                  const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
-                  const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
-
-                  // Update internal state
-                  setInternalValue(finalValue as any);
-
-                  // Call fieldOnChange for React Hook Form
-                  fieldOnChange(finalValue as any);
-
-                  // Call onChange prop if provided
-                  if (onChange) {
-                    onChange(finalValue as any);
-                  }
-                }}
+              <HydratedPeoplePicker
+                fieldValue={fieldValue}
                 defaultSelectedUsers={fieldSelectedUsers}
-                principalTypes={principalTypes}
-                resolveDelay={resolveDelay}
-                ensureUser={true}
-                showHiddenInUI={false}
-                suggestionsLimit={suggestionLimit}
-                placeholder={placeholder}
-                webAbsoluteUrl={webUrl || SPContext.webAbsoluteUrl}
+                pickerProps={{
+                  context: SPContext.peoplepickerContext,
+                  personSelectionLimit: resolvedAllowMultiple ? maxSelections : 1,
+                  groupName: typeof resolvedLimitToGroup === 'string' ? resolvedLimitToGroup : undefined,
+                  showtooltip: true,
+                  required,
+                  disabled: disabled || readOnly || loading,
+                  onChange: (items: any[]) => {
+                    // Convert PeoplePicker items to IPrincipal format
+                    const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
+                    const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
+
+                    // Update internal state
+                    setInternalValue(finalValue as any);
+
+                    // Call fieldOnChange for React Hook Form
+                    fieldOnChange(finalValue as any);
+
+                    // Call onChange prop if provided
+                    if (onChange) {
+                      onChange(finalValue as any);
+                    }
+                  },
+                  principalTypes,
+                  resolveDelay,
+                  ensureUser: true,
+                  showHiddenInUI: false,
+                  suggestionsLimit: suggestionLimit,
+                  placeholder,
+                  webAbsoluteUrl: webUrl || SPContext.webAbsoluteUrl,
+                }}
               />
             </React.Suspense>
         ) : displayMode === SPUserFieldDisplayMode.Compact ? (

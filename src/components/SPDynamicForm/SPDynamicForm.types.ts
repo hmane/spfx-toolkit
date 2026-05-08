@@ -22,8 +22,36 @@ export interface ISPDynamicFormProps<T extends FieldValues = any> {
   /** Form mode */
   mode: 'new' | 'edit' | 'view';
 
-  /** Form submission handler - receives complete form result */
-  onSubmit: (result: IFormSubmitResult<T>) => void | Promise<void>;
+  /**
+   * Form submission handler — receives the complete form result. Required
+   * unless `autoSave` is set. When BOTH are provided, `onSubmit` wins (least
+   * surprise) and a one-line warning is logged.
+   */
+  onSubmit?: (result: IFormSubmitResult<T>) => void | Promise<void>;
+
+  /**
+   * Opt in to the built-in writer. When set, the form persists changes
+   * directly via PnP using `spUpdater`'s typed dispatch:
+   *
+   *   - NEW mode    → `list.items.add(updates)`
+   *   - EDIT mode   → `list.items.getById(id).update()` or
+   *                   `list.items.getById(id).validateUpdateListItem()` based
+   *                   on the dispatch method (see `IAutoSaveConfig.method`).
+   *   - MULTI-ITEM  → BatchBuilder
+   *
+   * `onAfterSave` fires only on a fully-successful save. Per-field server
+   * errors from `validateUpdateListItem` are piped to RHF via `form.setError`
+   * and `onAfterSave` is skipped.
+   *
+   * Pass `true` for defaults (`{ method: 'auto' }`).
+   */
+  autoSave?: boolean | IAutoSaveConfig;
+
+  /**
+   * Called after a successful built-in save. Receives the discriminated
+   * `IAutoSaveResult`. Typical use: navigate, refetch, close a panel.
+   */
+  onAfterSave?: (result: IAutoSaveResult) => void | Promise<void>;
 
   // ===== OPTIONAL - ITEM =====
 
@@ -673,6 +701,75 @@ export interface IFormSubmitResult<T extends FieldValues = any> {
   /** Whether any changes were detected */
   hasChanges: boolean;
 }
+
+// ============================================================================
+// AutoSave (opt-in built-in writer)
+// ============================================================================
+
+/**
+ * Update method dispatch for built-in autosave.
+ *
+ *   - `'auto'`     — Use `validateUpdateListItem` when the change set contains
+ *                    at least one taxonomy / user / multi-user / multi-taxonomy /
+ *                    multi-choice field (server returns per-field errors that
+ *                    map cleanly to RHF). Otherwise plain `update` for speed.
+ *                    Default.
+ *   - `'update'`   — Always plain `update`. Faster; no per-field server errors.
+ *   - `'validate'` — Always `validateUpdateListItem`. Slightly slower; surfaces
+ *                    per-field server errors as RHF validation messages.
+ *
+ * NEW mode always uses `items.add()` — the validate path for new items
+ * (`addValidateUpdateItemUsingPath`) requires extra plumbing not in v1.
+ */
+export type AutoSaveMethod = 'auto' | 'update' | 'validate';
+
+export interface IAutoSaveConfig {
+  method?: AutoSaveMethod;
+}
+
+/**
+ * Result handed to `onAfterSave`. Discriminated by `action`:
+ *
+ *   - `'created'` — single-item NEW save succeeded; `itemId` is the new id.
+ *   - `'updated'` — single-item EDIT save succeeded.
+ *   - `'multi'`   — multi-item batched save; per-item outcomes in `itemResults`.
+ *
+ * `ok` is `true` when no per-field server validation error was raised. When
+ * `ok === false`, `fieldErrors` lists the messages that were also piped to
+ * RHF via `form.setError`. `onAfterSave` is invoked only on `ok === true`.
+ */
+export interface IAutoSaveFieldError {
+  fieldName: string;
+  message: string;
+}
+
+export type IAutoSaveResult =
+  | {
+      action: 'created';
+      ok: true;
+      itemId: number;
+      updates: Record<string, unknown>;
+      response?: unknown;
+    }
+  | {
+      action: 'updated';
+      ok: true;
+      itemId: number;
+      updates: Record<string, unknown>;
+      response?: unknown;
+    }
+  | {
+      action: 'updated';
+      ok: false;
+      itemId: number;
+      fieldErrors: IAutoSaveFieldError[];
+      response?: unknown;
+    }
+  | {
+      action: 'multi';
+      ok: boolean;
+      itemResults: Array<{ itemId: number; success: boolean; error?: string }>;
+    };
 
 /**
  * Props passed to custom button renderer

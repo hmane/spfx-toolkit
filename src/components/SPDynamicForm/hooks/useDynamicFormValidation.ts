@@ -64,10 +64,24 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
   );
 
   /**
-   * Prepares the form submission result
+   * Prepares the form submission result.
+   *
+   * `currentlySubmittableFieldNames`, when supplied, restricts which form
+   * keys are considered for submission. SPDynamicForm passes the union of
+   * `finalFields` (override-resolved + mode-flag filtered) and visibility-
+   * rule-passing fields, so:
+   *
+   *   - fields the user filtered out via override no longer leak stale values
+   *   - fields hidden by a visibility rule (RHF unregistered them on unmount)
+   *     no longer submit a previously-typed value the user can't see anymore
+   *
+   * If omitted, every key in `formData` is considered (legacy callers).
    */
   const prepareSubmitResult = React.useCallback(
-    async (formData: T): Promise<IFormSubmitResult<T> | null> => {
+    async (
+      formData: T,
+      currentlySubmittableFieldNames?: ReadonlyArray<string>
+    ): Promise<IFormSubmitResult<T> | null> => {
       try {
         const timer = SPContext.logger.startTimer('useDynamicFormValidation.prepareSubmitResult');
 
@@ -80,8 +94,19 @@ export function useDynamicFormValidation<T extends FieldValues = any>(
         // fields have the same Id/TermGuid/etc. but different surrounding object shape
         // (server-expanded vs form-extracted).
         const fieldsByName = new Map(fields.map((f) => [f.internalName, f]));
+        const submittable = currentlySubmittableFieldNames
+          ? new Set(currentlySubmittableFieldNames)
+          : null;
 
         Object.keys(formData).forEach((key) => {
+          // Audit: drop keys for fields not currently submittable (filtered
+          // by mode/hidden/readOnly override OR hidden by a visibility rule).
+          // Without this gate, RHF retains previously-typed values when a
+          // controller unmounts and `prepareSubmitResult` would write them.
+          if (submittable && !submittable.has(key)) {
+            return;
+          }
+
           const formValue = (formData as any)[key];
           const originalValue = mode === 'edit' && originalItem ? originalItem[key] : undefined;
           const fieldMeta = fieldsByName.get(key);

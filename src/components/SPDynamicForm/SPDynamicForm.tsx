@@ -18,6 +18,10 @@ import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { PrimaryButton, DefaultButton } from '@fluentui/react/lib/Button';
 import { SPContext } from '../../utilities/context';
 import { applyFieldOverrides, collectWatchedFieldNames } from './utilities/fieldConfigBuilder';
+import { filterFieldsByModeFlags } from './utilities/fieldMapper';
+import { pickSaveMethod, saveItem } from './utilities/autoSave';
+import type { AutoSaveMethod, IAutoSaveResult } from './SPDynamicForm.types';
+import type { IFieldMetadata } from './types/fieldMetadata';
 import { IFieldOverride } from './SPDynamicForm.types';
 import { IOverrideContext } from './utilities/resolveOverrideValue';
 import { fieldMatches, effectiveMatcher } from './utilities/fieldOverrideMatcher';
@@ -90,6 +94,8 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     onResolvedField,
     multiItem,
     onMultiItemSubmit,
+    autoSave,
+    onAfterSave,
   } = props;
 
   // State for attachment operations
@@ -437,6 +443,31 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
   }, [watch, onFieldChange]);
 
   // Validation hook
+  // ---- AutoSave wiring ---------------------------------------------------
+  // Resolve the autoSave config once. Mutex with `onSubmit`: when both are
+  // provided, `onSubmit` wins and we log a one-line warning so the developer
+  // notices their autoSave wasn't actually used.
+  const autoSaveActive = !!autoSave && !onSubmit;
+  const autoSaveMethod: AutoSaveMethod = React.useMemo(() => {
+    if (autoSave && typeof autoSave === 'object' && autoSave.method) {
+      return autoSave.method;
+    }
+    return 'auto';
+  }, [autoSave]);
+  React.useEffect(() => {
+    if (autoSave && onSubmit) {
+      SPContext.logger.warn(
+        'SPDynamicForm: both `autoSave` and `onSubmit` were provided — `onSubmit` wins. Drop one to silence this warning.'
+      );
+    }
+    if (!autoSave && !onSubmit) {
+      SPContext.logger.error(
+        'SPDynamicForm: missing both `autoSave` and `onSubmit` — the form has no submit handler.'
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { prepareSubmitResult } = useDynamicFormValidation({
     mode,
     listId,
@@ -541,6 +572,16 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [enableDirtyCheck, isDirty, isSubmitting, mode]);
 
+  // Live snapshot ref for the things handleFormSubmit reads that are
+  // declared LATER in the component body (`finalFields`, `isFieldVisible`).
+  // The callback closes over the ref, not the values, so we don't need to
+  // list these in its deps array — and we avoid the use-before-decl error
+  // that comes from referencing them in a hook deps list.
+  const submitSnapshotRef = React.useRef<{
+    finalFields: IFieldMetadata[];
+    isFieldVisible: (field: any) => boolean;
+  }>({ finalFields: [], isFieldVisible: () => true });
+
   // Handle form submission
   const handleFormSubmit = React.useCallback(
     async (formData: T) => {
@@ -569,17 +610,52 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
 
         // Multi-item mode: build a bulk submitter from only the dirty fields.
         if (isMultiItem) {
+          // Audit: drop dirty fields that aren't currently submittable (e.g.
+          // a field the user typed into earlier whose visibility rule has
+          // since hidden it). Without this gate, multi-item save would push
+          // values the user can no longer see.
+          const { finalFields: snapFields, isFieldVisible: snapVisible } =
+            submitSnapshotRef.current;
+          const submittable = new Set(
+            snapFields.filter((f) => snapVisible(f)).map((f) => f.internalName)
+          );
           const dirtyValues: Record<string, unknown> = {};
           dirtyFieldNames.forEach((name) => {
+            if (!submittable.has(name)) return;
             dirtyValues[name] = (formData as any)[name];
           });
 
-          const result = buildMultiItemSubmitter(listId, multiItemIds, dirtyValues, fields);
+          const submitResult = buildMultiItemSubmitter(listId, multiItemIds, dirtyValues, fields);
 
           if (onMultiItemSubmit) {
-            await onMultiItemSubmit(result);
+            await onMultiItemSubmit(submitResult);
+          } else if (autoSaveActive) {
+            // Issue 6: skip the API call when there's nothing to write.
+            // BatchBuilder running N empty updates is wasted round-trips.
+            const updateKeys = Object.keys(submitResult.updates || {});
+            if (updateKeys.length === 0) {
+              SPContext.logger.info(
+                'SPDynamicForm: autoSave multi-item — no field changes, skipping save'
+              );
+            } else {
+              // Issue 5: reuse the existing typed-dispatch + BatchBuilder
+              // path that lives on `submitResult.apply()`. Wrap the per-item
+              // outcomes into the discriminated `IAutoSaveResult` shape.
+              const outcomes = await submitResult.apply();
+              const ok = outcomes.every((o) => o.success);
+              const saved: IAutoSaveResult = {
+                action: 'multi',
+                ok,
+                itemResults: outcomes,
+              };
+              if (onAfterSave && saved.ok) {
+                await onAfterSave(saved);
+              }
+            }
           } else {
-            throw new Error('SPDynamicForm: multi-item mode requires onMultiItemSubmit');
+            throw new Error(
+              'SPDynamicForm: multi-item mode requires `onMultiItemSubmit` or `autoSave`'
+            );
           }
           SPContext.logger.success('SPDynamicForm: multi-item submit success', {
             listId,
@@ -597,10 +673,104 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
           return;
         }
 
-        const result = await prepareSubmitResult(formData);
+        // Audit: only submit data for fields that are currently visible in
+        // the form. `finalFields` is already mode/hidden/readOnly filtered;
+        // `isFieldVisible` honors visibility rules. RHF would otherwise
+        // surface stale values for fields whose controllers unmounted.
+        const { finalFields: snapFinalFields, isFieldVisible: snapIsVisible } =
+          submitSnapshotRef.current;
+        const submittableFieldNames = snapFinalFields
+          .filter((f) => snapIsVisible(f))
+          .map((f) => f.internalName);
+        const result = await prepareSubmitResult(formData, submittableFieldNames);
 
         if (result) {
-          await onSubmit(result);
+          if (onSubmit) {
+            await onSubmit(result);
+          } else if (autoSaveActive) {
+            // Issue 3: view mode + autoSave is a programming error. The
+            // save button is normally hidden, but a programmatic submit
+            // (custom button renderer / imperative formApi) could still get
+            // here. Throw rather than silently writing.
+            if (mode === 'view') {
+              throw new Error(
+                'SPDynamicForm: autoSave cannot run in view mode.'
+              );
+            }
+
+            // Issue 6: in edit mode, skip the API call when nothing changed.
+            // For new mode we still proceed — the consumer may want to create
+            // an item with content-type defaults even when no field was
+            // typed into.
+            if (mode === 'edit' && !result.hasChanges) {
+              SPContext.logger.info(
+                'SPDynamicForm: autoSave edit — no changes, skipping save'
+              );
+            } else {
+              // Built-in writer. Auto-pick `update` vs `validateUpdateListItem`
+              // when method='auto', then dispatch. Field-level server errors
+              // (only available on the validate path) are mapped to RHF.
+              const fieldsByName = new Map(fields.map((f) => [f.internalName, f]));
+              const changedFieldNames = Object.keys(result.updates || {}).filter(
+                (k) => k !== 'ContentTypeId'
+              );
+              const method = pickSaveMethod({
+                method: autoSaveMethod,
+                changedFieldNames,
+                fieldsByName,
+              });
+              const saved = await saveItem({
+                sp: SPContext.sp,
+                listId,
+                mode: mode as 'new' | 'edit',
+                itemId,
+                updates: result.updates as Record<string, unknown>,
+                updater: result.updater,
+                method,
+                contentTypeId: resolvedContentTypeId,
+              });
+
+              // Pipe per-field server errors into RHF and skip onAfterSave.
+              if (saved.action === 'updated' && saved.ok === false) {
+                for (const err of saved.fieldErrors) {
+                  form.setError(err.fieldName as any, {
+                    type: 'server',
+                    message: err.message,
+                  });
+                }
+                return; // do NOT call onAfterSave on partial failure
+              }
+
+              // Upload attachments for new items (consumer wants this batched
+              // with the create). Best-effort; failures don't block onAfterSave.
+              if (
+                saved.action === 'created' &&
+                result.attachments &&
+                (filesToAdd.length > 0 || filesToDelete.length > 0)
+              ) {
+                try {
+                  await result.attachments.uploadAll(saved.itemId);
+                } catch (attErr) {
+                  SPContext.logger.warn(
+                    'SPDynamicForm: autoSave succeeded but attachment upload failed',
+                    attErr
+                  );
+                }
+              }
+
+              if (onAfterSave) {
+                await onAfterSave(saved);
+              }
+            }
+          } else {
+            // Issue 2: symmetric with multi-item. Without this, a click on
+            // Save would silently log "submit success" without writing
+            // anything. The mount-time error log fired earlier; this throw
+            // surfaces on the actual submit attempt.
+            throw new Error(
+              'SPDynamicForm: form has no submit handler — pass `onSubmit` or `autoSave`.'
+            );
+          }
           SPContext.logger.success('SPDynamicForm: submit success', {
             listId,
             itemId,
@@ -618,8 +788,36 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
         setIsSubmitting(false);
       }
     },
-    [prepareSubmitResult, onSubmit, onError, runCustomValidation, clearErrors,
-     isMultiItem, dirtyFields, listId, multiItemIds, fields, onMultiItemSubmit]
+    [
+      // Existing deps
+      prepareSubmitResult,
+      onSubmit,
+      onError,
+      runCustomValidation,
+      clearErrors,
+      isMultiItem,
+      dirtyFields,
+      listId,
+      multiItemIds,
+      fields,
+      onMultiItemSubmit,
+      // AutoSave-related deps added in this audit pass. Without these the
+      // memoized handler closes over stale autoSave state and ignores
+      // mode / CT / override changes.
+      autoSaveActive,
+      autoSaveMethod,
+      onAfterSave,
+      mode,
+      itemId,
+      resolvedContentTypeId,
+      // `finalFields` and `isFieldVisible` are read through `submitSnapshotRef`
+      // (see top of this file) so they don't need to be deps. That avoids
+      // both the use-before-declaration TS error and unnecessary callback
+      // invalidation on every override re-evaluation.
+      form,
+      filesToAdd,
+      filesToDelete,
+    ]
   );
 
   // Revert a single field back to its reconciled (shared) value.
@@ -830,8 +1028,15 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
   // rule/override declares dependsOn; otherwise the form is in compat mode and
   // watchedValuesByName is the full snapshot.
   const finalFields = React.useMemo(
-    () => applyFieldOverrides(fields, mergedOverrides, overrideCtx),
-    [fields, mergedOverrides, overrideCtx]
+    () => {
+      // Resolve consumer overrides first so `hidden`/`readOnly` are correct.
+      const resolved = applyFieldOverrides(fields, mergedOverrides, overrideCtx);
+      // Audit: mode/hidden/readOnly filtering moved here from fetch time so
+      // an override of `hidden: false` or `readOnly: false` can un-hide /
+      // un-readOnly a field whose SP schema marks it otherwise.
+      return filterFieldsByModeFlags(resolved, mode);
+    },
+    [fields, mergedOverrides, overrideCtx, mode]
   );
 
   // Emit debug logs / call onResolvedField for each resolved field after override application.
@@ -890,6 +1095,12 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     },
     [fieldVisibilityRules, watchedValuesByName]
   );
+
+  // Keep the live snapshot synced for handleFormSubmit (declared earlier in
+  // the file — see comment near `submitSnapshotRef`). Reading through the
+  // ref keeps the memoized callback stable while still letting it see the
+  // latest override-resolved fields and visibility predicate.
+  submitSnapshotRef.current = { finalFields, isFieldVisible };
 
   // Render attachments
   const renderAttachments = () => {
@@ -1096,7 +1307,10 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
 
           section.fields.forEach((field) => {
             // Resolve the override-applied version of this field from finalFields.
-            const resolvedField = finalFields.find((f) => f.internalName === field.internalName) ?? field;
+            // If the field is no longer in finalFields it was filtered by
+            // override-resolved hidden / readOnly / mode rules — skip it.
+            const resolvedField = finalFields.find((f) => f.internalName === field.internalName);
+            if (!resolvedField) return;
 
             // Custom content before field
             const beforeContent = renderCustomContent(`before:${resolvedField.internalName}`);
@@ -1218,8 +1432,21 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     );
   };
 
-  // Loading state
-  const isLoading = fieldsLoading || dataLoading || (isMultiItem && multiData.loading) || externalLoading;
+  // Loading state.
+  // Audit fix: also block render until `itemData` is hydrated for single-item
+  // edit/view. Without this guard, a tick can slip through where
+  // `dataLoading=false` AND `itemData=null` (the data-load effect runs after
+  // fields finish loading), letting children mount with empty defaults.
+  // PnP pickers — `<PeoplePicker>`, `<ModernTaxonomyPicker>` — consume their
+  // init props (`defaultSelectedUsers`, `initialValues`) only on first mount,
+  // so an empty-mount + later RHF reset leaves the picker visually stuck on
+  // "no selection" even though `field.value` is correct.
+  const isLoading =
+    fieldsLoading ||
+    dataLoading ||
+    (isMultiItem && multiData.loading) ||
+    externalLoading ||
+    (mode !== 'new' && !isMultiItem && itemData === null);
 
   if (isLoading) {
     return (

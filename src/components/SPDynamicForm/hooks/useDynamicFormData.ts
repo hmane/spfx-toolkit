@@ -36,7 +36,13 @@ export function useDynamicFormData<T extends FieldValues = any>(
   const [data, setData] = React.useState<T | null>(null);
   const [originalItem, setOriginalItem] = React.useState<any>(null);
   const [itemContentTypeId, setItemContentTypeId] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  // Audit fix: for edit/view mode, the data load runs only AFTER fields finish
+  // loading (the load effect gates on `fields.length > 0`). Without this default,
+  // there's a one-render gap where `loading=false` and `data=null` simultaneously,
+  // letting children mount with empty defaults — which breaks one-time-only
+  // PnP picker init props (e.g. `defaultSelectedUsers` on `<PeoplePicker>`,
+  // `initialValues` on `<ModernTaxonomyPicker>`).
+  const [loading, setLoading] = React.useState<boolean>(mode !== 'new');
   const [error, setError] = React.useState<Error | null>(null);
 
   // Use refs for callbacks to prevent infinite loops

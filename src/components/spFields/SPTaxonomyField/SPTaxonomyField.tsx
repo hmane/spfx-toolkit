@@ -42,6 +42,7 @@ import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue } from '../validation';
+import { isEmptyFieldValue } from '../hydrationKey';
 import '../spFields.css';
 
 /**
@@ -71,6 +72,40 @@ import '../spFields.css';
  * />
  * ```
  */
+/**
+ * Internal wrapper that bumps a `key` on `<ModernTaxonomyPicker>` when the
+ * field value transitions empty ↔ non-empty.
+ *
+ * Same audit motivation as `HydratedPeoplePicker` in `SPUserField` —
+ * `<ModernTaxonomyPicker>` consumes `initialValues` only on mount, so an
+ * empty-mount during the SPDynamicForm fields-loaded → data-loading window
+ * leaves the picker visually empty even after RHF resets `field.value`.
+ */
+const HydratedTaxonomyPicker: React.FC<{
+  fieldValue: unknown;
+  initialValues: any[];
+  pickerProps: Record<string, unknown>;
+}> = ({ fieldValue, initialValues, pickerProps }) => {
+  const [hydrationKey, setHydrationKey] = React.useState(0);
+  const wasEmptyRef = React.useRef<boolean>(isEmptyFieldValue(fieldValue));
+
+  React.useEffect(() => {
+    const nowEmpty = isEmptyFieldValue(fieldValue);
+    if (wasEmptyRef.current !== nowEmpty) {
+      wasEmptyRef.current = nowEmpty;
+      setHydrationKey((k) => k + 1);
+    }
+  }, [fieldValue]);
+
+  return (
+    <ModernTaxonomyPicker
+      key={'tx-' + hydrationKey}
+      {...(pickerProps as any)}
+      initialValues={initialValues}
+    />
+  );
+};
+
 export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
   const formContext = useFormContext();
@@ -487,20 +522,23 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
           aria-invalid={hasError}
         >
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
-            <ModernTaxonomyPicker
-              context={spfxContext}
-              termSetId={resolvedDataSource.termSetId}
-              anchorTermId={resolvedDataSource.anchorId}
-              label={label || ''}
-              panelTitle={`Select ${label || 'Terms'}`}
-              placeHolder={placeholder}
-              disabled={disabled || readOnly}
-              allowMultipleSelections={resolvedAllowMultiple || false}
-              required={required}
+            <HydratedTaxonomyPicker
+              fieldValue={fieldValue}
               initialValues={initialTerms}
-              onChange={(terms) => {
-                const converted = convertFromTermInfo(terms || []);
-                fieldOnChange(converted);
+              pickerProps={{
+                context: spfxContext,
+                termSetId: resolvedDataSource.termSetId,
+                anchorTermId: resolvedDataSource.anchorId,
+                label: label || '',
+                panelTitle: `Select ${label || 'Terms'}`,
+                placeHolder: placeholder,
+                disabled: disabled || readOnly,
+                allowMultipleSelections: resolvedAllowMultiple || false,
+                required,
+                onChange: (terms: unknown) => {
+                  const converted = convertFromTermInfo((terms as any) || []);
+                  fieldOnChange(converted);
+                },
               }}
             />
           </React.Suspense>

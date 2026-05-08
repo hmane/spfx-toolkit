@@ -214,74 +214,97 @@ export function buildFieldMetadata(field: any, order: number = 0): IFieldMetadat
   return metadata;
 }
 
+// System fields are always dropped — they're not user-editable from a form
+// regardless of mode or override. This list mirrors SP's "do not edit"
+// surface and is intentionally absolute.
+const SYSTEM_FIELDS: ReadonlyArray<string> = [
+  'ContentType',
+  'Edit',
+  'LinkTitle',
+  'LinkTitleNoMenu',
+  'DocIcon',
+  'ItemChildCount',
+  'FolderChildCount',
+  'AppAuthor',
+  'AppEditor',
+  '_UIVersionString',
+  'Attachments',
+  'FileLeafRef',
+  'FileRef',
+  'FileDirRef',
+  'File_x0020_Type',
+  '_ComplianceFlags',
+  '_ComplianceTag',
+  '_ComplianceTagWrittenTime',
+  '_ComplianceTagUserId',
+];
+
 /**
- * Filters fields based on mode and visibility rules
+ * Fetch-time absolute filter — drops system fields and consumer-excluded
+ * fields. These exclusions cannot be reversed by a `fieldOverride`. Hidden
+ * and readOnly handling moved to `filterFieldsByModeFlags` so an override
+ * can flip those at render time.
+ *
+ * Audit context: previously `filterFieldsByMode` did all four filters at
+ * fetch time. That meant `<SPDynamicForm fieldOverrides={[{ field: 'X',
+ * hidden: false }]} />` could not un-hide an SP-hidden field — the field
+ * was already gone before override resolution ran.
+ */
+export function filterToEditableSchema(
+  fields: IFieldMetadata[],
+  excludeFields: string[] = []
+): IFieldMetadata[] {
+  return fields.filter((field) => {
+    if (excludeFields.includes(field.internalName)) return false;
+    if (SYSTEM_FIELDS.includes(field.internalName)) return false;
+    return true;
+  });
+}
+
+/**
+ * Render-time pass — applied AFTER `applyFieldOverrides`. Reads the
+ * override-resolved `hidden` / `readOnly` flags so consumer overrides can
+ * un-hide or un-readOnly fields the SP schema marks otherwise.
+ */
+export function filterFieldsByModeFlags(
+  fields: IFieldMetadata[],
+  mode: 'new' | 'edit' | 'view'
+): IFieldMetadata[] {
+  return fields.filter((field) => {
+    if (field.hidden) return false;
+    if (mode === 'view') return true;
+    if (mode === 'new') {
+      // New mode: drop readOnly fields that have no default (nothing to set).
+      // Keep readOnly with defaults so CT-defaults surface in the form.
+      if (field.readOnly && !field.defaultValue) return false;
+    }
+    if (mode === 'edit') {
+      // Edit mode: drop readOnly fields. A consumer override of
+      // `readOnly: false` makes the field editable here.
+      if (field.readOnly) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Legacy combined filter. Kept for callers that still want the
+ * fetch-time behavior. Internally composes the new split — system fields
+ * + excludeFields, then mode/hidden flags.
+ *
+ * @deprecated Prefer `filterToEditableSchema` at fetch time and
+ * `filterFieldsByModeFlags` at render time so consumer overrides on
+ * `hidden` / `readOnly` can take effect.
  */
 export function filterFieldsByMode(
   fields: IFieldMetadata[],
   mode: 'new' | 'edit' | 'view',
   excludeFields: string[] = []
 ): IFieldMetadata[] {
-  return fields.filter((field) => {
-    // Exclude explicitly hidden fields
-    if (excludeFields.includes(field.internalName)) {
-      return false;
-    }
-
-    // Always exclude hidden fields
-    if (field.hidden) {
-      return false;
-    }
-
-    // Exclude system fields
-    const systemFields = [
-      'ContentType',
-      'Edit',
-      'LinkTitle',
-      'LinkTitleNoMenu',
-      'DocIcon',
-      'ItemChildCount',
-      'FolderChildCount',
-      'AppAuthor',
-      'AppEditor',
-      '_UIVersionString',
-      'Attachments',
-      'FileLeafRef',
-      'FileRef',
-      'FileDirRef',
-      'File_x0020_Type',
-      '_ComplianceFlags',
-      '_ComplianceTag',
-      '_ComplianceTagWrittenTime',
-      '_ComplianceTagUserId',
-    ];
-
-    if (systemFields.includes(field.internalName)) {
-      return false;
-    }
-
-    // Mode-specific filtering
-    if (mode === 'view') {
-      // In view mode, show all non-hidden fields
-      return true;
-    }
-
-    if (mode === 'new') {
-      // In new mode, exclude read-only fields except those that might have defaults
-      if (field.readOnly && !field.defaultValue) {
-        return false;
-      }
-    }
-
-    if (mode === 'edit') {
-      // In edit mode, exclude non-editable fields
-      if (field.readOnly) {
-        return false;
-      }
-    }
-
-    return true;
-  });
+  return filterFieldsByModeFlags(
+    filterToEditableSchema(fields, excludeFields),
+    mode
+  );
 }
 
 /**
@@ -289,6 +312,32 @@ export function filterFieldsByMode(
  */
 export function sortFieldsByOrder(fields: IFieldMetadata[]): IFieldMetadata[] {
   return [...fields].sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Apply a content-type FieldLink onto already-built field metadata.
+ *
+ * SharePoint's semantics: within a content type, the FieldLink wins for
+ * `Hidden` and `Required` (and can override the field's display name).
+ * The previous implementation OR-merged these flags, which could only
+ * escalate them — a CT-fieldLink could not flip a site-required column
+ * to optional within that CT, even though SP allows that configuration.
+ *
+ * Lives in `fieldMapper.ts` (alongside `buildFieldMetadata`) so it has no
+ * SPFx-context transitive imports and can be unit-tested in isolation.
+ */
+export function applyFieldLinkToMetadata(
+  metadata: IFieldMetadata,
+  fieldLink: { Hidden?: boolean; Required?: boolean; DisplayName?: string }
+): IFieldMetadata {
+  if (typeof fieldLink.Hidden === 'boolean') metadata.hidden = fieldLink.Hidden;
+  if (typeof fieldLink.Required === 'boolean') metadata.required = fieldLink.Required;
+
+  const ctDisplayName = fieldLink.DisplayName;
+  if (ctDisplayName && ctDisplayName.trim() && ctDisplayName !== metadata.displayName) {
+    metadata.displayName = ctDisplayName;
+  }
+  return metadata;
 }
 
 /**
