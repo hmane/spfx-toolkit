@@ -230,3 +230,46 @@ describe('extractor.lookupMulti — PascalCase Id', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// geolocation / location — `??` vs `||` for 0-valid coordinates
+// ---------------------------------------------------------------------------
+
+describe('extractor.geolocation — preserves 0 (equator / prime meridian)', () => {
+  test('latitude=0 / longitude=0 are preserved, not coerced to undefined', () => {
+    // Regression: previously used `||` which folded 0 → undefined for
+    // coordinates at the equator (lat=0) or prime meridian (long=0).
+    const extractor = createSPExtractor({
+      Spot: { Latitude: 0, Longitude: 0 },
+    });
+    assert.deepEqual(extractor.geolocation('Spot'), {
+      latitude: 0,
+      longitude: 0,
+    });
+  });
+
+  test('null still returns undefined', () => {
+    const extractor = createSPExtractor({
+      Spot: { Latitude: null, Longitude: null },
+    });
+    assert.deepEqual(extractor.geolocation('Spot'), {
+      latitude: undefined,
+      longitude: undefined,
+    });
+  });
+});
+
+describe('extractor.location — preserves 0 in nested coordinates', () => {
+  test('Coordinates.Latitude=0 / Longitude=0 survive', () => {
+    const extractor = createSPExtractor({
+      Place: {
+        DisplayName: 'Null Island',
+        Coordinates: { Latitude: 0, Longitude: 0 },
+      },
+    });
+    const loc = extractor.location('Place');
+    assert.equal(loc.displayName, 'Null Island');
+    assert.equal(loc.coordinates.latitude, 0);
+    assert.equal(loc.coordinates.longitude, 0);
+  });
+});

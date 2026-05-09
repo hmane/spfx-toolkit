@@ -265,18 +265,25 @@ describe('applyFieldToUpdater — typed dispatch produces correct wire shapes', 
     });
   });
 
-  test('TaxonomyFieldTypeMulti → setTaxonomyMulti → main + hidden _0 note field', () => {
+  test('TaxonomyFieldTypeMulti → setTaxonomyMulti → main field only (no _0)', () => {
+    // Regression: do not emit `${field}_0`. See spUpdaterFieldTypes.test.mjs
+    // for full rationale — taxonomy multi via `update()` is best-effort;
+    // autoSave routes taxonomy through `validateUpdateListItem` by default
+    // (it's in VALIDATE_PREFERRED_TYPES), which handles the hidden Note
+    // field server-side regardless of list type.
     const updater = createSPUpdater();
     applyFieldToUpdater(updater, makeField('Topics', 'TaxonomyFieldTypeMulti'), [
       { label: 'Cats', termId: 'g-1' },
       { label: 'Dogs', termId: 'g-2' },
     ]);
     const out = updater.getUpdates();
-    assert.deepEqual(out.Topics, [
-      { Label: 'Cats', TermGuid: 'g-1', WssId: -1 },
-      { Label: 'Dogs', TermGuid: 'g-2', WssId: -1 },
-    ]);
-    assert.equal(out.Topics_0, '-1;#Cats|g-1;#-1;#Dogs|g-2');
+    assert.deepEqual(out, {
+      Topics: [
+        { Label: 'Cats', TermGuid: 'g-1', WssId: -1 },
+        { Label: 'Dogs', TermGuid: 'g-2', WssId: -1 },
+      ],
+    });
+    assert.equal('Topics_0' in out, false);
   });
 
   test('URL → setUrl', () => {

@@ -258,10 +258,11 @@ export function createSPExtractor(item: any) {
         displayName: locationObj.DisplayName || locationObj.displayName || undefined,
         locationUri: locationObj.LocationUri || locationObj.locationUri || undefined,
         coordinates: {
+          // `??` preserves 0 (equator / prime meridian).
           latitude:
-            locationObj.Coordinates?.Latitude || locationObj.coordinates?.latitude || undefined,
+            locationObj.Coordinates?.Latitude ?? locationObj.coordinates?.latitude ?? undefined,
           longitude:
-            locationObj.Coordinates?.Longitude || locationObj.coordinates?.longitude || undefined,
+            locationObj.Coordinates?.Longitude ?? locationObj.coordinates?.longitude ?? undefined,
         },
       };
     },
@@ -294,9 +295,12 @@ export function createSPExtractor(item: any) {
       const geoObj = item[fieldName];
       if (!geoObj || typeof geoObj !== 'object') return undefined;
 
+      // Use `??` (not `||`) so that latitude / longitude of `0` (the
+      // equator / prime meridian) are preserved instead of being coerced
+      // to undefined.
       return {
-        latitude: geoObj.Latitude || geoObj.latitude || undefined,
-        longitude: geoObj.Longitude || geoObj.longitude || undefined,
+        latitude: geoObj.Latitude ?? geoObj.latitude ?? undefined,
+        longitude: geoObj.Longitude ?? geoObj.longitude ?? undefined,
       };
     },
 

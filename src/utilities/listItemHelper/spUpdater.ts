@@ -360,14 +360,20 @@ export function formatValueForPnP(
       }
 
       // Taxonomy multi
+      //
+      // We deliberately do NOT write `${fieldName}_0` (the hidden Note field).
+      // Per the official PnPjs docs, that convention only works on regular
+      // *list* items via `update()` — it fails on document libraries (file
+      // items), and the `_0` field can be named differently when the column
+      // is inherited from a content type or provisioned with custom names.
+      // For taxonomy fields, prefer `validateUpdateListItem()` (the autoSave
+      // 'auto' / 'validate' path), which handles the hidden Note field
+      // server-side regardless of list type. Callers using `update()`
+      // directly with multi-taxonomy on a regular list will still get a
+      // partial save (visible field updated, TaxCatchAll join may not
+      // refresh until next save) but no longer hit "_0 does not exist"
+      // errors on libraries.
       if ('termId' in firstItem || 'TermGuid' in firstItem || 'label' in firstItem) {
-        const hiddenFieldName = `${fieldName}_0`;
-        const serializedValue = value.map(item => {
-          const label = item.label || item.Label;
-          const termId = item.termId || item.TermGuid || item.TermID;
-          return `-1;#${label}|${termId}`;
-        }).join(';#');
-        updates[hiddenFieldName] = serializedValue;
         updates[fieldName] = value.map(item => ({
           Label: item.label || item.Label,
           TermGuid: item.termId || item.TermGuid || item.TermID,
@@ -459,6 +465,33 @@ export function formatValueForPnP(
 }
 
 /**
+ * Resolve the login-name claim that SP's `validateUpdateListItem` expects as
+ * the `Key` of a user/group field.
+ *
+ * SP requires a claims-formatted login string (e.g.
+ * `i:0#.f|membership|user@contoso.com`). It does **not** accept raw email —
+ * sending email silently saves an unresolvable user reference.
+ *
+ * Throws when neither `value` nor `loginName` is set on the principal so the
+ * caller fails fast instead of producing an invalid SP write.
+ */
+function requireLoginNameKey(person: IPrincipal): string {
+  const key = person.value || person.loginName;
+  if (!key) {
+    throw new Error(
+      `spUpdater: cannot build user field write — IPrincipal is missing 'loginName' / 'value' (login claim). ` +
+        `SP requires the claims-formatted login name (e.g. 'i:0#.f|membership|user@contoso.com'); ` +
+        `email alone is not accepted. Got: ${JSON.stringify({
+          id: person.id,
+          email: person.email,
+          title: person.title,
+        })}`
+    );
+  }
+  return key;
+}
+
+/**
  * Format JavaScript values to SharePoint string format for validate methods
  */
 function formatValueForValidate(value: any): string {
@@ -479,7 +512,10 @@ function formatValueForValidate(value: any): string {
   }
 
   if (value instanceof Date) {
-    return value.toLocaleString('en-US');
+    // ISO format is the canonical wire format for `validateUpdateListItem`.
+    // Locale strings (e.g. `toLocaleString('en-US')`) are server-config
+    // dependent and break on non-US tenants where SP can't parse the format.
+    return value.toISOString();
   }
 
   if (Array.isArray(value)) {
@@ -490,25 +526,33 @@ function formatValueForValidate(value: any): string {
     const firstItem = value[0];
 
     if (typeof firstItem === 'string') {
-      return value.join(';#');
+      // SP MultiChoice canonical wire format: `;#a;#b;#` (leading + trailing
+      // markers). The bare `a;#b` form usually works on modern SPO but is
+      // rejected by stricter list configs and content-type-inherited fields.
+      return `;#${value.join(';#')};#`;
     }
 
     if (typeof firstItem === 'number') {
-      return value.map(id => `${id};#`).join(';#');
+      // SP MultiLookup canonical wire format: `;#1;#2;#3;#` (leading +
+      // trailing markers, no titles). The previous form `1;#;#2;#;#3;#`
+      // (id-with-empty-title-pairs) parses on modern SPO but is unambiguous
+      // and harder to reason about.
+      return `;#${value.map(id => String(id)).join(';#')};#`;
     }
 
     if (typeof firstItem === 'object' && firstItem !== null) {
       // User multi
-      if ('email' in firstItem || 'value' in firstItem) {
+      if ('email' in firstItem || 'value' in firstItem || 'loginName' in firstItem) {
         const persons = value.map((person: IPrincipal) => ({
-          Key: person.value || person.loginName || person.email,
+          Key: requireLoginNameKey(person),
         }));
         return JSON.stringify(persons);
       }
 
-      // Lookup multi
+      // Lookup multi (object form: `{ Id, Title }[]`) — canonical wire format
+      // matches the number-array branch above.
       if ('id' in firstItem || 'Id' in firstItem) {
-        return value.map(item => `${item.id || item.Id};#`).join(';#');
+        return `;#${value.map(item => String(item.id ?? item.Id)).join(';#')};#`;
       }
 
       // Taxonomy multi
@@ -527,8 +571,7 @@ function formatValueForValidate(value: any): string {
   if (typeof value === 'object' && value !== null) {
     // User single
     if ('email' in value || 'value' in value || 'loginName' in value) {
-      const person = value as IPrincipal;
-      return JSON.stringify([{ Key: person.value || person.loginName || person.email }]);
+      return JSON.stringify([{ Key: requireLoginNameKey(value as IPrincipal) }]);
     }
 
     // Lookup single
@@ -737,7 +780,16 @@ export function createSPUpdater() {
     },
 
     /**
-     * Set a single taxonomy/managed metadata field value
+     * Set a single taxonomy/managed metadata field value.
+     *
+     * Save behavior:
+     *   - `getUpdates()` (PnP `update()` path) → emits `{ FieldName: { Label,
+     *     TermGuid, WssId } }`. Works on regular list items.
+     *   - `getValidateUpdates()` (`validateUpdateListItem`) → emits
+     *     `{ FieldName, FieldValue: 'Label|TermGuid;' }`. **Required for
+     *     document libraries (file items)** — `update()` does not work for
+     *     taxonomy on libraries.
+     *
      * @example updater.setTaxonomy('Department', { Label: 'Engineering', TermGuid: 'guid-here' })
      */
     setTaxonomy: function (
@@ -749,7 +801,22 @@ export function createSPUpdater() {
     },
 
     /**
-     * Set a multi-taxonomy/managed metadata field value
+     * Set a multi-taxonomy/managed metadata field value.
+     *
+     * Save behavior:
+     *   - `getUpdates()` (PnP `update()` path) → emits ONLY the visible
+     *     field as an array of `{ Label, TermGuid, WssId }`. The hidden
+     *     `${fieldName}_0` Note field is **not** written, because the `_0`
+     *     convention fails on document libraries and on fields with
+     *     non-conventional hidden field names. Direct `update()` callers
+     *     get a partial save (visible field updated, TaxCatchAll join may
+     *     not refresh).
+     *   - `getValidateUpdates()` (`validateUpdateListItem`) → emits
+     *     `{ FieldName, FieldValue: 'L1|g1;L2|g2;' }`. **Recommended path
+     *     for taxonomy multi.** Handles the hidden Note field server-side
+     *     regardless of list type. SPDynamicForm's autoSave routes here by
+     *     default via `VALIDATE_PREFERRED_TYPES`.
+     *
      * @example updater.setTaxonomyMulti('Keywords', [{ Label: 'Term1', TermGuid: 'guid1' }, { Label: 'Term2', TermGuid: 'guid2' }])
      */
     setTaxonomyMulti: function (

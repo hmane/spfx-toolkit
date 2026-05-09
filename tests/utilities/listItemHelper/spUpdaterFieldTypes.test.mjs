@@ -10,8 +10,10 @@
  * - multi-lookup / multi-user → `{FieldName}Id: number[]`
  * - taxonomy single → `{FieldName}: { Label, TermGuid, WssId }`
  * - taxonomy multi → `{FieldName}: [{Label, TermGuid, WssId}, ...]`
- *                   plus hidden `{FieldName}_0` Note field with
- *                   `-1;#Label|Guid;#-1;#Label|Guid` serialization
+ *                    (the hidden `${FieldName}_0` Note field is intentionally
+ *                    NOT emitted — it fails on document libraries and on
+ *                    fields with non-conventional hidden field names. Use
+ *                    `validateUpdateListItem` for full taxonomy save.)
  * - URL → `{FieldName}: { Url, Description }`
  */
 
@@ -190,19 +192,30 @@ describe('spUpdater — taxonomy fields', () => {
     });
   });
 
-  test('multi-taxonomy emits BOTH the structured field and the hidden _0 note field', () => {
+  test('multi-taxonomy emits ONLY the structured field (no _0 hidden write)', () => {
+    // Regression: previously emitted `${field}_0` per the legacy PnP recipe,
+    // but that fails on document libraries (file items) and on fields with
+    // non-conventional hidden Note field names — SP returns
+    // "property '_0' does not exist". The recommended path for taxonomy is
+    // `validateUpdateListItem`, which the autoSave helpers route to via
+    // `VALIDATE_PREFERRED_TYPES`. Direct `update()` callers get a partial
+    // save (visible field updated) but no longer hit the _0 error.
     const u = createSPUpdater().setTaxonomyMulti('Topics', [
       { label: 'Cats', termId: 't1' },
       { label: 'Dogs', termId: 't2' },
     ]);
     const out = u.getUpdates();
-    // Structured value
-    assert.deepEqual(out.Topics, [
-      { Label: 'Cats', TermGuid: 't1', WssId: -1 },
-      { Label: 'Dogs', TermGuid: 't2', WssId: -1 },
-    ]);
-    // Hidden Note companion — `-1;#Label|Guid;#-1;#Label|Guid` semicolon-hash format
-    assert.equal(out.Topics_0, '-1;#Cats|t1;#-1;#Dogs|t2');
+    assert.deepEqual(out, {
+      Topics: [
+        { Label: 'Cats', TermGuid: 't1', WssId: -1 },
+        { Label: 'Dogs', TermGuid: 't2', WssId: -1 },
+      ],
+    });
+    assert.equal(
+      'Topics_0' in out,
+      false,
+      'must NOT emit Topics_0 — that breaks libraries / non-conventional hidden fields'
+    );
   });
 });
 
@@ -284,11 +297,78 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|a;' }]);
   });
 
-  test('multiChoice → ";#"-joined', () => {
+  test('multiChoice → ";#"-joined with leading + trailing markers', () => {
+    // SP MultiChoice canonical wire format includes the leading and trailing
+    // `;#` markers — required by stricter list configs and content-type-
+    // inherited fields. Both `';#A;#B;#C;#'` and `'A;#B;#C'` parse on modern
+    // SPO, but the marker form is the documented form-value shape.
     const out = createSPUpdater()
       .setMultiChoice('Cats', ['A', 'B', 'C'])
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: 'A;#B;#C' }]);
+    assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: ';#A;#B;#C;#' }]);
+  });
+
+  test('lookupMulti via number array → ";#1;#2;#3;#"', () => {
+    // Number-array form: the previous `'1;#;#2;#;#3;#'` (id-with-empty-titles)
+    // parses on SPO but is hard to reason about. The canonical wire format
+    // `;#1;#2;#3;#` is unambiguous.
+    const out = createSPUpdater()
+      .set('CategoriesId', [1, 2, 3])
+      .getValidateUpdates();
+    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: ';#1;#2;#3;#' }]);
+  });
+
+  test('lookupMulti via {Id,Title} array → ";#1;#2;#3;#"', () => {
+    const out = createSPUpdater()
+      .setLookupMulti('Categories', [
+        { Id: 1, Title: 'A' },
+        { Id: 2, Title: 'B' },
+        { Id: 3, Title: 'C' },
+      ])
+      .getValidateUpdates();
+    assert.deepEqual(out, [
+      { FieldName: 'Categories', FieldValue: ';#1;#2;#3;#' },
+    ]);
+  });
+
+  test('Date → ISO 8601 (not locale string)', () => {
+    // Locale strings (`toLocaleString('en-US')`) are server-config dependent
+    // and break on non-US tenants. ISO 8601 is unambiguous and accepted by
+    // every SP regional setting.
+    const date = new Date(Date.UTC(2026, 4, 8, 12, 0, 0));
+    const out = createSPUpdater()
+      .set('Due', date)
+      .getValidateUpdates();
+    assert.equal(out[0].FieldName, 'Due');
+    assert.equal(out[0].FieldValue, '2026-05-08T12:00:00.000Z');
+  });
+
+  test('user single without loginName/value → throws (email is not accepted as Key)', () => {
+    // SP requires the claims-formatted login name as `Key` —
+    // `i:0#.f|membership|user@x.com`. Email alone produces a silent invalid
+    // write. We fail fast instead.
+    const u = createSPUpdater().setUser('AssignedTo', {
+      id: '5',
+      email: 'a@b.com',
+      title: 'A',
+    });
+    assert.throws(
+      () => u.getValidateUpdates(),
+      /missing 'loginName' \/ 'value'/
+    );
+  });
+
+  test('user single with loginName → JSON [{ Key: <claim> }]', () => {
+    const out = createSPUpdater()
+      .setUser('AssignedTo', {
+        id: '5',
+        email: 'a@b.com',
+        loginName: 'i:0#.f|membership|a@b.com',
+        title: 'A',
+      })
+      .getValidateUpdates();
+    const parsed = JSON.parse(out[0].FieldValue);
+    assert.deepEqual(parsed, [{ Key: 'i:0#.f|membership|a@b.com' }]);
   });
 });
 
