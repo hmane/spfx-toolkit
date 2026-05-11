@@ -71,9 +71,19 @@
   border: 1px solid var(--vh-rule);
 }
 
+/* Hard reset of the DevExtreme popup content box: no inner padding (some DX
+   themes set one, which is the source of the phantom band above the header)
+   and a flex column so our shell can claim the full height with `flex: 1`. */
 .version-history-popup .dx-popup-content {
-  padding: 0;
-  height: 100%;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Even with `showTitle={false}`, some DX themes still reserve a title slot. */
+.version-history-popup .dx-popup-title {
+  display: none !important;
 }
 
 /* Outer flex shell — replaces the previous DevExtreme ScrollView wrapper.
@@ -81,7 +91,8 @@
    internal flex layout (sticky header, sticky timeline rail, independently
    scrolling details body) cannot establish proper bounds. */
 .version-history-shell {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1033,16 +1044,16 @@
   max-width: 360px;
 }
 
+/* A clean ruled list: white throughout, a light frame with rounded corners,
+   rows separated by hairlines. No grey "bleed-through" background. */
 .field-changes-list {
-  padding: 0 32px 32px;
   display: flex;
   flex-direction: column;
-  gap: 1px;                       /* hairline separator between rows */
-  background: var(--vh-rule);     /* shows through the 1px gap */
+  margin: 10px 32px 28px;
   border: 1px solid var(--vh-rule);
   border-radius: var(--vh-radius-sm);
-  margin: 0 32px 32px;
   overflow: hidden;
+  background: var(--vh-surface);
 }
 
 /* ============================================================
@@ -1064,18 +1075,25 @@
   background: var(--vh-surface);
   font-size: 13px;
   line-height: 1.45;
-  border-left: 3px solid transparent;
+  /* Colored kind accent via an inset shadow (not border-left) so it never
+     produces a mitre artifact where it meets the row's bottom hairline. */
+  box-shadow: inset 3px 0 0 transparent;
+  border-bottom: 1px solid var(--vh-rule);
   transition: background var(--vh-ms-fast) var(--vh-ease);
   animation: vh-fade-up var(--vh-ms-norm) var(--vh-ease);
+}
+
+.field-change-row:last-child {
+  border-bottom: none;
 }
 
 .field-change-row:hover {
   background: var(--vh-surface-sunken);
 }
 
-.field-change-row.is-added    { border-left-color: var(--vh-success); }
-.field-change-row.is-removed  { border-left-color: var(--vh-danger); }
-.field-change-row.is-modified { border-left-color: var(--vh-primary); }
+.field-change-row.is-added    { box-shadow: inset 3px 0 0 var(--vh-success); }
+.field-change-row.is-removed  { box-shadow: inset 3px 0 0 var(--vh-danger); }
+.field-change-row.is-modified { box-shadow: inset 3px 0 0 var(--vh-primary); }
 
 /* Indicator: small dot/+/− that mirrors the left-border accent. */
 .field-change-row-indicator {
@@ -1485,9 +1503,9 @@
   .version-card.selected {
     box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.35);
   }
-  .field-change-row {
-    border-left-width: 4px;
-  }
+  .field-change-row.is-added    { box-shadow: inset 4px 0 0 var(--vh-success); }
+  .field-change-row.is-removed  { box-shadow: inset 4px 0 0 var(--vh-danger); }
+  .field-change-row.is-modified { box-shadow: inset 4px 0 0 var(--vh-primary); }
 }
 
 /* ============================================================
