@@ -5,7 +5,6 @@ import { Text } from '@fluentui/react/lib/Text';
 import '@pnp/sp/content-types';
 import '@pnp/sp/fields';
 import { Popup } from 'devextreme-react/popup';
-import { ScrollView } from 'devextreme-react/scroll-view';
 import * as React from 'react';
 import '../../utilities/context/pnpImports/files';
 import { SPContext } from '../../utilities/context';
@@ -1187,7 +1186,11 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
       height={popupHeight}
       className='version-history-popup'
     >
-      <ScrollView width='100%' height='100%'>
+      {/* No outer ScrollView: each region (timeline list, details scroll) owns
+          its own scroll, with header and timeline staying sticky. Wrapping the
+          whole shell in ScrollView would hijack those internal scrolls and
+          turn everything into one long scroll instead. */}
+      <div className='version-history-shell'>
         <div className='version-history'>
           {/* Header — single tier: title + summary chips on the left, lean actions on the right */}
           <div className='version-history-header'>
@@ -1294,7 +1297,7 @@ export const VersionHistory: React.FC<IVersionHistoryProps> = props => {
             </div>
           </div>
         </div>
-      </ScrollView>
+      </div>
     </Popup>
   );
 };

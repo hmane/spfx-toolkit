@@ -589,9 +589,22 @@ export function isSystemField(internalName: string): boolean {
     // Converted document fields
     'SourceVersionConvertedDocument',
     'SourceNameConvertedDocument',
+    // SharePoint taxonomy bookkeeping fields. SP exposes these on every list
+    // that has a managed-metadata column but they're internal join/cache
+    // fields, never user-edited. Showing them in version history surfaces
+    // raw WssId / GUID strings the user can't act on.
+    'TaxCatchAll',
+    'TaxCatchAllLabel',
+    'MetaInfo',
   ];
 
-  return systemFields.includes(internalName) || internalName.startsWith('_');
+  if (systemFields.includes(internalName)) return true;
+  if (internalName.startsWith('_')) return true;
+  // Hidden Note companion for taxonomy columns: SP creates `${visibleField}_0`
+  // alongside every managed-metadata field. Its value is a `-1;#Label|GUID`
+  // serialization that's noise in a user-facing diff. Suppress.
+  if (internalName.endsWith('_0')) return true;
+  return false;
 }
 
 /**

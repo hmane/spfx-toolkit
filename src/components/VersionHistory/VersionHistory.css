@@ -73,12 +73,25 @@
 
 .version-history-popup .dx-popup-content {
   padding: 0;
+  height: 100%;
+}
+
+/* Outer flex shell — replaces the previous DevExtreme ScrollView wrapper.
+   Without this, the popup content collapses to its intrinsic height and the
+   internal flex layout (sticky header, sticky timeline rail, independently
+   scrolling details body) cannot establish proper bounds. */
+.version-history-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .version-history {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: var(--vh-surface);
   overflow: hidden;
   font-feature-settings: 'ss01', 'cv02', 'cv03';
@@ -94,16 +107,12 @@
   background: var(--vh-surface);
   flex-shrink: 0;
   position: relative;
-}
-
-.version-history-header::after {
-  content: '';
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 0;
-  height: 1px;
-  background: var(--vh-rule);
+  z-index: 3;
+  /* Soft elevation hint — gives the header a subtle "floating" feel above the
+     scrolling content below, matching the sticky behavior. */
+  box-shadow:
+    0 1px 0 var(--vh-rule),
+    0 4px 8px -6px rgba(15, 23, 42, 0.08);
 }
 
 .version-history-header-content {
@@ -802,11 +811,16 @@
   justify-content: space-between;
   gap: 16px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--vh-rule);
   background: var(--vh-surface);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 2;
+  /* Matches the popup-level header's elevation so both sticky surfaces feel
+     part of the same chrome layer. The hairline rule is part of the shadow
+     (the first `0 1px 0`), so the visual divider survives even on browsers
+     that downsample the soft drop. */
+  box-shadow:
+    0 1px 0 var(--vh-rule),
+    0 4px 8px -6px rgba(15, 23, 42, 0.06);
 }
 
 .version-details-header-info {
@@ -1023,167 +1037,183 @@
   padding: 0 32px 32px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.field-change-block {
-  display: grid;
-  grid-template-columns: 1fr;
-  padding: 14px 16px;
-  background: var(--vh-surface);
+  gap: 1px;                       /* hairline separator between rows */
+  background: var(--vh-rule);     /* shows through the 1px gap */
   border: 1px solid var(--vh-rule);
   border-radius: var(--vh-radius-sm);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition:
-    border-color var(--vh-ms-fast) var(--vh-ease),
-    box-shadow var(--vh-ms-fast) var(--vh-ease);
+  margin: 0 32px 32px;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Single-row field change layout
+   [indicator] [name] [before] [→] [after] [expand]
+   ============================================================ */
+.field-change-row {
+  display: grid;
+  grid-template-columns:
+    16px                          /* indicator */
+    minmax(140px, 200px)          /* field name */
+    minmax(0, 1fr)                /* before */
+    14px                          /* arrow */
+    minmax(0, 1fr)                /* after */
+    22px;                         /* expand toggle (or spacer) */
+  align-items: center;
+  column-gap: 12px;
+  padding: 8px 14px;
+  background: var(--vh-surface);
+  font-size: 13px;
+  line-height: 1.45;
+  border-left: 3px solid transparent;
+  transition: background var(--vh-ms-fast) var(--vh-ease);
   animation: vh-fade-up var(--vh-ms-norm) var(--vh-ease);
 }
 
-.field-change-block:hover {
-  border-color: var(--vh-text-faint);
-  box-shadow: var(--vh-shadow-soft);
+.field-change-row:hover {
+  background: var(--vh-surface-sunken);
 }
 
-.field-change-block-marker {
-  display: none;
-}
+.field-change-row.is-added    { border-left-color: var(--vh-success); }
+.field-change-row.is-removed  { border-left-color: var(--vh-danger); }
+.field-change-row.is-modified { border-left-color: var(--vh-primary); }
 
-.field-change-block-body {
-  min-width: 0;
+/* Indicator: small dot/+/− that mirrors the left-border accent. */
+.field-change-row-indicator {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  user-select: none;
 }
+.field-change-row-indicator.is-added    { color: var(--vh-success); }
+.field-change-row-indicator.is-removed  { color: var(--vh-danger); }
+.field-change-row-indicator.is-modified { color: var(--vh-primary); font-size: 7px; }
 
-.field-change-block-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.field-change-name {
+.field-change-row-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--vh-ink);
   letter-spacing: -0.005em;
-}
-
-.field-change-type-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 7px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-radius: 999px;
-  color: var(--vh-text);
-  background: var(--vh-surface-sunken);
-}
-
-.field-change-type-tag.is-added {
-  background: var(--vh-success-tint);
-  color: var(--vh-success);
-}
-
-.field-change-type-tag.is-removed {
-  background: var(--vh-danger-tint);
-  color: var(--vh-danger);
-}
-
-.field-change-type-tag.is-modified {
-  background: var(--vh-primary-tint);
-  color: var(--vh-primary-dark);
-}
-
-.field-change-expand {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--vh-text);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--vh-radius-sm);
-  cursor: pointer;
-  transition: all var(--vh-ms-fast) var(--vh-ease);
-}
-
-.field-change-expand:hover {
-  background: var(--vh-surface-sunken);
-  color: var(--vh-ink);
-}
-
-.field-change-expand .ms-Icon {
-  font-size: 11px;
-}
-
-/* Diff body */
-.field-change-diff {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.field-change-diff-row {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  column-gap: 10px;
-  align-items: baseline;
-}
-
-.field-change-diff-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--vh-text-muted);
-  padding-top: 2px;
-}
-
-.field-change-diff-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   min-width: 0;
-  word-break: break-word;
+}
+
+.field-change-row-value {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--vh-ink-soft);
 }
 
-.field-change-diff-value.is-empty {
-  color: var(--vh-text-muted);
-  font-style: italic;
-}
-
-.field-change-diff-value.is-prev {
+.field-change-row-value.is-prev {
   color: var(--vh-text);
   text-decoration: line-through;
   text-decoration-color: var(--vh-danger);
   text-decoration-thickness: 1px;
+  text-decoration-skip-ink: auto;
 }
 
-.field-change-diff-value.is-prev.is-empty {
+.field-change-row-value.is-prev.is-empty,
+.field-change-row-value.is-new.is-empty {
   text-decoration: none;
+  color: var(--vh-text-muted);
+  font-style: italic;
 }
 
-.field-change-diff-value.is-new {
+.field-change-row-value.is-new {
   color: var(--vh-ink);
   font-weight: 500;
 }
 
-.field-change-diff-value.is-new.is-added,
-.field-change-diff-value.is-new.is-modified {
-  background: var(--vh-surface-sunken);
-  border-radius: var(--vh-radius-sm);
-  padding: 1px 6px;
-  font-weight: 500;
+.field-change-row-arrow {
+  font-size: 12px;
+  color: var(--vh-text-faint);
+  text-align: center;
 }
 
-.field-change-diff-value.is-new.is-modified {
-  background: var(--vh-primary-tint);
+/* Expand toggle */
+.field-change-row-expand {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--vh-radius-sm);
+  color: var(--vh-text);
+  cursor: pointer;
+  transition: all var(--vh-ms-fast) var(--vh-ease);
+}
+.field-change-row-expand:hover {
+  background: var(--vh-surface-sunken);
+  border-color: var(--vh-rule);
+  color: var(--vh-ink);
+}
+.field-change-row-expand .ms-Icon {
+  font-size: 11px;
+}
+.field-change-row-expand-spacer {
+  width: 22px;
+  height: 22px;
+}
+
+/* Expanded state: cells wrap, the row grows in height, value cells span the
+   full remaining width so long text and overflow user lists render fully. */
+.field-change-row.is-expanded {
+  align-items: start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: var(--vh-surface-sunken);
+}
+.field-change-row.is-expanded .field-change-row-value {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+.field-change-row.is-expanded .field-change-row-arrow {
+  padding-top: 4px;
+}
+
+/* Compact multi-user inline display */
+.field-change-row-users {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
+}
+.field-change-row-users.is-wrap {
+  flex-wrap: wrap;
+}
+.field-change-row-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vh-text);
+  background: var(--vh-surface);
+  border: 1px solid var(--vh-rule);
+  border-radius: 999px;
+}
+
+/* Inline URL link spans should respect ellipsis when collapsed */
+.field-change-row-value:not(.is-expanded) .field-value-link {
+  max-width: 100%;
+  overflow: hidden;
+}
+.field-value-link-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Inline value variants */
@@ -1369,7 +1399,6 @@
   .version-details-header,
   .version-details-comment,
   .version-details-compare,
-  .field-changes-list,
   .version-details-search {
     margin-left: 24px;
     margin-right: 24px;
@@ -1383,8 +1412,7 @@
   }
 
   .field-changes-list {
-    padding: 0 24px 28px;
-    margin: 0;
+    margin: 0 24px 28px;
   }
 }
 
@@ -1412,14 +1440,31 @@
 }
 
 @media (max-width: 600px) {
-  .field-change-diff-row {
-    grid-template-columns: 1fr;
+  /* Stack the inline row at narrow widths: name on top, then before / arrow / after
+     wraps below. The indicator stays as a left-edge accent. */
+  .field-change-row {
+    grid-template-columns: 16px 1fr 22px;
+    grid-template-areas:
+      'ind name expand'
+      'ind prev expand'
+      'ind arrow expand'
+      'ind new expand';
     row-gap: 2px;
+    align-items: start;
+    padding: 10px 12px;
   }
-
-  .field-change-diff-label {
-    padding-top: 0;
+  .field-change-row-indicator { grid-area: ind; padding-top: 4px; }
+  .field-change-row-name { grid-area: name; }
+  .field-change-row-value.is-prev { grid-area: prev; white-space: normal; }
+  .field-change-row-arrow {
+    grid-area: arrow;
+    transform: rotate(90deg);
+    justify-self: start;
+    padding-left: 2px;
   }
+  .field-change-row-value.is-new { grid-area: new; white-space: normal; }
+  .field-change-row-expand,
+  .field-change-row-expand-spacer { grid-area: expand; align-self: start; }
 }
 
 /* ============================================================
@@ -1427,7 +1472,7 @@
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .version-card,
-  .field-change-block,
+  .field-change-row,
   .version-details-comment,
   .version-history-status,
   * {
@@ -1440,8 +1485,8 @@
   .version-card.selected {
     box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.35);
   }
-  .field-change-block {
-    border-width: 1.5px;
+  .field-change-row {
+    border-left-width: 4px;
   }
 }
 
