@@ -33,6 +33,16 @@ export async function optimizeLookupField(
       return m !== null && fieldMatches(m, field);
     });
 
+    // Stamp the data-source bits (search fields / caching) onto the metadata
+    // regardless of which render-mode branch we take below, so `buildFieldProps`
+    // can forward them to `SPLookupField`.
+    if (fieldConfig?.searchFields && fieldConfig.searchFields.length > 0) {
+      field.lookupSearchFields = fieldConfig.searchFields;
+    }
+    if (typeof fieldConfig?.cacheResults === 'boolean') {
+      field.lookupCacheResults = fieldConfig.cacheResults;
+    }
+
     // If render mode is explicitly set, use it
     if (fieldConfig?.renderMode) {
       field.recommendedRenderMode = fieldConfig.renderMode;

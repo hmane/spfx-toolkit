@@ -135,6 +135,17 @@ export function applyFieldOverrides(
         updated.description = resolvedDesc;
       }
 
+      // Placeholder has no SP-schema source — the "current" value passed to a
+      // transform function is whatever a prior override set, or ''.
+      const resolvedPlaceholder = resolveLabelTransform(
+        override.placeholder,
+        updated.placeholder ?? '',
+        fieldCtx
+      );
+      if (resolvedPlaceholder !== (updated.placeholder ?? '')) {
+        updated.placeholder = resolvedPlaceholder;
+      }
+
       const resolvedRequired = resolveOverrideValue<boolean>(override.required, fieldCtx);
       if (resolvedRequired !== undefined) updated.required = resolvedRequired;
 
@@ -228,6 +239,15 @@ export function buildFieldProps(
     label: typeof override?.label === 'string' ? override.label : field.displayName,
     // description: same gating as label
     description: typeof override?.description === 'string' ? override.description : field.description,
+    // placeholder: prefer the resolved value left by applyFieldOverrides (handles
+    // both static-string AND function-form overrides); fall back to a static-string
+    // override for legacy callers that skipped applyFieldOverrides; else undefined.
+    placeholder:
+      typeof field.placeholder === 'string'
+        ? field.placeholder
+        : typeof override?.placeholder === 'string'
+        ? override.placeholder
+        : undefined,
     // required: static-only — the function form is already resolved into field.required
     // by applyFieldOverrides before buildFieldProps is called.
     required: typeof override?.required === 'boolean' ? override.required : field.required,
@@ -295,6 +315,15 @@ export function buildFieldProps(
         listNameOrId: field.fieldConfig.lookupListId || '',
         displayField: field.fieldConfig.lookupField || 'Title',
       };
+      // Forward per-field lookup config resolved by optimizeLookupField:
+      //  - searchFields → dataSource.searchFields (autocomplete/searchable mode)
+      //  - cacheResults → useCache (leave undefined to keep SPLookupField's default)
+      if (field.lookupSearchFields && field.lookupSearchFields.length > 0) {
+        props.dataSource.searchFields = field.lookupSearchFields;
+      }
+      if (typeof field.lookupCacheResults === 'boolean') {
+        props.useCache = field.lookupCacheResults;
+      }
       // LookupMulti or allowMultiple config
       props.allowMultiple = field.fieldType === SPFieldType.LookupMulti || field.fieldConfig.allowMultiple;
       // Set display mode based on item count if available

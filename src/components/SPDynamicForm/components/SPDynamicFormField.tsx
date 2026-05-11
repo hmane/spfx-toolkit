@@ -129,7 +129,7 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
     const resolved = {
       label: field.displayName,
       description: field.description,
-      placeholder: undefined,
+      placeholder: field.placeholder,
       required: !!field.required,
       disabled: fieldProps.disabled,
       readOnly: !!fieldProps.readOnly,

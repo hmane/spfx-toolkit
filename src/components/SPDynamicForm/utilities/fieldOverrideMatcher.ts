@@ -1,5 +1,21 @@
 import { IFieldMetadata } from '../types/fieldMetadata';
-import { SPContext } from '../../../utilities/context';
+
+/**
+ * Emit a one-time deprecation warning. Uses `SPContext.logger` when available,
+ * falling back to `console.warn`. Loaded lazily so this otherwise-pure matcher
+ * module doesn't statically pull in the SPFx context (keeps it unit-testable).
+ */
+function warnOnce(message: string, data: unknown): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { SPContext } = require('../../../utilities/context');
+    SPContext.logger.warn(message, data);
+  } catch {
+    // SPContext unavailable (unit test / not yet initialized) — best effort.
+    // eslint-disable-next-line no-console
+    console.warn(message, data);
+  }
+}
 
 /**
  * A field matcher narrows which field(s) an override applies to.
@@ -42,7 +58,7 @@ export function effectiveMatcher(o: { field?: FieldMatcher; fieldName?: string }
     const key = typeof o.fieldName === 'string' ? o.fieldName : '<non-string>';
     if (!warnedFieldNames.has(key)) {
       warnedFieldNames.add(key);
-      SPContext.logger.warn(
+      warnOnce(
         'SPDynamicForm: override has both `field` and `fieldName`; `field` wins. Drop `fieldName` to silence.',
         { fieldName: o.fieldName }
       );

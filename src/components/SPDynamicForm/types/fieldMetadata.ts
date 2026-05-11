@@ -25,6 +25,13 @@ export interface IFieldMetadata {
   /** Field description */
   description: string;
 
+  /**
+   * Input placeholder text. SharePoint has no native placeholder concept —
+   * this is populated only from an `IFieldOverride.placeholder` and consumed
+   * by the SPField components (text / lookup / user / taxonomy / url).
+   */
+  placeholder?: string;
+
   /** Default value for the field */
   defaultValue: any;
 
@@ -48,6 +55,20 @@ export interface IFieldMetadata {
 
   /** Recommended render mode based on item count */
   recommendedRenderMode?: 'auto' | 'dropdown' | 'autocomplete';
+
+  /**
+   * Search fields for a lookup field in autocomplete/searchable mode — resolved
+   * from `ILookupFieldConfig.searchFields` by `optimizeLookupField` so
+   * `buildFieldProps` can forward it onto `SPLookupField`'s `dataSource`.
+   */
+  lookupSearchFields?: string[];
+
+  /**
+   * Whether to cache lookup results — resolved from
+   * `ILookupFieldConfig.cacheResults` by `optimizeLookupField` and forwarded to
+   * `SPLookupField`'s `useCache` prop. `undefined` leaves the component default.
+   */
+  lookupCacheResults?: boolean;
 
   /** SharePoint field ID */
   fieldId?: string;
