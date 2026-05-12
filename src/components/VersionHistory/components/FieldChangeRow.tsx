@@ -104,6 +104,26 @@ export const FieldChangeRow: React.FC<IFieldChangeRowProps> = props => {
     return formattedValue;
   };
 
+  // URL field value. The link must open in a new tab WITHOUT also triggering
+  // SharePoint's modern-page navigation interceptor (a capture-phase document
+  // click listener) which would otherwise SPA-navigate the current tab too —
+  // producing the "opens in both tabs" bug. We therefore:
+  //   • `data-interception='off'` — the documented SP opt-out for that interceptor
+  //   • `e.preventDefault()` — neutralise the anchor's own default navigation
+  //   • `window.open(...)` — perform exactly one new-tab navigation ourselves
+  // The `href`/`target`/`rel` are kept so the link degrades gracefully (and so
+  // middle-click / "copy link address" still work).
+  const handleUrlClick = React.useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, url: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    },
+    []
+  );
+
   const renderValue = (value: any, formattedValue: string): React.ReactNode => {
     if (fieldType === FieldType.User || fieldType === FieldType.UserMulti) {
       return renderUserValue(value, formattedValue);
@@ -115,8 +135,9 @@ export const FieldChangeRow: React.FC<IFieldChangeRowProps> = props => {
           href={value.Url}
           target='_blank'
           rel='noopener noreferrer'
+          data-interception='off'
           className='field-value-link'
-          onClick={e => e.stopPropagation()}
+          onClick={e => handleUrlClick(e, value.Url)}
         >
           <span className='field-value-link-text'>{value.Description || value.Url}</span>
           <Icon iconName='NavigateExternalInline' className='field-value-link-icon' />
