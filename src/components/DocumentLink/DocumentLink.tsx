@@ -253,6 +253,7 @@ export const DocumentLink: React.FC<IDocumentLinkProps> = ({
       title={document.name}
       target={linkTarget}
       rel={linkRel}
+      data-interception="off"
     >
       {renderLinkContent()}
     </a>

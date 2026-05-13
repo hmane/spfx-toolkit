@@ -1,5 +1,5 @@
 import { IDocumentInfo } from '../DocumentLink.types';
-import { buildDownloadUrl, buildPreviewUrl } from '../utils';
+import { buildDownloadUrl, buildPreviewUrl, openUrlInNewTab } from '../utils';
 import { SPContext } from '../../../utilities/context';
 
 /**
@@ -152,12 +152,7 @@ export function openPreviewModal(document: IDocumentInfo, mode: 'view' | 'edit')
 export function openPreviewNewTab(document: IDocumentInfo, mode: 'view' | 'edit'): void {
   try {
     const previewUrl = buildPreviewUrl(document.url, mode, document.serverRelativeUrl) || document.url;
-    const newWindow = window.open(previewUrl, '_blank', 'noopener=yes,noreferrer=yes');
-
-    // Fallback when pop-up blockers prevent opening a new tab
-    if (!newWindow) {
-      window.location.href = previewUrl;
-    }
+    openUrlInNewTab(previewUrl);
 
     SPContext.logger.info('Document preview opened in new tab', {
       documentName: document.name,
