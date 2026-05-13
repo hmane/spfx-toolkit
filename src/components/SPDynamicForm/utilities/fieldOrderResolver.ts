@@ -5,6 +5,46 @@ import { applyFieldLinkToMetadata, buildFieldMetadata } from './fieldMapper';
 
 export { applyFieldLinkToMetadata } from './fieldMapper';
 
+function findDuplicateValues(values: string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  values.forEach((value) => {
+    if (seen.has(value)) {
+      duplicates.add(value);
+      return;
+    }
+    seen.add(value);
+  });
+  return Array.from(duplicates);
+}
+
+function summarizeRawFieldsForDebug(fields: any[]): Array<Record<string, unknown>> {
+  return fields.map((field) => ({
+    internalName: field.InternalName || field.EntityPropertyName,
+    entityPropertyName: field.EntityPropertyName,
+    title: field.Title,
+    typeAsString: field.TypeAsString,
+    fieldTypeKind: field.FieldTypeKind,
+    hidden: field.Hidden,
+    readOnly: field.ReadOnlyField,
+    required: field.Required,
+    group: field.Group,
+    id: field.Id,
+  }));
+}
+
+function summarizeFieldLinksForDebug(fieldLinks: any[]): Array<Record<string, unknown>> {
+  return fieldLinks.map((fieldLink, index) => ({
+    index,
+    name: fieldLink.Name,
+    fieldInternalName: fieldLink.FieldInternalName,
+    displayName: fieldLink.DisplayName,
+    hidden: fieldLink.Hidden,
+    required: fieldLink.Required,
+    id: fieldLink.Id,
+  }));
+}
+
 /**
  * Loads fields from SharePoint list with ContentType ordering
  */
@@ -25,6 +65,25 @@ export async function loadFieldsFromContentType(
     SPContext.logger.info(
       `Loaded ${fields.length} fields from ContentType "${contentType.Name}"`
     );
+    SPContext.logger.debug('SPDynamicForm: raw content type schema loaded', {
+      listId,
+      contentTypeId,
+      contentTypeRaw: contentType,
+      fieldsRaw: fields,
+      fieldLinksRaw: fieldLinks,
+    });
+    SPContext.logger.debug('SPDynamicForm: content type schema diagnostics', {
+      listId,
+      contentTypeId,
+      contentTypeName: contentType.Name,
+      rawFieldCount: fields.length,
+      fieldLinkCount: fieldLinks.length,
+      duplicateFieldInternalNames: findDuplicateValues(
+        fields.map((field: any) => field.InternalName || field.EntityPropertyName).filter(Boolean)
+      ),
+      rawFieldSummary: summarizeRawFieldsForDebug(fields),
+      fieldLinkSummary: summarizeFieldLinksForDebug(fieldLinks),
+    });
 
     const metadataByInternalName = new Map<string, IFieldMetadata>();
     fields.forEach((field, index) => {
@@ -56,11 +115,37 @@ export async function loadFieldsFromContentType(
       metadata.order = fieldMetadata.length;
       fieldMetadata.push(metadata);
     });
+    SPContext.logger.debug('SPDynamicForm: content type field-link reconciliation', {
+      listId,
+      contentTypeId,
+      fieldLinksWithoutFields: fieldLinks
+        .map((fieldLink: any) => fieldLink.FieldInternalName || fieldLink.Name)
+        .filter((fieldInternalName: string | undefined) =>
+          !!fieldInternalName && !fieldMetadata.some((field) => field.internalName === fieldInternalName)
+        ),
+      fieldsNotInFieldLinks: fields
+        .map((field: any) => field.InternalName || field.EntityPropertyName)
+        .filter((fieldInternalName: string | undefined) =>
+          !!fieldInternalName &&
+          !fieldLinks.some((fieldLink: any) =>
+            (fieldLink.FieldInternalName || fieldLink.Name) === fieldInternalName
+          )
+        ),
+      hiddenFieldNames: fieldMetadata.filter((field) => field.hidden).map((field) => field.internalName),
+      readOnlyFieldNames: fieldMetadata.filter((field) => field.readOnly).map((field) => field.internalName),
+      requiredFieldNames: fieldMetadata.filter((field) => field.required).map((field) => field.internalName),
+    });
 
     const duration = timer();
     SPContext.logger.success(
       `Loaded ${fieldMetadata.length} fields from ContentType in ${duration}ms`
     );
+    SPContext.logger.debug('SPDynamicForm: content type field metadata resolved', {
+      listId,
+      contentTypeId,
+      fieldCount: fieldMetadata.length,
+      fields: fieldMetadata,
+    });
 
     return fieldMetadata;
   } catch (error) {
@@ -87,12 +172,29 @@ export async function loadFieldsFromList(listId: string): Promise<IFieldMetadata
     const fields = await list.fields();
 
     SPContext.logger.info(`Loaded ${fields.length} fields from list`);
+    SPContext.logger.debug('SPDynamicForm: raw list fields loaded', {
+      listId,
+      fieldsRaw: fields,
+    });
+    SPContext.logger.debug('SPDynamicForm: list field schema diagnostics', {
+      listId,
+      rawFieldCount: fields.length,
+      duplicateFieldInternalNames: findDuplicateValues(
+        fields.map((field: any) => field.InternalName || field.EntityPropertyName).filter(Boolean)
+      ),
+      rawFieldSummary: summarizeRawFieldsForDebug(fields),
+    });
 
     // Preserve SharePoint's returned order instead of imposing an alphabetical fallback.
     const fieldMetadata = fields.map((field, index) => buildFieldMetadata(field, index));
 
     const duration = timer();
     SPContext.logger.success(`Loaded ${fieldMetadata.length} fields from list in ${duration}ms`);
+    SPContext.logger.debug('SPDynamicForm: list field metadata resolved', {
+      listId,
+      fieldCount: fieldMetadata.length,
+      fields: fieldMetadata,
+    });
 
     return fieldMetadata;
   } catch (error) {

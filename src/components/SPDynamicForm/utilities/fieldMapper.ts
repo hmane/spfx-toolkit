@@ -218,10 +218,22 @@ export function buildFieldMetadata(field: any, order: number = 0): IFieldMetadat
 // regardless of mode or override. This list mirrors SP's "do not edit"
 // surface and is intentionally absolute.
 const SYSTEM_FIELDS: ReadonlyArray<string> = [
+  'ID',
+  'ContentTypeId',
   'ContentType',
+  'GUID',
+  'UniqueId',
+  'owshiddenversion',
+  '_ModerationStatus',
+  '_Level',
   'Edit',
   'LinkTitle',
   'LinkTitleNoMenu',
+  'LinkFilename',
+  'LinkFilenameNoMenu',
+  'LinkFilename2',
+  'SelectTitle',
+  'SelectFilename',
   'DocIcon',
   'ItemChildCount',
   'FolderChildCount',
@@ -232,11 +244,66 @@ const SYSTEM_FIELDS: ReadonlyArray<string> = [
   'FileLeafRef',
   'FileRef',
   'FileDirRef',
+  'Last_x0020_Modified',
+  'Created_x0020_Date',
+  'FSObjType',
+  'PermMask',
+  'FileSystemObjectType',
   'File_x0020_Type',
+  'HTML_x0020_File_x0020_Type',
+  'Created_x0020_By',
+  'Modified_x0020_By',
+  '_CopySource',
+  'WorkflowVersion',
+  '_UIVersion',
+  '_EditMenuTableStart',
+  '_EditMenuTableEnd',
+  'ServerUrl',
+  'EncodedAbsUrl',
+  'BaseName',
+  'FileSizeDisplay',
+  '_HasCopyDestinations',
+  'ContentVersion',
+  '_VirusStatus',
+  'CheckedOutUserId',
+  'CheckedOutTitle',
+  'IsCheckedoutToLocal',
+  'CheckoutUser',
+  'SyncClientId',
+  'VirusStatus',
+  'ScopeId',
+  'SMTotalSize',
+  'SMLastModifiedDate',
+  'SMTotalFileStreamSize',
+  'SMTotalFileCount',
+  'File_x0020_Size',
+  'FileSize',
+  'SortType',
+  'ParentVersionString',
+  'ParentLeafName',
+  '_SourceUrl',
+  '_SharedFileIndex',
+  'NoExecute',
+  'AccessPolicy',
+  'ProgId',
   '_ComplianceFlags',
   '_ComplianceTag',
   '_ComplianceTagWrittenTime',
   '_ComplianceTagUserId',
+  '_IsRecord',
+  '_CommentCount',
+  '_LikeCount',
+  'PropertyBag',
+  'BlobSequenceNumber',
+  'DocumentConcurrencyNumber',
+  'DocumentStreamHash',
+  'ParentUniqueId',
+  'StreamHash',
+  'TriggerFlowInfo',
+  'SourceVersion',
+  'SourceName',
+  'SourceVersionConvertedDocument',
+  'SourceNameConvertedDocument',
   // SharePoint's hidden taxonomy join fields. SP exposes these in `/fields`
   // for any list with at least one taxonomy column, but they are NOT user-
   // editable and `TaxCatchAllLabel` was deprecated on items in modern SPO
@@ -248,6 +315,31 @@ const SYSTEM_FIELDS: ReadonlyArray<string> = [
   // but rejected by `$select` on items.
   'MetaInfo',
 ];
+
+function isInternalCompanionField(field: IFieldMetadata): boolean {
+  const internalName = field.internalName || '';
+
+  // Hidden note companion for managed-metadata/image tags fields. SharePoint
+  // commonly names these `${visibleField}_0`; CT field links may mark them as
+  // not hidden, so they need fetch-time exclusion.
+  if (internalName.endsWith('_0')) return true;
+
+  // Some hidden companion fields are exposed by a compact GUID-like internal
+  // name rather than `${field}_0` (as seen on modern document libraries).
+  if (/^[0-9a-f]{32}$/i.test(internalName)) return true;
+
+  return false;
+}
+
+export function getEditableSchemaExclusionReason(
+  field: IFieldMetadata,
+  excludeFields: string[] = []
+): string | null {
+  if (excludeFields.includes(field.internalName)) return 'consumer-excluded';
+  if (SYSTEM_FIELDS.includes(field.internalName)) return 'sharepoint-system-field';
+  if (isInternalCompanionField(field)) return 'sharepoint-internal-companion-field';
+  return null;
+}
 
 /**
  * Fetch-time absolute filter — drops system fields and consumer-excluded
@@ -265,9 +357,7 @@ export function filterToEditableSchema(
   excludeFields: string[] = []
 ): IFieldMetadata[] {
   return fields.filter((field) => {
-    if (excludeFields.includes(field.internalName)) return false;
-    if (SYSTEM_FIELDS.includes(field.internalName)) return false;
-    return true;
+    return getEditableSchemaExclusionReason(field, excludeFields) === null;
   });
 }
 

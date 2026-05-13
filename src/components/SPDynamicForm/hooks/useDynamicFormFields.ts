@@ -6,7 +6,11 @@ import {
   resolveFieldOrder,
   filterToSpecifiedFields,
 } from '../utilities/fieldOrderResolver';
-import { filterToEditableSchema, sortFieldsByOrder } from '../utilities/fieldMapper';
+import {
+  filterToEditableSchema,
+  getEditableSchemaExclusionReason,
+  sortFieldsByOrder,
+} from '../utilities/fieldMapper';
 import { resolveSections, flattenSections } from '../utilities/fieldGroupResolver';
 import { optimizeLookupFields } from '../utilities/lookupFieldOptimizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
@@ -18,6 +22,31 @@ const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
 interface ICacheEntry {
   fields: IFieldMetadata[];
   timestamp: number;
+}
+
+function summarizeFieldsForDebug(fields: IFieldMetadata[]): Array<Record<string, unknown>> {
+  return fields.map((field) => ({
+    internalName: field.internalName,
+    displayName: field.displayName,
+    fieldType: field.fieldType,
+    typeAsString: field.typeAsString,
+    fieldTypeKind: field.fieldTypeKind,
+    hidden: field.hidden,
+    readOnly: field.readOnly,
+    required: field.required,
+    group: field.group,
+    order: field.order,
+  }));
+}
+
+function countBy<T extends string | number | boolean | undefined>(
+  values: T[]
+): Record<string, number> {
+  return values.reduce<Record<string, number>>((acc, value) => {
+    const key = String(value ?? 'undefined');
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
 }
 
 export interface IUseDynamicFormFieldsOptions {
@@ -198,6 +227,20 @@ export function useDynamicFormFields(
 
         if (myRequestId !== loadRequestIdRef.current) return;
 
+        SPContext.logger.debug('SPDynamicForm: fields loaded before transform/filter', {
+          listId,
+          contentTypeId,
+          useContentTypeOrder,
+          fieldCount: fields.length,
+          hiddenCount: fields.filter((field) => field.hidden).length,
+          readOnlyCount: fields.filter((field) => field.readOnly).length,
+          requiredCount: fields.filter((field) => field.required).length,
+          byFieldType: countBy(fields.map((field) => field.fieldType)),
+          byTypeAsString: countBy(fields.map((field) => field.typeAsString)),
+          fieldSummary: summarizeFieldsForDebug(fields),
+          fields,
+        });
+
         // Cache the fields with timestamp
         if (cacheFields) {
           try {
@@ -219,6 +262,13 @@ export function useDynamicFormFields(
           const transformed = onFieldLoadTransformRef.current(fields);
           if (Array.isArray(transformed)) {
             fields = transformed;
+            SPContext.logger.debug('SPDynamicForm: fields after onFieldLoadTransform', {
+              listId,
+              contentTypeId,
+              fieldCount: fields.length,
+              fieldSummary: summarizeFieldsForDebug(fields),
+              fields,
+            });
           }
         } catch (err) {
           SPContext.logger.warn(
@@ -230,7 +280,24 @@ export function useDynamicFormFields(
 
       // Filter to specified fields if provided
       if (specifiedFields && specifiedFields.length > 0) {
+        const beforeSpecifiedFields = fields;
         fields = filterToSpecifiedFields(fields, specifiedFields);
+        SPContext.logger.debug('SPDynamicForm: fields after specifiedFields filter', {
+          listId,
+          contentTypeId,
+          specifiedFields,
+          beforeCount: beforeSpecifiedFields.length,
+          afterCount: fields.length,
+          removedFields: beforeSpecifiedFields
+            .filter((field) => !fields!.some((kept) => kept.internalName === field.internalName))
+            .map((field) => ({
+              internalName: field.internalName,
+              displayName: field.displayName,
+              reason: 'not-in-specifiedFields',
+            })),
+          fieldSummary: summarizeFieldsForDebug(fields),
+          fields,
+        });
       }
 
       // NOTE: `applyFieldOverrides` is intentionally NOT called here.
@@ -244,7 +311,28 @@ export function useDynamicFormFields(
       // `filterFieldsByModeFlags`, so overrides like `hidden: false` can
       // un-hide a SP-hidden field and `readOnly: false` can promote a SP
       // readOnly field to editable.
+      const beforeEditableSchemaFilter = fields;
       fields = filterToEditableSchema(fields, excludeFields);
+      SPContext.logger.debug('SPDynamicForm: fields after editable schema filter', {
+        listId,
+        contentTypeId,
+        excludeFields,
+        beforeCount: beforeEditableSchemaFilter.length,
+        afterCount: fields.length,
+        removedFields: beforeEditableSchemaFilter
+          .filter((field) => !fields!.some((kept) => kept.internalName === field.internalName))
+          .map((field) => ({
+            internalName: field.internalName,
+            displayName: field.displayName,
+            fieldType: field.fieldType,
+            typeAsString: field.typeAsString,
+            hidden: field.hidden,
+            readOnly: field.readOnly,
+            reason: getEditableSchemaExclusionReason(field, excludeFields) || 'unknown',
+          })),
+        fieldSummary: summarizeFieldsForDebug(fields),
+        fields,
+      });
 
       // Optimize lookup fields — pass a signal that reflects freshness in real time
       const checkSignal = { get aborted() { return myRequestId !== loadRequestIdRef.current; } };
@@ -258,6 +346,20 @@ export function useDynamicFormFields(
       // Resolve sections
       const sections = resolveSections(fields, useContentTypeGroups, manualSections);
       const useSections = sections.length > 0;
+      SPContext.logger.debug('SPDynamicForm: sections resolved', {
+        listId,
+        contentTypeId,
+        useContentTypeGroups,
+        useSections,
+        sectionCount: sections.length,
+        sections: sections.map((section) => ({
+          name: section.name,
+          title: section.title,
+          originalGroup: section.originalGroup,
+          fieldCount: section.fields.length,
+          fieldNames: section.fields.map((field) => field.internalName),
+        })),
+      });
 
       // Check if list supports attachments
       let supportsAttachments = false;
@@ -281,6 +383,11 @@ export function useDynamicFormFields(
 
         if (myRequestId !== loadRequestIdRef.current) return;
 
+        SPContext.logger.debug('SPDynamicForm: raw available content types loaded', {
+          listId,
+          contentTypesRaw: ctsRaw,
+        });
+
         const cts: IAvailableContentType[] = ctsRaw
           .filter((ct) => {
             const idStr = ct.Id?.StringValue ?? ct.Id ?? '';
@@ -295,6 +402,30 @@ export function useDynamicFormFields(
           }));
 
         setAvailableContentTypes(cts);
+        SPContext.logger.debug('SPDynamicForm: available content types resolved', {
+          listId,
+          selectedContentTypeId: contentTypeId,
+          rawCount: ctsRaw.length,
+          availableCount: cts.length,
+          filteredOutContentTypes: ctsRaw
+            .filter((ct) => {
+              const idStr = ct.Id?.StringValue ?? ct.Id ?? '';
+              return ct.ReadOnly || typeof idStr !== 'string' || idStr.startsWith('0x0120');
+            })
+            .map((ct) => ({
+              id: ct.Id?.StringValue ?? ct.Id,
+              name: ct.Name,
+              hidden: ct.Hidden,
+              readOnly: ct.ReadOnly,
+              reason:
+                ct.ReadOnly
+                  ? 'read-only'
+                  : typeof (ct.Id?.StringValue ?? ct.Id ?? '') !== 'string'
+                  ? 'missing-id'
+                  : 'folder-content-type',
+            })),
+          contentTypes: cts,
+        });
       } catch (ctErr) {
         if (myRequestId !== loadRequestIdRef.current) return;
         SPContext.logger.warn('SPDynamicForm: failed to load content types', { listId, err: String(ctErr) });
@@ -313,6 +444,16 @@ export function useDynamicFormFields(
       };
 
       setResult(finalResult);
+      SPContext.logger.debug('SPDynamicForm: final field load result', {
+        listId,
+        contentTypeId,
+        fieldCount: fields.length,
+        fieldNames: fields.map((field) => field.internalName),
+        supportsAttachments,
+        useSections,
+        sectionCount: sections.length,
+        fieldSummary: summarizeFieldsForDebug(fields),
+      });
 
       // Call onAfterLoad using ref
       if (onAfterLoadRef.current) {

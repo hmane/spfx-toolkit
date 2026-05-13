@@ -73,6 +73,50 @@ describe('Audit Finding 2+4 — fetch-time vs render-time filtering split', () =
     );
   });
 
+  test('filterToEditableSchema drops SP content-type internal companion fields', () => {
+    const fields = [
+      makeField({ internalName: 'Accounts' }),
+      makeField({ internalName: 'Image_x0020_Tags_0', displayName: 'Image Tags_0' }),
+      makeField({ internalName: 'Created_x0020_By' }),
+      makeField({ internalName: 'Modified_x0020_By' }),
+      makeField({ internalName: 'SelectFilename' }),
+      makeField({ internalName: 'b508da3513684af2a418e66bcf49f72a' }),
+      makeField({ internalName: '1cf76f155ced4ddcb4097134ff3c332f' }),
+      makeField({ internalName: 'DocumentNotes' }),
+    ];
+
+    const out = filterToEditableSchema(fields);
+
+    assert.deepEqual(
+      out.map((f) => f.internalName),
+      ['Accounts', 'DocumentNotes']
+    );
+  });
+
+  test('filterToEditableSchema drops common OOB document-library technical fields', () => {
+    const fields = [
+      makeField({ internalName: 'BusinessField' }),
+      makeField({ internalName: 'GUID' }),
+      makeField({ internalName: 'UniqueId' }),
+      makeField({ internalName: 'owshiddenversion' }),
+      makeField({ internalName: '_ModerationStatus' }),
+      makeField({ internalName: 'FSObjType' }),
+      makeField({ internalName: 'PermMask' }),
+      makeField({ internalName: 'EncodedAbsUrl' }),
+      makeField({ internalName: 'FileSizeDisplay' }),
+      makeField({ internalName: 'CheckedOutUserId' }),
+      makeField({ internalName: 'File_x0020_Size' }),
+      makeField({ internalName: 'DocumentStreamHash' }),
+    ];
+
+    const out = filterToEditableSchema(fields);
+
+    assert.deepEqual(
+      out.map((f) => f.internalName),
+      ['BusinessField']
+    );
+  });
+
   test('filterToEditableSchema drops consumer-excluded fields', () => {
     const fields = [
       makeField({ internalName: 'A' }),
