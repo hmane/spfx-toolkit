@@ -8,6 +8,7 @@ import {
 } from '../Card.types';
 import { ERROR_MESSAGES } from '../utils/constants';
 import { StorageService } from './StorageService';
+import { SPContext } from '../../../utilities/context';
 
 /**∏
  * Singleton Card Controller Service
@@ -103,9 +104,9 @@ export class CardControllerService implements ICardController {
     }
 
     if (this.cards.has(registration.id)) {
-      console.warn(
-        `[SpfxCard] Card ${registration.id} is already registered, updating registration`
-      );
+      SPContext.logger.warn('SpfxCard: card is already registered, updating registration', {
+        cardId: registration.id,
+      });
     }
 
     this.cards.set(registration.id, registration);
@@ -119,7 +120,7 @@ export class CardControllerService implements ICardController {
       source: 'programmatic' as const,
     });
 
-    console.debug(`[SpfxCard] Registered card: ${registration.id}`);
+    SPContext.logger.debug('SpfxCard: registered card', { cardId: registration.id });
   }
 
   /**
@@ -127,7 +128,7 @@ export class CardControllerService implements ICardController {
    */
   public unregisterCard(id: string): void {
     if (!this.cards.has(id)) {
-      console.warn(`[SpfxCard] Attempted to unregister non-existent card: ${id}`);
+      SPContext.logger.warn('SpfxCard: attempted to unregister non-existent card', { cardId: id });
       return;
     }
 
@@ -143,7 +144,7 @@ export class CardControllerService implements ICardController {
       source: 'programmatic' as const,
     });
 
-    console.debug(`[SpfxCard] Unregistered card: ${id}`);
+    SPContext.logger.debug('SpfxCard: unregistered card', { cardId: id });
   }
 
   /**
@@ -152,7 +153,7 @@ export class CardControllerService implements ICardController {
   public updateCardState(id: string, state: Partial<CardState>): void {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while updating state', { cardId: id });
       return;
     }
 
@@ -204,7 +205,7 @@ export class CardControllerService implements ICardController {
   public toggleCard(id: string, highlight: boolean = true): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while toggling', { cardId: id });
       return false;
     }
 
@@ -233,7 +234,7 @@ export class CardControllerService implements ICardController {
   public expandCard(id: string, highlight: boolean = true): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while expanding', { cardId: id });
       return false;
     }
 
@@ -262,7 +263,7 @@ export class CardControllerService implements ICardController {
   public collapseCard(id: string, highlight: boolean = true): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while collapsing', { cardId: id });
       return false;
     }
 
@@ -293,7 +294,7 @@ export class CardControllerService implements ICardController {
   public maximizeCard(id: string): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while maximizing', { cardId: id });
       return false;
     }
 
@@ -317,7 +318,7 @@ export class CardControllerService implements ICardController {
   public restoreCard(id: string): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while restoring', { cardId: id });
       return false;
     }
 
@@ -341,7 +342,7 @@ export class CardControllerService implements ICardController {
   public toggleMaximize(id: string): boolean {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while toggling maximize', { cardId: id });
       return false;
     }
 
@@ -364,7 +365,7 @@ export class CardControllerService implements ICardController {
   public async scrollToCard(id: string, options: ScrollOptions = {}): Promise<boolean> {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while scrolling', { cardId: id });
       return false;
     }
 
@@ -377,7 +378,7 @@ export class CardControllerService implements ICardController {
       // Fallback scroll implementation
       const cardElement = document.querySelector(`[data-card-id="${id}"]`) as HTMLElement;
       if (!cardElement) {
-        console.warn(`[SpfxCard] Card element not found: ${id}`);
+        SPContext.logger.warn('SpfxCard: card element not found', { cardId: id });
         return false;
       }
 
@@ -400,7 +401,9 @@ export class CardControllerService implements ICardController {
   public async expandAndScrollTo(id: string, options: ScrollOptions = {}): Promise<boolean> {
     const card = this.cards.get(id);
     if (!card) {
-      console.warn(`[SpfxCard] ${ERROR_MESSAGES.CARD_NOT_FOUND}: ${id}`);
+      SPContext.logger.warn('SpfxCard: card not found while expanding and scrolling', {
+        cardId: id,
+      });
       return false;
     }
 
@@ -566,7 +569,7 @@ export class CardControllerService implements ICardController {
           }
         }
       } catch (error) {
-        console.warn(`[SpfxCard] Failed to restore state for card ${id}:`, error);
+        SPContext.logger.warn('SpfxCard: failed to restore card state', { cardId: id, error });
       }
     });
   }
@@ -630,7 +633,10 @@ export class CardControllerService implements ICardController {
         try {
           callback(action, data);
         } catch (error) {
-          console.error(`[SpfxCard] Subscription callback error:`, error);
+          SPContext.logger.error('SpfxCard: subscription callback error', error, {
+            cardId,
+            action,
+          });
         }
       });
     }
@@ -640,7 +646,10 @@ export class CardControllerService implements ICardController {
       try {
         callback(action, cardId, data);
       } catch (error) {
-        console.error(`[SpfxCard] Global subscription callback error:`, error);
+        SPContext.logger.error('SpfxCard: global subscription callback error', error, {
+          cardId,
+          action,
+        });
       }
     });
   }
@@ -750,7 +759,7 @@ export class CardControllerService implements ICardController {
       timestamp: Date.now(),
     };
 
-    console.error(`[SpfxCard] Error in ${operation} for card ${cardId}:`, error);
+    SPContext.logger.error('SpfxCard: card operation failed', error, { cardId, operation });
 
     // Emit error event
     this.emitEvent('error', cardId, {
@@ -834,7 +843,7 @@ export class CardControllerService implements ICardController {
     // Persist final state
     this.persistStates();
 
-    console.log('[SpfxCard] Controller cleanup completed');
+    SPContext.logger.debug('SpfxCard: controller cleanup completed');
   }
 
   /**
@@ -847,7 +856,7 @@ export class CardControllerService implements ICardController {
     this.setupEventListeners();
     this.scheduleCleanup();
 
-    console.log('[SpfxCard] Controller reset completed');
+    SPContext.logger.debug('SpfxCard: controller reset completed');
   }
 }
 

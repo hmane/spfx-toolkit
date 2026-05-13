@@ -5,6 +5,7 @@
 
 import { Caching } from '@pnp/queryable';
 import type { CacheStrategy, ContextConfig, ContextModule, SPFxContextInput } from '../types';
+import { SPContext } from '../sp-context';
 
 /**
  * Cache module for PnP behaviors
@@ -104,7 +105,7 @@ export class CacheModule implements ContextModule {
       clearStorage(localStorage);
       clearStorage(sessionStorage);
     } catch (error) {
-      console.warn('Failed to clear cache:', error);
+      SPContext.logger.warn('CacheModule: failed to clear cache', { error });
     }
   }
 }

@@ -102,14 +102,14 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
       (cardId: string, isExpanded: boolean) => {
         // Prevent concurrent operations on the same card
         if (pendingOperationsRef.current.has(cardId)) {
-          SPContext.logger.info(`Accordion ${id}: Operation already pending for ${cardId}`, { cardId });
+          SPContext.logger.debug(`Accordion ${id}: Operation already pending for ${cardId}`, { cardId });
           return;
         }
 
         pendingOperationsRef.current.add(cardId);
 
         try {
-          SPContext.logger.info(
+          SPContext.logger.debug(
             `Accordion ${id}: Card ${cardId} toggle - isExpanded: ${isExpanded}, allowMultiple: ${allowMultiple}`,
             { cardId, isExpanded, allowMultiple }
           );
@@ -122,18 +122,18 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
               if (allowMultiple) {
                 // Allow multiple expanded cards
                 newExpanded = prev.includes(cardId) ? prev : [...prev, cardId];
-                SPContext.logger.info(`Accordion ${id}: Multi-mode - adding ${cardId}`, { cardId });
+                SPContext.logger.debug(`Accordion ${id}: Multi-mode - adding ${cardId}`, { cardId });
               } else {
                 // Single expand mode - close all others immediately
                 newExpanded = [cardId];
-                SPContext.logger.info(`Accordion ${id}: Single-mode - only ${cardId} should be open`, {
+                SPContext.logger.debug(`Accordion ${id}: Single-mode - only ${cardId} should be open`, {
                   cardId,
                 });
 
                 // Close other cards via controller
                 prev.forEach(prevCardId => {
                   if (prevCardId !== cardId && !pendingOperationsRef.current.has(prevCardId)) {
-                    SPContext.logger.info(`Accordion ${id}: Closing ${prevCardId} to allow ${cardId}`, {
+                    SPContext.logger.debug(`Accordion ${id}: Closing ${prevCardId} to allow ${cardId}`, {
                       prevCardId,
                       cardId,
                     });
@@ -148,10 +148,10 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
             } else {
               // Card is being collapsed
               newExpanded = prev.filter(cardIdToFilter => cardIdToFilter !== cardId);
-              SPContext.logger.info(`Accordion ${id}: Collapsing ${cardId}`, { cardId });
+              SPContext.logger.debug(`Accordion ${id}: Collapsing ${cardId}`, { cardId });
             }
 
-            SPContext.logger.info(`Accordion ${id}: New expanded cards`, { newExpanded });
+            SPContext.logger.debug(`Accordion ${id}: New expanded cards`, { newExpanded });
 
             // Save state if persistence is enabled
             if (persist) {
@@ -179,7 +179,7 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
 
       cardIds.forEach(cardId => {
         const unsubscribe = cardController.subscribe(cardId, action => {
-          SPContext.logger.info(`Accordion ${id}: Received ${action} for ${cardId}`, { cardId, action });
+          SPContext.logger.debug(`Accordion ${id}: Received ${action} for ${cardId}`, { cardId, action });
 
           if (action === 'expand') {
             handleCardToggle(cardId, true);
@@ -199,7 +199,7 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
     useEffect(() => {
       if (!isInitializedRef.current) return;
 
-      SPContext.logger.info(`Accordion ${id}: Syncing card states`, { expandedCards });
+      SPContext.logger.debug(`Accordion ${id}: Syncing card states`, { expandedCards });
 
       cardIds.forEach(cardId => {
         // Skip if operation is pending
@@ -211,7 +211,7 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
         const currentState = cardController.getCardState(cardId);
 
         if (currentState && currentState.isExpanded !== shouldBeExpanded) {
-          SPContext.logger.info(
+          SPContext.logger.debug(
             `Accordion ${id}: Syncing ${cardId} to ${shouldBeExpanded ? 'expanded' : 'collapsed'}`,
             {
               cardId,
@@ -279,12 +279,12 @@ export const Accordion = React.forwardRef<AccordionHandle, AccordionProps>(
           'data-allow-multiple': allowMultiple,
           // COMPLETE FIX: Override card's expand/collapse handlers
           onExpand: (data: any) => {
-            SPContext.logger.info(`Accordion ${id}: Card ${cardId} onExpand triggered`, { cardId });
+            SPContext.logger.debug(`Accordion ${id}: Card ${cardId} onExpand triggered`, { cardId });
             handleCardToggle(cardId, true);
             child.props.onExpand?.(data);
           },
           onCollapse: (data: any) => {
-            SPContext.logger.info(`Accordion ${id}: Card ${cardId} onCollapse triggered`, { cardId });
+            SPContext.logger.debug(`Accordion ${id}: Card ${cardId} onCollapse triggered`, { cardId });
             handleCardToggle(cardId, false);
             child.props.onCollapse?.(data);
           },

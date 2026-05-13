@@ -12,6 +12,8 @@
 // TYPE DECLARATIONS
 // ========================================
 
+import { SPContext } from '../context';
+
 declare global {
   interface Date {
     /**
@@ -77,7 +79,7 @@ try {
   dxLocalization = localization;
 } catch (e) {
   // DevExtreme not available - fall back to custom implementation
-  console.warn('DevExtreme not available, using fallback date utilities');
+  SPContext.logger.warn('dateUtils: DevExtreme not available, using fallback date utilities', { error: e });
 }
 
 // ========================================

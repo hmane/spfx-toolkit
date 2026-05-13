@@ -233,7 +233,7 @@ export interface ISPDynamicFormProps<T extends FieldValues = any> {
   onFieldLoadTransform?: (fields: IFieldMetadata[]) => IFieldMetadata[];
 
   /**
-   * Logs every field's resolved override state via `SPContext.logger.info` on each
+   * Logs every field's resolved override state via `SPContext.logger.debug` on each
    * render pass. Off by default. Useful for diagnosing "why is field X disabled?".
    */
   debug?: boolean;

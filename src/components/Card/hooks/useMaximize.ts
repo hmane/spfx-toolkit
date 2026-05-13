@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimationConfig } from '../Card.types';
 import { getAnimationDuration } from '../utils/animations';
 import { Z_INDEX } from '../utils/constants';
+import { SPContext } from '../../../utilities/context';
 
 export const useMaximize = (
   cardId: string,
@@ -102,17 +103,17 @@ export const useMaximize = (
     const element = getCardElement();
 
     if (!element || !originalStyleRef.current) {
-      console.warn(`[SpfxCard] Card element or original styles not found: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element or original styles not found', { cardId });
       return false;
     }
 
     if (!(element instanceof Element)) {
-      console.warn(`[SpfxCard] Card element is not a valid DOM Element: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element is not a valid DOM Element', { cardId });
       return false;
     }
 
     if (!element.isConnected) {
-      console.warn(`[SpfxCard] Card element is not connected to DOM: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element is not connected to DOM', { cardId });
       return false;
     }
 
@@ -191,7 +192,7 @@ export const useMaximize = (
 
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Error restoring card:', error);
+      SPContext.logger.error('SpfxCard: error restoring card', error, { cardId });
       setIsAnimating(false);
       isMaximizingRef.current = false;
       return false;
@@ -215,17 +216,17 @@ export const useMaximize = (
     const element = getCardElement();
 
     if (!element) {
-      console.warn(`[SpfxCard] Card element not found: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element not found', { cardId });
       return false;
     }
 
     if (!(element instanceof Element)) {
-      console.warn(`[SpfxCard] Card element is not a valid DOM Element: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element is not a valid DOM Element', { cardId });
       return false;
     }
 
     if (!element.isConnected) {
-      console.warn(`[SpfxCard] Card element is not connected to DOM: ${cardId}`);
+      SPContext.logger.warn('SpfxCard: card element is not connected to DOM', { cardId });
       return false;
     }
 
@@ -269,7 +270,9 @@ export const useMaximize = (
       // Handle backdrop click
       const handleBackdropClick = (event: MouseEvent) => {
         if (event.target === backdrop) {
-          restore().catch(console.error);
+          restore().catch((error) => {
+            SPContext.logger.error('SpfxCard: error restoring card from backdrop click', error, { cardId });
+          });
         }
       };
       backdropClickHandlerRef.current = handleBackdropClick;
@@ -331,7 +334,7 @@ export const useMaximize = (
 
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Error maximizing card:', error);
+      SPContext.logger.error('SpfxCard: error maximizing card', error, { cardId });
       setIsAnimating(false);
       isMaximizingRef.current = false;
       return false;
@@ -357,7 +360,9 @@ export const useMaximize = (
 
       if (event.key === 'Escape') {
         event.preventDefault();
-        restore().catch(console.error);
+        restore().catch((error) => {
+          SPContext.logger.error('SpfxCard: error restoring card from Escape key', error, { cardId });
+        });
       }
     },
     [isMaximized, restore]

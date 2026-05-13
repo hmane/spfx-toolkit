@@ -76,6 +76,29 @@ describe('SPDebug.attachLogger', () => {
     assert.equal(entry.source, 'Toolkit/SPDynamicForm');
   });
 
+  test('unscoped toolkit messages are tagged as Toolkit component logs', () => {
+    const logger = makeLogger({ componentName: 'MyWebPart' });
+    SPDebug.enable();
+    SPDebug.attachLogger(logger);
+    logger.debug('SPDynamicForm: raw content type schema loaded');
+    const entry = debugStore.getState().entries[0];
+    assert.equal(entry.source, 'Toolkit/SPDynamicForm');
+    assert.equal(entry.meta?.origin, 'Toolkit');
+    assert.equal(entry.meta?.component, 'SPDynamicForm');
+    assert.equal(entry.meta?.feature, 'content-types');
+  });
+
+  test('unscoped app logger entries are tagged as App logs', () => {
+    const logger = makeLogger({ componentName: 'OrdersWebPart' });
+    SPDebug.enable();
+    SPDebug.attachLogger(logger);
+    logger.info('User clicked save');
+    const entry = debugStore.getState().entries[0];
+    assert.equal(entry.source, 'App/OrdersWebPart');
+    assert.equal(entry.meta?.origin, 'App');
+    assert.equal(entry.meta?.component, 'OrdersWebPart');
+  });
+
   test('source override from attach options is respected', () => {
     const logger = makeLogger();
     SPDebug.enable();

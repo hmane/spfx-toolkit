@@ -7,6 +7,7 @@ import { IconButton } from '@fluentui/react/lib/Button';
 import { TooltipHost } from '@fluentui/react/lib/Tooltip';
 import { getId } from '@fluentui/react/lib/Utilities';
 import { DEFAULT_ICONS } from '../utils/constants';
+import { SPContext } from '../../../utilities/context';
 
 export const Header = memo<HeaderProps>(
   ({
@@ -31,7 +32,7 @@ export const Header = memo<HeaderProps>(
     const [isKeyboardFocus, setIsKeyboardFocus] = React.useState(false);
 
     if (!cardContext) {
-      console.warn('[SpfxCard] Header must be used within a Card component');
+      SPContext.logger.warn('SpfxCard: Header must be used within a Card component');
       return null;
     }
 

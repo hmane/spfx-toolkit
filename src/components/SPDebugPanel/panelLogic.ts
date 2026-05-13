@@ -50,6 +50,9 @@ export function parseSource(source: string): ParsedSource {
 
 export interface PanelFilters {
   search: string;
+  origins: ReadonlyArray<string>;
+  sources: ReadonlyArray<string>;
+  components: ReadonlyArray<string>;
   levels: ReadonlyArray<SPDebugLevel>;
   types: ReadonlyArray<SPDebugEntryType>;
   areas: ReadonlyArray<string>;
@@ -57,7 +60,16 @@ export interface PanelFilters {
 }
 
 export function emptyFilters(): PanelFilters {
-  return { search: '', levels: [], types: [], areas: [], errorsOnly: false };
+  return {
+    search: '',
+    origins: [],
+    sources: [],
+    components: [],
+    levels: [],
+    types: [],
+    areas: [],
+    errorsOnly: false,
+  };
 }
 
 function safeStringify(value: unknown): string {
@@ -80,6 +92,15 @@ export function entryMatches(entry: SPDebugEntry, f: PanelFilters): boolean {
   if (f.errorsOnly && entry.level !== 'error' && entry.type !== 'error') {
     return false;
   }
+  const origin = typeof entry.meta?.origin === 'string'
+    ? entry.meta.origin
+    : parseSource(entry.source).area;
+  const component = typeof entry.meta?.component === 'string'
+    ? entry.meta.component
+    : parseSource(entry.source).detail;
+  if (f.origins.length > 0 && f.origins.indexOf(origin) < 0) return false;
+  if (f.sources.length > 0 && f.sources.indexOf(entry.source) < 0) return false;
+  if (f.components.length > 0 && f.components.indexOf(component) < 0) return false;
   if (f.levels.length > 0 && f.levels.indexOf(entry.level) < 0) return false;
   if (f.types.length > 0 && f.types.indexOf(entry.type) < 0) return false;
   if (f.areas.length > 0) {
@@ -137,6 +158,7 @@ export interface PanelPrefs {
   rightWidth: number;
   bottomHeight: number;
   selectedTab: string;
+  filters: PanelFilters;
 }
 
 export const DEFAULT_PANEL_PREFS: PanelPrefs = {
@@ -144,6 +166,7 @@ export const DEFAULT_PANEL_PREFS: PanelPrefs = {
   rightWidth: 640,
   bottomHeight: 420,
   selectedTab: 'console',
+  filters: emptyFilters(),
 };
 
 export const RIGHT_WIDTH_MIN = 320;
@@ -181,6 +204,27 @@ function getStorage(): Storage | null {
   }
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+function normalizeFilters(value: unknown): PanelFilters {
+  if (!value || typeof value !== 'object') return emptyFilters();
+  const parsed = value as Partial<PanelFilters>;
+  return {
+    search: typeof parsed.search === 'string' ? parsed.search : '',
+    origins: normalizeStringArray(parsed.origins),
+    sources: normalizeStringArray(parsed.sources),
+    components: normalizeStringArray(parsed.components),
+    levels: normalizeStringArray(parsed.levels) as SPDebugLevel[],
+    types: normalizeStringArray(parsed.types) as SPDebugEntryType[],
+    areas: normalizeStringArray(parsed.areas),
+    errorsOnly: parsed.errorsOnly === true,
+  };
+}
+
 export function loadPanelPrefs(): PanelPrefs {
   const storage = getStorage();
   if (!storage) return DEFAULT_PANEL_PREFS;
@@ -206,6 +250,7 @@ export function loadPanelPrefs(): PanelPrefs {
           : DEFAULT_PANEL_PREFS.bottomHeight
       ),
       selectedTab: normalizeSelectedTab(parsed.selectedTab),
+      filters: normalizeFilters(parsed.filters),
     };
   } catch {
     return DEFAULT_PANEL_PREFS;

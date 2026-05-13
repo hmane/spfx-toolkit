@@ -232,7 +232,7 @@ export const useStorageCleanup = (
       try {
         const cleanedCount = storageService.cleanup();
         if (cleanedCount > 0) {
-          SPContext.logger.info('SpfxCard: Cleaned up expired storage items', { cleanedCount });
+          SPContext.logger.debug('SpfxCard: cleaned up expired storage items', { cleanedCount });
         }
       } catch (error) {
         SPContext.logger.error('SpfxCard: Storage cleanup failed', error);

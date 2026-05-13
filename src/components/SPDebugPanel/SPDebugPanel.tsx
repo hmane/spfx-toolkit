@@ -52,6 +52,12 @@ const selectTablesMap = (s: ReturnType<typeof debugStore.getState>) => s.tables;
 const selectTracesMap = (s: ReturnType<typeof debugStore.getState>) => s.traces;
 const selectMetricsMap = (s: ReturnType<typeof debugStore.getState>) => s.metrics;
 
+function uniqueSorted(values: ReadonlyArray<string | undefined>): string[] {
+  return Array.from(new Set(values.filter((v): v is string => !!v))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+}
+
 const SPDebugPanel: React.FC = () => {
   const entries = useDebugStore(selectEntries);
   const activeSession = useDebugStore(selectActiveSession);
@@ -72,14 +78,14 @@ const SPDebugPanel: React.FC = () => {
   const [bottomHeight, setBottomHeight] = React.useState<number>(
     initialPrefs.bottomHeight
   );
-  const [filters, setFilters] = React.useState<PanelFilters>(emptyFilters);
+  const [filters, setFilters] = React.useState<PanelFilters>(initialPrefs.filters || emptyFilters());
   const [exportOpen, setExportOpen] = React.useState(false);
   const [isMaximized, setIsMaximized] = React.useState(false);
 
   // Persist UI prefs whenever they change.
   React.useEffect(() => {
-    savePanelPrefs({ dock, rightWidth, bottomHeight, selectedTab: 'console' });
-  }, [dock, rightWidth, bottomHeight]);
+    savePanelPrefs({ dock, rightWidth, bottomHeight, selectedTab: 'console', filters });
+  }, [dock, rightWidth, bottomHeight, filters]);
 
   const consoleItems = React.useMemo(
     () => buildConsoleItems({ entries, snapshots, tables, metrics, traces }),
@@ -88,6 +94,18 @@ const SPDebugPanel: React.FC = () => {
   const filtered = React.useMemo(
     () => filterConsoleItems(consoleItems, filters),
     [consoleItems, filters]
+  );
+  const originOptions = React.useMemo(
+    () => uniqueSorted(consoleItems.map((item) => item.origin)),
+    [consoleItems]
+  );
+  const sourceOptions = React.useMemo(
+    () => uniqueSorted(consoleItems.map((item) => item.source)),
+    [consoleItems]
+  );
+  const componentOptions = React.useMemo(
+    () => uniqueSorted(consoleItems.map((item) => item.component)),
+    [consoleItems]
   );
 
   const reviewRequired = shouldRequireReview(
@@ -191,6 +209,9 @@ const SPDebugPanel: React.FC = () => {
         onFiltersChange={setFilters}
         entryCount={consoleItems.length}
         filteredCount={filtered.length}
+        origins={originOptions}
+        sources={sourceOptions}
+        components={componentOptions}
       />
 
       <div className="spdebug-panel-content">

@@ -41,6 +41,101 @@ function makeId(): string {
   return 'e_' + Math.random().toString(36).slice(2, 10);
 }
 
+const KNOWN_SOURCE_AREAS = new Set(['Toolkit', 'App', 'User', 'Service', 'Site', 'Other']);
+const TOOLKIT_COMPONENTS = [
+  'SPDynamicForm',
+  'DocumentLink',
+  'SPListItemAttachments',
+  'VersionHistory',
+  'ManageAccess',
+  'GroupUsersPicker',
+  'GroupViewer',
+  'UserPersona',
+  'SPTaxonomyField',
+  'SPChoiceField',
+  'SPLookupField',
+  'SPUserField',
+  'SPField',
+  'NoteHistory',
+  'SpfxCard',
+  'CssLoader',
+  'DialogService',
+  'BatchBuilder',
+  'PermissionHelper',
+  'ConflictDetector',
+  'Comments',
+];
+
+function firstSourceSegment(source: string): string {
+  const slash = source.indexOf('/');
+  return slash >= 0 ? source.slice(0, slash) : source;
+}
+
+function detailSourceSegment(source: string): string {
+  const slash = source.indexOf('/');
+  return slash >= 0 ? source.slice(slash + 1) : source;
+}
+
+function inferComponent(message: string, source: string): string {
+  const sourceArea = firstSourceSegment(source);
+  if (KNOWN_SOURCE_AREAS.has(sourceArea)) {
+    return detailSourceSegment(source) || sourceArea;
+  }
+
+  const prefix = message.match(/^([A-Za-z][A-Za-z0-9]+):\s*/)?.[1];
+  if (prefix && TOOLKIT_COMPONENTS.includes(prefix)) {
+    return prefix;
+  }
+
+  const bracketed = message.match(/^\[([A-Za-z][A-Za-z0-9]+)\]/)?.[1];
+  if (bracketed && TOOLKIT_COMPONENTS.includes(bracketed)) {
+    return bracketed;
+  }
+
+  return source || 'Logger';
+}
+
+function inferFeature(message: string): string | undefined {
+  const lower = message.toLowerCase();
+  if (lower.includes('content type') || lower.includes('contenttype')) return 'content-types';
+  if (lower.includes('field')) return 'fields';
+  if (lower.includes('attachment')) return 'attachments';
+  if (lower.includes('validation')) return 'validation';
+  if (lower.includes('submit') || lower.includes('save')) return 'submit';
+  if (lower.includes('load') || lower.includes('fetch')) return 'loading';
+  if (lower.includes('cache')) return 'cache';
+  if (lower.includes('permission')) return 'permissions';
+  return undefined;
+}
+
+export interface DebugLogClassification {
+  origin: 'Toolkit' | 'App' | 'Site' | 'Service' | 'User' | 'Other';
+  component: string;
+  feature?: string;
+  source: string;
+}
+
+export function classifyLogEntry(entry: LogEntry, options?: SPDebugLoggerAttachOptions): DebugLogClassification {
+  const rawSource = options?.source ?? entry.component ?? 'Other';
+  const explicitArea = firstSourceSegment(rawSource);
+  const messageComponent = inferComponent(entry.message, rawSource);
+  const isKnownToolkitComponent = TOOLKIT_COMPONENTS.includes(messageComponent);
+  const origin = KNOWN_SOURCE_AREAS.has(explicitArea)
+    ? (explicitArea as DebugLogClassification['origin'])
+    : isKnownToolkitComponent
+    ? 'Toolkit'
+    : 'App';
+  const component = isKnownToolkitComponent ? messageComponent : detailSourceSegment(rawSource);
+  const source = options?.source ?? `${origin}/${component || 'Logger'}`;
+
+  return {
+    origin,
+    component: component || origin,
+    feature: inferFeature(entry.message),
+    source,
+  };
+}
+
 export interface LogEntryToDebugEntryResult {
   entry: SPDebugEntry;
   counters: RedactionCounters;
@@ -55,8 +150,11 @@ export function logEntryToDebugEntry(
   const config = debugStore.getState().config;
   const prepared = prepareForCapture(entry.data, config.redact, config.limits.maxPayloadBytes);
 
-  const source = options?.source ?? entry.component ?? 'Other';
+  const classification = classifyLogEntry(entry, options);
   const meta: Record<string, unknown> = {
+    origin: classification.origin,
+    component: classification.component,
+    feature: classification.feature,
     correlationId: entry.correlationId,
     ...options?.meta,
   };
@@ -67,7 +165,7 @@ export function logEntryToDebugEntry(
       timestamp: entry.timestamp,
       type: 'log',
       level: levelFromLogLevel(entry.level),
-      source,
+      source: classification.source,
       message: entry.message,
       data: prepared.value,
       bytes: prepared.bytes + estimateBytes(entry.message),

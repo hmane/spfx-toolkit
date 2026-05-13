@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
+import { SPContext } from '../context';
 
 /**
  * Default fallback component shown while lazy component is loading
@@ -60,7 +61,9 @@ export class LazyLoadErrorBoundary extends React.Component<
   }
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('LazyLoad Error:', error, errorInfo);
+    SPContext.logger.error('LazyLoad: component error', error, {
+      componentStack: errorInfo.componentStack,
+    });
     this.props.onError?.(error, errorInfo);
   }
 
@@ -152,7 +155,7 @@ export function createLazyComponent<T extends React.ComponentType<any>>(
 
       return module;
     } catch (error) {
-      console.error('Failed to load lazy component:', error);
+      SPContext.logger.error('LazyLoad: failed to load lazy component', error);
       throw error;
     }
   });
@@ -188,7 +191,7 @@ export function useLazyPreload<T>(
   React.useEffect(() => {
     if (preloadCondition) {
       importFn().catch(error => {
-        console.warn('Failed to preload component:', error);
+        SPContext.logger.warn('LazyLoad: failed to preload component', { error });
       });
     }
   }, [importFn, preloadCondition]);
@@ -211,6 +214,6 @@ export async function preloadComponent<T>(
   try {
     await importFn();
   } catch (error) {
-    console.warn('Failed to preload component:', error);
+    SPContext.logger.warn('LazyLoad: failed to preload component', { error });
   }
 }

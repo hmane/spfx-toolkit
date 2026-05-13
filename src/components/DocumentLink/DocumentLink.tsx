@@ -8,6 +8,7 @@ import { DocumentHoverCard } from './components/DocumentHoverCard';
 import { downloadDocument, openPreviewNewTab } from './components/DocumentActions';
 import { DocumentPreviewModal } from './components/DocumentPreviewModal';
 import { formatFileSize, buildPreviewUrl } from './utils';
+import { SPContext } from '../../utilities/context';
 import './DocumentLink.css';
 
 // Lazy load VersionHistory component outside of component render
@@ -112,7 +113,11 @@ export const DocumentLink: React.FC<IDocumentLinkProps> = ({
         }
       } catch (err: any) {
         onError?.(err);
-        console.error('DocumentLink click error:', err);
+        SPContext.logger.error('DocumentLink click error', err, {
+          documentName: document?.name,
+          onClick,
+          previewTarget,
+        });
       }
     },
     [

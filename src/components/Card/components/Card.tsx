@@ -13,6 +13,7 @@ import { cardController } from '../services/CardController';
 import { initializeCardAnimations } from '../utils/animations';
 import { DEFAULT_ICONS, SIZE_CONFIG } from '../utils/constants';
 import { MaximizedView } from './MaximizedView';
+import { SPContext } from '../../../utilities/context';
 
 // Create Card Context
 export const CardContext = React.createContext<CardContextType | undefined>(undefined);
@@ -323,15 +324,15 @@ export const Card: React.FC<CardProps> = memo(
         isMaximized,
         hasContentLoaded,
         toggleFn: (source = 'programmatic') => {
-          console.log(`[Card] ${id}: toggleFn called with source: ${source}`);
+          SPContext.logger.debug('SpfxCard: toggleFn called', { cardId: id, source });
           toggleFn(source);
         },
         expandFn: (source = 'programmatic') => {
-          console.log(`[Card] ${id}: expandFn called with source: ${source}`);
+          SPContext.logger.debug('SpfxCard: expandFn called', { cardId: id, source });
           expandFn(source);
         },
         collapseFn: (source = 'programmatic') => {
-          console.log(`[Card] ${id}: collapseFn called with source: ${source}`);
+          SPContext.logger.debug('SpfxCard: collapseFn called', { cardId: id, source });
           collapseFn(source);
         },
         maximizeFn: allowMaximize ? maximizeFn : undefined,
@@ -564,7 +565,9 @@ class CardErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('[SpfxCard] Card Error Boundary:', error, errorInfo);
+    SPContext.logger.error('SpfxCard: card error boundary caught error', error, {
+      componentStack: errorInfo.componentStack,
+    });
     this.props.onError?.(error, errorInfo);
   }
 
@@ -694,7 +697,7 @@ export abstract class CardControllerComponent extends React.Component {
       try {
         unsubscribe();
       } catch (error) {
-        console.warn('[SpfxCard] Error during subscription cleanup:', error);
+        SPContext.logger.warn('SpfxCard: error during subscription cleanup', { error });
       }
     });
     this.unsubscribers = [];

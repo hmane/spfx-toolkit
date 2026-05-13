@@ -2,6 +2,7 @@ import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import * as React from 'react';
 import { LoadingStateProps } from '../Card.types';
 import { LOADING_TEMPLATES } from '../utils/constants';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Loading state components for cards
@@ -413,7 +414,9 @@ export class LoadingErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[SpfxCard] Loading component error:', error, errorInfo);
+    SPContext.logger.error('SpfxCard: loading component error', error, {
+      componentStack: errorInfo.componentStack,
+    });
   }
 
   render() {

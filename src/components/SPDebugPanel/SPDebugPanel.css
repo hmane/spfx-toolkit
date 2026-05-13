@@ -80,6 +80,14 @@
   padding-top: 8px;
 }
 
+.spdebug-toolbar-count {
+  flex: 0 0 auto;
+  color: #605e5c;
+  font-size: 12px;
+  min-width: 58px;
+  text-align: right;
+}
+
 .spdebug-panel-content {
   flex: 1 1 auto;
   min-height: 0;

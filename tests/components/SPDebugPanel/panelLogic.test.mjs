@@ -95,6 +95,35 @@ describe('entryMatches', () => {
     assert.equal(entryMatches(makeEntry({ source: 'Site/hr' }), f), true);
     assert.equal(entryMatches(makeEntry({ source: 'App/Save' }), f), false);
   });
+  test('origin filter prefers structured metadata', () => {
+    const f = { ...emptyFilters(), origins: ['Toolkit'] };
+    assert.equal(
+      entryMatches(makeEntry({ source: 'App/WebPart', meta: { origin: 'Toolkit' } }), f),
+      true
+    );
+    assert.equal(entryMatches(makeEntry({ source: 'App/WebPart' }), f), false);
+  });
+  test('component and source filters match exact values', () => {
+    const f = {
+      ...emptyFilters(),
+      sources: ['Toolkit/SPDynamicForm'],
+      components: ['SPDynamicForm'],
+    };
+    assert.equal(
+      entryMatches(
+        makeEntry({
+          source: 'Toolkit/SPDynamicForm',
+          meta: { component: 'SPDynamicForm' },
+        }),
+        f
+      ),
+      true
+    );
+    assert.equal(
+      entryMatches(makeEntry({ source: 'Toolkit/DocumentLink', meta: { component: 'DocumentLink' } }), f),
+      false
+    );
+  });
   test('errorsOnly keeps only error level OR error type', () => {
     const f = { ...emptyFilters(), errorsOnly: true };
     assert.equal(entryMatches(makeEntry({ level: 'info', type: 'log' }), f), false);
@@ -204,6 +233,11 @@ describe('panel prefs persistence', () => {
       rightWidth: 600,
       bottomHeight: 280,
       selectedTab: 'settings',
+      filters: {
+        ...emptyFilters(),
+        origins: ['Toolkit'],
+        components: ['SPDynamicForm'],
+      },
     };
     savePanelPrefs(next);
     assert.deepEqual(loadPanelPrefs(), next);

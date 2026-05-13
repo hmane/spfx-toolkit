@@ -1,5 +1,6 @@
 import './card.css';
 
+import { SPContext } from '../../utilities/context';
 import type { CardAction, CardProps } from './Card.types';
 import {
   Card,
@@ -151,7 +152,7 @@ export const initializeCardSystem = (config?: {
     try {
       initializeCardAnimations();
     } catch (error) {
-      console.warn('[SpfxCard] Animation initialization failed:', error);
+      SPContext.logger.warn('SpfxCard: animation initialization failed', { error });
     }
   }
 
@@ -162,8 +163,7 @@ export const initializeCardSystem = (config?: {
   const support = checkBrowserSupport();
 
   if (debugMode) {
-    console.log('[SpfxCard] System initialized with config:', config);
-    console.log('[SpfxCard] Browser support:', support);
+    SPContext.logger.debug('SpfxCard: system initialized', { config, support });
   }
 
   return {
@@ -186,9 +186,9 @@ export const cleanupCardSystem = () => {
       document.documentElement.classList.remove('spfx-debug-animations');
     }
 
-    console.log('[SpfxCard] System cleanup completed');
+    SPContext.logger.debug('SpfxCard: system cleanup completed');
   } catch (error) {
-    console.warn('[SpfxCard] Cleanup failed:', error);
+    SPContext.logger.warn('SpfxCard: cleanup failed', { error });
   }
 };
 
@@ -212,7 +212,7 @@ export const getPerformanceMetrics = () => {
           : null,
     };
   } catch (error) {
-    console.warn('[SpfxCard] Performance metrics failed:', error);
+    SPContext.logger.warn('SpfxCard: performance metrics failed', { error });
     return {
       cards: {},
       storage: {},

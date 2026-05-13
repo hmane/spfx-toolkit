@@ -3,7 +3,7 @@
 **Version:** 1.0.0-alpha.1
 **For:** SharePoint Framework (SPFx) >= 1.21.1
 **Author:** SPFx Toolkit Team
-**Last Updated:** March 7, 2026
+**Last Updated:** May 13, 2026
 
 ---
 
@@ -5351,6 +5351,76 @@ SPContext.logger.info('Form saved', { listId, fieldCount });
 For multi-site apps, `sites={SPContext.sites}` auto-attaches every connected
 site's logger and detaches on disconnect. Site entries carry
 `source = 'Site/<alias>'` and `meta = { siteAlias, siteUrl }`.
+
+### Filtering app logs vs toolkit logs
+
+When debug mode is enabled with `?debug=1` or `?isDebug=1`, the panel may show
+both application diagnostics and toolkit internals. Use the toolbar filters to
+keep the stream readable:
+
+| Filter | Use it for |
+|---|---|
+| **Origin** | Separate `App`, `Toolkit`, `Site`, `Service`, and `User` logs. |
+| **Component** | Narrow to a component such as `SPDynamicForm`, `DocumentLink`, or your app component. |
+| **Source** | Narrow to an exact source such as `App/SaveForm`, `Toolkit/SPDynamicForm`, or `Site/hr`. |
+| **Level** | Hide verbose `debug` entries unless actively diagnosing. |
+| **Warnings/errors** | Quickly inspect only `warn` and `error` rows. |
+
+Quick presets are available in the filter row:
+
+- **App only** — hides toolkit internals.
+- **Toolkit only** — useful when diagnosing toolkit behavior.
+- **Warnings/errors** — keeps only warning/error severity.
+- **Reset filters** — returns to the full stream.
+
+Panel filters are stored in session storage. If you select
+`Toolkit` + `SPDynamicForm`, refresh the page, and reproduce the issue again,
+the panel stays focused on that view.
+
+Toolkit logger entries are automatically tagged with structured metadata:
+
+```ts
+{
+  meta: {
+    origin: 'Toolkit',
+    component: 'SPDynamicForm',
+    feature: 'content-types',
+    correlationId: '...'
+  }
+}
+```
+
+Application logger entries are tagged as `App/<componentName>` when they do
+not already use a known source prefix. This means an app logger initialized as
+`SPContext.smart(this.context, 'ClaimsWebPart')` appears as
+`source = 'App/ClaimsWebPart'`.
+
+### Recommended source naming for application logs
+
+Use stable source names so the debug panel can filter your app clearly. Prefer
+`Area/Component` or `Area/Feature`:
+
+```ts
+SPDebug.info('App/ClaimEditor', 'Save clicked', { claimId });
+SPDebug.warn('App/ClaimEditor', 'Validation missing fields', { fields });
+SPDebug.error('Service/ClaimsApi', error, { claimId, requestId });
+SPDebug.event('User/Action', 'submit', { surface: 'ClaimEditor' });
+```
+
+For repeated diagnostics inside one file, bind a source once:
+
+```ts
+const debug = SPDebug.scope('App/ClaimEditor');
+
+debug.info('Loaded', { claimId });
+debug.json('Form values', values);
+debug.metric('Selected attachment count', attachments.length);
+```
+
+Avoid unstructured app messages like `SPContext.logger.info('saving...')` when
+you need long-running support traces. A stable source such as `App/ClaimEditor`
+lets users combine **Origin**, **Component**, and **Source** filters instead of
+searching noisy text.
 
 ### Rich runtime — log/event/json/table/metric/timer/trace
 

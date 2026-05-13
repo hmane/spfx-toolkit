@@ -31,6 +31,9 @@ export interface ConsoleItem {
   kind: ConsoleKind;
   timestamp: number;
   source: string;
+  origin: string;
+  component: string;
+  feature?: string;
   file?: string;
   level: SPDebugLevel;
   title: string;
@@ -73,6 +76,17 @@ function areaOf(source: string): string {
   const slash = source.indexOf('/');
   if (slash < 0) return 'Other';
   return source.slice(0, slash);
+}
+
+function originOf(source: string, meta?: Record<string, unknown>): string {
+  return pickString(meta?.origin) || areaOf(source);
+}
+
+function componentOf(source: string, meta?: Record<string, unknown>): string {
+  const fromMeta = pickString(meta?.component);
+  if (fromMeta) return fromMeta;
+  const slash = source.indexOf('/');
+  return slash >= 0 ? source.slice(slash + 1) : source;
 }
 
 function levelFromTrace(status: SPDebugTraceStatus): SPDebugLevel {
@@ -129,6 +143,9 @@ export function buildConsoleItems(input: {
       kind: 'log',
       timestamp: entry.timestamp,
       source: entry.source,
+      origin: originOf(entry.source, entry.meta),
+      component: componentOf(entry.source, entry.meta),
+      feature: pickString(entry.meta?.feature),
       file,
       level: entry.level,
       title: entry.message,
@@ -153,6 +170,9 @@ export function buildConsoleItems(input: {
       kind: 'snapshot',
       timestamp: snapshot.updatedAt,
       source: snapshot.source,
+      origin: originOf(snapshot.source, snapshot.meta),
+      component: componentOf(snapshot.source, snapshot.meta),
+      feature: pickString(snapshot.meta?.feature),
       file,
       level: 'info',
       title: snapshot.key,
@@ -175,6 +195,9 @@ export function buildConsoleItems(input: {
       kind: 'table',
       timestamp: table.updatedAt,
       source: table.source,
+      origin: originOf(table.source, table.meta),
+      component: componentOf(table.source, table.meta),
+      feature: pickString(table.meta?.feature),
       file,
       level: 'info',
       title: table.key,
@@ -197,6 +220,9 @@ export function buildConsoleItems(input: {
       kind: 'metric',
       timestamp: metric.updatedAt,
       source: metric.source,
+      origin: originOf(metric.source, metric.meta),
+      component: componentOf(metric.source, metric.meta),
+      feature: pickString(metric.meta?.feature),
       file,
       level: 'info',
       title: metric.key,
@@ -221,6 +247,8 @@ export function buildConsoleItems(input: {
       kind: 'workflow',
       timestamp: trace.endedAt ?? trace.startedAt,
       source: trace.source,
+      origin: areaOf(trace.source),
+      component: componentOf(trace.source),
       file,
       level: levelFromTrace(trace.status),
       title: trace.name,
@@ -255,6 +283,15 @@ export function filterConsoleItems(
   return items.filter((item) => {
     if (filters.errorsOnly && item.level !== 'error') return false;
     if (filters.levels.length > 0 && filters.levels.indexOf(item.level) < 0) {
+      return false;
+    }
+    if (filters.origins.length > 0 && filters.origins.indexOf(item.origin) < 0) {
+      return false;
+    }
+    if (filters.sources.length > 0 && filters.sources.indexOf(item.source) < 0) {
+      return false;
+    }
+    if (filters.components.length > 0 && filters.components.indexOf(item.component) < 0) {
       return false;
     }
     if (filters.types.length > 0) {
@@ -398,7 +435,9 @@ function ConsoleRow({ item }: { item: ConsoleItem }): React.ReactElement {
   const icon = levelIcon[item.level] || levelIcon.info;
   const kind = item.entry?.type ?? item.kind;
   const meta = [
+    item.origin !== areaOf(item.source) ? item.origin : undefined,
     item.source,
+    item.feature,
     item.file,
     kind !== 'log' ? kind : undefined,
     item.subtitle,

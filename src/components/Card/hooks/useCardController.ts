@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { CardControllerHook, CardState, ScrollOptions } from '../Card.types';
 import { cardController } from '../services/CardController';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Hook for accessing card controller functionality
@@ -17,7 +18,7 @@ export const useCardController = (): CardControllerHook => {
         try {
           unsubscribe();
         } catch (error) {
-          console.warn('[SpfxCard] Error during subscription cleanup:', error);
+          SPContext.logger.warn('SpfxCard: error during subscription cleanup', { error });
         }
       });
       subscriptionsRef.current = [];

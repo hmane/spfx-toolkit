@@ -924,7 +924,6 @@ export async function downloadDocumentVersion(
       version: version.versionLabel,
     });
   } catch (error) {
-    console.error('[downloadDocumentVersion] Error:', error);
     SPContext.logger.error('Failed to download document version', error, {
       version: version.versionLabel,
       fileUrl: version.fileUrl,

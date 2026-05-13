@@ -1,5 +1,6 @@
 import { CardState, PersistedCardState, StorageConfig } from '../Card.types';
 import { ERROR_MESSAGES, STORAGE_KEYS, VALIDATION } from '../utils/constants';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Storage service for persisting card states
@@ -42,11 +43,11 @@ export class StorageService {
     // Fallback to sessionStorage
     else if (this.isStorageAvailable('sessionStorage')) {
       this.storage = window.sessionStorage;
-      console.warn('[SpfxCard] localStorage not available, using sessionStorage');
+      SPContext.logger.warn('SpfxCard: localStorage not available, using sessionStorage');
     }
     // No storage available
     else {
-      console.warn('[SpfxCard] No storage available, persistence disabled');
+      SPContext.logger.warn('SpfxCard: no storage available, persistence disabled');
     }
   }
 
@@ -80,7 +81,7 @@ export class StorageService {
    */
   public saveCardStates(states: Record<string, CardState>): boolean {
     if (!this.storage) {
-      console.warn('[SpfxCard] Storage not available');
+      SPContext.logger.warn('SpfxCard: storage not available');
       return false;
     }
 
@@ -96,7 +97,7 @@ export class StorageService {
 
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Failed to save card states:', error);
+      SPContext.logger.error('SpfxCard: failed to save card states', error);
       return false;
     }
   }
@@ -127,14 +128,16 @@ export class StorageService {
 
       // Version compatibility check
       if (persistedData.version !== '1.0.0') {
-        console.warn('[SpfxCard] Storage version mismatch, clearing stored data');
+        SPContext.logger.warn('SpfxCard: storage version mismatch, clearing stored data', {
+          version: persistedData.version,
+        });
         this.removeCardStates();
         return {};
       }
 
       return persistedData.cardStates || {};
     } catch (error) {
-      console.error('[SpfxCard] Failed to load card states:', error);
+      SPContext.logger.error('SpfxCard: failed to load card states', error);
       return {};
     }
   }
@@ -158,7 +161,7 @@ export class StorageService {
       this.storage.setItem(key, JSON.stringify(data));
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Failed to save accordion states:', error);
+      SPContext.logger.error('SpfxCard: failed to save accordion states', error);
       return false;
     }
   }
@@ -188,7 +191,7 @@ export class StorageService {
 
       return data.expandedCards || [];
     } catch (error) {
-      console.error('[SpfxCard] Failed to load accordion states:', error);
+      SPContext.logger.error('SpfxCard: failed to load accordion states', error);
       return [];
     }
   }
@@ -212,7 +215,7 @@ export class StorageService {
       this.storage.setItem(storageKey, JSON.stringify(wrappedData));
       return true;
     } catch (error) {
-      console.error(`[SpfxCard] Failed to save data for key ${key}:`, error);
+      SPContext.logger.error('SpfxCard: failed to save data', error, { key });
       return false;
     }
   }
@@ -242,7 +245,7 @@ export class StorageService {
 
       return wrappedData.data;
     } catch (error) {
-      console.error(`[SpfxCard] Failed to load data for key ${key}:`, error);
+      SPContext.logger.error('SpfxCard: failed to load data', error, { key });
       return defaultValue;
     }
   }
@@ -260,7 +263,7 @@ export class StorageService {
       this.storage.removeItem(key);
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Failed to remove card states:', error);
+      SPContext.logger.error('SpfxCard: failed to remove card states', error);
       return false;
     }
   }
@@ -278,7 +281,7 @@ export class StorageService {
       this.storage.removeItem(key);
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Failed to remove accordion states:', error);
+      SPContext.logger.error('SpfxCard: failed to remove accordion states', error, { accordionId });
       return false;
     }
   }
@@ -296,7 +299,7 @@ export class StorageService {
       this.storage.removeItem(storageKey);
       return true;
     } catch (error) {
-      console.error(`[SpfxCard] Failed to remove data for key ${key}:`, error);
+      SPContext.logger.error('SpfxCard: failed to remove data', error, { key });
       return false;
     }
   }
@@ -326,7 +329,7 @@ export class StorageService {
 
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Failed to clear all data:', error);
+      SPContext.logger.error('SpfxCard: failed to clear all data', error);
       return false;
     }
   }
@@ -372,10 +375,10 @@ export class StorageService {
       });
 
       if (cleanedCount > 0) {
-        console.log(`[SpfxCard] Cleaned up ${cleanedCount} expired storage items`);
+        SPContext.logger.debug('SpfxCard: cleaned up expired storage items', { cleanedCount });
       }
     } catch (error) {
-      console.error('[SpfxCard] Error during cleanup:', error);
+      SPContext.logger.error('SpfxCard: error during cleanup', error);
     }
 
     return cleanedCount;
@@ -465,7 +468,7 @@ export class StorageService {
         }
       }
     } catch (error) {
-      console.error('[SpfxCard] Error exporting data:', error);
+      SPContext.logger.error('SpfxCard: error exporting data', error);
     }
 
     return exportData;
@@ -487,7 +490,7 @@ export class StorageService {
 
       return true;
     } catch (error) {
-      console.error('[SpfxCard] Error importing data:', error);
+      SPContext.logger.error('SpfxCard: error importing data', error);
       return false;
     }
   }

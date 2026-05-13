@@ -1052,7 +1052,7 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
         }
       }
       if (debug) {
-        SPContext.logger.info('SPDynamicForm:debug field resolved', {
+        SPContext.logger.debug('SPDynamicForm: debug field resolved', {
           field: resolved.internalName,
           label: resolved.displayName,
           hidden: resolved.hidden,

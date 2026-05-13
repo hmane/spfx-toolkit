@@ -35,6 +35,9 @@ export interface DebugToolbarProps {
   onFiltersChange: (filters: PanelFilters) => void;
   entryCount: number;
   filteredCount: number;
+  origins: ReadonlyArray<string>;
+  sources: ReadonlyArray<string>;
+  components: ReadonlyArray<string>;
 }
 
 function useDropdownOptions<T extends string>(values: ReadonlyArray<T>): IDropdownOption[] {
@@ -48,15 +51,23 @@ export const DebugToolbar: React.FC<DebugToolbarProps> = (props) => {
   const {
     filters,
     onFiltersChange,
+    entryCount,
+    filteredCount,
+    origins,
+    sources,
+    components,
   } = props;
   const [showFilters, setShowFilters] = React.useState(false);
 
   const levelOptions = useDropdownOptions(LEVELS);
   const typeOptions = useDropdownOptions(TYPES);
   const areaOptions = useDropdownOptions(KNOWN_AREAS);
+  const originOptions = useDropdownOptions(origins);
+  const sourceOptions = useDropdownOptions(sources);
+  const componentOptions = useDropdownOptions(components);
 
   const updateMulti = (
-    field: 'levels' | 'types' | 'areas',
+    field: 'levels' | 'types' | 'areas' | 'origins' | 'sources' | 'components',
     keys: ReadonlyArray<string>
   ): void => {
     onFiltersChange({ ...filters, [field]: keys } as PanelFilters);
@@ -72,6 +83,9 @@ export const DebugToolbar: React.FC<DebugToolbarProps> = (props) => {
           ariaLabel="Search debug entries"
           styles={{ root: { flex: '1 1 auto', minWidth: 0 } }}
         />
+        <span className="spdebug-toolbar-count">
+          {filteredCount} / {entryCount}
+        </span>
         <IconButton
           iconProps={{ iconName: 'Filter' }}
           title={showFilters ? 'Hide filters' : 'Show filters'}
@@ -88,6 +102,51 @@ export const DebugToolbar: React.FC<DebugToolbarProps> = (props) => {
           tokens={{ childrenGap: 8 }}
           className="spdebug-filter-row"
         >
+          <Dropdown
+            placeholder="Origin"
+            ariaLabel="Filter by origin"
+            multiSelect
+            selectedKeys={filters.origins as string[]}
+            options={originOptions}
+            onChange={(_, opt) => {
+              if (!opt) return;
+              const next = opt.selected
+                ? [...filters.origins, opt.key as string]
+                : filters.origins.filter((o) => o !== opt.key);
+              updateMulti('origins', next);
+            }}
+            styles={{ root: { width: 130 } }}
+          />
+          <Dropdown
+            placeholder="Component"
+            ariaLabel="Filter by component"
+            multiSelect
+            selectedKeys={filters.components as string[]}
+            options={componentOptions}
+            onChange={(_, opt) => {
+              if (!opt) return;
+              const next = opt.selected
+                ? [...filters.components, opt.key as string]
+                : filters.components.filter((c) => c !== opt.key);
+              updateMulti('components', next);
+            }}
+            styles={{ root: { width: 170 } }}
+          />
+          <Dropdown
+            placeholder="Source"
+            ariaLabel="Filter by source"
+            multiSelect
+            selectedKeys={filters.sources as string[]}
+            options={sourceOptions}
+            onChange={(_, opt) => {
+              if (!opt) return;
+              const next = opt.selected
+                ? [...filters.sources, opt.key as string]
+                : filters.sources.filter((s) => s !== opt.key);
+              updateMulti('sources', next);
+            }}
+            styles={{ root: { width: 180 } }}
+          />
           <Dropdown
             placeholder="Level"
             ariaLabel="Filter by level"
@@ -139,6 +198,21 @@ export const DebugToolbar: React.FC<DebugToolbarProps> = (props) => {
             checked={filters.errorsOnly}
             onChange={(_, v) => onFiltersChange({ ...filters, errorsOnly: !!v })}
             styles={{ root: { marginBottom: 0 } }}
+          />
+          <DefaultButton
+            text="App only"
+            ariaLabel="Show application logs only"
+            onClick={() => onFiltersChange({ ...emptyFilters(), origins: ['App'] })}
+          />
+          <DefaultButton
+            text="Toolkit only"
+            ariaLabel="Show toolkit logs only"
+            onClick={() => onFiltersChange({ ...emptyFilters(), origins: ['Toolkit'] })}
+          />
+          <DefaultButton
+            text="Warnings/errors"
+            ariaLabel="Show warnings and errors only"
+            onClick={() => onFiltersChange({ ...emptyFilters(), levels: ['warn', 'error'] })}
           />
           <DefaultButton
             text="Reset filters"

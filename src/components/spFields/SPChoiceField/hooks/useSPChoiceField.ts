@@ -10,6 +10,7 @@ import {
   IOtherOptionState,
   SPChoiceFieldDataSource,
 } from '../SPChoiceField.types';
+import { SPContext } from '../../../../utilities/context';
 import {
   injectOtherOption,
   isValueInChoices,
@@ -392,14 +393,11 @@ export function useSPChoiceField(
         // This will fail when saving to SharePoint
         validationError = 'This field does not allow custom values. The SharePoint column has "Allow fill-in choices" disabled.';
 
-        // Log warning for debugging
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn(
-            '[SPChoiceField] Custom "Other" value rejected: SharePoint field does not have allowFillIn=true. ' +
-            'The value will not be saved correctly to SharePoint. ' +
-            'Either enable "Allow fill-in choices" in the SharePoint column settings, or use enableOtherOption prop to override.'
-          );
-        }
+        SPContext.logger.warn('SPChoiceField: custom other value rejected because fill-in choices are disabled', {
+          value: newValue,
+          allowFillIn: metadata.allowFillIn,
+          enableOtherOption: otherConfig.enableOtherOption,
+        });
       }
 
       setOtherState(prev => ({

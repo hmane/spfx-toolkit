@@ -6,6 +6,7 @@ import { memo, useCallback, useContext, useMemo } from 'react';
 import { ActionButtonsProps, CardAction } from '../Card.types';
 import { DEFAULT_ICONS } from '../utils/constants';
 import { CardContext } from './Card';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Updated Action Buttons component for header integration
@@ -25,7 +26,7 @@ export const ActionButtons = memo<ActionButtonsProps>(
     const cardContext = useContext(CardContext);
 
     if (!cardContext) {
-      console.warn('[SpfxCard] ActionButtons must be used within a Card component');
+      SPContext.logger.warn('SpfxCard: ActionButtons must be used within a Card component');
       return null;
     }
 

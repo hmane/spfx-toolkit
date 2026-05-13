@@ -130,7 +130,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
   // IMPORTANT: Only update if the value actually changed to prevent infinite loops
   // We need to find the matching user in the loaded users array to get the correct ID type
   React.useEffect(() => {
-    SPContext.logger.info('GroupUsersPicker: Sync effect running', {
+    SPContext.logger.debug('GroupUsersPicker: Sync effect running', {
       usersCount: users.length,
       selectedUsersCount: selectedUsers.length,
       selectedUsers: selectedUsers.map(u => ({ id: u.id, text: u.text })),
@@ -141,7 +141,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
     // Only update when users are loaded
     if (users.length === 0) {
       hasSyncedAfterLoadRef.current = false; // Reset flag when users are not loaded
-      SPContext.logger.info('GroupUsersPicker: Users not loaded yet, skipping sync');
+      SPContext.logger.debug('GroupUsersPicker: Users not loaded yet, skipping sync');
       return;
     }
 
@@ -153,14 +153,14 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
     // Need to sync if: users just loaded and we have selectedUsers that haven't been synced yet
     const needsInitialSync = !hasSyncedAfterLoadRef.current && selectedUsers.length > 0;
 
-    SPContext.logger.info('GroupUsersPicker: Sync check', {
+    SPContext.logger.debug('GroupUsersPicker: Sync check', {
       idsMatch,
       prevSelectedUsersCount: prevSelectedUsers.length,
       needsInitialSync,
     });
 
     if (idsMatch && prevSelectedUsers.length > 0 && !needsInitialSync) {
-      SPContext.logger.info('GroupUsersPicker: Skipping sync - no changes');
+      SPContext.logger.debug('GroupUsersPicker: Skipping sync - no changes');
       return; // No change in selected users and already synced
     }
 
@@ -201,7 +201,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
       : JSON.stringify(Array.isArray(selectedValue) ? selectedValue : [])
           !== JSON.stringify(Array.isArray(newValue) ? newValue : []);
 
-    SPContext.logger.info('GroupUsersPicker: Update check', {
+    SPContext.logger.debug('GroupUsersPicker: Update check', {
       currentValueStr,
       newValueStr,
       currentValueType: typeof selectedValue,
@@ -211,7 +211,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
     });
 
     if (shouldUpdate) {
-      SPContext.logger.info('GroupUsersPicker: Syncing selectedValue from prop', {
+      SPContext.logger.debug('GroupUsersPicker: Syncing selectedValue from prop', {
         selectedUsersCount: selectedUsers.length,
         propUserId: selectedUsers[0]?.id,
         resolvedValue: newValue,
@@ -230,7 +230,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
       setSelectedValue(newValue);
 
       // Debug logging
-      SPContext.logger.info('GroupUsersPicker: Selection changed', {
+      SPContext.logger.debug('GroupUsersPicker: Selection changed', {
         newValue,
         newValueType: typeof newValue,
         usersCount: users.length,
@@ -247,7 +247,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
           // Compare with type coercion to handle both number and string IDs
           // DevExtreme may return string or number depending on the context
           const foundUser = users.find(u => String(u.id) === String(newValue));
-          SPContext.logger.info('GroupUsersPicker: Looking up user', {
+          SPContext.logger.debug('GroupUsersPicker: Looking up user', {
             searchId: newValue,
             searchIdType: typeof newValue,
             found: !!foundUser,
@@ -266,7 +266,7 @@ export const GroupUsersPicker: React.FC<IGroupUsersPickerProps> = (props) => {
         }
       }
 
-      SPContext.logger.info('GroupUsersPicker: Calling onChange', {
+      SPContext.logger.debug('GroupUsersPicker: Calling onChange', {
         selectedItemsCount: selectedItems.length,
         selectedItems: selectedItems.map(u => ({ id: u.id, text: u.text })),
       });

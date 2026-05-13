@@ -120,7 +120,7 @@ export function useDynamicFormData<T extends FieldValues = any>(
       setItemContentTypeId(ctIdString);
 
       // Extract field values using shared extractItemValues for consistent format
-      SPContext.logger.info('🔍 SPDynamicForm: Starting field extraction', {
+      SPContext.logger.debug('SPDynamicForm: starting field extraction', {
         itemId,
         fieldCount: fields.length,
         fieldNames: fields.map(f => f.internalName)
@@ -128,7 +128,7 @@ export function useDynamicFormData<T extends FieldValues = any>(
 
       const formData = extractItemValues(item as any, fields);
 
-      SPContext.logger.info('📦 Final form data prepared', {
+      SPContext.logger.debug('SPDynamicForm: final form data prepared', {
         formData,
         fieldCount: Object.keys(formData).length
       });

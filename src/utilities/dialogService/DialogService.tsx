@@ -5,6 +5,7 @@ import { DefaultButton, PrimaryButton } from '@fluentui/react/lib/Button';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
+import { SPContext } from '../context';
 import {
   ILoadingState,
   ILoadingOptions,
@@ -135,9 +136,9 @@ class DialogServiceManager {
     if (targetContainerId) {
       const container = document.getElementById(targetContainerId);
       if (!container) {
-        console.warn(
-          `DialogService: Container '#${targetContainerId}' not found. Using global overlay instead.`
-        );
+        SPContext.logger.warn('DialogService: loading container not found, using global overlay', {
+          containerId: targetContainerId,
+        });
         // Will use global loader instead
       }
     }

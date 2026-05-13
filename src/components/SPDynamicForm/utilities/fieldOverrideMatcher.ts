@@ -1,20 +1,11 @@
 import { IFieldMetadata } from '../types/fieldMetadata';
+import { SPContext } from '../../../utilities/context';
 
 /**
- * Emit a one-time deprecation warning. Uses `SPContext.logger` when available,
- * falling back to `console.warn`. Loaded lazily so this otherwise-pure matcher
- * module doesn't statically pull in the SPFx context (keeps it unit-testable).
+ * Emit a one-time deprecation warning.
  */
 function warnOnce(message: string, data: unknown): void {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { SPContext } = require('../../../utilities/context');
-    SPContext.logger.warn(message, data);
-  } catch {
-    // SPContext unavailable (unit test / not yet initialized) — best effort.
-    // eslint-disable-next-line no-console
-    console.warn(message, data);
-  }
+  SPContext.logger.warn(message, data);
 }
 
 /**

@@ -9,6 +9,7 @@ import { formatFileSize } from '../utils';
 import { DocumentIcon } from './DocumentIcon';
 import { downloadDocument } from './DocumentActions';
 import { UserPersona } from '../../UserPersona';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Props for DocumentHoverCard component
@@ -51,7 +52,9 @@ export const DocumentHoverCard: React.FC<IDocumentHoverCardProps> = ({
         await downloadDocument(document);
         onDownloadClick?.();
       } catch (error) {
-        console.error('Failed to download document', error);
+        SPContext.logger.error('DocumentHoverCard: failed to download document', error, {
+          documentName: document.name,
+        });
       }
     },
     [document, onDownloadClick]

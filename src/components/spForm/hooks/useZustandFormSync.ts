@@ -23,6 +23,7 @@
 
 import * as React from 'react';
 import { Control, useWatch } from 'react-hook-form';
+import { SPContext } from '../../../utilities/context';
 
 export interface IUseZustandFormSyncOptions {
   /**
@@ -113,9 +114,7 @@ export function useZustandFormSync(
       if (typeof state[setMethod] === 'function') {
         state[setMethod](dataToSync);
       } else {
-        console.warn(
-          `useZustandFormSync: Method "${setMethod}" not found on store`
-        );
+        SPContext.logger.warn('useZustandFormSync: method not found on store', { setMethod });
       }
     }, debounceMs);
 

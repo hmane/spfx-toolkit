@@ -1,4 +1,5 @@
 import { SPComponentLoader } from '@microsoft/sp-loader';
+import { SPContext } from '../context';
 
 /**
  * Simple utility for loading CSS files from SharePoint document libraries
@@ -42,7 +43,7 @@ export class CssLoader {
           this._loadedCss.add(cssKey);
         }
       } catch (error) {
-        console.warn(`Failed to load CSS file: ${cssFile}`, error);
+        SPContext.logger.warn('CssLoader: failed to load CSS file', { cssFile, error });
       }
     });
   }

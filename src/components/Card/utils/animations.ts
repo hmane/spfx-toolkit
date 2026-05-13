@@ -1,5 +1,6 @@
 import { AnimationConfig } from '../Card.types';
 import { ANIMATION } from './constants';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Animation utilities for Card components
@@ -351,7 +352,7 @@ export class AnimationScheduler {
           try {
             callback();
           } catch (error) {
-            console.error('[SpfxCard] Animation callback error:', error);
+            SPContext.logger.error('SpfxCard: animation callback error', error);
           }
         }
       }

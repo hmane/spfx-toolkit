@@ -4,6 +4,7 @@ import { ContentPadding, ContentProps } from '../Card.types';
 import { PADDING_CONFIG } from '../utils/constants';
 import { CardLoading, ContentLoadingPlaceholder } from './LoadingStates';
 import { CardContext } from './Card';
+import { SPContext } from '../../../utilities/context';
 
 /**
  * Error Boundary for Content component
@@ -30,7 +31,9 @@ class ContentErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('[SpfxCard] Content Error Boundary:', error, errorInfo);
+    SPContext.logger.error('SpfxCard: content error boundary caught error', error, {
+      componentStack: errorInfo.componentStack,
+    });
     this.props.onError?.(error);
   }
 
@@ -106,7 +109,7 @@ export const Content = memo<ContentProps>(
     const contentRef = useRef<HTMLDivElement>(null);
 
     if (!cardContext) {
-      console.warn('[SpfxCard] Content must be used within a Card component');
+      SPContext.logger.warn('SpfxCard: Content must be used within a Card component');
       return null;
     }
 
@@ -227,7 +230,7 @@ export const Content = memo<ContentProps>(
     // Error boundary handler
     const handleError = useCallback(
       (error: Error) => {
-        console.error(`[SpfxCard] Content error in card ${id}:`, error);
+        SPContext.logger.error('SpfxCard: content error in card', error, { cardId: id });
       },
       [id]
     );
@@ -324,7 +327,7 @@ export const Footer = memo<{
     const cardContext = useContext(CardContext);
 
     if (!cardContext) {
-      console.warn('[SpfxCard] Footer must be used within a Card component');
+      SPContext.logger.warn('SpfxCard: Footer must be used within a Card component');
       return null;
     }
 

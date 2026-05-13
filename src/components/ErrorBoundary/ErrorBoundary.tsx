@@ -966,13 +966,14 @@ export class ErrorBoundary extends React.Component<IErrorBoundaryProps, IErrorBo
 
       // Also log to console for development visibility
       if (logLevel === 'verbose') {
-        console.group(`🚨 Error Boundary - ${errorDetails.timestamp.toISOString()}`);
-        console.error('Error:', error.message);
-        console.error(`Severity: ${errorDetails.severity} | Category: ${errorDetails.category}`);
-        console.error('Error Details:', errorDetails);
-        console.error('Component Stack:', errorInfo.componentStack);
-        console.error('Stack Trace:', error.stack);
-        console.groupEnd();
+        SPContext.logger.debug('ErrorBoundary verbose error details', {
+          message: error.message,
+          severity: errorDetails.severity,
+          category: errorDetails.category,
+          errorDetails,
+          componentStack: errorInfo.componentStack,
+          stack: error.stack,
+        });
       }
     }
   };

@@ -249,11 +249,11 @@ import { getComponentsForScenario, getTemplateForScenario } from './conflictDete
 
 // 2. Get the components you need
 const components = getComponentsForScenario('basic');
-console.log(components); // ['useConflictDetection', 'ConflictNotificationBar', ...]
+// ['useConflictDetection', 'ConflictNotificationBar', ...]
 
 // 3. Get template code
 const template = getTemplateForScenario('basic');
-console.log(template); // Copy-paste ready code
+// Copy-paste ready code
 
 // 4. Import the actual components
 import { useConflictDetection, ConflictNotificationBar } from './conflictDetector';
