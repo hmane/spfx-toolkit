@@ -2,12 +2,11 @@
  * Fixed context-manager.ts with essential properties and correct PeoplePicker context
  */
 
-import { LogLevel } from '@pnp/logging';
-import { spfi, SPFI, SPFx } from '@pnp/sp';
+import type { SPFI } from '@pnp/sp';
 import type { PageContext } from '@microsoft/sp-page-context';
 import { SPHttpClient } from '@microsoft/sp-http';
 import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { CacheModule } from '../modules/cache';
+import { LogLevel } from '../logLevel';
 import { SimpleHttpClient } from '../modules/http';
 import { SimpleLogger } from '../modules/logger';
 import { SimplePerformanceTracker } from '../modules/performance';
@@ -19,8 +18,6 @@ import type {
   SPFxContextInput,
 } from '../types';
 import { EnvironmentDetector } from '../utils/environment';
-import '@pnp/sp/profiles';
-import '@pnp/sp/site-users/web';
 import { IPrincipal } from '../../../types';
 
 /**
@@ -129,7 +126,11 @@ export class ContextManager {
         logger,
       });
 
-      // Create base SP instance
+      // Load PnP only during SPFx initialization so importing context utilities
+      // in Node/test environments does not eagerly require ESM-only PnP packages.
+      const { spfi, SPFx } = require('@pnp/sp');
+      require('@pnp/sp/profiles');
+      require('@pnp/sp/site-users/web');
       const sp = spfi().using(SPFx(spfxContext));
 
       // Initialize cached instances (always available, fallback to base sp)
@@ -141,6 +142,7 @@ export class ContextManager {
         config.cache.strategy !== 'none' &&
         config.cache.strategy !== 'pessimistic'
       ) {
+        const { CacheModule } = require('../modules/cache');
         const cacheModule = new CacheModule();
         await cacheModule.initialize(spfxContext, config);
         this.modules.set('cache', cacheModule);

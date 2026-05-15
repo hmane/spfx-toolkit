@@ -4,9 +4,9 @@
 
 import type { BaseComponentContext } from '@microsoft/sp-component-base';
 import type { PageContext } from '@microsoft/sp-page-context';
-import type { LogLevel } from '@pnp/logging';
 import type { SPFI } from '@pnp/sp';
 import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import type { LogLevel } from '../logLevel';
 import { IPrincipal } from '../../../types';
 
 // Environment types

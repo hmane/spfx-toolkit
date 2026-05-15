@@ -325,10 +325,14 @@ describe('redaction — capture-time finality', () => {
   test('changing config after capture does not reprocess older entries', async () => {
     const { SPDebug, debugStore } = await import('../../../lib/utilities/debug/index.js');
     SPDebug.reset();
+    debugStore.getState().setConfig({
+      ...debugStore.getState().config,
+      redact: DEFAULT_CFG,
+    });
     SPDebug.enable();
     SPDebug.info('App/X', 'first', { Email: 'a@b.com' });
 
-    // Capture with default config — Email should be redacted.
+    // Capture with redaction enabled — Email should be redacted.
     const captured1 = debugStore.getState().entries[0];
     assert.equal(captured1.data.Email, REDACTED_MARKER);
 

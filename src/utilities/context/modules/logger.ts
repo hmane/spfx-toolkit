@@ -3,7 +3,7 @@
  * Performance-focused, simple logger
  */
 
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from '../logLevel';
 import type { EnvironmentName, LogSink, LogSinkOptions, Logger } from '../types';
 
 interface LogEntry {

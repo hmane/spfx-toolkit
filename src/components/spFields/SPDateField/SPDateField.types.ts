@@ -82,6 +82,13 @@ export interface ISPDateFieldProps extends ISPFieldBaseProps<Date> {
   showWeekNumbers?: boolean;
 
   /**
+   * @deprecated Compatibility-only. DevExtreme's built-in clear button remains
+   * disabled in SPDateField because it can trigger DOM measurement errors during
+   * initialization. Clear the value programmatically instead.
+   */
+  showClearButton?: boolean;
+
+  /**
    * Show today button in calendar
    * @default true
    */

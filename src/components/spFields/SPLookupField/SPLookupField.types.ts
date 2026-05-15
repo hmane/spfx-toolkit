@@ -169,6 +169,12 @@ export interface ISPLookupFieldProps extends ISPFieldBaseProps<ISPLookupFieldVal
   minSearchLength?: number;
 
   /**
+   * @deprecated Compatibility-only. Searchable mode is delegated to PnP
+   * ListItemPicker and this component does not currently page results itself.
+   */
+  pageSize?: number;
+
+  /**
    * Maximum number of displayed tags (for multi-select)
    * @default 3
    */
@@ -190,6 +196,16 @@ export interface ISPLookupFieldProps extends ISPFieldBaseProps<ISPLookupFieldVal
    * Custom item template renderer
    */
   itemTemplate?: (item: ISPLookupFieldValue) => React.ReactNode;
+
+  /**
+   * @deprecated Compatibility-only. Dependent lookup filtering is not currently
+   * implemented by SPLookupField. Pass an explicit `dataSource.filter` and
+   * update it from the parent form state instead.
+   */
+  dependsOn?: {
+    fieldName: string;
+    lookupField: string;
+  };
 
   /**
    * Input styling mode

@@ -30,7 +30,7 @@
  * See `docs/SPDebug-Requirements.md`.
  */
 
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from '../context/logLevel';
 import type { Logger } from '../context/types';
 import { attachLoggerToStore } from './loggerBridge';
 import { debugStore } from './SPDebugStore';

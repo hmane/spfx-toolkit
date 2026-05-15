@@ -9,7 +9,7 @@
  * See `docs/SPDebug-Requirements.md` "Logger Integration".
  */
 
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from '../context/logLevel';
 import type { LogEntry, Logger } from '../context/types';
 import { debugStore } from './SPDebugStore';
 import type {

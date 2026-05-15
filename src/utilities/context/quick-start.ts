@@ -3,7 +3,7 @@
  * Simplified quick start configurations
  */
 
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from './logLevel';
 import { Context } from './core/context-manager';
 import { LinksModule } from './modules/links';
 import type { ContextConfig, SPFxContextInput } from './types';

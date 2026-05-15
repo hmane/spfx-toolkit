@@ -1,5 +1,5 @@
 import { IFieldMetadata } from '../types/fieldMetadata';
-import { SPContext } from '../../../utilities/context';
+import { SPContext } from '../../../utilities/context/sp-context';
 
 /**
  * Emit a one-time deprecation warning.

@@ -3,7 +3,6 @@
  * Simple caching module with PnP integration
  */
 
-import { Caching } from '@pnp/queryable';
 import type { CacheStrategy, ContextConfig, ContextModule, SPFxContextInput } from '../types';
 import { SPContext } from '../sp-context';
 
@@ -14,7 +13,7 @@ export class CacheModule implements ContextModule {
   name = 'cache';
   private defaultTtl = 5 * 60 * 1000; // 5 minutes
 
-  async initialize(context: SPFxContextInput, config: ContextConfig): Promise<any> {
+  async initialize(_context: SPFxContextInput, _config: ContextConfig): Promise<any> {
     // Cache module doesn't need async initialization
     // Just returns methods for creating cache behaviors
     return {
@@ -30,6 +29,9 @@ export class CacheModule implements ContextModule {
       return undefined; // No caching
     }
 
+    // PnP queryable is loaded only when a cache behavior is actually requested.
+    // This keeps importing context utilities safe in Node-based tooling/tests.
+    const { Caching } = require('@pnp/queryable');
     return Caching({
       store: cacheConfig.store,
       keyFactory: (url: string) => this.normalizeKey(url),
@@ -72,7 +74,7 @@ export class CacheModule implements ContextModule {
       const sortedParams = new URLSearchParams();
 
       const paramKeys: string[] = [];
-      params.forEach((value, key) => {
+      params.forEach((_value, key) => {
         paramKeys.push(key);
       });
 

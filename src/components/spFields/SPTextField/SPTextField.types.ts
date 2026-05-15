@@ -85,6 +85,12 @@ export interface INoteHistoryConfig {
   showLoadMore?: boolean;
 
   /**
+   * @deprecated Compatibility-only. Copy-previous UI is not rendered by the
+   * current note history component.
+   */
+  enableCopyPrevious?: boolean;
+
+  /**
    * Time format display
    * @default 'relative'
    */
@@ -119,6 +125,12 @@ export interface INoteHistoryConfig {
    * @default "Previous Notes"
    */
   historyTitle?: string;
+
+  /**
+   * @deprecated Compatibility-only. Empty history currently renders no history
+   * block.
+   */
+  emptyHistoryMessage?: string;
 
   /**
    * Custom render function for history entry
@@ -284,5 +296,17 @@ export interface ISPTextFieldProps extends ISPFieldBaseProps<string>, ISPFieldSh
    * Fired when history loading fails
    */
   onHistoryError?: (error: Error) => void;
+
+  /**
+   * @deprecated Compatibility-only. Append-only note entry is emitted via the
+   * field's normal `onChange` flow.
+   */
+  onNoteAdd?: (newNote: string) => void;
+
+  /**
+   * @deprecated Compatibility-only. Copy-previous UI is not rendered by the
+   * current note history component.
+   */
+  onCopyPrevious?: (entry: INoteHistoryEntry) => void;
 
 }

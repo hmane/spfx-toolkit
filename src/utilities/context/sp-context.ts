@@ -61,7 +61,6 @@ export class SPContext {
   ): Promise<void> {
     if (!SPContext.multiSiteManager) {
       const { MultiSiteContextManager } = await import('./core/multi-site-manager');
-      const { SimpleLogger } = await import('./modules/logger');
 
       // Get the logger instance - it's a SimpleLogger internally
       const loggerInstance = SPContext.context.logger as any;

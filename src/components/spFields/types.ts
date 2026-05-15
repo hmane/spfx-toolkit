@@ -162,6 +162,31 @@ export interface ISPFieldSharePointProps {
    * SharePoint list GUID or title
    */
   listId?: string;
+
+  /**
+   * @deprecated Compatibility-only. This shared base prop is not consumed
+   * directly by field controls. Prefer component-specific metadata props such as
+   * `columnName` or `fieldInternalName`.
+   */
+  fieldName?: string;
+
+  /**
+   * @deprecated Compatibility-only. Prefer component-specific cross-site props
+   * where they are explicitly supported.
+   */
+  webUrl?: string;
+
+  /**
+   * @deprecated Compatibility-only. Field icons are not rendered by the current
+   * SPField controls.
+   */
+  showFieldIcon?: boolean;
+
+  /**
+   * @deprecated Compatibility-only. Use `readOnly` or component-specific
+   * display modes instead.
+   */
+  renderDisplayMode?: boolean;
 }
 
 /**

@@ -92,6 +92,12 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
   minSelections?: number;
 
   /**
+   * @deprecated Compatibility-only. Presence is not rendered by SPUserField's
+   * current PeoplePicker or persona display modes.
+   */
+  showPresence?: boolean;
+
+  /**
    * Show user photo
    * @default true
    */
@@ -104,6 +110,12 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
   showEmail?: boolean;
 
   /**
+   * @deprecated Compatibility-only. Job title is not available from all value
+   * shapes and is not rendered by the current display modes.
+   */
+  showJobTitle?: boolean;
+
+  /**
    * Resolve delay in milliseconds (debounce search)
    * @default 300
    */
@@ -114,6 +126,12 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
    * @default 5
    */
   suggestionLimit?: number;
+
+  /**
+   * @deprecated Compatibility-only. Custom PeoplePicker filtering is not wired
+   * in the current implementation.
+   */
+  customFilter?: string;
 
   /**
    * Web URL for cross-site user lookup

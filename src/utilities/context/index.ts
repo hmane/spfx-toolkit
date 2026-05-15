@@ -12,6 +12,7 @@ export { Context } from './core/context-manager';
 
 // Quick start helpers
 export { QuickStart } from './quick-start';
+export { LogLevel } from './logLevel';
 
 // ========================================
 // LIBRARY CONTEXT - Main SPContext API

@@ -1,5 +1,4 @@
-import { spfi, SPFI, SPFx } from '@pnp/sp';
-import { CacheModule } from '../modules/cache';
+import type { SPFI } from '@pnp/sp';
 import { SimpleLogger } from '../modules/logger';
 import type {
   CacheStrategy,
@@ -10,7 +9,6 @@ import type {
   SiteLifecycleEvent,
   SiteLifecycleListener,
 } from '../types';
-import '@pnp/sp/webs';
 
 /**
  * Internal manager for multi-site connections
@@ -67,7 +65,11 @@ export class MultiSiteContextManager {
     try {
       this.logger.info(`Connecting to site: ${normalized}`, { config });
 
-      // 4. Create PnP instance for the site using primary context auth
+      // 4. Create PnP instance for the site using primary context auth.
+      // Load PnP only for actual SharePoint operations so logic-only imports
+      // stay safe in Node/test environments.
+      const { spfi, SPFx } = require('@pnp/sp');
+      require('@pnp/sp/webs');
       const sp = spfi(normalized).using(SPFx(this.primaryContext));
 
       // 5. Fetch site properties to validate access (fail-fast approach)
@@ -106,6 +108,7 @@ export class MultiSiteContextManager {
         cacheConfig.strategy !== 'pessimistic'
       ) {
         // Create cache module for this site
+        const { CacheModule } = require('../modules/cache');
         const cacheModule = new CacheModule();
         await cacheModule.initialize(this.primaryContext, { cache: cacheConfig as ContextConfig['cache'] });
 
@@ -128,6 +131,7 @@ export class MultiSiteContextManager {
       });
 
       // 9. Create site-specific cache module
+      const { CacheModule } = require('../modules/cache');
       const siteCache = new CacheModule();
       await siteCache.initialize(this.primaryContext, { cache: cacheConfig as ContextConfig['cache'] });
 

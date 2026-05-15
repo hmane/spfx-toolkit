@@ -8,7 +8,7 @@ import type { ContextConfig, ContextModule, LinkBuilder, SPFxContextInput } from
 export class LinksModule implements ContextModule {
   name = 'links';
 
-  async initialize(context: SPFxContextInput, config: ContextConfig): Promise<LinkBuilder> {
+  async initialize(context: SPFxContextInput, _config: ContextConfig): Promise<LinkBuilder> {
     const webUrl = context.pageContext.web.absoluteUrl;
 
     return {
