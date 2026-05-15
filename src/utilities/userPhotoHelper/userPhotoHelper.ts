@@ -39,6 +39,30 @@ const photoCache = new Map<string, { photo: string | undefined; timestamp: numbe
  */
 const PHOTO_CACHE_DURATION = 5 * 60 * 1000;
 
+const summarizeUrlForLog = (url: string): Record<string, unknown> => {
+  try {
+    const parsed = new URL(url, 'https://spfx-toolkit.local');
+    return {
+      host: parsed.host === 'spfx-toolkit.local' ? undefined : parsed.host,
+      path: parsed.pathname,
+      hasQuery: parsed.search.length > 0,
+      hasFragment: parsed.hash.length > 0,
+    };
+  } catch {
+    return {
+      validUrl: false,
+      length: url.length,
+    };
+  }
+};
+
+const summarizeUserIdentifierForLog = (identifier: string | undefined): Record<string, unknown> => ({
+  provided: !!identifier,
+  length: identifier?.length ?? 0,
+  containsAt: identifier?.includes('@') ?? false,
+  isClaimsLogin: identifier?.includes('|') ?? false,
+});
+
 /**
  * Load SharePoint component by ID
  * @param componentId - The SharePoint component ID
@@ -78,7 +102,10 @@ const getImageBase64 = async (url: string): Promise<string | undefined> => {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    SPContext.logger.warn('Failed to fetch image as base64', { url, error });
+    SPContext.logger.warn('Failed to fetch image as base64', {
+      url: summarizeUrlForLog(url),
+      error,
+    });
     return undefined;
   }
 };
@@ -157,7 +184,11 @@ export const getUserPhoto = async (
       photoCache.set(cacheKey, { photo, timestamp: Date.now() });
       return photo;
     } catch (error) {
-      SPContext.logger.warn('Failed to get user photo', { userIdentifier, size, error });
+      SPContext.logger.warn('Failed to get user photo', {
+        userIdentifier: summarizeUserIdentifierForLog(userIdentifier),
+        size,
+        error,
+      });
       photoCache.set(cacheKey, { photo: undefined, timestamp: Date.now() });
       return undefined;
     } finally {
@@ -322,7 +353,9 @@ export async function getUserImage(
 
   // Validate user email
   if (!userEmail || !userEmail.trim() || !userEmail.includes('@')) {
-    SPContext.logger.warn('Invalid user email provided to getUserImage', { userEmail });
+    SPContext.logger.warn('Invalid user email provided to getUserImage', {
+      userEmail: summarizeUserIdentifierForLog(userEmail),
+    });
     return {
       photoUrl: undefined,
       hasCustomPhoto: false,
@@ -344,7 +377,10 @@ export async function getUserImage(
       displayName,
     };
   } catch (error) {
-    SPContext.logger.error('Failed to get user image', error, { userEmail, photoSize });
+    SPContext.logger.error('Failed to get user image', error, {
+      userEmail: summarizeUserIdentifierForLog(userEmail),
+      photoSize,
+    });
 
     // Return fallback data on error
     return {
@@ -425,7 +461,7 @@ export const batchGetUserPhotos = async (
         }
       } catch (error) {
         SPContext.logger.warn('Failed to fetch photo for user in batch', {
-          loginName: user.loginName,
+          loginName: summarizeUserIdentifierForLog(user.loginName),
           error,
         });
       }
@@ -498,7 +534,10 @@ export const isDefaultPhoto = async (photoUrl: string): Promise<boolean> => {
     const hash = await getMd5HashForUrl(base64);
     return DEFAULT_PERSONA_IMG_HASHES.has(hash) || DEFAULT_PERSONA_IMG_HASHES.has(base64);
   } catch (error) {
-    SPContext.logger.warn('Failed to check if photo is default', { photoUrl, error });
+    SPContext.logger.warn('Failed to check if photo is default', {
+      photoUrl: summarizeUrlForLog(photoUrl),
+      error,
+    });
     return true;
   }
 };

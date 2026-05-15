@@ -376,7 +376,7 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     if (isMultiItem) {
       if (!reconciled) return;
       lastResetKeyRef.current = resetKey;
-      SPContext.logger.info('🔄 Resetting form for MULTI-ITEM mode', {
+      SPContext.logger.info('SPDynamicForm: resetting form for multi-item mode', {
         itemCount: multiItemIds.length,
         fieldCount: Object.keys(reconciled.values).length,
       });
@@ -389,8 +389,10 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
       // defaults are still a valid resolved state for a brand-new item.
       lastResetKeyRef.current = resetKey;
       if (Object.keys(defaultValues).length > 0) {
-        SPContext.logger.info('🔄 Resetting form for NEW mode', {
-          defaultValues,
+        const defaultFieldNames = Object.keys(defaultValues);
+        SPContext.logger.info('SPDynamicForm: resetting form for new mode', {
+          defaultFieldCount: defaultFieldNames.length,
+          defaultFields: defaultFieldNames,
           fieldCount: Object.keys(defaultValues).length,
         });
         reset(defaultValues as any, { keepDefaultValues: true });
@@ -404,9 +406,8 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
     // future parent re-renders no longer trigger a reset.
     if (itemData) {
       lastResetKeyRef.current = resetKey;
-      SPContext.logger.info('🔄 Resetting form for EDIT/VIEW mode', {
+      SPContext.logger.info('SPDynamicForm: resetting form for edit/view mode', {
         mode,
-        itemData,
         fieldCount: Object.keys(itemData).length,
         fields: Object.keys(itemData),
       });
@@ -1058,7 +1059,8 @@ function SPDynamicFormInner<T extends Record<string, any> = any>(
           hidden: resolved.hidden,
           required: resolved.required,
           readOnly: resolved.readOnly,
-          defaultValue: resolved.defaultValue,
+          hasDefaultValue: resolved.defaultValue !== undefined && resolved.defaultValue !== null,
+          defaultValueType: resolved.defaultValue === null ? 'null' : typeof resolved.defaultValue,
         });
       }
     });

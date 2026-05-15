@@ -193,16 +193,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     });
   }, []); // Empty deps - only log on mount
 
-  // Removed verbose value change logging - uncomment for debugging
-  // React.useEffect(() => {
-  //   SPContext.logger.info(`🔍 SPLookupField [${name}]: Value changed`, {
-  //     currentValue,
-  //     valueType: typeof currentValue,
-  //     isArray: Array.isArray(currentValue),
-  //     allowMultiple
-  //   });
-  // }, [currentValue, name, allowMultiple]);
-
   // Create stable dataSource key to avoid re-fetches on object reference changes
   const dataSourceKey = React.useMemo(() => {
     const fields = [dataSource.displayField || 'Title', ...(dataSource.additionalFields || [])].join(',');
@@ -459,7 +449,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           // Add the selected item to lookupItems so it can be displayed
           SPContext.logger.info(`SPLookupField [${name}]: Adding selected item to lookupItems`, {
             selectedId,
-            selectedTitle: currentValue.Title,
           });
           setLookupItems((prev) => [...prev, currentValue as ISPLookupFieldValue]);
         }

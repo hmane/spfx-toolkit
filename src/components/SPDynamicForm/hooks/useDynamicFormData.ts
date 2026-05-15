@@ -129,8 +129,8 @@ export function useDynamicFormData<T extends FieldValues = any>(
       const formData = extractItemValues(item as any, fields);
 
       SPContext.logger.debug('SPDynamicForm: final form data prepared', {
-        formData,
-        fieldCount: Object.keys(formData).length
+        fieldCount: Object.keys(formData).length,
+        fieldNames: Object.keys(formData),
       });
 
       setData(formData as T);

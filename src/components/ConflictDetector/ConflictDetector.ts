@@ -74,7 +74,10 @@ export class ConflictDetector {
       }
 
       if (this.options.logConflicts) {
-        SPContext.logger.info('ConflictDetector initialized with snapshot:', this.originalSnapshot);
+        SPContext.logger.info(
+          'ConflictDetector initialized with snapshot:',
+          this.summarizeConflictInfo(this.originalSnapshot)
+        );
       }
 
       return {
@@ -130,8 +133,8 @@ export class ConflictDetector {
       if (hasConflict) {
         if (this.options.logConflicts) {
           SPContext.logger.warn('Conflict detected:', {
-            original: this.originalSnapshot,
-            current: currentItem.conflictInfo,
+            original: this.summarizeConflictInfo(this.originalSnapshot),
+            current: this.summarizeConflictInfo(currentItem.conflictInfo),
           });
         }
 
@@ -234,7 +237,10 @@ export class ConflictDetector {
       }
 
       if (result.success && this.options.logConflicts) {
-        SPContext.logger.info('Snapshot updated:', this.originalSnapshot);
+        SPContext.logger.info(
+          'Snapshot updated:',
+          this.summarizeConflictInfo(this.originalSnapshot)
+        );
       }
 
       if (result.success && this.options.onConflictResolved) {
@@ -386,8 +392,43 @@ export class ConflictDetector {
     }
 
     if (this.options.logConflicts) {
-      SPContext.logger.info('ConflictDetector options updated:', this.options);
+      SPContext.logger.info('ConflictDetector options updated:', this.summarizeOptions());
     }
+  }
+
+  private summarizeConflictInfo(info: ConflictInfo | undefined): Record<string, unknown> | undefined {
+    if (!info) {
+      return undefined;
+    }
+
+    return {
+      hasConflict: info.hasConflict,
+      originalVersion: info.originalVersion,
+      currentVersion: info.currentVersion,
+      lastModified: this.formatDateForLog(info.lastModified),
+      originalModified: this.formatDateForLog(info.originalModified),
+      itemId: info.itemId,
+      listId: info.listId,
+    };
+  }
+
+  private summarizeOptions(): Record<string, unknown> {
+    return {
+      checkOnSave: this.options.checkOnSave,
+      checkInterval: this.options.checkInterval,
+      showNotification: this.options.showNotification,
+      blockSave: this.options.blockSave,
+      logConflicts: this.options.logConflicts,
+      notificationPosition: this.options.notificationPosition,
+      hasCustomMessage: !!this.options.customMessage,
+      hasOnConflictDetected: typeof this.options.onConflictDetected === 'function',
+      hasOnConflictResolved: typeof this.options.onConflictResolved === 'function',
+    };
+  }
+
+  private formatDateForLog(value: Date): string | undefined {
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   }
 
   /**
