@@ -66,7 +66,6 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props

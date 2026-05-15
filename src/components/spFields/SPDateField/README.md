@@ -101,7 +101,6 @@ function MyComponent() {
       value={selectedDate}
       onChange={setSelectedDate}
       showTodayButton
-      showClearButton
     />
   );
 }
@@ -154,7 +153,6 @@ function MyComponent() {
 | `displayFormat` | `string` | `'MM/dd/yyyy'` | Date display format |
 | `timeFormat` | `'12' \| '24'` | `'12'` | Time display format |
 | `timeInterval` | `number` | `30` | Time step interval (minutes) |
-| `showClearButton` | `boolean` | `true` | Show clear button |
 | `showTodayButton` | `boolean` | `true` | Show today button |
 | `showCalendarIcon` | `boolean` | `true` | Show calendar icon |
 | `stylingMode` | `string` | `'outlined'` | Style variant |
@@ -841,7 +839,6 @@ const disabledDates = (date: Date): boolean => {
 
 ### Clear Button Temporarily Disabled
 
-Due to a DevExtreme timing issue where `_getClearButtonWidth` is called before DOM elements are ready, the `showClearButton` prop is currently disabled. This prevents a `TypeError: Failed to execute 'getComputedStyle' on 'Window'` error.
 
 **Workaround:**
 ```typescript

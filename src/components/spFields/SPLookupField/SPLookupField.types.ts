@@ -169,12 +169,6 @@ export interface ISPLookupFieldProps extends ISPFieldBaseProps<ISPLookupFieldVal
   minSearchLength?: number;
 
   /**
-   * Number of items to load per page (searchable mode)
-   * @default 50
-   */
-  pageSize?: number;
-
-  /**
    * Maximum number of displayed tags (for multi-select)
    * @default 3
    */
@@ -196,22 +190,6 @@ export interface ISPLookupFieldProps extends ISPFieldBaseProps<ISPLookupFieldVal
    * Custom item template renderer
    */
   itemTemplate?: (item: ISPLookupFieldValue) => React.ReactNode;
-
-  /**
-   * Dependent lookup parent field
-   * When set, this lookup will filter based on parent selection
-   */
-  dependsOn?: {
-    /**
-     * Parent field name
-     */
-    fieldName: string;
-
-    /**
-     * Lookup field in the lookup list that links to parent
-     */
-    lookupField: string;
-  };
 
   /**
    * Input styling mode

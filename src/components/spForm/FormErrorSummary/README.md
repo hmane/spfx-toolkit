@@ -22,6 +22,42 @@ npm install spfx-toolkit
 
 ## Basic Usage
 
+### With Custom/Class Components
+
+```typescript
+<FormErrorSummary
+  errors={this.state.errors}
+  onScrollToField={(fieldName) => {
+    this.fieldRefs[fieldName]?.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }}
+  onFocusField={(fieldName) => {
+    this.fieldRefs[fieldName]?.current?.focus();
+  }}
+/>
+```
+
+`errors` can be a simple field-to-message map:
+
+```typescript
+{
+  title: 'Title is required',
+  dueDate: 'Due date must be in the future'
+}
+```
+
+or an array with labels:
+
+```typescript
+[
+  { fieldName: 'title', label: 'Title', message: 'Title is required' }
+]
+```
+
+### With React Hook Form
+
 ```typescript
 import { useForm } from 'react-hook-form';
 import { FormProvider, FormErrorSummary } from 'spfx-toolkit/lib/components/spForm';
@@ -48,6 +84,11 @@ const MyForm = () => {
 
 ```typescript
 interface IFormErrorSummaryProps {
+  /**
+   * Explicit errors for standalone/custom forms.
+   */
+  errors?: FormErrorSummaryErrors;
+
   /**
    * Position of error summary
    * @default 'top'
@@ -87,6 +128,12 @@ interface IFormErrorSummaryProps {
    * Callback when error item is clicked
    */
   onErrorClick?: (fieldName: string) => void;
+
+  /**
+   * Custom navigation hooks for standalone/custom forms.
+   */
+  onScrollToField?: (fieldName: string) => void;
+  onFocusField?: (fieldName: string) => void;
 }
 ```
 

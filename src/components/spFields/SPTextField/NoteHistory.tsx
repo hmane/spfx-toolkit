@@ -60,11 +60,6 @@ export interface INoteHistoryProps {
   onHistoryError?: (error: Error) => void;
 
   /**
-   * Callback when user copies a previous entry
-   */
-  onCopyPrevious?: (entry: INoteHistoryEntry) => void;
-
-  /**
    * Custom CSS class
    */
   className?: string;
@@ -91,7 +86,6 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
     useCache = false,
     onHistoryLoad,
     onHistoryError,
-    onCopyPrevious,
     className,
     hasInputAbove = true,
   } = props;
@@ -113,8 +107,6 @@ export const NoteHistory: React.FC<INoteHistoryProps> = (props) => {
   const showLoadMore = config?.showLoadMore !== false;
   const sortOrder = config?.sortOrder || 'desc';
   const historyTitle = config?.historyTitle || 'Previous Notes';
-  const emptyMessage = config?.emptyHistoryMessage || 'No previous notes';
-
   /**
    * Load version history from SharePoint
    * Memoized to prevent recreating on every render

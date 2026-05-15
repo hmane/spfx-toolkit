@@ -12,12 +12,11 @@ import * as React from 'react';
 import { Controller, RegisterOptions, useWatch, useForm } from 'react-hook-form';
 import TextBox from 'devextreme-react/text-box';
 import TextArea from 'devextreme-react/text-area';
-import { ISPTextFieldProps, SPTextFieldMode, INoteHistoryEntry } from './SPTextField.types';
+import { ISPTextFieldProps, SPTextFieldMode } from './SPTextField.types';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { Text } from '@fluentui/react/lib/Text';
 import { Label } from '@fluentui/react/lib/Label';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
-import { useTheme } from '@fluentui/react/lib/Theme';
 import { NoteHistory } from './NoteHistory';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { resolveFieldValidationState } from '../validation';
@@ -82,7 +81,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
@@ -122,22 +120,14 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     useCacheForHistory = false,
     onHistoryLoad,
     onHistoryError,
-    onNoteAdd,
-    onCopyPrevious,
 
     // Ref for focus management
     inputRef,
 
-    // SharePoint props (for future use)
-    // webUrl,
-    // showFieldIcon,
-    // renderDisplayMode,
   } = props;
 
-  const theme = useTheme();
   const [internalValue, setInternalValue] = React.useState<string>(defaultValue || '');
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
-  const [fieldValue, setFieldValue] = React.useState<string>(defaultValue || '');
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -245,28 +235,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     };
   }, []);
 
-  /**
-   * Handle copy previous entry
-   */
-  const handleCopyPrevious = React.useCallback(
-    (entry: INoteHistoryEntry) => {
-      // Set the value to the copied entry
-      setInternalValue(entry.text);
-      setFieldValue(entry.text);
-
-      // Trigger onChange if provided
-      if (onChange) {
-        onChange(entry.text);
-      }
-
-      // Fire callback
-      if (onCopyPrevious) {
-        onCopyPrevious(entry);
-      }
-    },
-    [onChange, onCopyPrevious]
-  );
-
   // Merge validation rules
   const validationRules = React.useMemo(() => {
     const baseRules: RegisterOptions = { ...rules };
@@ -303,13 +271,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const containerClass = mergeStyles({
     width: width || '100%',
     marginBottom: 16,
-  });
-
-  // Error message styles
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
   });
 
   // Character count warning threshold (90% of max)
@@ -410,7 +371,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
             useCache={useCacheForHistory}
             onHistoryLoad={onHistoryLoad}
             onHistoryError={onHistoryError}
-            onCopyPrevious={handleCopyPrevious}
             hasInputAbove={false}
           />
         )}
@@ -424,7 +384,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
                   <RichText
                     value={effectiveFieldValue || ''}
                     onChange={(text: string) => {
-                      setFieldValue(text);
                       fieldOnChange(text);
                       return text;
                     }}
@@ -487,7 +446,6 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
             useCache={useCacheForHistory}
             onHistoryLoad={onHistoryLoad}
             onHistoryError={onHistoryError}
-            onCopyPrevious={handleCopyPrevious}
             hasInputAbove={shouldShowInput}
           />
         )}

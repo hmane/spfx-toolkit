@@ -121,10 +121,8 @@ function MyForm() {
 | `limitToGroup` | `string \| string[]` | - | Limit to specific groups |
 | `maxSelections` | `number` | - | Max users (multi-select) |
 | `minSelections` | `number` | - | Min users (multi-select) |
-| `showPresence` | `boolean` | `false` | Show presence indicator |
 | `showPhoto` | `boolean` | `true` | Show user photo |
 | `showEmail` | `boolean` | `false` | Show email |
-| `showJobTitle` | `boolean` | `false` | Show job title |
 | `resolveDelay` | `number` | `300` | Search debounce (ms) |
 | `suggestionLimit` | `number` | `5` | Max search results |
 | `webUrl` | `string` | - | Cross-site URL |
@@ -236,9 +234,7 @@ const multiple: IPrincipal[] = [
   name="assignee"
   label="Assigned To"
   control={control}
-  showPresence
   showEmail
-  showJobTitle
   resolveDelay={500}
 />
 ```
@@ -274,7 +270,6 @@ function TaskAssignmentForm() {
         name="assignedTo"
         label="Assigned To"
         control={control}
-        showPresence
         showPhoto
         showEmail
         rules={{ required: 'Assignee is required' }}
@@ -337,8 +332,6 @@ function TeamManagementForm() {
         label="Team Lead"
         control={control}
         limitToGroup="Managers"
-        showPresence
-        showJobTitle
         rules={{ required: 'Team lead is required' }}
       />
 
@@ -429,9 +422,7 @@ function TeamManagementForm() {
   name="contactPerson"
   label="Contact Person"
   control={control}
-  showPresence
   showEmail
-  showJobTitle
   description="Primary contact for this item"
 />
 ```

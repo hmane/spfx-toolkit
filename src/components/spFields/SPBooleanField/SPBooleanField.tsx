@@ -61,15 +61,12 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
     value,
     defaultValue,
     onChange,
-    onBlur,
-    onFocus,
 
     // Boolean field specific props
     displayType = SPBooleanDisplayType.Checkbox,

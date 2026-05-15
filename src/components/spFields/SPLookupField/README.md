@@ -152,10 +152,8 @@ function MyForm() {
 | `showSearchBox` | `boolean` | `true` | Show search |
 | `searchDelay` | `number` | `300` | Search debounce (ms) |
 | `minSearchLength` | `number` | `2` | Min search chars |
-| `pageSize` | `number` | `50` | Items per page |
 | `maxDisplayedTags` | `number` | `3` | Max tags displayed |
 | `useCache` | `boolean` | `true` | Cache data |
-| `dependsOn` | `object` | - | Cascading lookup config |
 
 ---
 
@@ -221,7 +219,6 @@ Async search-as-you-type with PnP ListItemPicker.
     searchFields: ['Title', 'Email', 'Department']
   }}
   minSearchLength={3}
-  pageSize={25}
 />
 ```
 
@@ -350,17 +347,12 @@ function MyForm() {
         }}
       />
 
-      {/* Dependent lookup */}
       <SPLookupField
         name="city"
         label="City"
         control={control}
         dataSource={{
           listNameOrId: 'Cities'
-        }}
-        dependsOn={{
-          fieldName: 'country',
-          lookupField: 'Country'  // Lookup field in Cities list
         }}
         disabled={!country}
       />
@@ -386,7 +378,6 @@ function MyForm() {
   }}
   minSearchLength={3}
   searchDelay={500}
-  pageSize={25}
 />
 ```
 
@@ -547,10 +538,6 @@ function LocationForm() {
         dataSource={{
           listNameOrId: 'States'
         }}
-        dependsOn={{
-          fieldName: 'country',
-          lookupField: 'Country'
-        }}
         disabled={!country}
         rules={{
           required: 'State is required',
@@ -567,10 +554,6 @@ function LocationForm() {
         dataSource={{
           listNameOrId: 'Cities',
           searchFields: ['Title', 'PostalCode']
-        }}
-        dependsOn={{
-          fieldName: 'state',
-          lookupField: 'State'
         }}
         disabled={!state}
         minSearchLength={2}
@@ -658,7 +641,6 @@ function LocationForm() {
   }}
   minSearchLength={3}
   searchDelay={500}
-  pageSize={25}
 />
 ```
 

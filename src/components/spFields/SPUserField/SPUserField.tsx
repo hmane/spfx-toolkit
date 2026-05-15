@@ -122,15 +122,12 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
     value,
     defaultValue,
     onChange,
-    onBlur,
-    onFocus,
 
     // User field specific props
     hasError: hasErrorProp = false,
@@ -142,13 +139,10 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     displayMode = SPUserFieldDisplayMode.PeoplePicker,
     maxSelections,
     minSelections,
-    showPresence = false,
     showPhoto = true,
     showEmail = false,
-    showJobTitle = false,
     resolveDelay = 300,
     suggestionLimit = 5,
-    customFilter,
     webUrl,
     inputRef,
   } = props;
@@ -360,23 +354,6 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   // Use controlled value if provided, otherwise use internal state
   const currentValue = value !== undefined ? value : internalValue;
 
-
-  // Handle PeoplePicker change
-  const handlePeoplePickerChange = React.useCallback(
-    (items: any[]) => {
-      // Convert PeoplePicker items to IPrincipal format
-      const principals: IPrincipal[] = peoplePickerItemsToPrincipals(items);
-      const finalValue = resolvedAllowMultiple ? principals : (principals.length > 0 ? principals[0] : null);
-
-      setInternalValue(finalValue as any);
-
-      if (onChange) {
-        onChange(finalValue as any);
-      }
-    },
-    [resolvedAllowMultiple, onChange]
-  );
-
   // Merge validation rules
   const validationRules = React.useMemo(() => {
     const baseRules: RegisterOptions = { ...rules };
@@ -498,6 +475,9 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
     // Use fieldValue (from Controller) to compute these, not the value prop!
     const fieldSelectedUsers = computeSelectedUsers(fieldValue);
+    const personaDisplayMode = showPhoto
+      ? (showEmail ? 'avatarAndName' : 'avatar')
+      : 'nameOnly';
 
     const validation = resolveFieldValidationState({
       fieldError,
@@ -575,7 +555,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
                     displayName={getUserDisplayName(user)}
                     email={principal.email}
                     size={32 as UserPersonaSize}
-                    displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                    displayMode={personaDisplayMode}
                     showSecondaryText={showEmail}
                   />
                 );
@@ -586,7 +566,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
                 displayName={getUserDisplayName(fieldValue)}
                 email={normalizeToIPrincipal(fieldValue).email}
                 size={40 as UserPersonaSize}
-                displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                displayMode={personaDisplayMode}
                 showSecondaryText={showEmail}
               />
             ) : (
@@ -606,7 +586,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
                     displayName={getUserDisplayName(user)}
                     email={principal.email}
                     size={48 as UserPersonaSize}
-                    displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                    displayMode={personaDisplayMode}
                     showSecondaryText={showEmail}
                   />
                 );
@@ -617,7 +597,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
                 displayName={getUserDisplayName(fieldValue)}
                 email={normalizeToIPrincipal(fieldValue).email}
                 size={48 as UserPersonaSize}
-                displayMode={showEmail ? 'avatarAndName' : 'avatar'}
+                displayMode={personaDisplayMode}
                 showSecondaryText={showEmail}
               />
             ) : (

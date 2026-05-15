@@ -82,12 +82,6 @@ export interface ISPDateFieldProps extends ISPFieldBaseProps<Date> {
   showWeekNumbers?: boolean;
 
   /**
-   * Show clear button
-   * @default true
-   */
-  showClearButton?: boolean;
-
-  /**
    * Show today button in calendar
    * @default true
    */

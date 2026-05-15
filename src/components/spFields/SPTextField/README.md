@@ -178,8 +178,6 @@ function MyComponent() {
 | `useCacheForHistory` | `boolean` | `false` | Cache version data |
 | `onHistoryLoad` | `(entries, count) => void` | - | History loaded callback |
 | `onHistoryError` | `(error) => void` | - | History error callback |
-| `onNoteAdd` | `(note) => void` | - | Note added callback |
-| `onCopyPrevious` | `(entry) => void` | - | Copy entry callback |
 
 ---
 
@@ -363,9 +361,7 @@ Rich text editor with formatting toolbar.
     initialDisplayCount: 5,
     showUserPhoto: true,
     timeFormat: 'relative',
-    enableCopyPrevious: true
   }}
-  onNoteAdd={(note) => console.log('New note:', note)}
 />
 ```
 
@@ -508,16 +504,10 @@ function IssueForm({ itemId }: { itemId?: number }) {
             initialDisplayCount: 5,
             showUserPhoto: true,
             timeFormat: 'relative',
-            enableCopyPrevious: true,
             historyTitle: 'Previous Updates',
-            emptyHistoryMessage: 'No updates yet'
           }}
           onHistoryLoad={(entries, total) => {
             console.log(`Loaded ${entries.length} of ${total} history entries`);
-          }}
-          onCopyPrevious={(entry) => {
-            // Populate field with previous entry
-            setValue('notes', entry.text);
           }}
           description="Add updates to this issue. Previous updates will be preserved."
         />

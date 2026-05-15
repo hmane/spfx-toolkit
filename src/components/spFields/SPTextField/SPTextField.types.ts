@@ -85,12 +85,6 @@ export interface INoteHistoryConfig {
   showLoadMore?: boolean;
 
   /**
-   * Enable copy previous entry button
-   * @default true
-   */
-  enableCopyPrevious?: boolean;
-
-  /**
    * Time format display
    * @default 'relative'
    */
@@ -125,12 +119,6 @@ export interface INoteHistoryConfig {
    * @default "Previous Notes"
    */
   historyTitle?: string;
-
-  /**
-   * Message to show when no history exists
-   * @default "No previous notes"
-   */
-  emptyHistoryMessage?: string;
 
   /**
    * Custom render function for history entry
@@ -297,14 +285,4 @@ export interface ISPTextFieldProps extends ISPFieldBaseProps<string>, ISPFieldSh
    */
   onHistoryError?: (error: Error) => void;
 
-  /**
-   * Fired when user adds a new note
-   * Note: You still need to save to SharePoint separately
-   */
-  onNoteAdd?: (newNote: string) => void;
-
-  /**
-   * Fired when user copies a previous entry
-   */
-  onCopyPrevious?: (entry: INoteHistoryEntry) => void;
 }

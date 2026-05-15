@@ -40,7 +40,7 @@
  * @packageDocumentation
  */
 
-import { Control, RegisterOptions, FieldValues } from 'react-hook-form';
+import { RegisterOptions } from 'react-hook-form';
 
 /**
  * Base props shared by all SPField components
@@ -162,26 +162,6 @@ export interface ISPFieldSharePointProps {
    * SharePoint list GUID or title
    */
   listId?: string;
-
-  /**
-   * Internal SharePoint field name
-   */
-  fieldName?: string;
-
-  /**
-   * Web URL for cross-site field access
-   */
-  webUrl?: string;
-
-  /**
-   * Show SharePoint field type icon
-   */
-  showFieldIcon?: boolean;
-
-  /**
-   * Render in display-only mode (like SharePoint's display form)
-   */
-  renderDisplayMode?: boolean;
 }
 
 /**

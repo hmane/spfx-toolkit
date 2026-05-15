@@ -77,7 +77,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props

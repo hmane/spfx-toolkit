@@ -210,23 +210,6 @@ interface ISPFieldBaseProps<T> {
 }
 ```
 
-### SharePoint Integration Props
-
-Many components include SharePoint-specific props:
-
-```typescript
-interface ISPFieldSharePointProps {
-  // SharePoint list context
-  listId?: string;             // Source list GUID
-  fieldName?: string;          // Internal field name
-  webUrl?: string;             // Web URL for cross-site fields
-
-  // Display options
-  showFieldIcon?: boolean;     // Show SharePoint field type icon
-  renderDisplayMode?: boolean; // Render in display-only mode
-}
-```
-
 ## Validation
 
 All SPField components support validation through react-hook-form:

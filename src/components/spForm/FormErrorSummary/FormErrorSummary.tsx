@@ -8,7 +8,22 @@ import { MessageBar, MessageBarType } from '@fluentui/react/lib/MessageBar';
 import { Stack } from '@fluentui/react/lib/Stack';
 import { useFormContext, useFormStateContext } from '../context';
 
+export type FormErrorSummaryErrorValue =
+  | string
+  | string[]
+  | { message?: string; label?: string };
+
+export type FormErrorSummaryErrors =
+  | Record<string, FormErrorSummaryErrorValue | Record<string, any>>
+  | Array<{ fieldName: string; message: string; label?: string }>;
+
 export interface IFormErrorSummaryProps {
+  /**
+   * Explicit errors for standalone/custom forms.
+   * If provided, these are used instead of React Hook Form context errors.
+   */
+  errors?: FormErrorSummaryErrors;
+
   /**
    * Position of error summary
    * @default 'top'
@@ -50,6 +65,18 @@ export interface IFormErrorSummaryProps {
   onErrorClick?: (fieldName: string) => void;
 
   /**
+   * Custom scroll handler for standalone/custom forms.
+   * React Hook Form context scrolling is used when this is not provided.
+   */
+  onScrollToField?: (fieldName: string) => void;
+
+  /**
+   * Custom focus handler for standalone/custom forms.
+   * React Hook Form context focusing is used when this is not provided.
+   */
+  onFocusField?: (fieldName: string) => void;
+
+  /**
    * Only show errors for these fields. If not provided, shows all errors.
    */
   filterFields?: string[];
@@ -65,18 +92,47 @@ export interface IFormErrorSummaryProps {
  * Flatten nested react-hook-form errors into [fieldName, error] pairs.
  * Handles field arrays (e.g., items[0].name) and nested objects.
  */
+interface INormalizedError {
+  fieldName: string;
+  message?: string;
+  label?: string;
+}
+
+function normalizeErrorValue(value: any): { message?: string; label?: string } | null {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    return { message: value };
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value.filter((entry) => typeof entry === 'string' && entry.trim() !== '');
+    return messages.length > 0 ? { message: messages.join(', ') } : null;
+  }
+
+  if (typeof value === 'object' && value.message !== undefined) {
+    return {
+      message: typeof value.message === 'string' ? value.message : undefined,
+      label: typeof value.label === 'string' ? value.label : undefined,
+    };
+  }
+
+  return null;
+}
+
 function flattenErrors(
   errors: Record<string, any>,
   prefix = ''
-): Array<[string, { message?: string }]> {
-  const result: Array<[string, { message?: string }]> = [];
+): INormalizedError[] {
+  const result: INormalizedError[] = [];
 
   for (const [key, value] of Object.entries(errors)) {
     if (!value) continue;
     const fieldName = prefix ? `${prefix}.${key}` : key;
+    const normalized = normalizeErrorValue(value);
 
-    if (value.message !== undefined) {
-      result.push([fieldName, value]);
+    if (normalized) {
+      result.push({ fieldName, ...normalized });
     } else if (typeof value === 'object' && !value.type) {
       result.push(...flattenErrors(value, fieldName));
     }
@@ -85,9 +141,22 @@ function flattenErrors(
   return result;
 }
 
+function normalizeErrors(errors: FormErrorSummaryErrors): INormalizedError[] {
+  if (Array.isArray(errors)) {
+    return errors.map((error) => ({
+      fieldName: error.fieldName,
+      message: error.message,
+      label: error.label,
+    }));
+  }
+
+  return flattenErrors(errors as Record<string, any>);
+}
+
 const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps>(
   (
     {
+      errors: explicitErrors,
       position = 'top',
       maxErrors,
       showFieldLabels = true,
@@ -95,6 +164,8 @@ const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps
       compact = false,
       className = '',
       onErrorClick,
+      onScrollToField,
+      onFocusField,
       filterFields,
       getFieldLabel,
     },
@@ -103,15 +174,17 @@ const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps
     const formContext = useFormContext();
     const formState = useFormStateContext();
 
-    if (!formContext || !formState?.errors) {
+    if (!explicitErrors && !formState?.errors) {
       return null;
     }
 
-    const allErrors = flattenErrors(formState.errors as Record<string, any>);
+    const allErrors = explicitErrors
+      ? normalizeErrors(explicitErrors)
+      : flattenErrors(formState!.errors as Record<string, any>);
 
     // Filter to specific fields if requested
     const errors = filterFields
-      ? allErrors.filter(([fieldName]) => filterFields.includes(fieldName))
+      ? allErrors.filter((error) => filterFields.includes(error.fieldName))
       : allErrors;
 
     if (errors.length === 0) {
@@ -119,8 +192,8 @@ const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps
     }
 
     // Filter out errors without meaningful messages
-    const errorsWithMessages = errors.filter(([_, error]) => {
-      const errorMessage = error?.message;
+    const errorsWithMessages = errors.filter((error) => {
+      const errorMessage = error.message;
       return errorMessage && typeof errorMessage === 'string' && errorMessage.trim() !== '';
     });
 
@@ -131,18 +204,27 @@ const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps
     const displayErrors = maxErrors ? errorsWithMessages.slice(0, maxErrors) : errorsWithMessages;
     const hasMoreErrors = maxErrors && errorsWithMessages.length > maxErrors;
 
-    const resolveLabel = (fieldName: string): string => {
+    const resolveLabel = (fieldName: string, explicitLabel?: string): string => {
+      if (explicitLabel) return explicitLabel;
       if (getFieldLabel) return getFieldLabel(fieldName);
-      const field = formContext.registry.get(fieldName);
+      const field = formContext?.registry.get(fieldName);
       return field?.label || fieldName;
     };
 
     const handleErrorClick = (fieldName: string) => {
       if (clickToScroll) {
-        formContext.scrollToField(fieldName, { behavior: 'smooth', block: 'center' });
+        if (onScrollToField) {
+          onScrollToField(fieldName);
+        } else {
+          formContext?.scrollToField(fieldName, { behavior: 'smooth', block: 'center' });
+        }
 
         setTimeout(() => {
-          formContext.focusField(fieldName);
+          if (onFocusField) {
+            onFocusField(fieldName);
+          } else {
+            formContext?.focusField(fieldName);
+          }
         }, 300);
       }
 
@@ -176,17 +258,18 @@ const FormErrorSummary = React.forwardRef<HTMLDivElement, IFormErrorSummaryProps
             )}
 
             <ul style={{ margin: listMargin, paddingLeft: '20px' }}>
-              {displayErrors.map(([fieldName, error]) => {
-                const label = showFieldLabels ? resolveLabel(fieldName) : null;
-                const errorMessage = error?.message;
+              {displayErrors.map((error) => {
+                const label = showFieldLabels ? resolveLabel(error.fieldName, error.label) : null;
+                const errorMessage = error.message;
+                const canNavigate = clickToScroll && (!!formContext || !!onScrollToField || !!onErrorClick);
 
                 return (
-                  <li key={fieldName} style={{ marginBottom: itemMargin }}>
-                    {label && clickToScroll ? (
+                  <li key={error.fieldName} style={{ marginBottom: itemMargin }}>
+                    {label && canNavigate ? (
                       <>
                         <button
                           type='button'
-                          onClick={() => handleErrorClick(fieldName)}
+                          onClick={() => handleErrorClick(error.fieldName)}
                           aria-label={`Go to ${label} field`}
                           style={{
                             background: 'none',

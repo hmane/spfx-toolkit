@@ -20,10 +20,6 @@ export interface ITaxonomyDataSource {
    */
   anchorId?: string;
 
-  /**
-   * Term store name (optional - defaults to default term store)
-   */
-  termStoreName?: string;
 }
 
 /**
@@ -56,56 +52,8 @@ export interface ISPTaxonomyFieldProps extends ISPFieldBaseProps<ISPTaxonomyFiel
   allowMultiple?: boolean;
 
   /**
-   * Show search box
-   * @default true
-   */
-  showSearchBox?: boolean;
-
-  /**
-   * Search delay in milliseconds
-   * @default 300
-   */
-  searchDelay?: number;
-
-  /**
-   * Minimum search length
-   * @default 2
-   */
-  minSearchLength?: number;
-
-  /**
-   * Maximum number of displayed tags (for multi-select)
-   * @default 3
-   */
-  maxDisplayedTags?: number;
-
-  /**
-   * Show clear button
-   * @default true
-   */
-  showClearButton?: boolean;
-
-  /**
    * Use cache for taxonomy data
    * @default true
    */
   useCache?: boolean;
-
-  /**
-   * Show term path (hierarchy)
-   * @default false
-   */
-  showPath?: boolean;
-
-  /**
-   * Path separator when showing hierarchy
-   * @default ' > '
-   */
-  pathSeparator?: string;
-
-  /**
-   * Input styling mode
-   * @default 'outlined'
-   */
-  stylingMode?: 'outlined' | 'underlined' | 'filled';
 }

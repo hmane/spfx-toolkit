@@ -108,7 +108,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
@@ -126,12 +125,10 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     showSearchBox = true,
     searchDelay = 300,
     minSearchLength = 2,
-    pageSize: _pageSize = 50, // Reserved for future pagination support
     maxDisplayedTags = 3,
     showClearButton = true,
     useCache = true,
     itemTemplate,
-    dependsOn,
     stylingMode = 'outlined',
     onItemCountDetermined,
     inputRef,
@@ -505,12 +502,6 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
   const containerClass = mergeStyles({
     width: width || '100%',
     marginBottom: 16,
-  });
-
-  const errorClass = mergeStyles({
-    color: theme.palette.redDark,
-    fontSize: 12,
-    marginTop: 4,
   });
 
   const infoClass = mergeStyles({

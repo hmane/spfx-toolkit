@@ -6141,11 +6141,10 @@ React.useEffect(() => {
 }, [loadData]);  // Include callback in dependencies
 ```
 
-### Issue: SPDateField Clear Button Not Showing
+### Issue: Clearing SPDateField Values
 
-**Symptoms:** The `showClearButton` prop on SPDateField doesn't display the clear button
 
-**Explanation:** Due to a DevExtreme initialization timing issue where `_getClearButtonWidth` is called before the DOM element exists, the clear button has been temporarily disabled. This is a known workaround to prevent `TypeError: Failed to execute 'getComputedStyle' on 'Window'` errors.
+**Explanation:** DevExtreme's built-in clear button is not exposed by SPDateField because it can initialize before the DOM element exists and trigger `_getClearButtonWidth` errors.
 
 **Workarounds:**
 1. Set the value to `undefined` or `null` programmatically to clear the field

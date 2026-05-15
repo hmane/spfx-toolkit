@@ -92,12 +92,6 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
   minSelections?: number;
 
   /**
-   * Show presence indicator (online/offline/busy)
-   * @default false
-   */
-  showPresence?: boolean;
-
-  /**
    * Show user photo
    * @default true
    */
@@ -110,12 +104,6 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
   showEmail?: boolean;
 
   /**
-   * Show user job title
-   * @default false
-   */
-  showJobTitle?: boolean;
-
-  /**
    * Resolve delay in milliseconds (debounce search)
    * @default 300
    */
@@ -126,11 +114,6 @@ export interface ISPUserFieldProps extends ISPFieldBaseProps<SPUserFieldValue | 
    * @default 5
    */
   suggestionLimit?: number;
-
-  /**
-   * Custom filter for user search
-   */
-  customFilter?: string;
 
   /**
    * Web URL for cross-site user lookup

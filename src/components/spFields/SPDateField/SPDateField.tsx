@@ -63,7 +63,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
@@ -82,7 +81,6 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     timeFormat = '12',
     firstDayOfWeek = 0,
     showWeekNumbers = false,
-    showClearButton: _showClearButton = true, // Prefixed - see showClearBtn workaround
     showTodayButton = true,
     timeInterval = 30,
     dateValidator,
@@ -217,38 +215,15 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     marginBottom: 16,
   });
 
-  // Disabled dates function
-  const isDateDisabled = React.useCallback(
-    (date: Date) => {
-      if (!disabledDates) return false;
-
-      if (typeof disabledDates === 'function') {
-        return disabledDates(date);
-      }
-
-      // Check if date is in disabled dates array
-      return disabledDates.some(disabledDate =>
-        disabledDate.toDateString() === date.toDateString()
-      );
-    },
-    [disabledDates]
-  );
-
   // Memoize calendar options at component level (not inside render function)
   const calendarOpts = React.useMemo(() => ({
     firstDayOfWeek: firstDayOfWeek as any,
     showWeekNumbers: showWeekNumbers,
-    disabledDates: disabledDates && (typeof disabledDates === 'function' ? undefined : disabledDates),
+    disabledDates,
   }), [firstDayOfWeek, showWeekNumbers, disabledDates]);
 
   // Determine if field is active (editable)
   const isActive = !disabled && !readOnly;
-  // WORKAROUND: DevExtreme's showClearButton causes getComputedStyle errors
-  // when measuring clear button width before elements are fully rendered.
-  // Disable clear button to avoid _getClearButtonWidth measurement errors.
-  // TODO: Find alternative way to provide clear functionality (custom button)
-  const showClearBtn = false; // showClearButton && isActive;
-
   // Memoize buttons configuration - use stable reference without fieldOnChange dependency
   // The Today button will use a ref to get the current onChange handler
   const onChangeRef = React.useRef<(val: Date | undefined) => void>();
@@ -383,7 +358,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               disabled={false}
               readOnly={false}
               placeholder={placeholder}
-              showClearButton={showClearBtn}
+              showClearButton={false}
               stylingMode={stylingMode}
               min={minDate}
               max={maxDate}
@@ -392,7 +367,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               openOnFieldClick={true}
               showAnalogClock={false}
               interval={timeInterval}
-              calendarOptions={calendarOpts}
+              calendarOptions={calendarOpts as any}
               buttons={dateBoxButtons}
               onFocusIn={onFocus}
               onFocusOut={onBlur}
@@ -417,7 +392,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               openOnFieldClick={false}
               showAnalogClock={false}
               interval={timeInterval}
-              calendarOptions={calendarOpts}
+              calendarOptions={calendarOpts as any}
               buttons={readOnlyButtons}
               isValid={validation.isValid}
             />

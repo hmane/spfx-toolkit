@@ -56,7 +56,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     required = false,
     disabled = false,
     readOnly = false,
-    placeholder,
     errorMessage,
     isValid,
     className,
@@ -64,7 +63,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
@@ -133,40 +131,6 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     // Require full URLs
     return /^https?:\/\/.+/i;
   }, [allowRelativeUrl]);
-
-  // Handle URL change
-  const handleUrlChange = React.useCallback(
-    (newUrl: string) => {
-      const updatedValue: ISPUrlFieldValue = {
-        ...currentValue,
-        Url: newUrl,
-      };
-
-      setInternalValue(updatedValue);
-
-      if (onChange) {
-        onChange(updatedValue);
-      }
-    },
-    [currentValue, onChange]
-  );
-
-  // Handle description change
-  const handleDescriptionChange = React.useCallback(
-    (newDescription: string) => {
-      const updatedValue: ISPUrlFieldValue = {
-        ...currentValue,
-        Description: newDescription,
-      };
-
-      setInternalValue(updatedValue);
-
-      if (onChange) {
-        onChange(updatedValue);
-      }
-    },
-    [currentValue, onChange]
-  );
 
   // Merge validation rules
   const validationRules = React.useMemo(() => {

@@ -126,30 +126,19 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
     // Form props
     name,
-    control: controlProp,
     rules,
 
     // Standalone props
     value,
     defaultValue,
     onChange,
-    onBlur,
-    onFocus,
 
     // Taxonomy field specific props
     dataSource,
     columnName,
     listId,
     allowMultiple = false,
-    showSearchBox = true,
-    searchDelay = 300,
-    minSearchLength = 2,
-    maxDisplayedTags = 3,
-    showClearButton = true,
     useCache = true,
-    showPath = false,
-    pathSeparator = ' > ',
-    stylingMode = 'outlined',
     inputRef,
   } = props;
 
@@ -166,7 +155,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         ? { ...dataSource, anchorId: sanitizeAnchorId(dataSource.anchorId) }
         : null,
     // Only re-create when the meaningful primitives change, not on object identity
-    [dataSource?.termSetId, dataSource?.anchorId, dataSource?.termStoreName]
+    [dataSource?.termSetId, dataSource?.anchorId]
   );
 
   // Initialize loading=true when auto-load will run, to avoid a brief flash of the
@@ -176,12 +165,10 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   const [internalValue, setInternalValue] = React.useState<ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]>(
     defaultValue || (allowMultiple ? [] : null as any)
   );
-  const [terms, setTerms] = React.useState<ISPTaxonomyFieldValue[]>([]);
   const [loading, setLoading] = React.useState<boolean>(willAutoLoad);
   const [error, setError] = React.useState<string | null>(null);
   const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(sanitizedInitialDataSource);
   const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
-  const [resolvedShowPath, setResolvedShowPath] = React.useState<boolean | undefined>(showPath);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -215,7 +202,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         setResolvedDataSource(sanitizedInitialDataSource);
       }
       setResolvedAllowMultiple(allowMultiple);
-      setResolvedShowPath(showPath);
       return;
     }
 
@@ -225,7 +211,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       if (sanitizedInitialDataSource?.termSetId) {
         setResolvedDataSource(sanitizedInitialDataSource);
         setResolvedAllowMultiple(allowMultiple);
-        setResolvedShowPath(showPath);
         return true;
       }
       return false;
@@ -254,7 +239,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         const rawAnchorId = (field as any).AnchorId;
         const anchorId = sanitizeAnchorId(rawAnchorId);
         const allowMultipleValues = (field as any).AllowMultipleValues || false;
-        const isPathRendered = (field as any).IsPathRendered || false;
 
         if (!termSetId) {
           if (fallbackToProvidedDataSource()) {
@@ -278,14 +262,12 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         setResolvedDataSource(source);
         setResolvedAllowMultiple(allowMultipleValues);
-        setResolvedShowPath(isPathRendered);
 
         SPContext.logger.info('SPTaxonomyField: Auto-loaded column metadata', {
           columnName,
           termSetId,
           anchorId,
           allowMultipleValues,
-          isPathRendered,
         });
       } catch (err: any) {
         if (!isMounted) return;
@@ -317,13 +299,13 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     };
     // sanitizedInitialDataSource is memoized on its primitive contents, so referential
     // changes to the dataSource prop won't re-trigger this effect.
-  }, [columnName, listId, sanitizedInitialDataSource, allowMultiple, showPath]);
+  }, [columnName, listId, sanitizedInitialDataSource, allowMultiple]);
 
   // Create stable dataSource key to avoid re-fetches on object reference changes
   const dataSourceKey = React.useMemo(() => {
     if (!resolvedDataSource) return '';
-    return `${resolvedDataSource.termSetId}:${resolvedDataSource.anchorId || ''}:${useCache ? 'cached' : 'fresh'}:${resolvedShowPath ? 'path' : 'nopath'}`;
-  }, [resolvedDataSource, useCache, resolvedShowPath]);
+    return `${resolvedDataSource.termSetId}:${resolvedDataSource.anchorId || ''}:${useCache ? 'cached' : 'fresh'}`;
+  }, [resolvedDataSource, useCache]);
 
   // Load taxonomy terms
   React.useEffect(() => {
@@ -358,8 +340,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         if (!isMounted) return;
 
-        // Clear any previous error and mark as ready
-        setTerms([]); // Terms not needed - ModernTaxonomyPicker loads them
+        // Clear any previous error and mark as ready. ModernTaxonomyPicker loads terms.
         setError(null);
       } catch (err: any) {
         if (!isMounted) return;
@@ -421,15 +402,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     width: width || '100%',
     marginBottom: 16,
   });
-
-
-  // Get display label (with path if enabled)
-  const getDisplayLabel = React.useCallback((term: ISPTaxonomyFieldValue) => {
-    if (resolvedShowPath && term.Path) {
-      return term.Path.replace(/;/g, pathSeparator) + pathSeparator + term.Label;
-    }
-    return term.Label;
-  }, [resolvedShowPath, pathSeparator]);
 
   // Convert ISPTaxonomyFieldValue to ITermInfo format expected by ModernTaxonomyPicker
   const convertToTermInfo = React.useCallback((val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[] | null): ITermInfo[] => {

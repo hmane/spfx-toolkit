@@ -89,7 +89,6 @@ function MyForm() {
         dataSource={{
           termSetId: '87654321-4321-4321-4321-210987654321'
         }}
-        maxDisplayedTags={5}
       />
 
       {/* With anchor term (limit to branch) */}
@@ -101,7 +100,6 @@ function MyForm() {
           termSetId: '12345678-1234-1234-1234-123456789012',
           anchorId: 'abcdef12-1234-1234-1234-123456abcdef'
         }}
-        showPath
       />
     </>
   );
@@ -125,7 +123,6 @@ function MyComponent() {
       dataSource={{
         termSetId: '12345678-1234-1234-1234-123456789012'
       }}
-      showSearchBox
       useCache
     />
   );
@@ -174,15 +171,7 @@ function MyComponent() {
 |------|------|---------|-------------|
 | `dataSource` | `ITaxonomyDataSource` | **Required** | Term store configuration |
 | `allowMultiple` | `boolean` | `false` | Enable multi-selection |
-| `showSearchBox` | `boolean` | `true` | Show search functionality |
-| `searchDelay` | `number` | `300` | Search debounce delay (ms) |
-| `minSearchLength` | `number` | `2` | Minimum search characters |
-| `maxDisplayedTags` | `number` | `3` | Max tags before collapse |
-| `showClearButton` | `boolean` | `true` | Show clear button |
 | `useCache` | `boolean` | `true` | Cache taxonomy data |
-| `showPath` | `boolean` | `false` | Show term hierarchy path |
-| `pathSeparator` | `string` | `' > '` | Hierarchy separator |
-| `stylingMode` | `string` | `'outlined'` | Style variant |
 
 ---
 
@@ -255,7 +244,6 @@ interface ITaxonomyDataSource {
   /**
    * Term store name (optional - defaults to default)
    */
-  termStoreName?: string;
 }
 ```
 
@@ -276,7 +264,6 @@ const dataSource2: ITaxonomyDataSource = {
 // Specific term store
 const dataSource3: ITaxonomyDataSource = {
   termSetId: '12345678-1234-1234-1234-123456789012',
-  termStoreName: 'CustomTermStore'
 };
 ```
 
@@ -311,9 +298,6 @@ const dataSource3: ITaxonomyDataSource = {
   dataSource={{
     termSetId: '87654321-4321-4321-4321-210987654321'
   }}
-  maxDisplayedTags={5}
-  showPath
-  pathSeparator=" � "
 />
 ```
 
@@ -346,9 +330,6 @@ const dataSource3: ITaxonomyDataSource = {
   dataSource={{
     termSetId: '12345678-1234-1234-1234-123456789012'
   }}
-  showSearchBox
-  searchDelay={500}
-  minSearchLength={3}
   useCache
 />
 ```
@@ -365,8 +346,6 @@ const dataSource3: ITaxonomyDataSource = {
   dataSource={{
     termSetId: '12345678-1234-1234-1234-123456789012'
   }}
-  showPath
-  pathSeparator=" > "
   description="Full path will be displayed (e.g., North America > USA > California)"
 />
 ```
@@ -407,7 +386,6 @@ function EmployeeSkillsForm() {
         dataSource={{
           termSetId: 'dept-termset-guid'
         }}
-        showPath
         rules={{ required: 'Department is required' }}
         useCache
       />
@@ -421,10 +399,6 @@ function EmployeeSkillsForm() {
         dataSource={{
           termSetId: 'skills-termset-guid'
         }}
-        maxDisplayedTags={5}
-        showSearchBox
-        searchDelay={300}
-        minSearchLength={2}
         rules={{
           required: 'At least one skill is required',
           validate: (value) =>
@@ -441,7 +415,6 @@ function EmployeeSkillsForm() {
         dataSource={{
           termSetId: 'cert-termset-guid'
         }}
-        maxDisplayedTags={3}
         description="Select your professional certifications"
       />
 
@@ -486,8 +459,6 @@ function DocumentClassificationForm() {
           termSetId: 'doctype-termset-guid'
         }}
         rules={{ required: 'Document type is required' }}
-        showPath
-        pathSeparator=" � "
       />
 
       {/* Category - Limited based on document type */}
@@ -513,10 +484,6 @@ function DocumentClassificationForm() {
         dataSource={{
           termSetId: 'keywords-termset-guid'
         }}
-        maxDisplayedTags={5}
-        showSearchBox
-        searchDelay={500}
-        minSearchLength={3}
         useCache
         description="Add relevant keywords for search"
       />
@@ -529,8 +496,6 @@ function DocumentClassificationForm() {
         dataSource={{
           termSetId: 'geography-termset-guid'
         }}
-        showPath
-        pathSeparator=" > "
         useCache
         description="Select the relevant geographic region"
       />
@@ -591,9 +556,6 @@ function DocumentClassificationForm() {
   dataSource={{
     termSetId: 'location-termset-guid'
   }}
-  showSearchBox
-  searchDelay={500}  // Debounce for performance
-  minSearchLength={3}  // Require 3 characters minimum
 />
 ```
 
@@ -610,8 +572,6 @@ function DocumentClassificationForm() {
   dataSource={{
     termSetId: 'geography-termset-guid'
   }}
-  showPath
-  pathSeparator=" > "
   description="Full location path will be shown (e.g., North America > USA > California)"
 />
 ```
@@ -648,7 +608,6 @@ function DocumentClassificationForm() {
   dataSource={{
     termSetId: 'tags-termset-guid'
   }}
-  maxDisplayedTags={5}
   rules={{
     validate: (value) => {
       if (!value || value.length === 0) return 'At least one tag is required';
@@ -681,14 +640,12 @@ const props: ISPTaxonomyFieldProps = {
     termSetId: '12345678-1234-1234-1234-123456789012'
   },
   allowMultiple: false,
-  showPath: true
 };
 
 // Data source configuration
 const dataSource: ITaxonomyDataSource = {
   termSetId: '12345678-1234-1234-1234-123456789012',
   anchorId: 'anchor-guid-optional',
-  termStoreName: 'CustomStore'
 };
 
 // Term value structure
