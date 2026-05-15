@@ -28,7 +28,7 @@ import {
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 import { validateCustomValue } from './utils/choiceFieldLoader';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 /**
@@ -71,6 +71,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     readOnly = false,
     placeholder = DefaultSPChoiceFieldProps.placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -542,14 +543,21 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     fieldOnChange: (val: string | string[]) => void,
     fieldError?: string
   ) => {
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage: displayErrorMessage,
+      isValid,
+    });
+
+    const shouldRenderErrorMessage =
+      !!validation.errorMessage && (!formContext || !!displayErrorMessage);
+
     // Render radio buttons mode
     const renderRadioButtons = () => {
       if (isMultiChoice) {
         // Radio buttons don't support multi-select, fall back to checkboxes
         return renderCheckboxes();
       }
-
-      const hasError = !!fieldError;
 
       return (
         <>
@@ -561,13 +569,13 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             readOnly={readOnly}
             onValueChanged={(e: any) => fieldOnChange(e.value)}
             layout="vertical"
-            isValid={!hasError}
+            isValid={validation.isValid}
           />
           {/* Error message row - only show when NOT in FormContext (standalone mode) */}
-          {hasError && !formContext && (
+          {shouldRenderErrorMessage && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
-                <span className="sp-field-error-text">{fieldError}</span>
+                <span className="sp-field-error-text">{validation.errorMessage}</span>
               </span>
             </div>
           )}
@@ -578,7 +586,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     // Render checkboxes mode
     const renderCheckboxes = () => {
       const currentValues = Array.isArray(fieldValue) ? fieldValue : (fieldValue ? [fieldValue] : []);
-      const hasError = !!fieldError;
 
       const handleCheckboxChange = (choice: string, isChecked: boolean) => {
         if (isMultiChoice) {
@@ -609,10 +616,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             ))}
           </Stack>
           {/* Error message row - only show when NOT in FormContext (standalone mode) */}
-          {hasError && !formContext && (
+          {shouldRenderErrorMessage && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
-                <span className="sp-field-error-text">{fieldError}</span>
+                <span className="sp-field-error-text">{validation.errorMessage}</span>
               </span>
             </div>
           )}
@@ -625,8 +632,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     const renderDropdown = () => {
       if (!isDOMReady) return null;
 
-      const hasError = !!fieldError;
-
       return (
         <>
           {isMultiChoice ? (
@@ -637,7 +642,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               maxDisplayedTags={maxDisplayedTags}
               showMultiTagOnly={showMultiTagOnly}
               onValueChanged={(e: any) => fieldOnChange(e.value)}
-              isValid={!hasError}
+              isValid={validation.isValid}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
             />
           ) : (
@@ -646,16 +651,16 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               {...commonProps}
               value={!Array.isArray(fieldValue) ? fieldValue : undefined}
               onValueChanged={(e: any) => fieldOnChange(e.value)}
-              isValid={!hasError}
+              isValid={validation.isValid}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
               fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
             />
           )}
           {/* Error message row - only show when NOT in FormContext (standalone mode) */}
-          {hasError && !formContext && (
+          {shouldRenderErrorMessage && (
             <div className="sp-field-meta-row">
               <span className="sp-field-error" role="alert">
-                <span className="sp-field-error-text">{fieldError}</span>
+                <span className="sp-field-error-text">{validation.errorMessage}</span>
               </span>
             </div>
           )}

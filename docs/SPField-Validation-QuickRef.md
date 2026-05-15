@@ -53,14 +53,43 @@ const MyForm = () => {
 
 | Requirement | Why It Matters | What Happens If Missing |
 |------------|----------------|------------------------|
-| **Pass `control` prop** | Enables form integration | ❌ No validation, no errors, `isValid` always true |
+| **Pass `control` prop** | Enables RHF form integration | ❌ RHF validation/errors will not run |
 | **Use `name` prop** | Registers field with form | ❌ Field not tracked, no validation |
 | **Configure form mode** | Controls validation timing | ⏱️ Validation may not trigger when expected |
 | **Define validation rules** | Specifies what's valid | ✅ Field always valid (no rules to fail) |
+| **Standalone forms** | Use top-level `isValid` + `errorMessage` | ✅ Works without RHF |
 
 ---
 
 ## ✅ Correct Usage Patterns
+
+### Standalone / Class Components
+
+Use `isValid` and `errorMessage` when validation is owned outside React Hook Form.
+
+```tsx
+<SPTextField
+  label="Title"
+  value={this.state.title}
+  onChange={(title) => this.setState({ title })}
+  isValid={this.state.title.trim().length > 0}
+  errorMessage={
+    this.state.title.trim().length === 0 ? 'Title is required' : undefined
+  }
+/>
+```
+
+This works across the SPField suite, including the smart `SPField` wrapper:
+
+```tsx
+<SPField
+  config={{ fieldType: SPFieldType.Text, displayName: 'Title' }}
+  value={this.state.title}
+  onChange={(title) => this.setState({ title })}
+  isValid={!this.state.errors.title}
+  errorMessage={this.state.errors.title}
+/>
+```
 
 ### With Zod Resolver (Recommended)
 

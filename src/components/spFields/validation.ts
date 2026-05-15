@@ -33,3 +33,28 @@ export function hasValue(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
   return value !== null && value !== undefined && value !== '';
 }
+
+export interface SPFieldValidationState {
+  isValid: boolean;
+  hasError: boolean;
+  errorMessage?: string;
+}
+
+export function resolveFieldValidationState(args: {
+  fieldError?: string;
+  errorMessage?: string;
+  isValid?: boolean;
+  fallbackErrorMessage?: string;
+}): SPFieldValidationState {
+  const errorMessage =
+    args.fieldError ||
+    args.errorMessage ||
+    (args.isValid === false ? args.fallbackErrorMessage : undefined);
+  const hasError = args.isValid === false || !!errorMessage;
+
+  return {
+    isValid: !hasError,
+    hasError,
+    errorMessage,
+  };
+}

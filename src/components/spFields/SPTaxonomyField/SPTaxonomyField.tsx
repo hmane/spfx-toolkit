@@ -41,7 +41,7 @@ import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
 import { isEmptyFieldValue } from '../hydrationKey';
 import '../spFields.css';
 
@@ -120,6 +120,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -505,11 +506,13 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       );
     }
 
-    const hasError = !!fieldError;
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    const shouldRenderErrorMessage =
+      !!validation.errorMessage && (!formContext || !!errorMessage);
     const initialTerms = convertToTermInfo(fieldValue);
 
     return (
-      <Stack className={`sp-taxonomy-field ${containerClass} ${className || ''} ${hasError ? 'has-error' : ''}`}>
+      <Stack className={`sp-taxonomy-field ${containerClass} ${className || ''} ${validation.hasError ? 'has-error' : ''}`}>
         {description && (
           <Text variant="small" style={{ marginBottom: 4 }}>
             {description}
@@ -518,8 +521,8 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         <div
           ref={fieldRef as React.RefObject<HTMLDivElement>}
-          className={`sp-taxonomy-field-picker-wrapper ${hasError ? 'has-error' : ''}`}
-          aria-invalid={hasError}
+          className={`sp-taxonomy-field-picker-wrapper ${validation.hasError ? 'has-error' : ''}`}
+          aria-invalid={validation.hasError}
         >
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
             <HydratedTaxonomyPicker
@@ -546,10 +549,10 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {hasError && !formContext && (
+        {shouldRenderErrorMessage && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
+              <span className="sp-field-error-text">{validation.errorMessage}</span>
             </span>
           </div>
         )}

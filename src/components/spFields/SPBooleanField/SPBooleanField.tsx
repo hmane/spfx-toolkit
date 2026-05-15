@@ -17,7 +17,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule } from '../validation';
+import { addValidateRule, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 /**
@@ -55,6 +55,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     disabled = false,
     readOnly = false,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -162,7 +163,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
 
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {(() => {
-          const hasError = !!fieldError;
+          const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
           return (
             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
               {displayType === SPBooleanDisplayType.Checkbox ? (
@@ -172,7 +173,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   disabled={disabled}
                   readOnly={readOnly}
                   text={showText ? displayText : ''}
-                  isValid={!hasError}
+                  isValid={validation.isValid}
                 />
               ) : (
                 <Switch
@@ -180,7 +181,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
                   onValueChanged={(e: any) => fieldOnChange(e.value)}
                   disabled={disabled}
                   readOnly={readOnly}
-                  isValid={!hasError}
+                  isValid={validation.isValid}
                 />
               )}
               {showText && displayType === SPBooleanDisplayType.Toggle && (
@@ -193,14 +194,21 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {fieldError && !formContext && (
-          <div className="sp-field-meta-row">
-            <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
-            </span>
-          </div>
-        )}
+        {validationMessage(fieldError)}
       </Stack>
+    );
+  };
+
+  const validationMessage = (fieldError?: string) => {
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+
+    return (
+      <div className="sp-field-meta-row">
+        <span className="sp-field-error" role="alert">
+          <span className="sp-field-error-text">{validation.errorMessage}</span>
+        </span>
+      </div>
     );
   };
 

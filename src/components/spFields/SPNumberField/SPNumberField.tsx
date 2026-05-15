@@ -16,7 +16,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPNumberFieldProps } from './SPNumberField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule } from '../validation';
+import { addValidateRule, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 /**
@@ -60,6 +60,7 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -217,7 +218,7 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
 
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {(() => {
-          const hasError = !!fieldError;
+          const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
           return (
             <NumberBox
               key={`numberbox-${disabled}-${readOnly}`}
@@ -236,7 +237,7 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
               valueChangeEvent={valueChangeMode === 'onBlur' ? 'blur' : 'keyup'}
               onFocusIn={onFocus}
               onFocusOut={onBlur}
-              isValid={!hasError}
+              isValid={validation.isValid}
             />
           );
         })()}
@@ -244,14 +245,21 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {fieldError && !formContext && (
-          <div className="sp-field-meta-row">
-            <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
-            </span>
-          </div>
-        )}
+        {fieldError || errorMessage ? validationMessage(fieldError) : null}
       </Stack>
+    );
+  };
+
+  const validationMessage = (fieldError?: string) => {
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+
+    return (
+      <div className="sp-field-meta-row">
+        <span className="sp-field-error" role="alert">
+          <span className="sp-field-error-text">{validation.errorMessage}</span>
+        </span>
+      </div>
     );
   };
 

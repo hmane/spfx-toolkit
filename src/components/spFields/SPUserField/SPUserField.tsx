@@ -29,7 +29,7 @@ import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
-import { addValidateRule, hasValue } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
 import { isEmptyFieldValue } from '../hydrationKey';
 import './SPUserField.css';
 import '../spFields.css';
@@ -116,6 +116,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -153,6 +154,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
   } = props;
 
   const theme = useTheme();
+  const hasExternalError = hasErrorProp || isValid === false || !!errorMessage;
 
   // Stable default values to prevent re-render loops
   const emptyArray = React.useRef<SPUserFieldValue[]>([]).current;
@@ -222,7 +224,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
       }
     };
 
-    if (hasErrorProp) {
+    if (hasExternalError) {
       // Apply error styles initially
       applyErrorStyles();
 
@@ -274,7 +276,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         textEl.style.setProperty('background-color', '#ffffff', 'important');
       }
     }
-  }, [hasErrorProp, fieldRef]);
+  }, [hasExternalError, fieldRef]);
 
   // Auto-load column metadata when columnName is provided
   React.useEffect(() => {
@@ -497,8 +499,16 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     // Use fieldValue (from Controller) to compute these, not the value prop!
     const fieldSelectedUsers = computeSelectedUsers(fieldValue);
 
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      isValid: hasErrorProp ? false : isValid,
+    });
+    const shouldRenderErrorMessage =
+      !!validation.errorMessage && (!formContext || !!errorMessage);
+
     return (
-      <Stack className={`sp-user-field ${containerClass} ${className || ''} ${(fieldError || hasErrorProp) ? 'has-error' : ''}`}>
+      <Stack className={`sp-user-field ${containerClass} ${className || ''} ${validation.hasError ? 'has-error' : ''}`}>
         {label && (
           <Label required={required} disabled={disabled}>
             {label}
@@ -513,7 +523,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
 
         <div
           ref={fieldRef as React.RefObject<HTMLDivElement>}
-          className={`sp-user-field-picker-wrapper ${(fieldError || hasErrorProp) ? 'has-error' : ''}`}
+          className={`sp-user-field-picker-wrapper ${validation.hasError ? 'has-error' : ''}`}
         >
         {displayMode === SPUserFieldDisplayMode.PeoplePicker ? (
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>
@@ -617,17 +627,17 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         )}
 
         {/* Error icon - matches DevExtreme exclamation icon style (CSS-based) */}
-        {(fieldError || hasErrorProp) && (
+        {validation.hasError && (
           <div className="sp-user-field-error-icon" aria-hidden="true" />
         )}
         </div>
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {fieldError && !formContext && (
+        {shouldRenderErrorMessage && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
+              <span className="sp-field-error-text">{validation.errorMessage}</span>
             </span>
           </div>
         )}

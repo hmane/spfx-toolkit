@@ -147,7 +147,7 @@ const MyForm: React.FC = () => {
 };
 ```
 
-### Standalone Usage (Without Forms)
+### Standalone Usage (Without React Hook Form)
 
 ```typescript
 import * as React from 'react';
@@ -162,10 +162,16 @@ const MyComponent: React.FC = () => {
       value={value}
       onChange={(newValue) => setValue(newValue)}
       placeholder="Enter title..."
+      isValid={value.trim().length > 0}
+      errorMessage={value.trim().length === 0 ? 'Title is required' : undefined}
     />
   );
 };
 ```
+
+For class components, keep the value and validation state in `this.state` and pass
+`value`, `onChange`, `isValid`, and `errorMessage` directly. React Hook Form is
+optional for the SPField suite.
 
 ## Common Props
 
@@ -199,6 +205,8 @@ interface ISPFieldBaseProps<T> {
   // Events
   onBlur?: () => void;         // Blur event handler
   onFocus?: () => void;        // Focus event handler
+  isValid?: boolean;           // External validity override
+  errorMessage?: string;       // External error message
 }
 ```
 

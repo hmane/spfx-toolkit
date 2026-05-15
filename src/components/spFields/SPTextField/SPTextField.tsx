@@ -20,6 +20,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { NoteHistory } from './NoteHistory';
 import { useFormContext } from '../../spForm/context/FormContext';
+import { resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 // Lazy load RichText from PnP for better bundle size
@@ -75,6 +76,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -357,7 +359,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       });
     }
 
-    const hasError = !!fieldError;
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
 
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
@@ -375,7 +377,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       onFocusIn: onFocus,
       onFocusOut: onBlur,
       // Keep isValid for DevExtreme error styling (red border), but don't pass validationError (we render our own)
-      isValid: !hasError,
+      isValid: validation.isValid,
       ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
     };
 
@@ -458,15 +460,8 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           </div>
         )}
 
-        {/* Error message row - only show when NOT in FormContext (standalone mode)
-            When inside FormContext, FormItem/FormValue handles error display */}
-        {hasError && !formContext && (
-          <div className="sp-field-meta-row">
-            <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
-            </span>
-          </div>
-        )}
+        {/* Error message row - RHF errors are handled by FormContext when present; explicit errorMessage renders here. */}
+        {validationMessage(fieldError)}
 
         {/* Character count row - render here if:
             1. Not using FormContext char count (standalone mode), OR
@@ -497,6 +492,19 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
           />
         )}
       </Stack>
+    );
+  };
+
+  const validationMessage = (fieldError?: string) => {
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+
+    return (
+      <div className="sp-field-meta-row">
+        <span className="sp-field-error" role="alert">
+          <span className="sp-field-error-text">{validation.errorMessage}</span>
+        </span>
+      </div>
     );
   };
 

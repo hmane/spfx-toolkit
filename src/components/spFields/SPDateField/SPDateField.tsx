@@ -17,7 +17,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule } from '../validation';
+import { addValidateRule, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 /**
@@ -57,6 +57,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -345,7 +346,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     onChangeRef.current = fieldOnChange;
 
     const normalizedValue = normalizeValue(fieldValue);
-    const hasError = !!fieldError;
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
     const componentKey = `datebox-${isActive ? 'active' : 'readonly'}-${includeTime}`;
 
     return (
@@ -395,7 +396,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               buttons={dateBoxButtons}
               onFocusIn={onFocus}
               onFocusOut={onBlur}
-              isValid={!hasError}
+              isValid={validation.isValid}
             />
           ) : (
             <DateBox
@@ -418,7 +419,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               interval={timeInterval}
               calendarOptions={calendarOpts}
               buttons={readOnlyButtons}
-              isValid={!hasError}
+              isValid={validation.isValid}
             />
           )
         )}
@@ -426,14 +427,21 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {hasError && !formContext && (
-          <div className="sp-field-meta-row">
-            <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
-            </span>
-          </div>
-        )}
+        {validationMessage(fieldError)}
       </Stack>
+    );
+  };
+
+  const validationMessage = (fieldError?: string) => {
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+
+    return (
+      <div className="sp-field-meta-row">
+        <span className="sp-field-error" role="alert">
+          <span className="sp-field-error-text">{validation.errorMessage}</span>
+        </span>
+      </div>
     );
   };
 

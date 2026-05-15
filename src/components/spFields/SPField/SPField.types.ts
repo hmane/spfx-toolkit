@@ -146,6 +146,11 @@ export interface ISPFieldProps {
    * Custom error message
    */
   errorMessage?: string;
+
+  /**
+   * Explicit validity override passed through to the rendered field component.
+   */
+  isValid?: boolean;
 }
 
 /**

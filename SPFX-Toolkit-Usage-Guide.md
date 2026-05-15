@@ -2412,8 +2412,8 @@ For the full prop reference and additional examples, see [SPDynamicForm README](
 
 #### Basic Usage
 
-> **⚠️ CRITICAL: Validation Requires `control` Prop or FormProvider**
-> To enable validation, error messages, and proper form integration, you have **two options**:
+> **⚠️ CRITICAL: RHF Validation Requires `control` Prop or FormProvider**
+> To enable React Hook Form validation, RHF error messages, and form integration, you have **two options**:
 >
 > **Option 1: Pass `control` directly to each field**
 > ```typescript
@@ -2429,10 +2429,23 @@ For the full prop reference and additional examples, see [SPDynamicForm README](
 > ```
 >
 > Without either option:
-> - ❌ Validation will not work (no red borders, no error messages)
-> - ❌ `isValid` will always be `true`
+> - RHF validation will not run
 > - ❌ `fieldState.error` will always be `undefined`
-> - ✅ Component will work in "standalone mode" but without form integration
+> - ✅ Component will work in standalone mode
+> - ✅ External/class-component validation can use top-level `isValid` and `errorMessage`
+
+**Standalone/class component validation**
+```typescript
+<SPTextField
+  label="Title"
+  value={this.state.title}
+  onChange={(title) => this.setState({ title })}
+  isValid={this.state.title.trim().length > 0}
+  errorMessage={this.state.title.trim().length === 0 ? 'Title is required' : undefined}
+/>
+```
+
+Use the same pattern for all SPField components and for the smart `SPField` wrapper.
 
 **Option 1: Pass control directly (works, but verbose)**
 ```typescript

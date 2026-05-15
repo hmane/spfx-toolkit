@@ -134,6 +134,15 @@ export interface ISPFieldBaseProps<T> {
   errorMessage?: string;
 
   /**
+   * Explicit validity override for manual or external validation.
+   *
+   * React Hook Form errors still take precedence when a field is registered with
+   * `control` and `name`. Set `isValid={false}` to force the field into its
+   * invalid visual state, and optionally provide `errorMessage` for the message.
+   */
+  isValid?: boolean;
+
+  /**
    * Placeholder text
    */
   placeholder?: string;

@@ -19,7 +19,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule } from '../validation';
+import { addValidateRule, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 /**
@@ -58,6 +58,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -240,7 +241,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
         {/* URL Input */}
         <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
         {(() => {
-          const hasError = !!fieldError;
+          const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
           return (
             <Stack tokens={{ childrenGap: 8 }}>
               <div>
@@ -257,7 +258,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                   stylingMode={stylingMode}
                   onFocusIn={onFocus}
                   onFocusOut={onBlur}
-                  isValid={!hasError}
+                  isValid={validation.isValid}
                 />
               </div>
 
@@ -275,7 +276,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                     readOnly={readOnly}
                     placeholder={descriptionPlaceholder}
                     stylingMode={stylingMode}
-                    isValid={!hasError}
+                    isValid={validation.isValid}
                   />
                 </div>
               )}
@@ -286,13 +287,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {fieldError && !formContext && (
-          <div className="sp-field-meta-row">
-            <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
-            </span>
-          </div>
-        )}
+        {validationMessage(fieldError)}
 
         {/* Link Preview */}
         {showLinkIcon && hasValidUrl && !readOnly && (
@@ -308,7 +303,21 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
             </a>
           </div>
         )}
+
       </Stack>
+    );
+  };
+
+  const validationMessage = (fieldError?: string) => {
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+
+    return (
+      <div className="sp-field-meta-row">
+        <span className="sp-field-error" role="alert">
+          <span className="sp-field-error-text">{validation.errorMessage}</span>
+        </span>
+      </div>
     );
   };
 

@@ -25,7 +25,7 @@ import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
 import '../spFields.css';
 
 // Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
@@ -102,6 +102,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    isValid,
     className,
     width,
 
@@ -588,7 +589,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     const modeValue = String(actualDisplayMode);
     if (modeValue === 'searchable') {
       const spfxContext = SPContext.tryGetSPFxContext();
-      const hasError = !!fieldError;
+      const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+      const shouldRenderErrorMessage =
+        !!validation.errorMessage && (!formContext || !!errorMessage);
 
       if (!spfxContext) {
         return (
@@ -654,9 +657,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           </div>
 
           {/* Show error with MessageBar for PnP control - only when NOT in FormContext */}
-          {hasError && !formContext && (
+          {shouldRenderErrorMessage && (
             <MessageBar messageBarType={MessageBarType.error} style={{ marginTop: 4 }}>
-              {fieldError}
+              {validation.errorMessage}
             </MessageBar>
           )}
 
@@ -671,7 +674,9 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
 
     // Render Dropdown Mode (DevExtreme SelectBox/TagBox)
-    const hasError = !!fieldError;
+    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    const shouldRenderErrorMessage =
+      !!validation.errorMessage && (!formContext || !!errorMessage);
 
     // Common props for both SelectBox and TagBox
     const commonProps = {
@@ -737,7 +742,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 }
               }}
               maxDisplayedTags={maxDisplayedTags}
-              isValid={!hasError}
+              isValid={validation.isValid}
               acceptCustomValue={false}
               showSelectionControls={true}
               searchEnabled={showSearchBox}
@@ -776,7 +781,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                   fieldOnChange({ Id: selectedId, Title: '(Loading...)' });
                 }
               }}
-              isValid={!hasError}
+              isValid={validation.isValid}
               acceptCustomValue={false}
               showDropDownButton={true}
               searchEnabled={showSearchBox}
@@ -788,10 +793,10 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}
-        {hasError && !formContext && (
+        {shouldRenderErrorMessage && (
           <div className="sp-field-meta-row">
             <span className="sp-field-error" role="alert">
-              <span className="sp-field-error-text">{fieldError}</span>
+              <span className="sp-field-error-text">{validation.errorMessage}</span>
             </span>
           </div>
         )}

@@ -75,6 +75,7 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
     label,
     placeholder,
     errorMessage,
+    isValid,
   } = props;
 
   const [fieldMetadata, setFieldMetadata] = React.useState<IFieldMetadata | null>(null);
@@ -224,6 +225,7 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
     description: fieldMetadata.description,
     placeholder: placeholder,
     errorMessage: errorMessage,
+    isValid: isValid,
     required: fieldMetadata.required,
   };
 
