@@ -25,7 +25,7 @@ export interface IDevExtremeRadioGroupProps<T extends FieldValues> extends IDevE
   dataSource?: any[] | any;
   displayExpr?: string | ((item: any) => string);
   valueExpr?: string | ((item: any) => any);
-  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
+  itemRender?: (itemData: any, itemElement: any) => React.ReactNode;
   disabled?: boolean;
   readOnly?: boolean;
   layout?: 'horizontal' | 'vertical';

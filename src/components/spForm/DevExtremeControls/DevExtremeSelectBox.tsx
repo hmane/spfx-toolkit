@@ -33,7 +33,7 @@ export interface IDevExtremeSelectBoxProps<T extends FieldValues> extends IDevEx
   hint?: string;
   inputAttr?: Record<string, any>;
   tabIndex?: number;
-  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
+  itemRender?: (itemData: any, itemElement: any) => React.ReactNode;
   // Custom render for the selected value displayed in the closed editor (DevExtreme `fieldRender`).
   fieldRender?: (itemData: any, fieldElement: any) => React.ReactNode;
   onValueChanged?: (value: any) => void;

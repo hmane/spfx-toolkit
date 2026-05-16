@@ -37,7 +37,7 @@ export interface IDevExtremeTagBoxProps<T extends FieldValues> extends IDevExtre
   hint?: string;
   inputAttr?: Record<string, any>;
   tabIndex?: number;
-  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
+  itemRender?: (itemData: any, itemElement: any) => React.ReactNode;
   // Custom render for the inline editor when nothing is selected (DevExtreme `fieldRender`).
   fieldRender?: (itemData: any, fieldElement: any) => React.ReactNode;
   // Custom render for each selected tag chip (DevExtreme `tagRender`).

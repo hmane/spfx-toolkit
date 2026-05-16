@@ -64,16 +64,21 @@ function getDefaultInvalidMessage(label?: string, name?: string): string {
   return fieldLabel ? `${fieldLabel} is invalid.` : 'This field is invalid.';
 }
 
+const VALIDATION_ERROR_CACHE_MAX = 50;
 const validationErrorCache = new Map<string, { message: string }>();
 
+// FIFO-bounded cache: evict only the oldest entry on overflow instead of
+// clearing the entire map, so existing entries keep their object identity
+// (the whole point of the cache).
 function getValidationError(message: string | undefined): { message: string } | undefined {
   if (!message) return undefined;
 
   const cached = validationErrorCache.get(message);
   if (cached) return cached;
 
-  if (validationErrorCache.size > 50) {
-    validationErrorCache.clear();
+  if (validationErrorCache.size >= VALIDATION_ERROR_CACHE_MAX) {
+    const oldestKey = validationErrorCache.keys().next().value;
+    if (oldestKey !== undefined) validationErrorCache.delete(oldestKey);
   }
 
   const validationError = { message };
