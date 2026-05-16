@@ -304,6 +304,7 @@ import { FormErrorSummary } from 'spfx-toolkit/lib/components/spForm';
 <FormProvider control={control}>
   <FormErrorSummary
     position="top"           // 'top' | 'bottom' | 'sticky'
+    variant="messageBar"     // 'messageBar' | 'card' | 'accordion'
     clickToScroll           // Click errors to scroll to field
     showFieldLabels         // Show labels instead of field names
     maxErrors={10}          // Limit number of displayed errors
@@ -315,10 +316,15 @@ import { FormErrorSummary } from 'spfx-toolkit/lib/components/spForm';
 **Props:**
 
 - `position?: 'top' | 'bottom' | 'sticky'` - Where to display the summary
+- `variant?: 'messageBar' | 'card' | 'accordion'` - Visual treatment
+- `errors?: FormErrorSummaryErrors` - Custom/class-component or server errors
+- `includeContextErrors?: boolean` - Merge RHF context errors with explicit errors
 - `maxErrors?: number` - Maximum number of errors to show
 - `showFieldLabels?: boolean` - Show field labels vs field names (default: true)
+- `groupBy?: 'none' | 'section'` - Group errors by section metadata
 - `clickToScroll?: boolean` - Enable click-to-scroll (default: true)
 - `className?: string` - Additional CSS classes
+- `onBeforeScrollToField?: (fieldName: string) => void | Promise<void>` - Expand collapsed containers before scrolling
 - `onErrorClick?: (fieldName: string) => void` - Callback when error is clicked
 
 ### useFormContext Hook
@@ -585,6 +591,33 @@ const AdvancedForm: React.FC = () => {
 
 All DevExtreme components are performance-optimized with React.memo and use proper type-safe field names.
 
+### Shared Validation Props
+
+Every `DevExtreme*` wrapper extends `IDevExtremeValidationProps` and accepts the same validation prop suite in addition to its editor-specific props:
+
+| Prop | Type | Purpose |
+|------|------|---------|
+| `label` | `string` | Used by the shared field registry and default invalid messages. Wrappers do not render the label themselves. |
+| `required` | `boolean` | Marks the field as required in the shared form registry. |
+| `isValid` | `boolean` | Explicit validity override for class-component or external validation. |
+| `errorMessage` | `string` | Explicit error message. |
+| `errorText` | `string` | Alias for `errorMessage` (DevExtreme naming). `errorMessage` wins when both are set. |
+| `showErrorMessage` | `boolean` (default `true`) | Render the inline error below the editor. |
+| `validationMessageMode` | `'always' \| 'auto'` | Forwarded to DevExtreme tooltip behavior. |
+
+Every wrapper also accepts standalone `value` / `defaultValue` props, so you can use them outside `react-hook-form` by passing them directly instead of (or in addition to) `control`.
+
+#### Precedence Rules
+
+| Situation | Result |
+|-----------|--------|
+| RHF `fieldError` is set | RHF message wins. Any explicit `errorMessage`/`errorText` is ignored. |
+| `isValid={true}` | Field is treated as valid. Any explicit message is suppressed (useful for clearing a stale error after re-validating). |
+| `isValid={false}` with no message | A default `"<label> is invalid."` message is synthesized. |
+| Explicit `errorMessage` or `errorText` alone | Used as-is. `errorMessage` wins over `errorText`. |
+
+The same rules apply to every `SPField*` component via `resolveFieldValidationState` — see [spFields/README.md](../spFields/README.md#precedence-rules).
+
 ### DevExtremeTextBox
 
 ```tsx
@@ -594,6 +627,7 @@ All DevExtreme components are performance-optimized with React.memo and use prop
   placeholder='Enter email'
   mode='email'
   maxLength={100}
+  showCharacterCount
   stylingMode='outlined'
   onValueChanged={value => console.log(value)}
 />
@@ -602,12 +636,13 @@ All DevExtreme components are performance-optimized with React.memo and use prop
 **Props:**
 
 - `name: Path<T>` - Type-safe field name
-- `control: any` - React Hook Form control
+- `control?: any` - React Hook Form control. If omitted, the component uses `FormProvider` control or standalone `value/defaultValue`.
 - `mode?: 'text' | 'email' | 'password' | 'search' | 'tel' | 'url'`
 - `placeholder?: string`
 - `disabled?: boolean`
 - `readOnly?: boolean`
 - `maxLength?: number`
+- `showCharacterCount?: boolean` - Show the same inline/FormValue character count behavior as `SPTextField`
 - `stylingMode?: 'outlined' | 'underlined' | 'filled'`
 - `onValueChanged?: (value: string) => void`
 - `onFocusIn?: () => void`
@@ -621,6 +656,7 @@ All DevExtreme components are performance-optimized with React.memo and use prop
   control={form.control}
   placeholder='Enter description'
   minHeight={100}
+  showCharacterCount
   autoResizeEnabled={true}
 />
 ```

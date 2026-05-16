@@ -86,8 +86,33 @@ const MyForm = () => {
 interface IFormErrorSummaryProps {
   /**
    * Explicit errors for standalone/custom forms.
+   * By default, these replace React Hook Form context errors.
    */
   errors?: FormErrorSummaryErrors;
+
+  /**
+   * Also include React Hook Form context errors when explicit errors are provided.
+   * @default false when errors are provided, true otherwise
+   */
+  includeContextErrors?: boolean;
+
+  /**
+   * Visual treatment for the summary.
+   * @default 'messageBar'
+   */
+  variant?: 'messageBar' | 'card' | 'accordion';
+
+  /**
+   * Group displayed errors by registry/custom section.
+   * @default 'none'
+   */
+  groupBy?: 'none' | 'section';
+
+  /**
+   * Initial collapsed state when variant is 'accordion'.
+   * @default false
+   */
+  defaultCollapsed?: boolean;
 
   /**
    * Position of error summary
@@ -103,7 +128,7 @@ interface IFormErrorSummaryProps {
 
   /**
    * Show field labels/names before error message
-   * @default false
+   * @default true
    */
   showFieldLabels?: boolean;
 
@@ -127,23 +152,27 @@ interface IFormErrorSummaryProps {
   /**
    * Callback when error item is clicked
    */
-  onErrorClick?: (fieldName: string) => void;
+  onErrorClick?: (fieldName: string, error?: IFormErrorSummaryError) => void;
 
   /**
    * Custom navigation hooks for standalone/custom forms.
    */
-  onScrollToField?: (fieldName: string) => void;
-  onFocusField?: (fieldName: string) => void;
+  onBeforeScrollToField?: (fieldName: string, error?: IFormErrorSummaryError) => void | Promise<void>;
+  getFieldElement?: (fieldName: string, error?: IFormErrorSummaryError) => HTMLElement | null;
+  onScrollToField?: (fieldName: string, error?: IFormErrorSummaryError) => void | Promise<void>;
+  onFocusField?: (fieldName: string, error?: IFormErrorSummaryError) => void;
+  scrollDelay?: number;
+  focusDelay?: number;
+  scrollOptions?: ScrollIntoViewOptions;
 }
 ```
 
 ### Default Behavior
 
 - Shows at top of form
-- Displays only error messages (no field labels)
+- Shows field labels before error messages
 - Click-to-scroll enabled
 - Normal spacing (not compact)
-- Dotted underline on hover
 - Shows all errors (no limit)
 - Auto-hides when no errors
 
@@ -156,6 +185,51 @@ interface IFormErrorSummaryProps {
   <FormErrorSummary />
   {/* Form fields */}
 </FormProvider>
+```
+
+### Standalone or Class Component Errors
+
+Pass custom errors directly when you are not using React Hook Form. The summary scrolls by
+the shared field registry first, then by `data-field-name`, `data-field`, `name`, or `id`.
+
+```typescript
+const errors = {
+  title: { message: 'Title is required', label: 'Title', section: 'General' },
+  dueDate: 'Due date is invalid',
+};
+
+<FormErrorSummary
+  errors={errors}
+  variant="card"
+  groupBy="section"
+/>
+```
+
+### Mixed React Hook Form and Custom Errors
+
+Use `includeContextErrors` when server-side or custom validation should appear with RHF
+validation errors in the same summary.
+
+```typescript
+<FormErrorSummary
+  errors={serverErrors}
+  includeContextErrors
+  maxErrors={8}
+/>
+```
+
+### Collapsed Cards or Accordions
+
+For custom collapsed containers, expand the container before the summary scrolls to the field.
+Use `scrollDelay` if the expansion has an animation.
+
+```typescript
+<FormErrorSummary
+  errors={errors}
+  variant="accordion"
+  onBeforeScrollToField={(fieldName) => expandSectionForField(fieldName)}
+  scrollDelay={200}
+/>
 ```
 
 ### Positioned at Bottom
@@ -382,19 +456,21 @@ const ContactForm = () => {
 
 ## Integration with FormContext
 
-The FormErrorSummary component requires FormContext to work. Ensure your form is wrapped with FormProvider:
+Use FormProvider when you want FormErrorSummary to read React Hook Form errors automatically.
+Without FormProvider, pass the `errors` prop and make fields discoverable with `data-field-name`,
+`data-field`, `name`, `id`, or `getFieldElement`.
 
 ```typescript
-// ✅ Correct - Has FormProvider
+// React Hook Form
 <FormProvider control={control}>
   <FormErrorSummary />
   {/* Fields */}
 </FormProvider>
 
-// ❌ Wrong - No FormProvider
+// Standalone/custom validation
 <form>
-  <FormErrorSummary /> {/* Won't work - no context */}
-  {/* Fields */}
+  <FormErrorSummary errors={errors} />
+  <input name="title" data-field-name="title" />
 </form>
 ```
 

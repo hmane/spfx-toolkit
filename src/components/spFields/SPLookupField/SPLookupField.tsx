@@ -25,7 +25,7 @@ import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
 
 // Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
@@ -102,6 +102,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -569,9 +570,21 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     const modeValue = String(actualDisplayMode);
     if (modeValue === 'searchable') {
       const spfxContext = SPContext.tryGetSPFxContext();
-      const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-      const shouldRenderErrorMessage =
-        !!validation.errorMessage && (!formContext || !!errorMessage);
+      const validation = resolveFieldValidationState({
+        fieldError,
+        errorMessage,
+        errorText,
+        isValid,
+        fieldLabel: label || name,
+      });
+      const shouldRenderErrorMessage = shouldRenderFieldValidationMessage({
+        validation,
+        fieldError,
+        errorMessage,
+        errorText,
+        isValid,
+        formContext,
+      });
 
       if (!spfxContext) {
         return (
@@ -598,7 +611,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
             </Text>
           )}
 
-          <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+          <div ref={fieldRef as React.RefObject<HTMLDivElement>} data-field-name={name} data-field={name}>
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading picker..." />}>
               <ListItemPicker
                 listId={dataSource.listNameOrId}
@@ -654,9 +667,21 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
     }
 
     // Render Dropdown Mode (DevExtreme SelectBox/TagBox)
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-    const shouldRenderErrorMessage =
-      !!validation.errorMessage && (!formContext || !!errorMessage);
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
+    const shouldRenderErrorMessage = shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      formContext,
+    });
 
     // Common props for both SelectBox and TagBox
     const commonProps = {
@@ -688,7 +713,7 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
           <Spinner size={SpinnerSize.small} label="Loading lookup items..." />
         )}
 
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>} data-field-name={name} data-field={name}>
         {/* Delay rendering DevExtreme components until DOM is ready to prevent measurement errors */}
         {/* Only render when we have items loaded - SelectBox requires a valid dataSource */}
         {isDOMReady && !isActuallyLoading && lookupItems.length > 0 && lookupDataStore && (

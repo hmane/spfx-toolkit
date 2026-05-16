@@ -17,7 +17,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, resolveFieldValidationState } from '../validation';
+import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
 
 /**
@@ -57,6 +57,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -321,7 +322,13 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     onChangeRef.current = fieldOnChange;
 
     const normalizedValue = normalizeValue(fieldValue);
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
     const componentKey = `datebox-${isActive ? 'active' : 'readonly'}-${includeTime}`;
 
     return (
@@ -338,7 +345,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
           </Text>
         )}
 
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>} data-field-name={name} data-field={name}>
         {/* Delay rendering DevExtreme component until DOM is ready to prevent measurement errors */}
         {isDOMReady && (
           isActive ? (
@@ -408,8 +415,21 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
   };
 
   const validationMessage = (fieldError?: string) => {
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
+    if (!shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      formContext,
+    })) return null;
 
     return (
       <div className="sp-field-meta-row">

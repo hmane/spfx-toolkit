@@ -207,6 +207,7 @@ interface ISPFieldBaseProps<T> {
   onFocus?: () => void;        // Focus event handler
   isValid?: boolean;           // External validity override
   errorMessage?: string;       // External error message
+  errorText?: string;          // Alias for errorMessage (DevExtreme naming)
 }
 ```
 
@@ -243,6 +244,19 @@ All SPField components support validation through react-hook-form:
   }}
 />
 ```
+
+### Precedence Rules
+
+When a field has both an RHF error (via `rules`/`resolver`) and an explicit `errorMessage`/`isValid` override, the toolkit resolves them in this order:
+
+| Situation | Result |
+|-----------|--------|
+| RHF `fieldError` is set | RHF message wins. Any explicit `errorMessage`/`errorText` is ignored. |
+| `isValid={true}` | Field is treated as valid. Any explicit message is suppressed (useful for clearing a stale error after re-validating). |
+| `isValid={false}` with no message | A default `"<label> is invalid."` message is synthesized. |
+| Explicit `errorMessage` or `errorText` alone | Used as-is. `errorMessage` wins over `errorText`. |
+
+This applies to every SPField component and is the same rule set used by the `DevExtreme*` wrappers (see [spForm/README.md](../spForm/README.md)). You can safely pass `isValid={true}` from a parent to clear a stale error without conditionally removing the `errorMessage` prop.
 
 ## Theming
 

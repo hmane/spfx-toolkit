@@ -41,7 +41,7 @@ import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import { isEmptyFieldValue } from '../hydrationKey';
 import '../spFields.css';
 
@@ -120,6 +120,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -478,9 +479,21 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       );
     }
 
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-    const shouldRenderErrorMessage =
-      !!validation.errorMessage && (!formContext || !!errorMessage);
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
+    const shouldRenderErrorMessage = shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      formContext,
+    });
     const initialTerms = convertToTermInfo(fieldValue);
 
     return (
@@ -494,6 +507,8 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         <div
           ref={fieldRef as React.RefObject<HTMLDivElement>}
           className={`sp-taxonomy-field-picker-wrapper ${validation.hasError ? 'has-error' : ''}`}
+          data-field-name={name}
+          data-field={name}
           aria-invalid={validation.hasError}
         >
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>

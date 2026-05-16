@@ -28,7 +28,7 @@ import {
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 import { validateCustomValue } from './utils/choiceFieldLoader';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
 
 /**
@@ -71,6 +71,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     readOnly = false,
     placeholder = DefaultSPChoiceFieldProps.placeholder,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -520,6 +521,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   const otherSelectionError = validateOtherSelection(currentValue);
   const displayErrorMessage =
     errorMessage ||
+    errorText ||
     invalidValueError ||
     otherState.customValueError ||
     (otherSelectionError === true ? undefined : otherSelectionError);
@@ -546,10 +548,14 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
       fieldError,
       errorMessage: displayErrorMessage,
       isValid,
+      fieldLabel: label || name,
     });
 
-    const shouldRenderErrorMessage =
-      !!validation.errorMessage && (!formContext || !!displayErrorMessage);
+    const shouldRenderErrorMessage = shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      formContext,
+    });
 
     // Render radio buttons mode
     const renderRadioButtons = () => {
@@ -698,7 +704,12 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           <Spinner size={SpinnerSize.small} label="Loading choices..." />
         )}
 
-        <div className='sp-choice-field-control' ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div
+          className='sp-choice-field-control'
+          ref={fieldRef as React.RefObject<HTMLDivElement>}
+          data-field-name={name}
+          data-field={name}
+        >
           {renderControl()}
         </div>
 

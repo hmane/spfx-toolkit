@@ -134,6 +134,11 @@ export interface ISPFieldBaseProps<T> {
   errorMessage?: string;
 
   /**
+   * Alias for `errorMessage` for consumers that use DevExtreme-style naming.
+   */
+  errorText?: string;
+
+  /**
    * Explicit validity override for manual or external validation.
    *
    * React Hook Form errors still take precedence when a field is registered with

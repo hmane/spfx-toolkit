@@ -40,21 +40,69 @@ export interface SPFieldValidationState {
   errorMessage?: string;
 }
 
+export function getDefaultInvalidMessage(fieldLabel?: string): string {
+  const label = fieldLabel?.trim();
+  return label ? `${label} is invalid.` : 'This field is invalid.';
+}
+
 export function resolveFieldValidationState(args: {
   fieldError?: string;
   errorMessage?: string;
+  errorText?: string;
   isValid?: boolean;
+  fieldLabel?: string;
   fallbackErrorMessage?: string;
 }): SPFieldValidationState {
-  const errorMessage =
-    args.fieldError ||
-    args.errorMessage ||
-    (args.isValid === false ? args.fallbackErrorMessage : undefined);
-  const hasError = args.isValid === false || !!errorMessage;
+  // RHF-driven errors always win — the form's source of truth overrides
+  // any explicit override the caller passed.
+  if (args.fieldError) {
+    return { isValid: false, hasError: true, errorMessage: args.fieldError };
+  }
 
-  return {
-    isValid: !hasError,
-    hasError,
-    errorMessage,
-  };
+  // Caller explicitly asserted validity → suppress any stale explicit message.
+  if (args.isValid === true) {
+    return { isValid: true, hasError: false, errorMessage: undefined };
+  }
+
+  const explicitMessage = args.errorMessage || args.errorText;
+
+  if (args.isValid === false) {
+    return {
+      isValid: false,
+      hasError: true,
+      errorMessage:
+        explicitMessage ||
+        args.fallbackErrorMessage ||
+        getDefaultInvalidMessage(args.fieldLabel),
+    };
+  }
+
+  if (explicitMessage) {
+    return { isValid: false, hasError: true, errorMessage: explicitMessage };
+  }
+
+  return { isValid: true, hasError: false, errorMessage: undefined };
+}
+
+export function shouldRenderFieldValidationMessage(args: {
+  validation: SPFieldValidationState;
+  fieldError?: string;
+  errorMessage?: string;
+  errorText?: string;
+  isValid?: boolean;
+  formContext?: { control?: unknown };
+}): boolean {
+  if (!args.validation.errorMessage) {
+    return false;
+  }
+
+  // RHF-driven errors are rendered by FormItem/FormValue when the field lives
+  // inside a FormProvider — skip the inline render to avoid duplication.
+  // External/custom errors still render inline because the form context does
+  // not know about them.
+  if (args.formContext?.control && args.fieldError) {
+    return false;
+  }
+
+  return true;
 }

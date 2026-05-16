@@ -19,3 +19,8 @@ export type { IDevExtremeAutocompleteProps } from './DevExtremeAutocomplete';
 export type { IDevExtremeCheckBoxProps } from './DevExtremeCheckBox';
 export type { IDevExtremeRadioGroupProps, IRadioOption } from './DevExtremeRadioGroup';
 export type { IDevExtremeSwitchProps } from './DevExtremeSwitch';
+export type {
+  IDevExtremeFieldMetaRowProps,
+  IDevExtremeValidationProps,
+  IResolvedDevExtremeValidation,
+} from './validation';

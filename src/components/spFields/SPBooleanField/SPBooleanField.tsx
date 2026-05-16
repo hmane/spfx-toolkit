@@ -17,7 +17,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPBooleanFieldProps, SPBooleanDisplayType } from './SPBooleanField.types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, resolveFieldValidationState } from '../validation';
+import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
 
 /**
@@ -55,6 +55,7 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
     disabled = false,
     readOnly = false,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -158,9 +159,15 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
           </Text>
         )}
 
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>} data-field-name={name} data-field={name}>
         {(() => {
-          const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+          const validation = resolveFieldValidationState({
+            fieldError,
+            errorMessage,
+            errorText,
+            isValid,
+            fieldLabel: label || name,
+          });
           return (
             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
               {displayType === SPBooleanDisplayType.Checkbox ? (
@@ -197,8 +204,21 @@ export const SPBooleanField: React.FC<ISPBooleanFieldProps> = (props) => {
   };
 
   const validationMessage = (fieldError?: string) => {
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
+    if (!shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      formContext,
+    })) return null;
 
     return (
       <div className="sp-field-meta-row">

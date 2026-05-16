@@ -46,7 +46,15 @@ export type { IFormErrorProps } from './FormError/FormError';
 export type { IFormItemProps } from './FormItem/FormItem';
 export type { IFormLabelProps } from './FormLabel/FormLabel';
 export type { IFormValueProps } from './FormValue/FormValue';
-export type { IFormErrorSummaryProps } from './FormErrorSummary';
+export type {
+  FormErrorSummaryErrorValue,
+  FormErrorSummaryErrors,
+  FormErrorSummaryGroupBy,
+  FormErrorSummarySource,
+  FormErrorSummaryVariant,
+  IFormErrorSummaryError,
+  IFormErrorSummaryProps,
+} from './FormErrorSummary';
 
 // Context types
 export type {
@@ -77,6 +85,8 @@ export type {
   IDevExtremeTagBoxProps,
   IDevExtremeTextAreaProps,
   IDevExtremeTextBoxProps,
+  IDevExtremeValidationProps,
+  IResolvedDevExtremeValidation,
   IRadioOption,
 } from './DevExtremeControls';
 

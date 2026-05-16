@@ -422,6 +422,26 @@
   margin-left: auto;
 }
 
+.spfx-devextreme-field-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px 12px;
+  min-height: 18px;
+  margin-top: 4px;
+}
+
+.spfx-devextreme-field-meta-row > .spfx-form-error {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.spfx-devextreme-field-meta-row > .spfx-form-char-count {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* FormCharCount Styles */
 .spfx-form-char-count {
   font-size: 12px;
@@ -523,6 +543,96 @@
   color: var(--spfx-blue-700) !important;
   border-bottom-color: var(--spfx-blue-500);
   text-decoration: underline !important;
+}
+
+/* FormErrorSummary */
+.spfx-form-error-summary-sticky {
+  position: sticky;
+  top: 12px;
+  z-index: 10;
+}
+
+.spfx-form-error-summary-compact {
+  font-size: 12px;
+}
+
+.spfx-form-error-summary-title {
+  font-weight: 600;
+}
+
+.spfx-form-error-summary-section {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neutralSecondary, #605e5c);
+}
+
+.spfx-form-error-summary-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--themePrimary, #0078d4);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.spfx-form-error-summary-link:focus {
+  outline: 2px solid var(--themePrimary, #0078d4);
+  outline-offset: 2px;
+}
+
+.spfx-form-error-summary-more {
+  margin-top: 8px;
+  margin-left: -20px;
+  list-style: none;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--neutralSecondary, #605e5c);
+}
+
+.spfx-form-error-summary-card,
+.spfx-form-error-summary-accordion {
+  padding: 12px 16px;
+  border: 1px solid #a4262c;
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: #fde7e9;
+  color: #323130;
+  outline: none;
+}
+
+.spfx-form-error-summary-accordion {
+  padding: 0;
+  overflow: hidden;
+}
+
+.spfx-form-error-summary-accordion-header {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+.spfx-form-error-summary-accordion-header:focus {
+  outline: 2px solid var(--themePrimary, #0078d4);
+  outline-offset: -2px;
+}
+
+.spfx-form-error-summary-accordion-content {
+  padding: 0 16px 12px;
 }
 
 /* Clean FormError Styles - Override existing styles */

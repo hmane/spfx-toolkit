@@ -29,7 +29,7 @@ import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { UserPersona, UserPersonaSize } from '../../UserPersona';
-import { addValidateRule, hasValue, resolveFieldValidationState } from '../validation';
+import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import { isEmptyFieldValue } from '../hydrationKey';
 import './SPUserField.css';
 import '../spFields.css';
@@ -116,6 +116,7 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     readOnly = false,
     placeholder,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -482,10 +483,18 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
     const validation = resolveFieldValidationState({
       fieldError,
       errorMessage,
+      errorText,
       isValid: hasErrorProp ? false : isValid,
+      fieldLabel: label || name,
     });
-    const shouldRenderErrorMessage =
-      !!validation.errorMessage && (!formContext || !!errorMessage);
+    const shouldRenderErrorMessage = shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid: hasErrorProp ? false : isValid,
+      formContext,
+    });
 
     return (
       <Stack className={`sp-user-field ${containerClass} ${className || ''} ${validation.hasError ? 'has-error' : ''}`}>
@@ -504,6 +513,8 @@ export const SPUserField: React.FC<ISPUserFieldProps> = (props) => {
         <div
           ref={fieldRef as React.RefObject<HTMLDivElement>}
           className={`sp-user-field-picker-wrapper ${validation.hasError ? 'has-error' : ''}`}
+          data-field-name={name}
+          data-field={name}
         >
         {displayMode === SPUserFieldDisplayMode.PeoplePicker ? (
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading people picker..." />}>

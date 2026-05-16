@@ -1,11 +1,19 @@
 import { CheckBox } from 'devextreme-react/check-box';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
+import { Controller, FieldValues, Path } from 'react-hook-form';
 import { useFormContext } from '../context/FormContext';
+import {
+  DevExtremeInlineError,
+  IDevExtremeValidationProps,
+  resolveDevExtremeValidationState,
+  useControllableValue,
+} from './validation';
 
-export interface IDevExtremeCheckBoxProps<T extends FieldValues> {
-  name: Path<T>;
-  control: any;
+export interface IDevExtremeCheckBoxProps<T extends FieldValues> extends IDevExtremeValidationProps {
+  name: Path<T> | string;
+  control?: any;
+  value?: boolean | null;
+  defaultValue?: boolean | null;
   text?: string;
   disabled?: boolean;
   readOnly?: boolean;
@@ -18,6 +26,10 @@ export interface IDevExtremeCheckBoxProps<T extends FieldValues> {
 const DevExtremeCheckBox = <T extends FieldValues>({
   name,
   control,
+  value,
+  defaultValue = false,
+  label,
+  required = false,
   text,
   disabled = false,
   readOnly = false,
@@ -25,17 +37,24 @@ const DevExtremeCheckBox = <T extends FieldValues>({
   enableThreeStateBehavior = false,
   className = '',
   onValueChanged,
+  isValid,
+  errorMessage,
+  errorText,
+  showErrorMessage = true,
+  validationMessageMode,
 }: IDevExtremeCheckBoxProps<T>) => {
   const formContext = useFormContext();
+  const effectiveControl = control || formContext?.control;
   const fieldRef = React.useRef<HTMLDivElement>(null);
+  const [standaloneValue, setStandaloneValue] = useControllableValue<boolean | null>(value, defaultValue);
 
   // Register field with FormContext for scroll-to-error functionality
   React.useEffect(() => {
     if (name && formContext?.registry) {
       formContext.registry.register(name as string, {
         name: name as string,
-        label: undefined, // spForm controls don't have labels
-        required: false,
+        label: label || text,
+        required,
         ref: fieldRef as React.RefObject<HTMLElement>,
         section: undefined,
       });
@@ -44,35 +63,66 @@ const DevExtremeCheckBox = <T extends FieldValues>({
         formContext.registry.unregister(name as string);
       };
     }
-  }, [name, formContext]);
+  }, [name, label, text, required, formContext]);
+
+  const renderCheckBox = (
+    fieldValue: boolean | null,
+    fieldOnChange: (value: boolean | null) => void,
+    fieldError?: any
+  ) => {
+    const validation = resolveDevExtremeValidationState({
+      name: name as string,
+      label: label || text,
+      fieldError,
+      isValid,
+      errorMessage,
+      errorText,
+      showErrorMessage,
+      validationMessageMode,
+    });
+
+    return (
+      <>
+        <CheckBox
+          value={fieldValue ?? false}
+          onValueChanged={e => {
+            if (fieldValue !== e.value) {
+              fieldOnChange(e.value);
+              onValueChanged?.(e.value);
+            }
+          }}
+          text={text}
+          disabled={disabled}
+          readOnly={readOnly}
+          iconSize={iconSize}
+          enableThreeStateBehavior={enableThreeStateBehavior}
+          className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
+          isValid={validation.isValid}
+          validationError={validation.validationError}
+          validationMessageMode={validation.validationMessageMode}
+        />
+        {validation.shouldRenderInlineError && (
+          <DevExtremeInlineError name={name as string} error={validation.errorMessage} />
+        )}
+      </>
+    );
+  };
+
+  if (!effectiveControl) {
+    return (
+      <div ref={fieldRef} data-field-name={name as string} data-field={name as string}>
+        {renderCheckBox(standaloneValue, (next) => setStandaloneValue(next))}
+      </div>
+    );
+  }
 
   return (
-    <div ref={fieldRef}>
+    <div ref={fieldRef} data-field-name={name as string} data-field={name as string}>
       <Controller
-        name={name}
-        control={control}
+        name={name as Path<T>}
+        control={effectiveControl}
         render={({ field: { onChange, value }, fieldState: { error } }) => {
-          const hasError = !!error;
-
-          return (
-            <CheckBox
-              value={value ?? false}
-              onValueChanged={e => {
-                if (value !== e.value) {
-                  onChange(e.value);
-                  onValueChanged?.(e.value);
-                }
-              }}
-              text={text}
-              disabled={disabled}
-              readOnly={readOnly}
-              iconSize={iconSize}
-              enableThreeStateBehavior={enableThreeStateBehavior}
-              className={`${className} ${hasError ? 'dx-invalid' : ''}`}
-              isValid={!hasError}
-              validationError={error as FieldError}
-            />
-          );
+          return renderCheckBox(value ?? false, onChange, error);
         }}
       />
     </div>

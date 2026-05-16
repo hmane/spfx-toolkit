@@ -19,7 +19,7 @@ import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
 import { useFormContext } from '../../spForm/context/FormContext';
-import { addValidateRule, resolveFieldValidationState } from '../validation';
+import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
 
 /**
@@ -57,6 +57,7 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     disabled = false,
     readOnly = false,
     errorMessage,
+    errorText,
     isValid,
     className,
     width,
@@ -203,9 +204,15 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
         )}
 
         {/* URL Input */}
-        <div ref={fieldRef as React.RefObject<HTMLDivElement>}>
+        <div ref={fieldRef as React.RefObject<HTMLDivElement>} data-field-name={name} data-field={name}>
         {(() => {
-          const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
+          const validation = resolveFieldValidationState({
+            fieldError,
+            errorMessage,
+            errorText,
+            isValid,
+            fieldLabel: label || name,
+          });
           return (
             <Stack tokens={{ childrenGap: 8 }}>
               <div>
@@ -273,8 +280,21 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
   };
 
   const validationMessage = (fieldError?: string) => {
-    const validation = resolveFieldValidationState({ fieldError, errorMessage, isValid });
-    if (!validation.errorMessage || (formContext && !errorMessage)) return null;
+    const validation = resolveFieldValidationState({
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      fieldLabel: label || name,
+    });
+    if (!shouldRenderFieldValidationMessage({
+      validation,
+      fieldError,
+      errorMessage,
+      errorText,
+      isValid,
+      formContext,
+    })) return null;
 
     return (
       <div className="sp-field-meta-row">

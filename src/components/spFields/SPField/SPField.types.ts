@@ -148,6 +148,11 @@ export interface ISPFieldProps {
   errorMessage?: string;
 
   /**
+   * Alias for `errorMessage` for consumers that use DevExtreme-style naming.
+   */
+  errorText?: string;
+
+  /**
    * Explicit validity override passed through to the rendered field component.
    */
   isValid?: boolean;

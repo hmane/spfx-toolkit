@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/hemantmane/Development/spfx-toolkit diff --stat src/components/spForm/FormErrorSummary/FormErrorSummary.tsx)",
+      "Bash(git -C /Users/hemantmane/Development/spfx-toolkit diff --stat)"
+    ]
+  }
+}

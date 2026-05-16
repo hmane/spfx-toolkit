@@ -1,11 +1,19 @@
 import { Autocomplete } from 'devextreme-react/autocomplete';
 import * as React from 'react';
-import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
+import { Controller, FieldValues, Path } from 'react-hook-form';
 import { useFormContext } from '../context/FormContext';
+import {
+  DevExtremeInlineError,
+  IDevExtremeValidationProps,
+  resolveDevExtremeValidationState,
+  useControllableValue,
+} from './validation';
 
-export interface IDevExtremeAutocompleteProps<T extends FieldValues> {
-  name: Path<T>;
-  control: any;
+export interface IDevExtremeAutocompleteProps<T extends FieldValues> extends IDevExtremeValidationProps {
+  name: Path<T> | string;
+  control?: any;
+  value?: string;
+  defaultValue?: string;
   dataSource?: any[] | any;
   items?: any[];
   displayExpr?: string;
@@ -27,6 +35,10 @@ export interface IDevExtremeAutocompleteProps<T extends FieldValues> {
 const DevExtremeAutocomplete = <T extends FieldValues>({
   name,
   control,
+  value,
+  defaultValue = '',
+  label,
+  required = false,
   dataSource,
   items,
   displayExpr,
@@ -43,17 +55,24 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
   onValueChanged,
   onFocusIn,
   onFocusOut,
+  isValid,
+  errorMessage,
+  errorText,
+  showErrorMessage = true,
+  validationMessageMode,
 }: IDevExtremeAutocompleteProps<T>) => {
   const formContext = useFormContext();
+  const effectiveControl = control || formContext?.control;
   const fieldRef = React.useRef<HTMLDivElement>(null);
+  const [standaloneValue, setStandaloneValue] = useControllableValue<string>(value, defaultValue);
 
   // Register field with FormContext for scroll-to-error functionality
   React.useEffect(() => {
     if (name && formContext?.registry) {
       formContext.registry.register(name as string, {
         name: name as string,
-        label: undefined, // spForm controls don't have labels
-        required: false,
+        label,
+        required,
         ref: fieldRef as React.RefObject<HTMLElement>,
         section: undefined,
       });
@@ -62,47 +81,79 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
         formContext.registry.unregister(name as string);
       };
     }
-  }, [name, formContext]);
+  }, [name, label, required, formContext]);
+
+  const renderAutocomplete = (
+    fieldValue: string,
+    fieldOnChange: (value: string) => void,
+    fieldOnBlur?: () => void,
+    fieldError?: any
+  ) => {
+    const validation = resolveDevExtremeValidationState({
+      name: name as string,
+      label,
+      fieldError,
+      isValid,
+      errorMessage,
+      errorText,
+      showErrorMessage,
+      validationMessageMode,
+    });
+
+    return (
+      <>
+        <Autocomplete
+          dataSource={dataSource}
+          items={items}
+          value={fieldValue || ''}
+          onValueChanged={e => {
+            if (fieldValue !== e.value) {
+              fieldOnChange(e.value);
+              onValueChanged?.(e.value);
+            }
+          }}
+          onFocusIn={onFocusIn}
+          onFocusOut={() => {
+            fieldOnBlur?.();
+            onFocusOut?.();
+          }}
+          displayExpr={displayExpr}
+          valueExpr={valueExpr}
+          placeholder={placeholder}
+          disabled={disabled}
+          readOnly={readOnly}
+          minSearchLength={minSearchLength}
+          searchTimeout={searchTimeout}
+          showClearButton={showClearButton}
+          maxItemCount={maxItemCount}
+          stylingMode={stylingMode}
+          className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
+          isValid={validation.isValid}
+          validationError={validation.validationError}
+          validationMessageMode={validation.validationMessageMode}
+        />
+        {validation.shouldRenderInlineError && (
+          <DevExtremeInlineError name={name as string} error={validation.errorMessage} />
+        )}
+      </>
+    );
+  };
+
+  if (!effectiveControl) {
+    return (
+      <div ref={fieldRef} data-field-name={name as string} data-field={name as string}>
+        {renderAutocomplete(standaloneValue, (next) => setStandaloneValue(next))}
+      </div>
+    );
+  }
 
   return (
-    <div ref={fieldRef}>
+    <div ref={fieldRef} data-field-name={name as string} data-field={name as string}>
       <Controller
-        name={name}
-        control={control}
+        name={name as Path<T>}
+        control={effectiveControl}
         render={({ field: { onChange, value, onBlur }, fieldState: { error } }) => {
-          const hasError = !!error;
-
-          return (
-            <Autocomplete
-              dataSource={dataSource}
-              items={items}
-              value={value || ''}
-              onValueChanged={e => {
-                if (value !== e.value) {
-                  onChange(e.value);
-                  onValueChanged?.(e.value);
-                }
-              }}
-              onFocusIn={onFocusIn}
-              onFocusOut={() => {
-                onBlur();
-                onFocusOut?.();
-              }}
-              displayExpr={displayExpr}
-              valueExpr={valueExpr}
-              placeholder={placeholder}
-              disabled={disabled}
-              readOnly={readOnly}
-              minSearchLength={minSearchLength}
-              searchTimeout={searchTimeout}
-              showClearButton={showClearButton}
-              maxItemCount={maxItemCount}
-              stylingMode={stylingMode}
-              className={`${className} ${hasError ? 'dx-invalid' : ''}`}
-              isValid={!hasError}
-              validationError={error as FieldError}
-            />
-          );
+          return renderAutocomplete(value || '', onChange, onBlur, error);
         }}
       />
     </div>

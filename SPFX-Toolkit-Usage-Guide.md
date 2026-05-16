@@ -1596,7 +1596,25 @@ const RequestForm: React.FC = () => {
 | Layout | `FormContainer`, `FormItem`, `FormLabel`, `FormValue`, `FormError`, `FormDescription` | Responsive layout + consistent spacing |
 | DevExtreme Controls | `DevExtremeTextBox`, `DevExtremeSelectBox`, `DevExtremeDateBox`, `DevExtremeNumberBox`, `DevExtremeTagBox`, `DevExtremeSwitch`, `DevExtremeRadioGroup`, `DevExtremeAutocomplete`, `DevExtremeTextArea`, `DevExtremeCheckBox` | RHF-ready wrappers with value conversion |
 | PnP Controls | `PnPPeoplePicker`, `PnPModernTaxonomyPicker` | Async SharePoint pickers with RHF integration |
-| Custom Components | Use `Controller` + `GroupUsersPicker` | Preferred public integration pattern for RHF |
+| Custom Components | Use `Controller` + `GroupUsersPicker`, or build your own (see [Custom Components with Validation](#custom-components-with-validation)) | Preferred public integration pattern for RHF |
+
+**Shared validation props on every DevExtreme wrapper** (typed via `IDevExtremeValidationProps`):
+
+| Prop | Type | Purpose |
+|------|------|---------|
+| `label`, `required` | `string`, `boolean` | Used by the shared field registry and default invalid messages |
+| `isValid` | `boolean` | Explicit validity override for class-component or external validation |
+| `errorMessage` / `errorText` | `string` | Explicit error message (DevExtreme uses `errorText`; both are accepted) |
+| `showErrorMessage` | `boolean` (default `true`) | Render the inline error below the editor |
+| `validationMessageMode` | `'always' \| 'auto'` | Forwarded to DevExtreme tooltip behavior |
+
+**Precedence rules (important):**
+- RHF `fieldError` always wins — it overrides any explicit `errorMessage`/`errorText` the caller passes.
+- `isValid={true}` suppresses any stale `errorMessage`/`errorText` (used to clear a manual error after the consumer re-validates).
+- `isValid={false}` with no message → a default `"<label> is invalid."` message is synthesized.
+- `errorText` is an alias for `errorMessage`; when both are set, `errorMessage` wins.
+
+The SPField components (`SPTextField`, `SPChoiceField`, `SPDateField`, etc.) follow the same rules via `resolveFieldValidationState`.
 
 **Usage Tips**
 - Import DevExtreme styles globally: `import 'devextreme/dist/css/dx.light.css';`
@@ -1927,6 +1945,196 @@ The new form system is WCAG 2.1 AA compliant with:
 - **Memoized context**: FormContext value is memoized to prevent re-renders
 - **Efficient field registry**: Uses Map for O(1) field lookups
 - **Smart scroll**: Uses native `scrollIntoView` for optimal performance
+
+#### Custom Components with Validation
+
+When you build a custom form-integrated control (file uploader, color picker, signature pad, etc.), you have three patterns. Pick based on whether the consumer always uses React Hook Form, never uses it, or sometimes uses it.
+
+##### Pattern A — RHF-driven (recommended when the field always lives in a form)
+
+The cleanest path. Wrap the editor in `<Controller>`, expose a `validate` rule, and register the field's ref with the toolkit's `FormContext`. Two payoffs:
+
+- Errors automatically appear in `<FormErrorSummary />` — no extra plumbing.
+- Clicking the error in the summary scrolls to and focuses your field, because of the registry registration.
+
+```typescript
+import * as React from 'react';
+import { Controller, type Control } from 'react-hook-form';
+import { useFormContext, FormError } from 'spfx-toolkit/components/spForm';
+
+interface IFileUploaderProps {
+  name: string;
+  control?: Control<any>;
+  label?: string;
+  required?: boolean;
+  accept?: string;
+  maxSizeMB?: number;
+}
+
+export const FileUploader: React.FC<IFileUploaderProps> = ({
+  name,
+  control,
+  label,
+  required = false,
+  accept = '*',
+  maxSizeMB = 10,
+}) => {
+  const formCtx = useFormContext();
+  const effectiveControl = control || formCtx?.control;
+  const fieldRef = React.useRef<HTMLDivElement>(null);
+
+  // Register with FormContext → enables FormErrorSummary click-to-scroll.
+  React.useEffect(() => {
+    if (!formCtx?.registry || !name) return undefined;
+    formCtx.registry.register(name, {
+      name,
+      label,
+      required,
+      ref: fieldRef as React.RefObject<HTMLElement>,
+    });
+    return () => formCtx.registry.unregister(name);
+  }, [formCtx, name, label, required]);
+
+  return (
+    <Controller
+      name={name}
+      control={effectiveControl}
+      rules={{
+        validate: (file: File | undefined) => {
+          if (required && !file) return `${label || name} is required`;
+          if (file && file.size > maxSizeMB * 1024 * 1024) {
+            return `File must be under ${maxSizeMB}MB`;
+          }
+          return true;
+        },
+      }}
+      render={({ field, fieldState }) => (
+        <div ref={fieldRef} data-field-name={name}>
+          <input
+            type='file'
+            accept={accept}
+            onChange={(e) => field.onChange(e.target.files?.[0])}
+            onBlur={field.onBlur}
+            aria-invalid={!!fieldState.error}
+            aria-describedby={fieldState.error ? `${name}-error` : undefined}
+          />
+          {field.value && <span>{(field.value as File).name}</span>}
+          <FormError error={fieldState.error?.message} id={`${name}-error`} />
+        </div>
+      )}
+    />
+  );
+};
+```
+
+Usage — no special wiring needed in the form, `FormErrorSummary` picks it up:
+
+```typescript
+<FormProvider control={control} autoShowErrors>
+  <form onSubmit={handleSubmit(onSubmit)}>
+    <FormErrorSummary clickToScroll showFieldLabels />
+    <FormContainer>
+      <FormItem fieldName='attachment'>
+        <FormLabel isRequired>Attachment</FormLabel>
+        <FormValue>
+          <FileUploader name='attachment' label='Attachment' required maxSizeMB={5} />
+        </FormValue>
+      </FormItem>
+      <button type='submit'>Submit</button>
+    </FormContainer>
+  </form>
+</FormProvider>
+```
+
+##### Pattern B — Standalone with explicit `isValid`/`errorText`
+
+For class-component callers or non-RHF use, accept the same validation prop shape as the SPField/DevExtreme controls and render `<FormError />` directly:
+
+```typescript
+import * as React from 'react';
+import { FormError } from 'spfx-toolkit/components/spForm';
+
+interface IStandaloneFileUploaderProps {
+  value?: File;
+  onChange: (file: File | undefined) => void;
+  label?: string;
+  isValid?: boolean;          // explicit validity override
+  errorMessage?: string;       // explicit error message
+  errorText?: string;          // alias — kept for DevExtreme-style consumers
+}
+
+export const StandaloneFileUploader: React.FC<IStandaloneFileUploaderProps> = ({
+  value, onChange, label, isValid, errorMessage, errorText,
+}) => {
+  const message = errorMessage || errorText;
+
+  // isValid={true} suppresses any stale explicit message (matches SPField semantics).
+  const hasError =
+    isValid === false || (isValid !== true && !!message);
+  const resolvedMessage = hasError
+    ? message || `${label || 'This field'} is invalid.`
+    : undefined;
+
+  return (
+    <div>
+      <input
+        type='file'
+        onChange={(e) => onChange(e.target.files?.[0])}
+        aria-invalid={hasError}
+      />
+      {value && <span>{value.name}</span>}
+      <FormError error={resolvedMessage} />
+    </div>
+  );
+};
+```
+
+##### Pattern C — Pushing custom errors into `FormErrorSummary`
+
+When errors come from a non-RHF source (server response, async cross-field check, business rule), pass them as the `errors` prop. They merge with RHF context errors when `includeContextErrors` is set:
+
+```typescript
+const [serverErrors, setServerErrors] = React.useState<IFormErrorSummaryError[]>([]);
+
+const onSubmit = async (data) => {
+  try {
+    await api.submit(data);
+    setServerErrors([]);
+  } catch (e) {
+    setServerErrors([
+      { fieldName: 'attachment', message: 'Virus scan failed', label: 'Attachment', source: 'server' },
+      { fieldName: 'title',      message: 'Title already used', label: 'Title',      source: 'server' },
+    ]);
+  }
+};
+
+<FormErrorSummary
+  errors={serverErrors}
+  includeContextErrors    // merge with RHF errors instead of replacing them
+  clickToScroll
+  showFieldLabels
+/>
+```
+
+Click-to-scroll still works for these custom errors as long as the field rendered a `data-field-name="<fieldName>"` attribute or was registered with `formCtx.registry`.
+
+##### Hybrid recipe
+
+If your custom component needs to support both modes (used standalone in some apps, inside a `FormProvider` in others), keep both branches:
+
+```typescript
+const formCtx = useFormContext();
+const effectiveControl = control || formCtx?.control;
+
+if (effectiveControl) {
+  // Pattern A — RHF-driven
+  return <Controller .../>;
+}
+// Pattern B — fall back to explicit isValid/errorMessage props
+return <StandaloneEditor isValid={isValid} errorMessage={errorMessage} ... />;
+```
+
+This is the same shape every `DevExtreme*` wrapper in the toolkit uses internally — see [`DevExtremeTextBox.tsx`](../src/components/spForm/DevExtremeControls/DevExtremeTextBox.tsx) for a working reference.
 
 ##### Further Reading
 
@@ -2601,6 +2809,19 @@ Check these common issues:
    console.log('Form errors:', form.formState.errors);
    console.log('Form state:', form.formState);
    ```
+
+5. **Understand error precedence when mixing RHF and explicit props**
+
+   When a field has both an RHF error (via `rules`/`resolver`) and an explicit `errorMessage`/`isValid` override, the toolkit resolves them in this order:
+
+   | Situation | Result |
+   |-----------|--------|
+   | RHF `fieldError` is set | RHF message wins. Any explicit `errorMessage`/`errorText` is ignored. |
+   | `isValid={true}` | Field is treated as valid. Any explicit message is suppressed (useful for clearing a stale error after re-validating). |
+   | `isValid={false}` with no message | A default `"<label> is invalid."` message is synthesized. |
+   | Explicit `errorMessage` or `errorText` alone | Used as-is. `errorMessage` wins over `errorText`. |
+
+   This applies to every `SPField` component and every `DevExtreme*` wrapper. So you can safely pass `isValid={true}` from a parent to clear a stale error without removing the `errorMessage` prop conditionally.
 
 ---
 
