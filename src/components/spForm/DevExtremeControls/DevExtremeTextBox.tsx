@@ -23,7 +23,19 @@ export interface IDevExtremeTextBoxProps<T extends FieldValues> extends IDevExtr
   showCharacterCount?: boolean;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
+  // DevExtreme TextBox button configs (use array form instead of nested <TextBoxButton> JSX,
+  // which devextreme-react does not support inside this wrapper).
+  buttons?: Array<{
+    name?: string;
+    location?: 'before' | 'after';
+    options?: any;
+  }>;
   onValueChanged?: (value: string) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -43,7 +55,13 @@ function DevExtremeTextBoxInner<T extends FieldValues>({
   showCharacterCount = false,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
+  buttons,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -121,7 +139,13 @@ function DevExtremeTextBoxInner<T extends FieldValues>({
           readOnly={readOnly}
           mode={mode}
           maxLength={maxLength}
+          buttons={buttons as any}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
           stylingMode={stylingMode}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

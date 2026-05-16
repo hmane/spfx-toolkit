@@ -23,6 +23,10 @@ export interface IDevExtremeTagBoxProps<T extends FieldValues> extends IDevExtre
   disabled?: boolean;
   readOnly?: boolean;
   searchEnabled?: boolean;
+  searchExpr?: string | string[];
+  searchMode?: 'contains' | 'startswith';
+  searchTimeout?: number;
+  minSearchLength?: number;
   showClearButton?: boolean;
   showSelectionControls?: boolean;
   maxDisplayedTags?: number;
@@ -30,7 +34,17 @@ export interface IDevExtremeTagBoxProps<T extends FieldValues> extends IDevExtre
   acceptCustomValue?: boolean;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
+  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
+  // Custom render for the inline editor when nothing is selected (DevExtreme `fieldRender`).
+  fieldRender?: (itemData: any, fieldElement: any) => React.ReactNode;
+  // Custom render for each selected tag chip (DevExtreme `tagRender`).
+  tagRender?: (itemData: any, tagElement: any) => React.ReactNode;
   onValueChanged?: (value: any[]) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -50,6 +64,10 @@ const DevExtremeTagBox = <T extends FieldValues>({
   disabled = false,
   readOnly = false,
   searchEnabled = true,
+  searchExpr,
+  searchMode,
+  searchTimeout,
+  minSearchLength,
   showClearButton = true,
   showSelectionControls = false,
   maxDisplayedTags,
@@ -57,7 +75,15 @@ const DevExtremeTagBox = <T extends FieldValues>({
   acceptCustomValue = false,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
+  itemRender,
+  fieldRender,
+  tagRender,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -128,12 +154,24 @@ const DevExtremeTagBox = <T extends FieldValues>({
           disabled={disabled}
           readOnly={readOnly}
           searchEnabled={searchEnabled}
+          searchExpr={searchExpr}
+          searchMode={searchMode}
+          searchTimeout={searchTimeout}
+          minSearchLength={minSearchLength}
           showClearButton={showClearButton}
           showSelectionControls={showSelectionControls}
           maxDisplayedTags={maxDisplayedTags}
           hideSelectedItems={hideSelectedItems}
           acceptCustomValue={acceptCustomValue}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          itemRender={itemRender}
+          fieldRender={fieldRender as any}
+          tagRender={tagRender as any}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

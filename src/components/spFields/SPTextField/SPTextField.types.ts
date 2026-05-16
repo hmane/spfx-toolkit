@@ -247,6 +247,34 @@ export interface ISPTextFieldProps extends ISPFieldBaseProps<string>, ISPFieldSh
    */
   stylingMode?: 'outlined' | 'underlined' | 'filled';
 
+  /**
+   * DevExtreme tooltip text shown on hover.
+   */
+  hint?: string;
+
+  /**
+   * Extra HTML attributes for the underlying `<input>`/`<textarea>` element
+   * (e.g. `autoComplete`, `aria-*`). Merged with the SPTextField defaults
+   * (`type`, `spellcheck`, `autoComplete`) — your values win on collision.
+   */
+  inputAttr?: Record<string, any>;
+
+  /**
+   * DOM tab order for the editor.
+   */
+  tabIndex?: number;
+
+  /**
+   * Fires when Enter is pressed inside the editor. Common pattern for
+   * submit-on-Enter. The event payload is DevExtreme's raw event object.
+   */
+  onEnterKey?: (e: any) => void;
+
+  /**
+   * Fires on any key down. The event payload is DevExtreme's raw event object.
+   */
+  onKeyDown?: (e: any) => void;
+
   // ===== APPEND-ONLY MODE (Note Field History) =====
 
   /**

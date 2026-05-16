@@ -21,12 +21,18 @@ export interface IDevExtremeTextAreaProps<T extends FieldValues> extends IDevExt
   maxLength?: number;
   showCharacterCount?: boolean;
   minHeight?: number | string;
+  maxHeight?: number | string;
   height?: number | string;
   autoResizeEnabled?: boolean;
   spellcheck?: boolean;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
   onValueChanged?: (value: string) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -44,12 +50,18 @@ const DevExtremeTextArea = <T extends FieldValues>({
   maxLength,
   showCharacterCount = false,
   minHeight = 80,
+  maxHeight,
   height,
   autoResizeEnabled = true,
   spellcheck = true,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -127,10 +139,16 @@ const DevExtremeTextArea = <T extends FieldValues>({
           readOnly={readOnly}
           maxLength={maxLength}
           minHeight={minHeight}
+          maxHeight={maxHeight}
           height={height}
           autoResizeEnabled={autoResizeEnabled}
           spellcheck={spellcheck}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

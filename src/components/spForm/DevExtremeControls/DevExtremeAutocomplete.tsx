@@ -27,7 +27,12 @@ export interface IDevExtremeAutocompleteProps<T extends FieldValues> extends IDe
   maxItemCount?: number;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
   onValueChanged?: (value: string) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -52,7 +57,12 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
   maxItemCount = 10,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -127,6 +137,11 @@ const DevExtremeAutocomplete = <T extends FieldValues>({
           showClearButton={showClearButton}
           maxItemCount={maxItemCount}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

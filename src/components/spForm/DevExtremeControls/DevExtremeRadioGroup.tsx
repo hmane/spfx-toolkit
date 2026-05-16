@@ -21,11 +21,20 @@ export interface IDevExtremeRadioGroupProps<T extends FieldValues> extends IDevE
   control?: any;
   value?: any;
   defaultValue?: any;
-  items: IRadioOption[];
+  items?: IRadioOption[];
+  dataSource?: any[] | any;
+  displayExpr?: string | ((item: any) => string);
+  valueExpr?: string | ((item: any) => any);
+  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
   disabled?: boolean;
   readOnly?: boolean;
   layout?: 'horizontal' | 'vertical';
   className?: string;
+  hint?: string;
+  // RadioGroup is not an input — DevExtreme exposes `elementAttr` (not `inputAttr`) for adding HTML attrs.
+  elementAttr?: Record<string, any>;
+  tabIndex?: number;
+  accessKey?: string;
   onValueChanged?: (value: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
@@ -39,10 +48,18 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
   label,
   required = false,
   items,
+  dataSource,
+  displayExpr,
+  valueExpr,
+  itemRender,
   disabled = false,
   readOnly = false,
   layout = 'vertical',
   className = '',
+  hint,
+  elementAttr,
+  tabIndex,
+  accessKey,
   onValueChanged,
   onFocusIn,
   onFocusOut,
@@ -114,9 +131,17 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
             }
           }}
           items={items}
+          dataSource={dataSource}
+          displayExpr={displayExpr}
+          valueExpr={valueExpr}
+          itemRender={itemRender}
           disabled={disabled}
           readOnly={readOnly}
           layout={layout}
+          hint={hint}
+          elementAttr={elementAttr}
+          tabIndex={tabIndex}
+          accessKey={accessKey}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

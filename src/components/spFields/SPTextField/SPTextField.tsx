@@ -101,6 +101,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     mask,
     maskChar = '_',
     stylingMode = 'outlined',
+    hint,
+    inputAttr,
+    tabIndex,
+    onEnterKey,
+    onKeyDown,
 
     // Append-only props
     appendOnly = false,
@@ -298,8 +303,12 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       showClearButton: showClearButton && !disabled,
       stylingMode: stylingMode,
       className: inputClassName || '',
+      hint: hint,
+      tabIndex: tabIndex,
       onFocusIn: onFocus,
       onFocusOut: onBlur,
+      onEnterKey: onEnterKey,
+      onKeyDown: onKeyDown,
       // Keep isValid for DevExtreme error styling (red border), but don't pass validationError (we render our own)
       isValid: validation.isValid,
       ...(buttons.length > 0 && { buttons }), // Only add buttons if we have any
@@ -367,6 +376,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
                 height={rows * 24}
                 inputAttr={{
                   spellcheck: spellCheck,
+                  ...(inputAttr || {}),
                 }}
                 autoResizeEnabled={true}
               />
@@ -378,6 +388,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
                   type: inputType,
                   spellcheck: spellCheck,
                   autoComplete: autoComplete,
+                  ...(inputAttr || {}),
                 }}
                 mask={mask}
                 maskChar={maskChar}

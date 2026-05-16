@@ -23,9 +23,20 @@ export interface IDevExtremeDateBoxProps<T extends FieldValues> extends IDevExtr
   min?: Date;
   max?: Date;
   showClearButton?: boolean;
+  // Type masked date entry into the editor. Default in DevExtreme is true.
+  useMaskBehavior?: boolean;
+  // When set, DevExtreme returns the value as a string in this format (e.g. "yyyy-MM-ddTHH:mm:ssZ")
+  // instead of a Date object — useful for round-tripping SharePoint payloads without a Date conversion.
+  // NOTE: When this is set, the value type becomes string, not Date.
+  dateSerializationFormat?: string;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
   onValueChanged?: (value: Date | null) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -45,9 +56,16 @@ const DevExtremeDateBox = <T extends FieldValues>({
   min,
   max,
   showClearButton = true,
+  useMaskBehavior,
+  dateSerializationFormat,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -118,7 +136,14 @@ const DevExtremeDateBox = <T extends FieldValues>({
           min={min}
           max={max}
           showClearButton={showClearButton}
+          useMaskBehavior={useMaskBehavior}
+          dateSerializationFormat={dateSerializationFormat}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

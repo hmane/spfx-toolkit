@@ -25,7 +25,12 @@ export interface IDevExtremeNumberBoxProps<T extends FieldValues> extends IDevEx
   showClearButton?: boolean;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
   onValueChanged?: (value: number | null) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -48,7 +53,12 @@ const DevExtremeNumberBox = <T extends FieldValues>({
   showClearButton = true,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
   onValueChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -121,6 +131,11 @@ const DevExtremeNumberBox = <T extends FieldValues>({
           showSpinButtons={showSpinButtons}
           showClearButton={showClearButton}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

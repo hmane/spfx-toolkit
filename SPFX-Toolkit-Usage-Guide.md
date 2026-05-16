@@ -1594,7 +1594,7 @@ const RequestForm: React.FC = () => {
 | Module | Key Exports | Notes |
 |--------|-------------|-------|
 | Layout | `FormContainer`, `FormItem`, `FormLabel`, `FormValue`, `FormError`, `FormDescription` | Responsive layout + consistent spacing |
-| DevExtreme Controls | `DevExtremeTextBox`, `DevExtremeSelectBox`, `DevExtremeDateBox`, `DevExtremeNumberBox`, `DevExtremeTagBox`, `DevExtremeSwitch`, `DevExtremeRadioGroup`, `DevExtremeAutocomplete`, `DevExtremeTextArea`, `DevExtremeCheckBox` | RHF-ready wrappers with value conversion |
+| DevExtreme Controls | `DevExtremeTextBox`, `DevExtremeSelectBox`, `DevExtremeDateBox`, `DevExtremeNumberBox`, `DevExtremeTagBox`, `DevExtremeSwitch`, `DevExtremeRadioGroup`, `DevExtremeAutocomplete`, `DevExtremeTextArea`, `DevExtremeCheckBox`, `DevExtremeFileUploader` | RHF-ready wrappers with value conversion |
 | PnP Controls | `PnPPeoplePicker`, `PnPModernTaxonomyPicker` | Async SharePoint pickers with RHF integration |
 | Custom Components | Use `Controller` + `GroupUsersPicker`, or build your own (see [Custom Components with Validation](#custom-components-with-validation)) | Preferred public integration pattern for RHF |
 

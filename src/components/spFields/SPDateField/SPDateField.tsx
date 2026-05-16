@@ -89,6 +89,8 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
     showCalendarIcon = true,
     calendarButtonPosition = 'after',
     stylingMode = 'outlined',
+    useMaskBehavior = true,
+    dateSerializationFormat,
     inputRef,
   } = props;
 
@@ -370,7 +372,8 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               min={minDate}
               max={maxDate}
               pickerType="calendar"
-              useMaskBehavior={true}
+              useMaskBehavior={useMaskBehavior}
+              dateSerializationFormat={dateSerializationFormat}
               openOnFieldClick={true}
               showAnalogClock={false}
               interval={timeInterval}
@@ -395,7 +398,8 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               min={minDate}
               max={maxDate}
               pickerType="calendar"
-              useMaskBehavior={true}
+              useMaskBehavior={useMaskBehavior}
+              dateSerializationFormat={dateSerializationFormat}
               openOnFieldClick={false}
               showAnalogClock={false}
               interval={timeInterval}

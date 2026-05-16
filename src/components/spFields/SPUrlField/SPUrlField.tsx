@@ -84,6 +84,10 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     urlPlaceholder = 'https://...',
     descriptionPlaceholder = 'Enter description...',
     stylingMode = 'outlined',
+    hint,
+    tabIndex,
+    onEnterKey,
+    onKeyDown,
     inputRef,
   } = props;
 
@@ -227,8 +231,12 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                   readOnly={readOnly}
                   placeholder={urlPlaceholder}
                   stylingMode={stylingMode}
+                  hint={hint}
+                  tabIndex={tabIndex}
                   onFocusIn={onFocus}
                   onFocusOut={onBlur}
+                  onEnterKey={onEnterKey}
+                  onKeyDown={onKeyDown}
                   isValid={validation.isValid}
                 />
               </div>

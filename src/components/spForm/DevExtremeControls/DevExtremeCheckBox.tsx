@@ -20,6 +20,8 @@ export interface IDevExtremeCheckBoxProps<T extends FieldValues> extends IDevExt
   iconSize?: number;
   enableThreeStateBehavior?: boolean;
   className?: string;
+  hint?: string;
+  tabIndex?: number;
   onValueChanged?: (value: boolean | null) => void;
 }
 
@@ -36,6 +38,8 @@ const DevExtremeCheckBox = <T extends FieldValues>({
   iconSize,
   enableThreeStateBehavior = false,
   className = '',
+  hint,
+  tabIndex,
   onValueChanged,
   isValid,
   errorMessage,
@@ -96,6 +100,8 @@ const DevExtremeCheckBox = <T extends FieldValues>({
           readOnly={readOnly}
           iconSize={iconSize}
           enableThreeStateBehavior={enableThreeStateBehavior}
+          hint={hint}
+          tabIndex={tabIndex}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

@@ -8,6 +8,7 @@ export { default as DevExtremeAutocomplete } from './DevExtremeAutocomplete';
 export { default as DevExtremeCheckBox } from './DevExtremeCheckBox';
 export { default as DevExtremeRadioGroup } from './DevExtremeRadioGroup';
 export { default as DevExtremeSwitch } from './DevExtremeSwitch';
+export { default as DevExtremeFileUploader } from './DevExtremeFileUploader';
 
 export type { IDevExtremeTextBoxProps } from './DevExtremeTextBox';
 export type { IDevExtremeTextAreaProps } from './DevExtremeTextArea';
@@ -19,6 +20,10 @@ export type { IDevExtremeAutocompleteProps } from './DevExtremeAutocomplete';
 export type { IDevExtremeCheckBoxProps } from './DevExtremeCheckBox';
 export type { IDevExtremeRadioGroupProps, IRadioOption } from './DevExtremeRadioGroup';
 export type { IDevExtremeSwitchProps } from './DevExtremeSwitch';
+export type {
+  IDevExtremeFileUploaderProps,
+  DevExtremeFileUploaderMode,
+} from './DevExtremeFileUploader';
 export type {
   IDevExtremeFieldMetaRowProps,
   IDevExtremeValidationProps,

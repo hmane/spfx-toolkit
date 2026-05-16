@@ -23,10 +23,23 @@ export interface IDevExtremeSelectBoxProps<T extends FieldValues> extends IDevEx
   disabled?: boolean;
   readOnly?: boolean;
   searchEnabled?: boolean;
+  searchExpr?: string | string[];
+  searchMode?: 'contains' | 'startswith';
+  searchTimeout?: number;
+  minSearchLength?: number;
   showClearButton?: boolean;
   stylingMode?: 'outlined' | 'underlined' | 'filled';
   className?: string;
+  hint?: string;
+  inputAttr?: Record<string, any>;
+  tabIndex?: number;
+  itemRender?: (itemData: any, itemIndex: number, itemElement: any) => React.ReactNode;
+  // Custom render for the selected value displayed in the closed editor (DevExtreme `fieldRender`).
+  fieldRender?: (itemData: any, fieldElement: any) => React.ReactNode;
   onValueChanged?: (value: any) => void;
+  onSelectionChanged?: (e: { selectedItem: any }) => void;
+  onEnterKey?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
 }
@@ -46,10 +59,22 @@ const DevExtremeSelectBox = <T extends FieldValues>({
   disabled = false,
   readOnly = false,
   searchEnabled = false,
+  searchExpr,
+  searchMode,
+  searchTimeout,
+  minSearchLength,
   showClearButton = true,
   stylingMode = 'outlined',
   className = '',
+  hint,
+  inputAttr,
+  tabIndex,
+  itemRender,
+  fieldRender,
   onValueChanged,
+  onSelectionChanged,
+  onEnterKey,
+  onKeyDown,
   onFocusIn,
   onFocusOut,
   isValid,
@@ -109,19 +134,31 @@ const DevExtremeSelectBox = <T extends FieldValues>({
               onValueChanged?.(e.value);
             }
           }}
+          onSelectionChanged={onSelectionChanged}
           onFocusIn={onFocusIn}
           onFocusOut={() => {
             fieldOnBlur?.();
             onFocusOut?.();
           }}
+          itemRender={itemRender}
+          fieldRender={fieldRender as any}
           displayExpr={displayExpr}
           valueExpr={valueExpr}
           placeholder={placeholder}
           disabled={disabled}
           readOnly={readOnly}
           searchEnabled={searchEnabled}
+          searchExpr={searchExpr}
+          searchMode={searchMode}
+          searchTimeout={searchTimeout}
+          minSearchLength={minSearchLength}
           showClearButton={showClearButton}
           stylingMode={stylingMode}
+          hint={hint}
+          inputAttr={inputAttr}
+          tabIndex={tabIndex}
+          onEnterKey={onEnterKey}
+          onKeyDown={onKeyDown}
           className={`${className} ${validation.hasError ? 'dx-invalid' : ''}`}
           isValid={validation.isValid}
           validationError={validation.validationError}

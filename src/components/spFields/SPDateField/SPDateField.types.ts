@@ -128,4 +128,22 @@ export interface ISPDateFieldProps extends ISPFieldBaseProps<Date> {
    * @default 'outlined'
    */
   stylingMode?: 'outlined' | 'underlined' | 'filled';
+
+  /**
+   * Allow typed input with the date mask (e.g. `MM/DD/YYYY`). When false, the
+   * input is read-only and only the calendar picker can change the value.
+   * @default true
+   */
+  useMaskBehavior?: boolean;
+
+  /**
+   * When set, DevExtreme returns the value as a string in this format (e.g.
+   * `"yyyy-MM-dd"` for SharePoint DateOnly fields, or `"yyyy-MM-ddTHH:mm:ssZ"`
+   * for DateTime) instead of a `Date` object. Useful for round-tripping
+   * SharePoint payloads without manual conversion.
+   *
+   * NOTE: When set, the value type at runtime becomes string, not Date — the
+   * `value`/`onChange` types stay `Date` for backward compatibility.
+   */
+  dateSerializationFormat?: string;
 }

@@ -644,9 +644,32 @@ The same rules apply to every `SPField*` component via `resolveFieldValidationSt
 - `maxLength?: number`
 - `showCharacterCount?: boolean` - Show the same inline/FormValue character count behavior as `SPTextField`
 - `stylingMode?: 'outlined' | 'underlined' | 'filled'`
+- `buttons?: Array<{ name?: string; location?: 'before' | 'after'; options?: any }>` - Embed DevExtreme button(s) inside the editor. Use the array form, not nested `<TextBoxButton>` JSX (which `devextreme-react/text-box` does not support inside this wrapper).
 - `onValueChanged?: (value: string) => void`
 - `onFocusIn?: () => void`
 - `onFocusOut?: () => void`
+
+Example with an embedded button:
+
+```tsx
+<DevExtremeTextBox
+  name='search'
+  control={form.control}
+  placeholder='Search documents'
+  buttons={[
+    {
+      name: 'clear',
+      location: 'after',
+      options: {
+        icon: 'clear',
+        type: 'normal',
+        stylingMode: 'text',
+        onClick: () => form.setValue('search', ''),
+      },
+    },
+  ]}
+/>
+```
 
 ### DevExtremeTextArea
 
@@ -656,10 +679,13 @@ The same rules apply to every `SPField*` component via `resolveFieldValidationSt
   control={form.control}
   placeholder='Enter description'
   minHeight={100}
+  maxHeight={400}
   showCharacterCount
   autoResizeEnabled={true}
 />
 ```
+
+Accepts `minHeight` and `maxHeight` (in addition to a fixed `height`) so auto-resize stays bounded within the form layout.
 
 ### DevExtremeNumberBox
 
@@ -699,6 +725,25 @@ The same rules apply to every `SPField*` component via `resolveFieldValidationSt
   valueExpr='id'
   placeholder='Select category'
   searchEnabled={true}
+/>
+```
+
+Custom item rendering and selection-change event:
+
+```tsx
+<DevExtremeSelectBox
+  name='owner'
+  control={form.control}
+  dataSource={people}
+  valueExpr='id'
+  displayExpr='name'
+  itemRender={(data) => (
+    <div className='person-row'>
+      <strong>{data.name}</strong>
+      <span className='subtle'>{data.email}</span>
+    </div>
+  )}
+  onSelectionChanged={(e) => console.log('selected row', e.selectedItem)}
 />
 ```
 
@@ -747,11 +792,77 @@ The same rules apply to every `SPField*` component via `resolveFieldValidationSt
 />
 ```
 
+`items` (the simple `{ text, value, disabled }` shape) is optional — you can pass any `dataSource` plus `displayExpr`/`valueExpr` and a custom `itemRender` for richer options:
+
+```tsx
+<DevExtremeRadioGroup
+  name='capability'
+  control={form.control}
+  dataSource={capabilities}
+  valueExpr='id'
+  displayExpr='label'
+  itemRender={(item) => (
+    <div className='capability-option'>
+      <strong>{item.label}</strong>
+      <p>{item.description}</p>
+    </div>
+  )}
+  layout='vertical'
+/>
+```
+
 ### DevExtremeSwitch
 
 ```tsx
 <DevExtremeSwitch name='enabled' control={form.control} />
 ```
+
+### DevExtremeFileUploader
+
+RHF-integrated wrapper around DevExtreme's `FileUploader`. Defaults to `uploadMode='useForm'` so the consumer's form submit handler owns the actual upload — the wrapper just tracks the selected `File[]` in form state.
+
+```tsx
+<DevExtremeFileUploader
+  name='attachment'
+  control={form.control}
+  label='Attachment'
+  required
+  accept='.pdf,.docx,image/*'
+  multiple
+  maxFileSize={5 * 1024 * 1024}
+  allowedFileExtensions={['.pdf', '.docx', '.png', '.jpg']}
+  labelText='Drop files here'
+  selectButtonText='Browse'
+/>
+```
+
+Then upload them yourself in the submit handler (Pattern A from the [Custom Components with Validation](../../../SPFX-Toolkit-Usage-Guide.md#custom-components-with-validation) section in the usage guide):
+
+```tsx
+const onSubmit = async ({ attachment, ...rest }: FormData) => {
+  const item = await SPContext.sp.web.lists.getByTitle('Documents').items.add(rest);
+  for (const file of attachment as File[]) {
+    await SPContext.sp.web.lists
+      .getByTitle('Documents')
+      .items.getById(item.data.Id)
+      .attachmentFiles.add(file.name, file);
+  }
+};
+```
+
+**Common props**
+
+- `multiple?: boolean` - allow multi-file selection
+- `accept?: string` - HTML accept string (`'.pdf,image/*'`)
+- `allowedFileExtensions?: string[]` - whitelist (`['.pdf', '.docx']`)
+- `maxFileSize?` / `minFileSize?: number` - bytes
+- `uploadMode?: 'useForm' | 'instantly' | 'useButtons'` - default `'useForm'` (no DevExtreme upload). Switch to `'instantly'` + `uploadUrl` to let DevExtreme POST files on selection.
+- `uploadUrl?`, `uploadHeaders?`, `uploadMethod?`, `chunkSize?` - server-upload config when not `useForm`
+- `labelText?`, `selectButtonText?`, `uploadButtonText?`, `readyToUploadMessage?`, `uploadedMessage?`, `uploadFailedMessage?`, `invalidFileExtensionMessage?`, `invalidMaxFileSizeMessage?`, `invalidMinFileSizeMessage?` - UI strings
+- All [Shared Validation Props](#shared-validation-props): `label`, `required`, `isValid`, `errorMessage`, `errorText`, `showErrorMessage`, `validationMessageMode`
+- Events: `onValueChanged(files: File[])`, plus pass-throughs `onUploaded`, `onUploadStarted`, `onUploadError`, `onUploadAborted`, `onProgress`, `onBeforeSend`, `onFilesUploaded`
+
+The value is always a `File[]` (use `files[0]` for single-select mode), which keeps the shape consistent with DevExtreme's underlying API.
 
 ## PnP Components
 

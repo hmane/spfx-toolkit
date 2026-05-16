@@ -22,6 +22,7 @@ export {
   DevExtremeAutocomplete,
   DevExtremeCheckBox,
   DevExtremeDateBox,
+  DevExtremeFileUploader,
   DevExtremeNumberBox,
   DevExtremeRadioGroup,
   DevExtremeSelectBox,
@@ -76,9 +77,11 @@ export type {
 } from './hooks';
 
 export type {
+  DevExtremeFileUploaderMode,
   IDevExtremeAutocompleteProps,
   IDevExtremeCheckBoxProps,
   IDevExtremeDateBoxProps,
+  IDevExtremeFileUploaderProps,
   IDevExtremeNumberBoxProps,
   IDevExtremeRadioGroupProps,
   IDevExtremeSelectBoxProps,
