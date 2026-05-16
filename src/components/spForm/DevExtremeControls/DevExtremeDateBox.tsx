@@ -137,7 +137,7 @@ const DevExtremeDateBox = <T extends FieldValues>({
           max={max}
           showClearButton={showClearButton}
           useMaskBehavior={useMaskBehavior}
-          dateSerializationFormat={dateSerializationFormat}
+          {...(dateSerializationFormat !== undefined && { dateSerializationFormat })}
           stylingMode={stylingMode}
           hint={hint}
           inputAttr={inputAttr}

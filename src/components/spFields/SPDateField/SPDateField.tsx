@@ -373,7 +373,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               max={maxDate}
               pickerType="calendar"
               useMaskBehavior={useMaskBehavior}
-              dateSerializationFormat={dateSerializationFormat}
+              {...(dateSerializationFormat !== undefined && { dateSerializationFormat })}
               openOnFieldClick={true}
               showAnalogClock={false}
               interval={timeInterval}
@@ -399,7 +399,7 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               max={maxDate}
               pickerType="calendar"
               useMaskBehavior={useMaskBehavior}
-              dateSerializationFormat={dateSerializationFormat}
+              {...(dateSerializationFormat !== undefined && { dateSerializationFormat })}
               openOnFieldClick={false}
               showAnalogClock={false}
               interval={timeInterval}

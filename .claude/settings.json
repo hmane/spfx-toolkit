@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git -C /Users/hemantmane/Development/spfx-toolkit diff --stat src/components/spForm/FormErrorSummary/FormErrorSummary.tsx)",
-      "Bash(git -C /Users/hemantmane/Development/spfx-toolkit diff --stat)"
+      "Bash(git -C /Users/hemantmane/Development/spfx-toolkit diff --stat)",
+      "Bash(node -e \"const p=require\\('/Users/hemantmane/Development/spfx-toolkit/package.json'\\); console.log\\(JSON.stringify\\({exports:p.exports, peerDeps:p.peerDependencies, sideEffects:p.sideEffects}, null, 2\\)\\)\")",
+      "Bash(node -e \"const p=require\\('/Users/hemantmane/Development/spfx-toolkit/package.json'\\); console.log\\(JSON.stringify\\(p.exports, null, 2\\)\\)\")",
+      "Bash(node -e \"const p=require\\('/Users/hemantmane/Development/spfx-toolkit/package.json'\\); console.log\\(Object.keys\\(p.exports\\).filter\\(k => k !== '.'\\).sort\\(\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const p=require\\('/Users/hemantmane/Development/spfx-toolkit/package.json'\\); console.log\\(JSON.stringify\\(p.exports['./utils'], null, 2\\)\\); console.log\\('---'\\); console.log\\(JSON.stringify\\(p.exports['./types'], null, 2\\)\\); console.log\\('---'\\); console.log\\(JSON.stringify\\(p.exports['./hooks'], null, 2\\)\\);\")"
     ]
   }
 }

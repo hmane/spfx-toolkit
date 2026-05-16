@@ -201,7 +201,7 @@ function DevExtremeFileUploaderInner<T extends FieldValues>({
           uploadMode={uploadMode}
           uploadUrl={uploadUrl}
           uploadHeaders={uploadHeaders}
-          uploadMethod={uploadMethod}
+          {...(uploadMethod !== undefined && { uploadMethod })}
           chunkSize={chunkSize}
           labelText={labelText}
           selectButtonText={selectButtonText}

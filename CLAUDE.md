@@ -112,14 +112,16 @@ import { HelperUtility } from '@utilities/helper';
 
 **In consuming projects:**
 ```typescript
-// ✅ CORRECT: Use package imports
-import { Card } from 'spfx-toolkit/lib/components/Card';
-import { useLocalStorage } from 'spfx-toolkit/lib/hooks';
-import { BatchBuilder } from 'spfx-toolkit/lib/utilities/batchBuilder';
+// ✅ CORRECT: Use the canonical subpath
+import { Card } from 'spfx-toolkit/components/Card';
+import { useLocalStorage } from 'spfx-toolkit/hooks';
+import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 
 // ❌ AVOID: Main package import (imports everything)
 import { Card } from 'spfx-toolkit';
 ```
+
+**Authoritative reference for every importable component/hook/utility:** [`docs/Importing-Components.md`](docs/Importing-Components.md). When recommending an import path to a user, cite that doc and copy the exact path from its tables — do not invent paths or guess at deep subpaths that may not be in `package.json` `exports`.
 
 ---
 

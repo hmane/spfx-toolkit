@@ -23,7 +23,9 @@ import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 
 This package now ships compatibility proxy entrypoints, so `spfx-toolkit/components/...`, `spfx-toolkit/hooks`, and `spfx-toolkit/utilities/...` resolve in classic SPFx and `npm link` setups as well. Legacy `spfx-toolkit/lib/*` imports still work for backward compatibility.
 
-See [Bundle Size Optimization](#-bundle-size-optimization) for complete details.
+**For the complete, authoritative import reference (every component, hook, and utility with its canonical path), see [docs/Importing-Components.md](docs/Importing-Components.md).** AI agents and new contributors should start there.
+
+See [Bundle Size Optimization](#-bundle-size-optimization) for additional bundle-impact details.
 
 ---
 

@@ -139,7 +139,7 @@ function DevExtremeTextBoxInner<T extends FieldValues>({
           readOnly={readOnly}
           mode={mode}
           maxLength={maxLength}
-          buttons={buttons as any}
+          {...(buttons !== undefined && { buttons: buttons as any })}
           hint={hint}
           inputAttr={inputAttr}
           tabIndex={tabIndex}

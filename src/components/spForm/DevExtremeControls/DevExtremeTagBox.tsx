@@ -131,6 +131,16 @@ const DevExtremeTagBox = <T extends FieldValues>({
       validationMessageMode,
     });
 
+    // DevExtreme validates several string-union options on mount; passing
+    // `undefined` explicitly bypasses the component's own default-handling
+    // and crashes its internal validators (e.g. `_validateSearchMode` calls
+    // `.toLowerCase()` on the option). Spread only when the caller set a value.
+    const searchTuningProps: Record<string, unknown> = {};
+    if (searchExpr !== undefined) searchTuningProps.searchExpr = searchExpr;
+    if (searchMode !== undefined) searchTuningProps.searchMode = searchMode;
+    if (searchTimeout !== undefined) searchTuningProps.searchTimeout = searchTimeout;
+    if (minSearchLength !== undefined) searchTuningProps.minSearchLength = minSearchLength;
+
     return (
       <>
         <TagBox
@@ -154,10 +164,7 @@ const DevExtremeTagBox = <T extends FieldValues>({
           disabled={disabled}
           readOnly={readOnly}
           searchEnabled={searchEnabled}
-          searchExpr={searchExpr}
-          searchMode={searchMode}
-          searchTimeout={searchTimeout}
-          minSearchLength={minSearchLength}
+          {...searchTuningProps}
           showClearButton={showClearButton}
           showSelectionControls={showSelectionControls}
           maxDisplayedTags={maxDisplayedTags}
