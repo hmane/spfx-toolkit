@@ -88,7 +88,20 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     inputRef,
   } = props;
 
-  const [internalValue, setInternalValue] = React.useState<number | undefined>(defaultValue);
+  const [internalValue, setInternalValue] = React.useState<number | undefined>(
+    defaultValue ?? value
+  );
+
+  // Mirror external `value` prop changes into internal state. Without this, a
+  // consumer that updates `value` via an async setState would briefly snap the
+  // input back to a stale value mid-typing, because the displayed value would
+  // prefer the prop over our internal state.
+  React.useEffect(() => {
+    if (value !== undefined && value !== internalValue) {
+      setInternalValue(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -111,8 +124,11 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
     }
   }, [name, label, required, formContext, fieldRef]);
 
-  // Use controlled value if provided, otherwise use internal state
-  const currentValue = value !== undefined ? value : internalValue;
+  // Display source of truth is always `internalValue`. External `value` changes
+  // are mirrored into it by the effect above. Reading from a single source
+  // eliminates the controlled-vs-uncontrolled snap-back during typing when the
+  // consumer's setState is asynchronous.
+  const currentValue = internalValue;
 
   // Build format string for DevExtreme
   const numberFormat = React.useMemo(() => {

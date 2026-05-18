@@ -95,9 +95,24 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
 
   // F-6: Defensive property access - normalize defaultValue to ensure correct shape
   const [internalValue, setInternalValue] = React.useState<ISPUrlFieldValue>(() => ({
-    Url: defaultValue?.Url ?? '',
-    Description: defaultValue?.Description ?? '',
+    Url: value?.Url ?? defaultValue?.Url ?? '',
+    Description: value?.Description ?? defaultValue?.Description ?? '',
   }));
+
+  // Mirror external `value` prop changes into internal state. Per-property
+  // comparison avoids re-syncing when the parent recreates the object
+  // reference without changing the content. Without this effect, an async
+  // consumer setState would snap the URL/Description inputs back to stale
+  // values mid-typing.
+  React.useEffect(() => {
+    if (value === undefined) return;
+    const nextUrl = value.Url ?? '';
+    const nextDescription = value.Description ?? '';
+    if (nextUrl !== internalValue.Url || nextDescription !== internalValue.Description) {
+      setInternalValue({ Url: nextUrl, Description: nextDescription });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.Url, value?.Description]);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -120,12 +135,14 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
     }
   }, [name, label, required, formContext, fieldRef]);
 
-  // Use controlled value if provided, otherwise use internal state
-  // F-6: Ensure currentValue always has correct shape with defensive defaults
+  // Display source of truth is always `internalValue`. External `value` changes
+  // are mirrored into it by the effect above. Reading from a single source
+  // eliminates the snap-back behaviour during typing when the consumer's
+  // setState is asynchronous.
   const currentValue: ISPUrlFieldValue = React.useMemo(() => ({
-    Url: (value !== undefined ? value?.Url : internalValue.Url) ?? '',
-    Description: (value !== undefined ? value?.Description : internalValue.Description) ?? '',
-  }), [value, internalValue]);
+    Url: internalValue.Url ?? '',
+    Description: internalValue.Description ?? '',
+  }), [internalValue]);
 
   // URL validation regex
   const urlRegex = React.useMemo(() => {

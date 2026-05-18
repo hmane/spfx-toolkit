@@ -122,8 +122,28 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
   } = props;
 
-  const [internalValue, setInternalValue] = React.useState<string>(defaultValue || '');
+  const [internalValue, setInternalValue] = React.useState<string>(
+    defaultValue ?? value ?? ''
+  );
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
+
+  // Mirror external `value` prop changes into internal state. Effect only fires
+  // when the `value` reference actually changes, so a keystroke setting
+  // internalValue does NOT re-trigger this (keys are stable until parent
+  // setState propagates). This pattern preserves typed input during the
+  // `debounceDelay` window — without it, every keystroke briefly snaps the
+  // input back to the parent's stale `value` until the debounced onChange
+  // catches up.
+  React.useEffect(() => {
+    if (value !== undefined && value !== internalValue) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = undefined;
+      }
+      setInternalValue(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -161,11 +181,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     !(showHistory && historyPosition === 'below')
   );
 
-  // Use controlled value if provided, otherwise use internal state
-  // EXCEPTION: For append-only mode, always use internal state for the input
-  // because the value prop contains existing notes (or SharePoint HTML link)
-  // and the input should start empty for adding new notes
-  const currentValue = appendOnly ? internalValue : (value !== undefined ? value : internalValue);
+  // Display source of truth is always `internalValue`. External `value` changes
+  // are mirrored into `internalValue` by the effect above. Reading from a
+  // single source eliminates the controlled-vs-uncontrolled flicker that would
+  // otherwise show up between a keystroke and the debounced onChange firing.
+  const currentValue = internalValue;
 
   // Debounced change handler
   const handleChange = React.useCallback(
