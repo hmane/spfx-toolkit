@@ -94,16 +94,13 @@ const FormItem: React.FC<IFormItemProps> = ({
   fieldName,
   autoShowError,
   section,
-  fieldId,
+  // `fieldId` is accepted for backward compatibility but currently unused —
+  // FormItem doesn't render the input, so wiring an id from here would be
+  // misleading. See the `isLabel` branch below for the rationale.
 }) => {
   const formContext = useFormContext();
   const liveFormState = useFormStateContext();
   const fieldRef = React.useRef<HTMLDivElement>(null);
-
-  // Generate field ID
-  const generatedFieldId = React.useMemo(() => {
-    return fieldId || (fieldName ? `field-${fieldName}` : undefined);
-  }, [fieldId, fieldName]);
 
   // Register field with FormContext
   React.useEffect(() => {
@@ -167,10 +164,14 @@ const FormItem: React.FC<IFormItemProps> = ({
         childType?.name === 'FormError' || childType?.displayName === 'FormError';
 
       if (isLabel) {
-        // Enhance label with htmlFor
-        label = generatedFieldId
-          ? React.cloneElement(child, { htmlFor: generatedFieldId } as any)
-          : child;
+        // FormLabel renders without `htmlFor` because FormItem doesn't render
+        // the actual input — it lives inside the value child (FormValue or a
+        // direct SP/DevExtreme field). Setting `htmlFor` here would point at
+        // an id that's never wired through to the input, which is worse for
+        // screen readers than no `htmlFor` at all. To wire the label to the
+        // input, set the input's `id` (or DevExtreme `inputAttr.id`) and the
+        // label's `htmlFor` directly via consumer props.
+        label = child;
       } else if (isFormValue) {
         value = child;
         hasFormValueChild = true; // FormValue handles its own error/char count row
