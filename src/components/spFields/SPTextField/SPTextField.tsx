@@ -128,7 +128,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   const [internalValue, setInternalValue] = React.useState<string>(
     appendOnly ? (defaultValue ?? '') : (defaultValue ?? value ?? '')
   );
-  const debounceTimerRef = React.useRef<NodeJS.Timeout>();
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   // Mirror external `value` prop changes into internal state. Effect only fires
   // when the `value` reference actually changes, so a keystroke setting

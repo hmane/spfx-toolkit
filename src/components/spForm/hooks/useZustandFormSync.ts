@@ -77,7 +77,7 @@ export function useZustandFormSync(
     getKey = 'formData',
   } = options || {};
 
-  const debounceTimerRef = React.useRef<NodeJS.Timeout>();
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   // Watch form changes
   const formData = useWatch({ control });

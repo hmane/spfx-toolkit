@@ -51,8 +51,8 @@ export const GroupViewer: React.FC<IGroupViewerProps> = props => {
   const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false);
 
   // Refs and cache
-  const loadTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadingRef = React.useRef(false);
   const cacheRef = React.useRef<
     Map<string, { info: IGroupInfo; members: IGroupMember[]; ts: number }>
