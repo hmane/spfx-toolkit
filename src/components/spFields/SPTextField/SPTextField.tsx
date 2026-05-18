@@ -122,8 +122,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
 
   } = props;
 
+  // Append-only mode keeps the input empty for new note entry — existing notes
+  // are rendered by NoteHistory, not the input — so it must NOT seed from
+  // `value` (which carries the historical note text).
   const [internalValue, setInternalValue] = React.useState<string>(
-    defaultValue ?? value ?? ''
+    appendOnly ? (defaultValue ?? '') : (defaultValue ?? value ?? '')
   );
   const debounceTimerRef = React.useRef<NodeJS.Timeout>();
 
@@ -134,7 +137,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
   // `debounceDelay` window — without it, every keystroke briefly snaps the
   // input back to the parent's stale `value` until the debounced onChange
   // catches up.
+  // Skipped in append-only mode: the input is always for new entries, and
+  // syncing the historical `value` prop in would pre-populate the input with
+  // existing notes (which belong in NoteHistory, not the input).
   React.useEffect(() => {
+    if (appendOnly) return;
     if (value !== undefined && value !== internalValue) {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -143,7 +150,7 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
       setInternalValue(value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, appendOnly]);
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
