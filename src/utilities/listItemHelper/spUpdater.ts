@@ -313,20 +313,47 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
  * If the caller passes a `YYYY-MM-DD` string, it is returned as-is.
  */
 /**
- * Format a Date as ISO 8601 *without* the millisecond suffix
- * (`YYYY-MM-DDTHH:mm:ssZ` instead of `YYYY-MM-DDTHH:mm:ss.sssZ`).
+ * Format a Date as `M/D/YYYY h:mm AM/PM` using *local* date/time components —
+ * the format SharePoint's `validateUpdateListItem` accepts for DateTime
+ * columns on US English (LocaleId 1033) sites.
  *
- * `validateUpdateListItem` on some SharePoint Online tenants rejects the
- * `.000Z` form with the generic error "You must specify a valid date within
- * the range of 1/1/1900 and 12/31/8900" — the date is fine, the parser just
- * refuses fractional seconds. The PnP `update()` path (different endpoint,
- * different parser) accepts both forms, so this strip applies only to the
- * validate path.
+ * Why not ISO: SP's validateUpdateListItem date parser is locale-aware and
+ * matches what a user would type in the form input. ISO with `Z` or `.000Z`
+ * is rejected on many SPO tenants with the misleading error "You must
+ * specify a valid date within the range of 1/1/1900 and 12/31/8900" — the
+ * date is fine, the parser just refuses ISO formats.
  *
- * Both forms are valid ISO 8601, so this is safe across modern SPO.
+ * Source: SP MVP Phil Harding's documented format
+ * (https://gist.github.com/phillipharding/30714d4ee245bfc0cba5699b6bb4193e).
+ *
+ * Locale caveat: this format works for US-English sites. For non-US sites
+ * (DD/MM/YYYY locales etc.), consumers should pre-format the date as a
+ * locale-appropriate string and pass it through `set(field, formattedString)`
+ * instead of a `Date` instance — the formatter passes strings through as-is
+ * for the validate path.
  */
-function toIsoSecondsZ(value: Date): string {
-  return value.toISOString().replace(/\.\d{3}Z$/, 'Z');
+function toSpDateTimeString(value: Date): string {
+  const m = value.getMonth() + 1;
+  const d = value.getDate();
+  const y = value.getFullYear();
+  let h = value.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  const min = String(value.getMinutes()).padStart(2, '0');
+  return `${m}/${d}/${y} ${h}:${min} ${ampm}`;
+}
+
+/**
+ * Format a Date as `M/D/YYYY` using *local* date components — the format
+ * SharePoint's `validateUpdateListItem` accepts for Date Only columns on
+ * US English sites. Same locale caveat as `toSpDateTimeString`.
+ */
+function toSpDateString(value: Date): string {
+  const m = value.getMonth() + 1;
+  const d = value.getDate();
+  const y = value.getFullYear();
+  return `${m}/${d}/${y}`;
 }
 
 function formatAsDateOnly(value: Date | string): string {
@@ -814,16 +841,33 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       // DateTime: ISO without the `.000` millisecond suffix. The full
       // `toISOString()` form is rejected on some SPO tenants by
       // `validateUpdateListItem` with the generic "must specify a valid date"
-      // error — see `toIsoSecondsZ`. Both forms are valid ISO 8601.
-      if (value instanceof Date) return toIsoSecondsZ(value);
+      // error — see `toSpDateTimeString`. Both forms are valid ISO 8601.
+      if (value instanceof Date) return toSpDateTimeString(value);
       if (typeof value === 'string') {
         const d = new Date(value);
-        return isNaN(d.getTime()) ? '' : toIsoSecondsZ(d);
+        return isNaN(d.getTime()) ? '' : toSpDateTimeString(d);
       }
       return '';
 
-    case 'dateOnly':
-      return formatAsDateOnly(value);
+    case 'dateOnly': {
+      // SP `validateUpdateListItem` for Date Only columns expects `M/D/YYYY`
+      // locale format (US English), per the same source as DateTime above.
+      // The PnP `update()` path keeps `YYYY-MM-DD` because Edm.DateTime
+      // accepts ISO date — only the validate parser is locale-strict.
+      if (value instanceof Date) return toSpDateString(value);
+      if (typeof value === 'string') {
+        // Already M/D/YYYY locale form → pass through.
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) return value;
+        // YYYY-MM-DD → convert lexically (TZ-safe). Routing through `new Date`
+        // would interpret the string as UTC midnight and the local-component
+        // formatter would then shift the day by ±1 in non-UTC environments.
+        const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (iso) return `${parseInt(iso[2], 10)}/${parseInt(iso[3], 10)}/${iso[1]}`;
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? '' : toSpDateString(parsed);
+      }
+      return '';
+    }
 
     case 'multiChoice':
       // Canonical FieldValue format is `<choice1>;#<choice2>` — choices joined
@@ -944,11 +988,11 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
   }
 
   if (value instanceof Date) {
-    // ISO without the `.000` millisecond suffix — see `toIsoSecondsZ`.
+    // ISO without the `.000` millisecond suffix — see `toSpDateTimeString`.
     // Some SPO tenants reject `…T…:…:….000Z` from `validateUpdateListItem`
     // with the generic "must specify a valid date" error. Both forms are
     // valid ISO 8601; the stripped form is universally accepted.
-    return toIsoSecondsZ(value);
+    return toSpDateTimeString(value);
   }
 
   if (Array.isArray(value)) {

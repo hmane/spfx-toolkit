@@ -336,18 +336,25 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     ]);
   });
 
-  test('Date → ISO 8601 *without* millisecond suffix', () => {
-    // REGRESSION: `validateUpdateListItem` on some SPO tenants rejects the
-    // `.000Z` millisecond form with the generic "must specify a valid date
-    // within the range of 1/1/1900 and 12/31/8900" error (reproduced on
-    // dodgeandcox.sharepoint.com against TargetReturnDate). Both forms are
-    // valid ISO 8601 and the stripped form is universally accepted.
-    const date = new Date(Date.UTC(2026, 4, 8, 12, 0, 0));
+  test('Date → "M/D/YYYY h:mm AM/PM" (SP locale format, NOT ISO)', () => {
+    // REGRESSION: `validateUpdateListItem` rejects ISO date formats with the
+    // generic "must specify a valid date within the range of 1/1/1900 and
+    // 12/31/8900" error (reproduced on dodgeandcox.sharepoint.com against
+    // TargetReturnDate with BOTH `2026-06-06T07:00:00.000Z` and
+    // `2026-06-06T07:00:00Z`). SP expects the locale-formatted date string
+    // matching what a user would type into the form input. For US English
+    // (LocaleId 1033) sites that is `M/D/YYYY h:mm AM/PM`.
+    // Source: SP MVP Phil Harding,
+    // https://gist.github.com/phillipharding/30714d4ee245bfc0cba5699b6bb4193e
+    //
+    // Local-time constructor so the formatter's local-component output is
+    // deterministic regardless of the test runner's timezone.
+    const date = new Date(2018, 5, 23, 22, 15, 0); // 6/23/2018 10:15 PM local
     const out = createSPUpdater()
       .set('Due', date)
       .getValidateUpdates();
     assert.equal(out[0].FieldName, 'Due');
-    assert.equal(out[0].FieldValue, '2026-05-08T12:00:00Z');
+    assert.equal(out[0].FieldValue, '6/23/2018 10:15 PM');
   });
 
   test('user single without loginName/value → throws (email is not accepted as Key)', () => {
@@ -539,10 +546,13 @@ describe('spUpdater — setDateOnly (Date Only column)', () => {
     assert.equal(out.DueDate, '2024-01-15');
   });
 
-  test('setDateOnly validate path emits YYYY-MM-DD (not ISO)', () => {
+  test('setDateOnly validate path emits "M/D/YYYY" (SP locale format)', () => {
+    // SP `validateUpdateListItem` for Date Only columns expects M/D/YYYY
+    // locale format (US English), same as DateTime. The PnP `update()` path
+    // keeps YYYY-MM-DD since Edm.DateTime accepts ISO date.
     const d = new Date(2024, 0, 15);
     const out = createSPUpdater().setDateOnly('DueDate', d).getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'DueDate', FieldValue: '2024-01-15' }]);
+    assert.deepEqual(out, [{ FieldName: 'DueDate', FieldValue: '1/15/2024' }]);
   });
 
   test('setDateOnly with null clears the field', () => {
