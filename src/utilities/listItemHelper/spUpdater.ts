@@ -815,30 +815,30 @@ export function formatValueForPnP(
 }
 
 /**
- * Resolve the login-name claim that SP's `validateUpdateListItem` expects as
- * the `Key` of a user/group field.
+ * Resolve the people-picker entry shape that SharePoint's
+ * `validateUpdateListItem` expects for user/group fields.
  *
- * SP requires a claims-formatted login string (e.g.
- * `i:0#.f|membership|user@contoso.com`). It does **not** accept raw email —
- * sending email silently saves an unresolvable user reference.
- *
- * Throws when neither `value` nor `loginName` is set on the principal so the
- * caller fails fast instead of producing an invalid SP write.
+ * For regular users, SharePoint accepts the membership claim built from the
+ * email address, with `IsResolved: false` so the server resolves the principal
+ * during validation. If the caller already has a claim (`value` / `loginName`)
+ * but no email, preserve it as a fallback for group or custom principal shapes.
  */
-function requireLoginNameKey(person: IPrincipal): string {
-  const key = person.value || person.loginName;
+function buildUserValidateEntry(person: IPrincipal): { Key: string; IsResolved: boolean } {
+  const email = person.email || (person as any).EMail;
+  const key = email ? `i:0#.f|membership|${email}` : person.value || person.loginName;
   if (!key) {
     throw new Error(
-      `spUpdater: cannot build user field write — IPrincipal is missing 'loginName' / 'value' (login claim). ` +
-        `SP requires the claims-formatted login name (e.g. 'i:0#.f|membership|user@contoso.com'); ` +
-        `email alone is not accepted. Got: ${JSON.stringify({
+      `spUpdater: cannot build user field write — IPrincipal is missing 'email' / 'EMail' / 'loginName' / 'value'. ` +
+        `SP validateUpdateListItem requires a people-picker Key such as ` +
+        `'i:0#.f|membership|user@contoso.com'. Got: ${JSON.stringify({
           id: person.id,
           email: person.email,
+          EMail: (person as any).EMail,
           title: person.title,
         })}`
     );
   }
-  return key;
+  return { Key: key, IsResolved: false };
 }
 
 /**
@@ -855,7 +855,7 @@ function requireLoginNameKey(person: IPrincipal): string {
  *   - date (DateTime)   → locale date/time (`6/23/2018 10:15 PM`)
  *   - dateOnly          → `YYYY-MM-DD` (no time, no TZ)
  *   - multiChoice       → `;#a;#b;#c;#`
- *   - user single/multi → `JSON.stringify([{Key: '<login claim>'}, …])`
+ *   - user single/multi → `JSON.stringify([{Key: '<membership claim>', IsResolved: false}, …])`
  *   - lookup single     → numeric id as string
  *   - lookup multi      → `1;#Title 1;#2;#Title 2`
  *   - taxonomy single   → `Label|WssId|TermGuid;`
@@ -933,14 +933,14 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
     case 'user':
       // Single user is still wrapped in an array of one entry — SP's
       // validateUpdateListItem expects the same `[{Key}]` shape for both.
-      return JSON.stringify([{ Key: requireLoginNameKey(value as IPrincipal) }]);
+      return JSON.stringify([buildUserValidateEntry(value as IPrincipal)]);
 
     case 'userMulti':
       // Empty string is the safest validateUpdateListItem clear value for
       // people fields. Non-empty values must use the JSON `[{Key}]` form.
       if (!Array.isArray(value) || value.length === 0) return '';
       return JSON.stringify(
-        value.map((p: IPrincipal) => ({ Key: requireLoginNameKey(p) }))
+        value.map((p: IPrincipal) => buildUserValidateEntry(p))
       );
 
     case 'lookup': {
@@ -1061,10 +1061,8 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
 
     if (typeof firstItem === 'object' && firstItem !== null) {
       // User multi
-      if ('email' in firstItem || 'value' in firstItem || 'loginName' in firstItem) {
-        const persons = value.map((person: IPrincipal) => ({
-          Key: requireLoginNameKey(person),
-        }));
+      if ('email' in firstItem || 'EMail' in firstItem || 'value' in firstItem || 'loginName' in firstItem) {
+        const persons = value.map((person: IPrincipal) => buildUserValidateEntry(person));
         return JSON.stringify(persons);
       }
 
@@ -1090,8 +1088,8 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
 
   if (typeof value === 'object' && value !== null) {
     // User single
-    if ('email' in value || 'value' in value || 'loginName' in value) {
-      return JSON.stringify([{ Key: requireLoginNameKey(value as IPrincipal) }]);
+    if ('email' in value || 'EMail' in value || 'value' in value || 'loginName' in value) {
+      return JSON.stringify([buildUserValidateEntry(value as IPrincipal)]);
     }
 
     // Lookup single

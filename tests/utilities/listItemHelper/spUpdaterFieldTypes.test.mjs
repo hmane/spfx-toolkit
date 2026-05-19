@@ -361,20 +361,19 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.equal(map.B, '0');
   });
 
-  test('user single → JSON [{Key}]', () => {
+  test('user single → JSON [{Key, IsResolved}] using membership email claim', () => {
     const out = createSPUpdater()
       .setUser('AssignedTo', {
         id: '5',
         email: 'a@b.com',
-        loginName: 'i:0#.f|membership|a@b.com',
         title: 'A',
       })
       .getValidateUpdates();
     assert.equal(out[0].FieldName, 'AssignedTo');
     const parsed = JSON.parse(out[0].FieldValue);
-    assert.equal(parsed.length, 1);
-    // Key prefers value > loginName > email — implementation detail, just assert it's set.
-    assert.ok(parsed[0].Key);
+    assert.deepEqual(parsed, [
+      { Key: 'i:0#.f|membership|a@b.com', IsResolved: false },
+    ]);
   });
 
   test('lookup single → "id"', () => {
@@ -469,32 +468,26 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.equal(out[0].FieldValue, '6/23/2018 10:15 PM');
   });
 
-  test('user single without loginName/value → throws (email is not accepted as Key)', () => {
-    // SP requires the claims-formatted login name as `Key` —
-    // `i:0#.f|membership|user@x.com`. Email alone produces a silent invalid
-    // write. We fail fast instead.
-    const u = createSPUpdater().setUser('AssignedTo', {
-      id: '5',
-      email: 'a@b.com',
-      title: 'A',
-    });
+  test('user single without email/loginName/value → throws', () => {
+    const u = createSPUpdater().setUser('AssignedTo', { id: '5', title: 'A' });
     assert.throws(
       () => u.getValidateUpdates(),
-      /missing 'loginName' \/ 'value'/
+      /missing 'email' \/ 'EMail' \/ 'loginName' \/ 'value'/
     );
   });
 
-  test('user single with loginName → JSON [{ Key: <claim> }]', () => {
+  test('user single with EMail → JSON [{ Key: membership claim, IsResolved: false }]', () => {
     const out = createSPUpdater()
       .setUser('AssignedTo', {
         id: '5',
-        email: 'a@b.com',
-        loginName: 'i:0#.f|membership|a@b.com',
+        EMail: 'a@b.com',
         title: 'A',
       })
       .getValidateUpdates();
     const parsed = JSON.parse(out[0].FieldValue);
-    assert.deepEqual(parsed, [{ Key: 'i:0#.f|membership|a@b.com' }]);
+    assert.deepEqual(parsed, [
+      { Key: 'i:0#.f|membership|a@b.com', IsResolved: false },
+    ]);
   });
 });
 
@@ -764,8 +757,8 @@ describe('spUpdater — select and multi-select value matrix', () => {
     ]);
     assert.deepEqual(selected.getUpdates(), { ReviewersId: [1, 2] });
     assert.deepEqual(JSON.parse(selected.getValidateUpdates()[0].FieldValue), [
-      { Key: 'i:0#.f|membership|a@b.com' },
-      { Key: 'i:0#.f|membership|c@d.com' },
+      { Key: 'i:0#.f|membership|a@b.com', IsResolved: false },
+      { Key: 'i:0#.f|membership|c@d.com', IsResolved: false },
     ]);
 
     const empty = createSPUpdater().setUserMulti('Reviewers', []);
@@ -817,25 +810,29 @@ describe('spUpdater — typed setter overrides value-shape detection', () => {
     assert.deepEqual(out, { CategoriesId: [5, 6] });
   });
 
-  test('setUser validate: throws when login claim missing — even for {Id,Title} input', () => {
-    // Validate path requires the claims-formatted login name. The typed
-    // setter routes to the user branch where the claim check fires.
+  test('setUser validate: throws when email/login claim missing — even for {Id,Title} input', () => {
+    // Validate path requires either an email to build the membership claim
+    // or a pre-resolved login/value claim. The typed setter routes to the
+    // user branch where that check fires.
     const u = createSPUpdater().setUser('AssignedTo', { Id: 5, Title: 'Alice' });
-    assert.throws(() => u.getValidateUpdates(), /missing 'loginName' \/ 'value'/);
+    assert.throws(
+      () => u.getValidateUpdates(),
+      /missing 'email' \/ 'EMail' \/ 'loginName' \/ 'value'/
+    );
   });
 
-  test('setUserMulti validate: emits [{Key}] JSON for objects with loginName', () => {
+  test('setUserMulti validate: emits [{Key, IsResolved}] JSON for objects with email', () => {
     const out = createSPUpdater()
       .setUserMulti('Reviewers', [
-        { id: 1, email: 'a@b.com', loginName: 'i:0#.f|membership|a@b.com', title: 'A' },
-        { id: 2, email: 'c@d.com', loginName: 'i:0#.f|membership|c@d.com', title: 'C' },
+        { id: 1, email: 'a@b.com', title: 'A' },
+        { id: 2, email: 'c@d.com', title: 'C' },
       ])
       .getValidateUpdates();
     assert.equal(out[0].FieldName, 'Reviewers');
     const parsed = JSON.parse(out[0].FieldValue);
     assert.deepEqual(parsed, [
-      { Key: 'i:0#.f|membership|a@b.com' },
-      { Key: 'i:0#.f|membership|c@d.com' },
+      { Key: 'i:0#.f|membership|a@b.com', IsResolved: false },
+      { Key: 'i:0#.f|membership|c@d.com', IsResolved: false },
     ]);
   });
 
