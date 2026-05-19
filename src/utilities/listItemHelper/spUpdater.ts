@@ -49,13 +49,23 @@ import { isEqual } from '@microsoft/sp-lodash-subset';
 import { IListItemFormUpdateValue, IPrincipal } from '../../types';
 
 /**
- * Supported SharePoint field types for explicit type specification
+ * Supported SharePoint field types for explicit type specification.
+ *
+ * `date` vs `dateOnly`:
+ *   - `date` → DateTime column. Writes `Date` instance for `update()` (PnP
+ *     serializes to ISO `…T…Z`) and ISO string for `validateUpdateListItem`.
+ *     Use for timestamps where time-of-day matters.
+ *   - `dateOnly` → DateOnly column. Writes `YYYY-MM-DD` (no time, no TZ) for
+ *     both paths. Prevents the ±1 day shift that ISO-with-Z causes when the
+ *     SP regional setting isn't UTC. Use `setDateOnly()` for any column whose
+ *     SharePoint configuration is "Date Only".
  */
 export type SPUpdateFieldType =
   | 'string'
   | 'number'
   | 'boolean'
   | 'date'
+  | 'dateOnly'
   | 'user'
   | 'userMulti'
   | 'lookup'
@@ -266,6 +276,13 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
       }
       return value instanceof Date ? value : null;
 
+    case 'dateOnly':
+      // Normalize to YYYY-MM-DD string so change detection is consistent
+      // whether the caller passes a Date instance, a YYYY-MM-DD string, or
+      // an ISO timestamp. Avoids spurious "changed" results when the
+      // original is one shape and the new value is another.
+      return formatAsDateOnly(value);
+
     case 'url':
       if (typeof value === 'string') {
         return { url: value, description: '' };
@@ -284,6 +301,245 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
 }
 
 /**
+ * Format a value as `YYYY-MM-DD` using the *local* date components.
+ *
+ * Why local: date pickers (DevExtreme DateBox `type="date"`, Fluent DatePicker)
+ * produce a `Date` at local midnight for the calendar day the user selected.
+ * Using `toISOString()` would shift that day backward in negative timezones
+ * (e.g. EST: `Date(2024-01-15T00:00 local)` → `2024-01-15T05:00Z` → SP stores
+ * Jan 15 in UTC → displays as Jan 14 in EST views). Reading the local
+ * components preserves the picked day exactly.
+ *
+ * If the caller passes a `YYYY-MM-DD` string, it is returned as-is.
+ */
+function formatAsDateOnly(value: Date | string): string {
+  if (typeof value === 'string') {
+    // If it's already YYYY-MM-DD shape, trust it; otherwise parse + format.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return '';
+    return formatAsDateOnly(parsed);
+  }
+  if (!(value instanceof Date) || isNaN(value.getTime())) return '';
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const d = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Resolve `${field}Id` suffix for user/lookup writes without double-suffixing
+ * when the caller already passed the `Id`-suffixed internal name.
+ */
+function withIdSuffix(fieldName: string): string {
+  return fieldName.endsWith('Id') ? fieldName : `${fieldName}Id`;
+}
+
+/**
+ * Extract the integer user/lookup id from a value that may be:
+ *   - a number (the id itself)
+ *   - an object with `id` / `Id` (string or number)
+ * Throws when the id cannot be resolved — silently writing `undefined` to
+ * `${field}Id` produces a partial save with no error, which is harder to
+ * diagnose than a fail-fast.
+ */
+function requireNumericId(fieldName: string, value: any, kind: 'user' | 'lookup'): number {
+  const raw =
+    typeof value === 'number'
+      ? value
+      : value && typeof value === 'object'
+        ? (value as any).id ?? (value as any).Id
+        : undefined;
+  if (raw === undefined || raw === null || raw === '') {
+    throw new Error(
+      `spUpdater: cannot build ${kind} write for "${fieldName}" — value is missing 'id' / 'Id'. ` +
+        `Got: ${JSON.stringify(value)}`
+    );
+  }
+  const n = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+  if (typeof n !== 'number' || isNaN(n)) {
+    throw new Error(
+      `spUpdater: ${kind} id for "${fieldName}" is not a valid number. Got: ${JSON.stringify(raw)}`
+    );
+  }
+  return n;
+}
+
+/**
+ * Format value for the PnP `update()` / `items.add()` path with the caller's
+ * explicit field type as the authoritative signal. Used when the consumer
+ * called a typed setter (setUser, setUserMulti, setLookup, setTaxonomy, …).
+ *
+ * Why this exists separately from value-shape detection: a user object that
+ * lacks `email`/`loginName` (e.g. just `{Id, Title}` from a lookup-shaped
+ * source) gets misclassified as a lookup by structure detection — silently
+ * producing the wrong wire format. The typed setter is the source of truth.
+ */
+function formatByExplicitTypeForPnP(
+  fieldName: string,
+  value: any,
+  explicitType: SPUpdateFieldType
+): Record<string, any> {
+  const updates: Record<string, any> = {};
+
+  // Null clears the field — but for user/lookup fields the cleared property
+  // is `${field}Id`, not the bare field name.
+  if (value === null || value === undefined) {
+    if (
+      explicitType === 'lookup' ||
+      explicitType === 'user'
+    ) {
+      updates[withIdSuffix(fieldName)] = null;
+    } else if (
+      explicitType === 'lookupMulti' ||
+      explicitType === 'userMulti'
+    ) {
+      updates[withIdSuffix(fieldName)] = [];
+    } else {
+      updates[fieldName] = null;
+    }
+    return updates;
+  }
+
+  switch (explicitType) {
+    case 'string':
+    case 'choice':
+      updates[fieldName] = typeof value === 'string' ? value : String(value);
+      return updates;
+
+    case 'number': {
+      const n =
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? Number(value)
+            : NaN;
+      updates[fieldName] = isNaN(n) ? null : n;
+      return updates;
+    }
+
+    case 'boolean':
+      updates[fieldName] = typeof value === 'boolean' ? value : Boolean(value);
+      return updates;
+
+    case 'date':
+      // DateTime: Date instance passes through; PnP serializes to ISO via JSON.
+      // String inputs are parsed back to Date so PnP's serializer handles them.
+      if (value instanceof Date) {
+        updates[fieldName] = value;
+      } else if (typeof value === 'string') {
+        const d = new Date(value);
+        updates[fieldName] = isNaN(d.getTime()) ? null : d;
+      } else {
+        updates[fieldName] = null;
+      }
+      return updates;
+
+    case 'dateOnly':
+      // DateOnly: write YYYY-MM-DD string — SP stores the exact calendar day
+      // regardless of regional timezone. No `Date` / `Z` here on purpose.
+      updates[fieldName] = formatAsDateOnly(value);
+      return updates;
+
+    case 'multiChoice':
+      if (!Array.isArray(value)) {
+        updates[fieldName] = [];
+      } else {
+        updates[fieldName] = value.map((v) => String(v));
+      }
+      return updates;
+
+    case 'user':
+      updates[withIdSuffix(fieldName)] = requireNumericId(fieldName, value, 'user');
+      return updates;
+
+    case 'userMulti':
+      if (!Array.isArray(value)) {
+        updates[withIdSuffix(fieldName)] = [];
+      } else {
+        updates[withIdSuffix(fieldName)] = value.map((p) =>
+          requireNumericId(fieldName, p, 'user')
+        );
+      }
+      return updates;
+
+    case 'lookup':
+      updates[withIdSuffix(fieldName)] = requireNumericId(fieldName, value, 'lookup');
+      return updates;
+
+    case 'lookupMulti':
+      if (!Array.isArray(value)) {
+        updates[withIdSuffix(fieldName)] = [];
+      } else {
+        updates[withIdSuffix(fieldName)] = value.map((item) =>
+          requireNumericId(fieldName, item, 'lookup')
+        );
+      }
+      return updates;
+
+    case 'taxonomy':
+      updates[fieldName] = {
+        Label: (value as any).label || (value as any).Label,
+        TermGuid: (value as any).termId || (value as any).TermGuid || (value as any).TermID,
+        WssId: (value as any).wssId ?? (value as any).WssId ?? -1,
+      };
+      return updates;
+
+    case 'taxonomyMulti':
+      // See the note above the existing taxonomy-multi branch: we deliberately
+      // do NOT write the hidden `${field}_0` Note field. Use the validate path
+      // for multi-taxonomy on libraries / fields with non-conventional hidden
+      // field names.
+      if (!Array.isArray(value)) {
+        updates[fieldName] = [];
+      } else {
+        updates[fieldName] = value.map((item) => ({
+          Label: item.label || item.Label,
+          TermGuid: item.termId || item.TermGuid || item.TermID,
+          WssId: item.wssId ?? item.WssId ?? -1,
+        }));
+      }
+      return updates;
+
+    case 'url':
+      if (typeof value === 'string') {
+        updates[fieldName] = { Url: value, Description: '' };
+      } else {
+        updates[fieldName] = {
+          Url: (value as any).url || (value as any).Url || '',
+          Description: (value as any).description || (value as any).Description || '',
+        };
+      }
+      return updates;
+
+    case 'location':
+      // SP Geolocation accepts a structured object; PnP v3 writes it correctly
+      // without an `__metadata` hint on modern SPO.
+      updates[fieldName] = {
+        Latitude: (value as any).latitude ?? (value as any).Latitude,
+        Longitude: (value as any).longitude ?? (value as any).Longitude,
+        Altitude: (value as any).altitude ?? (value as any).Altitude,
+        Measure: (value as any).measure ?? (value as any).Measure,
+      };
+      return updates;
+
+    case 'image':
+      // Modern SP Image columns accept a JSON-stringified payload.
+      updates[fieldName] = JSON.stringify({
+        type: 'thumbnail',
+        fileName: (value as any).fileName,
+        serverUrl: (value as any).serverUrl,
+        serverRelativeUrl: (value as any).serverRelativeUrl || (value as any).serverUrl,
+      });
+      return updates;
+
+    default:
+      updates[fieldName] = value;
+      return updates;
+  }
+}
+
+/**
  * Format value for PnP.js operations (item.update(), items.add())
  */
 export function formatValueForPnP(
@@ -291,6 +547,14 @@ export function formatValueForPnP(
   value: any,
   explicitType?: SPUpdateFieldType
 ): Record<string, any> {
+  // Typed setters (setUser, setUserMulti, setLookup, …) take precedence over
+  // value-shape detection. Without this, a user object lacking `email` /
+  // `loginName` would silently misroute through the lookup branch — that was
+  // the source of `;#1;#2;#` showing up for user-multi fields.
+  if (explicitType) {
+    return formatByExplicitTypeForPnP(fieldName, value, explicitType);
+  }
+
   const updates: Record<string, any> = {};
 
   if (value === null || value === undefined) {
@@ -492,9 +756,137 @@ function requireLoginNameKey(person: IPrincipal): string {
 }
 
 /**
+ * Format value for the `validateUpdateListItem` path with the caller's
+ * explicit field type as the authoritative signal. Same rationale as
+ * `formatByExplicitTypeForPnP`: typed setters override value-shape detection
+ * so user-multi values without `email`/`loginName` don't silently misroute
+ * through the lookup branch as `;#1;#2;#`.
+ *
+ * SharePoint wire formats reference:
+ *   - text/note/choice  → plain string
+ *   - number            → number as string
+ *   - boolean           → '1' / '0'
+ *   - date (DateTime)   → ISO 8601 (`2024-05-08T12:00:00.000Z`)
+ *   - dateOnly          → `YYYY-MM-DD` (no time, no TZ)
+ *   - multiChoice       → `;#a;#b;#c;#`
+ *   - user single/multi → `JSON.stringify([{Key: '<login claim>'}, …])`
+ *   - lookup single     → numeric id as string
+ *   - lookup multi      → `;#1;#2;#3;#`
+ *   - taxonomy single   → `Label|TermGuid;`
+ *   - taxonomy multi    → `L1|G1;L2|G2;`
+ *   - url               → `url, description`
+ */
+function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateFieldType): string {
+  if (value === null || value === undefined) return '';
+
+  switch (explicitType) {
+    case 'string':
+    case 'choice':
+      return typeof value === 'string' ? value : String(value);
+
+    case 'number':
+      return typeof value === 'number' ? value.toString() : String(Number(value));
+
+    case 'boolean':
+      return value ? '1' : '0';
+
+    case 'date':
+      // DateTime: ISO is unambiguous and accepted by modern SPO across regions.
+      // Some legacy tenants only accept locale-format; if you hit that, switch
+      // to `setDateOnly` (for date-only columns) or pre-format the string.
+      if (value instanceof Date) return value.toISOString();
+      if (typeof value === 'string') {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? '' : d.toISOString();
+      }
+      return '';
+
+    case 'dateOnly':
+      return formatAsDateOnly(value);
+
+    case 'multiChoice':
+      if (!Array.isArray(value) || value.length === 0) return '';
+      return `;#${value.map((v) => String(v)).join(';#')};#`;
+
+    case 'user':
+      // Single user is still wrapped in an array of one entry — SP's
+      // validateUpdateListItem expects the same `[{Key}]` shape for both.
+      return JSON.stringify([{ Key: requireLoginNameKey(value as IPrincipal) }]);
+
+    case 'userMulti':
+      if (!Array.isArray(value)) return JSON.stringify([]);
+      return JSON.stringify(
+        value.map((p: IPrincipal) => ({ Key: requireLoginNameKey(p) }))
+      );
+
+    case 'lookup': {
+      const id =
+        typeof value === 'number'
+          ? value
+          : value && ((value as any).id ?? (value as any).Id);
+      if (id === undefined || id === null || id === '') return '';
+      return String(id);
+    }
+
+    case 'lookupMulti':
+      if (!Array.isArray(value) || value.length === 0) return '';
+      return `;#${value
+        .map((item) =>
+          typeof item === 'number'
+            ? String(item)
+            : String((item as any).id ?? (item as any).Id ?? '')
+        )
+        .filter((s) => s !== '')
+        .join(';#')};#`;
+
+    case 'taxonomy': {
+      const label = (value as any).label || (value as any).Label;
+      const termId = (value as any).termId || (value as any).TermGuid || (value as any).TermID;
+      return `${label}|${termId};`;
+    }
+
+    case 'taxonomyMulti':
+      if (!Array.isArray(value) || value.length === 0) return '';
+      return value
+        .map((item) => {
+          const label = item.label || item.Label;
+          const termId = item.termId || item.TermGuid || item.TermID;
+          return `${label}|${termId};`;
+        })
+        .join('');
+
+    case 'url': {
+      const url =
+        typeof value === 'string' ? value : (value as any).url || (value as any).Url || '';
+      const desc =
+        typeof value === 'string' ? '' : (value as any).description || (value as any).Description || '';
+      return desc ? `${url}, ${desc}` : url;
+    }
+
+    case 'location':
+    case 'image':
+      // No standardized validateUpdateListItem wire format for these; emit
+      // JSON so SP at least receives structured data. If your tenant
+      // rejects these, use the PnP `update()` path via getUpdates().
+      return JSON.stringify(value);
+
+    default:
+      return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+}
+
+/**
  * Format JavaScript values to SharePoint string format for validate methods
  */
-function formatValueForValidate(value: any): string {
+function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): string {
+  // Typed setters (setUserMulti, setLookupMulti, …) take precedence over
+  // value-shape detection. Without this, a user-multi value lacking
+  // `email`/`loginName` silently misroutes through the lookup branch and
+  // emits `;#1;#2;#` instead of the required `[{Key}]` JSON.
+  if (explicitType) {
+    return formatByExplicitTypeForValidate(value, explicitType);
+  }
+
   if (value === null || value === undefined) {
     return '';
   }
@@ -724,11 +1116,44 @@ export function createSPUpdater() {
     },
 
     /**
-     * Set a date field value
-     * @example updater.setDate('DueDate', new Date())
+     * Set a DateTime field value (time-of-day matters).
+     *
+     * Wire format:
+     *   - `getUpdates()` → passes the `Date` instance; PnP serializes to ISO
+     *     `…T…Z` via `JSON.stringify`.
+     *   - `getValidateUpdates()` → `value.toISOString()`.
+     *
+     * For **Date Only** columns, use {@link setDateOnly} instead — it avoids
+     * the ±1 day shift that ISO-with-Z causes in non-UTC tenants.
+     *
+     * @example updater.setDate('CreatedTimestamp', new Date())
      */
     setDate: function (fieldName: string, value: Date | null, originalValue?: Date | null) {
       return this.set(fieldName, value, originalValue, 'date');
+    },
+
+    /**
+     * Set a Date Only field value (no time component).
+     *
+     * Wire format (both paths): `YYYY-MM-DD` using the date's **local**
+     * calendar components. Date pickers (DevExtreme DateBox `type="date"`,
+     * Fluent DatePicker) produce a `Date` at local midnight for the picked
+     * day; reading local components preserves that day exactly regardless of
+     * the SP regional timezone. Avoids the day-shift bug where a US user
+     * picks "Jan 15" and SP stores/displays "Jan 14" because of UTC
+     * normalization.
+     *
+     * Accepts a `Date` instance or a `YYYY-MM-DD` string.
+     *
+     * @example updater.setDateOnly('DueDate', new Date('2024-01-15'))
+     * @example updater.setDateOnly('DueDate', '2024-01-15')
+     */
+    setDateOnly: function (
+      fieldName: string,
+      value: Date | string | null,
+      originalValue?: Date | string | null
+    ) {
+      return this.set(fieldName, value, originalValue, 'dateOnly');
     },
 
     /**
@@ -869,7 +1294,7 @@ export function createSPUpdater() {
 
       return relevantUpdates.map(update => ({
         FieldName: update.fieldName,
-        FieldValue: formatValueForValidate(update.value),
+        FieldValue: formatValueForValidate(update.value, update.explicitType),
       }));
     },
 
@@ -969,7 +1394,7 @@ export function createSPUpdater() {
  */
 function isValidFieldType(value: string): value is SPUpdateFieldType {
   const validTypes: SPUpdateFieldType[] = [
-    'string', 'number', 'boolean', 'date', 'user', 'userMulti',
+    'string', 'number', 'boolean', 'date', 'dateOnly', 'user', 'userMulti',
     'lookup', 'lookupMulti', 'taxonomy', 'taxonomyMulti',
     'choice', 'multiChoice', 'url', 'location', 'image'
   ];

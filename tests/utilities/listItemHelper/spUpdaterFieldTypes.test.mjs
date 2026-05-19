@@ -447,3 +447,105 @@ describe('spUpdater — auto-detection from value shape', () => {
     assert.deepEqual(out.Topic, { Label: 'X', TermGuid: 't', WssId: -1 });
   });
 });
+
+// ----------------------------------------------------------------------------
+// REGRESSION: typed setters override value-shape detection
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — typed setter overrides value-shape detection', () => {
+  test('setUserMulti with {Id,Title} objects writes user id list (not the ;# lookup form)', () => {
+    // BUG REGRESSION: previously, when a user-multi value lacked
+    // `email`/`loginName`/`value` and only had `{Id, Title}` (e.g. fetched
+    // from an expanded lookup-shaped source), structure detection routed it
+    // through the lookup branch and produced `;#1;#2;#` for the validate
+    // path and a lookup-shaped update. The typed setter now wins.
+    const out = createSPUpdater()
+      .setUserMulti('Reviewers', [
+        { Id: 1, Title: 'Alice' },
+        { Id: 2, Title: 'Bob' },
+      ])
+      .getUpdates();
+    assert.deepEqual(out, { ReviewersId: [1, 2] });
+  });
+
+  test('setLookupMulti with email-bearing objects still writes lookup ids (not user)', () => {
+    // Inverse case: a lookup-multi value with `email` on the items (unusual
+    // but possible from an expanded user-typed lookup) used to detect as
+    // user-multi. Typed setter now wins.
+    const out = createSPUpdater()
+      .setLookupMulti('Categories', [
+        { Id: 5, Title: 'Cat5', email: 'noise@x.com' },
+        { Id: 6, Title: 'Cat6' },
+      ])
+      .getUpdates();
+    assert.deepEqual(out, { CategoriesId: [5, 6] });
+  });
+
+  test('setUser validate: throws when login claim missing — even for {Id,Title} input', () => {
+    // Validate path requires the claims-formatted login name. The typed
+    // setter routes to the user branch where the claim check fires.
+    const u = createSPUpdater().setUser('AssignedTo', { Id: 5, Title: 'Alice' });
+    assert.throws(() => u.getValidateUpdates(), /missing 'loginName' \/ 'value'/);
+  });
+
+  test('setUserMulti validate: emits [{Key}] JSON for objects with loginName', () => {
+    const out = createSPUpdater()
+      .setUserMulti('Reviewers', [
+        { id: 1, email: 'a@b.com', loginName: 'i:0#.f|membership|a@b.com', title: 'A' },
+        { id: 2, email: 'c@d.com', loginName: 'i:0#.f|membership|c@d.com', title: 'C' },
+      ])
+      .getValidateUpdates();
+    assert.equal(out[0].FieldName, 'Reviewers');
+    const parsed = JSON.parse(out[0].FieldValue);
+    assert.deepEqual(parsed, [
+      { Key: 'i:0#.f|membership|a@b.com' },
+      { Key: 'i:0#.f|membership|c@d.com' },
+    ]);
+  });
+
+  test('setUser with id alone fails fast on PnP path (no silent undefined write)', () => {
+    // Previous behaviour: would silently write `{ AssignedToId: undefined }`
+    // and serialize to nothing — field would not update with no error.
+    const u = createSPUpdater().setUser('AssignedTo', {
+      email: 'a@b.com',
+      // id intentionally missing
+    });
+    assert.throws(() => u.getUpdates(), /missing 'id' \/ 'Id'/);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// setDateOnly: TZ-safe date-only writes
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — setDateOnly (Date Only column)', () => {
+  test('setDateOnly with Date instance → YYYY-MM-DD using local components', () => {
+    // Construct a Date that's clearly "Jan 15" in the runtime's local TZ
+    // by using the local-time constructor (no UTC).
+    const d = new Date(2024, 0, 15); // local midnight Jan 15
+    const out = createSPUpdater().setDateOnly('DueDate', d).getUpdates();
+    assert.equal(out.DueDate, '2024-01-15');
+  });
+
+  test('setDateOnly with YYYY-MM-DD string passes through unchanged', () => {
+    const out = createSPUpdater().setDateOnly('DueDate', '2024-01-15').getUpdates();
+    assert.equal(out.DueDate, '2024-01-15');
+  });
+
+  test('setDateOnly validate path emits YYYY-MM-DD (not ISO)', () => {
+    const d = new Date(2024, 0, 15);
+    const out = createSPUpdater().setDateOnly('DueDate', d).getValidateUpdates();
+    assert.deepEqual(out, [{ FieldName: 'DueDate', FieldValue: '2024-01-15' }]);
+  });
+
+  test('setDateOnly with null clears the field', () => {
+    const out = createSPUpdater().setDateOnly('DueDate', null).getUpdates(true);
+    assert.deepEqual(out, { DueDate: null });
+  });
+
+  test('setDateOnly change detection: same YYYY-MM-DD shapes do not appear in updates', () => {
+    const u = createSPUpdater().setDateOnly('DueDate', '2024-01-15', new Date(2024, 0, 15));
+    assert.deepEqual(u.getUpdates(), {});
+    assert.equal(u.hasChanges(), false);
+  });
+});
