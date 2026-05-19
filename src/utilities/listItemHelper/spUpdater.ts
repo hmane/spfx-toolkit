@@ -401,6 +401,22 @@ function buildImagePayload(fieldName: string, value: any): string {
   });
 }
 
+function formatLookupMultiForValidate(value: any): string {
+  if (!Array.isArray(value) || value.length === 0) return '';
+  const ids = value
+    .map((item) =>
+      typeof item === 'number'
+        ? String(item)
+        : String((item as any).id ?? (item as any).Id ?? '')
+    )
+    .filter((s) => s !== '');
+  if (ids.length === 0) return '';
+
+  // validateUpdateListItem multi-lookup format per Phil Harding's reference:
+  // IDs as strings joined by `;#`, e.g. `1;#2;#3`.
+  return ids.join(';#');
+}
+
 /**
  * Extract the integer user/lookup id from a value that may be:
  *   - a number (the id itself)
@@ -826,7 +842,7 @@ function requireLoginNameKey(person: IPrincipal): string {
  *   - multiChoice       → `;#a;#b;#c;#`
  *   - user single/multi → `JSON.stringify([{Key: '<login claim>'}, …])`
  *   - lookup single     → numeric id as string
- *   - lookup multi      → `;#1;#2;#3;#`
+ *   - lookup multi      → `1;#2;#3`
  *   - taxonomy single   → `Label|WssId|TermGuid;`
  *   - taxonomy multi    → `L1|WssId|G1;L2|WssId|G2;`
  *   - url               → `url, description`
@@ -922,22 +938,7 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
     }
 
     case 'lookupMulti': {
-      // Documented `validateUpdateListItem` format for MultiLookup per Phil
-      // Harding's gist: `<id1>;#<id2>;#<id3>` — IDs joined by single `;#`,
-      // no leading/trailing marker, no double-separator. Both the
-      // double-separator form (`;#;#`) and this single form persist on
-      // modern SPO; Phil's single form matches the documented canonical and
-      // every other multi-value field's separator pattern.
-      if (!Array.isArray(value) || value.length === 0) return '';
-      const ids = value
-        .map((item) =>
-          typeof item === 'number'
-            ? String(item)
-            : String((item as any).id ?? (item as any).Id ?? '')
-        )
-        .filter((s) => s !== '');
-      if (ids.length === 0) return '';
-      return ids.join(';#');
+      return formatLookupMultiForValidate(value);
     }
 
     case 'taxonomy': {
@@ -1040,9 +1041,7 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
     }
 
     if (typeof firstItem === 'number') {
-      // Documented MultiLookup format per Phil Harding's gist:
-      // `<id>;#<id>;#<id>` — IDs joined by single `;#`, no leading/trailing.
-      return value.map(id => String(id)).join(';#');
+      return formatLookupMultiForValidate(value);
     }
 
     if (typeof firstItem === 'object' && firstItem !== null) {
@@ -1057,7 +1056,7 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
       // Lookup multi (object form: `{ Id, Title }[]`) — canonical format
       // matches the number-array branch above (`<id>;#<id>;#<id>`).
       if ('id' in firstItem || 'Id' in firstItem) {
-        return value.map(item => String(item.id ?? item.Id)).join(';#');
+        return formatLookupMultiForValidate(value);
       }
 
       // Taxonomy multi — `Label|WssId|TermGuid;` entries concatenated.

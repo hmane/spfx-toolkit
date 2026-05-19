@@ -389,11 +389,9 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: 'A;#B;#C' }]);
   });
 
-  test('lookupMulti via number array → "1;#2;#3" (single ;# per Phil)', () => {
-    // Canonical MultiLookup FieldValue per Phil Harding's gist: IDs joined
-    // by single `;#` (same separator as MultiChoice), no leading/trailing.
-    // The double `;#;#` form also persists on modern SPO, but Phil's form
-    // matches every other multi-value field's separator pattern.
+  test('lookupMulti via number array → "1;#2;#3" (IDs joined by ;#)', () => {
+    // Phil Harding's validateUpdateListItem reference documents multi-lookup
+    // as IDs joined by `;#`, e.g. `1;#2;#3`.
     const out = createSPUpdater()
       .set('CategoriesId', [1, 2, 3])
       .getValidateUpdates();
