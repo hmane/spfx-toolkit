@@ -35,6 +35,30 @@ describe('spUpdater — primitive field types', () => {
     assert.deepEqual(u.getUpdates(), { Title: 'Hello' });
   });
 
+  test('text change detection treats null, undefined, and empty string as same empty value', () => {
+    const emptyVsUndefined = createSPUpdater().setText('Title', '', undefined);
+    assert.equal(emptyVsUndefined.hasChanges(), false);
+    assert.deepEqual(emptyVsUndefined.getUpdates(), {});
+    assert.deepEqual(emptyVsUndefined.getValidateUpdates(), []);
+
+    const nullVsEmpty = createSPUpdater().setText('Title', null, '');
+    assert.equal(nullVsEmpty.hasChanges(), false);
+    assert.deepEqual(nullVsEmpty.getUpdates(), {});
+    assert.deepEqual(nullVsEmpty.getValidateUpdates(), []);
+
+    const undefinedVsEmpty = createSPUpdater().setText('Title', undefined, '');
+    assert.equal(undefinedVsEmpty.hasChanges(), false);
+    assert.deepEqual(undefinedVsEmpty.getUpdates(), {});
+    assert.deepEqual(undefinedVsEmpty.getValidateUpdates(), []);
+  });
+
+  test('text without an original value still writes an empty value', () => {
+    const u = createSPUpdater().setText('Title', '');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Title: null });
+    assert.deepEqual(u.getValidateUpdates(), [{ FieldName: 'Title', FieldValue: '' }]);
+  });
+
   test('number', () => {
     const u = createSPUpdater().set('Amount', 42);
     assert.deepEqual(u.getUpdates(), { Amount: 42 });
@@ -73,6 +97,18 @@ describe('spUpdater — choice / multi-choice', () => {
   test('choice (single string)', () => {
     const u = createSPUpdater().setChoice('Status', 'Active');
     assert.deepEqual(u.getUpdates(), { Status: 'Active' });
+  });
+
+  test('choice change detection treats null, undefined, and empty string as same empty value', () => {
+    const emptyVsUndefined = createSPUpdater().setChoice('Status', '', undefined);
+    assert.equal(emptyVsUndefined.hasChanges(), false);
+    assert.deepEqual(emptyVsUndefined.getUpdates(), {});
+    assert.deepEqual(emptyVsUndefined.getValidateUpdates(), []);
+
+    const nullVsEmpty = createSPUpdater().setChoice('Status', null, '');
+    assert.equal(nullVsEmpty.hasChanges(), false);
+    assert.deepEqual(nullVsEmpty.getUpdates(), {});
+    assert.deepEqual(nullVsEmpty.getValidateUpdates(), []);
   });
 
   test('multiChoice (array of strings)', () => {
@@ -389,16 +425,17 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: 'A;#B;#C' }]);
   });
 
-  test('lookupMulti via number array → "1;#2;#3" (IDs joined by ;#)', () => {
-    // Phil Harding's validateUpdateListItem reference documents multi-lookup
-    // as IDs joined by `;#`, e.g. `1;#2;#3`.
+  test('lookupMulti via number array → "1;#1;#2;#2;#3;#3" (ID/value pairs)', () => {
+    // SharePoint's multi-lookup text form is ID/value pairs joined by `;#`.
+    // With numeric-only inputs, use the ID as the value placeholder so SP
+    // does not parse `1;#2` as one lookup pair.
     const out = createSPUpdater()
       .set('CategoriesId', [1, 2, 3])
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: '1;#2;#3' }]);
+    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: '1;#1;#2;#2;#3;#3' }]);
   });
 
-  test('lookupMulti via {Id,Title} array → "1;#2;#3"', () => {
+  test('lookupMulti via {Id,Title} array → "1;#A;#2;#B;#3;#C"', () => {
     const out = createSPUpdater()
       .setLookupMulti('Categories', [
         { Id: 1, Title: 'A' },
@@ -407,7 +444,7 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
       ])
       .getValidateUpdates();
     assert.deepEqual(out, [
-      { FieldName: 'Categories', FieldValue: '1;#2;#3' },
+      { FieldName: 'Categories', FieldValue: '1;#A;#2;#B;#3;#C' },
     ]);
   });
 
@@ -698,7 +735,7 @@ describe('spUpdater — select and multi-select value matrix', () => {
     ]);
     assert.deepEqual(selected.getUpdates(), { TagsId: [1, 2] });
     assert.deepEqual(selected.getValidateUpdates(), [
-      { FieldName: 'Tags', FieldValue: '1;#2' },
+      { FieldName: 'Tags', FieldValue: '1;#A;#2;#B' },
     ]);
 
     const empty = createSPUpdater().setLookupMulti('Tags', []);

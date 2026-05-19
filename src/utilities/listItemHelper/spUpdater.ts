@@ -247,6 +247,9 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
 
     case 'choice':
     case 'string':
+      if (value === '') {
+        return null;
+      }
       return typeof value === 'string' ? value : String(value);
 
     case 'multiChoice':
@@ -403,18 +406,30 @@ function buildImagePayload(fieldName: string, value: any): string {
 
 function formatLookupMultiForValidate(value: any): string {
   if (!Array.isArray(value) || value.length === 0) return '';
-  const ids = value
-    .map((item) =>
-      typeof item === 'number'
-        ? String(item)
-        : String((item as any).id ?? (item as any).Id ?? '')
-    )
+  const pairs = value
+    .map((item) => {
+      if (typeof item === 'number') {
+        const id = String(item);
+        return `${id};#${id}`;
+      }
+      const id = (item as any).id ?? (item as any).Id;
+      if (id === undefined || id === null || id === '') return '';
+      const label =
+        (item as any).title ??
+        (item as any).Title ??
+        (item as any).value ??
+        (item as any).Value ??
+        id;
+      return `${String(id)};#${String(label)}`;
+    })
     .filter((s) => s !== '');
-  if (ids.length === 0) return '';
+  if (pairs.length === 0) return '';
 
-  // validateUpdateListItem multi-lookup format per Phil Harding's reference:
-  // IDs as strings joined by `;#`, e.g. `1;#2;#3`.
-  return ids.join(';#');
+  // SharePoint's multi-lookup text form is ID/value pairs joined by `;#`,
+  // e.g. `1;#Title 1;#2;#Title 2`. For numeric-only inputs we use the ID as
+  // the value placeholder (`1;#1`) so SharePoint does not parse `1;#2` as
+  // one lookup pair with ID=1 and value/title=2.
+  return pairs.join(';#');
 }
 
 /**
@@ -842,7 +857,7 @@ function requireLoginNameKey(person: IPrincipal): string {
  *   - multiChoice       → `;#a;#b;#c;#`
  *   - user single/multi → `JSON.stringify([{Key: '<login claim>'}, …])`
  *   - lookup single     → numeric id as string
- *   - lookup multi      → `1;#2;#3`
+ *   - lookup multi      → `1;#Title 1;#2;#Title 2`
  *   - taxonomy single   → `Label|WssId|TermGuid;`
  *   - taxonomy multi    → `L1|WssId|G1;L2|WssId|G2;`
  *   - url               → `url, description`
@@ -1053,8 +1068,7 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
         return JSON.stringify(persons);
       }
 
-      // Lookup multi (object form: `{ Id, Title }[]`) — canonical format
-      // matches the number-array branch above (`<id>;#<id>;#<id>`).
+      // Lookup multi (object form: `{ Id, Title }[]`) — ID/value pairs.
       if ('id' in firstItem || 'Id' in firstItem) {
         return formatLookupMultiForValidate(value);
       }
@@ -1160,6 +1174,7 @@ export function createSPUpdater() {
 
       // Determine if third param is original value or explicit type
       let originalValue: any | undefined;
+      let originalValueProvided = false;
       let type: SPUpdateFieldType | undefined = explicitType;
 
       if (typeof originalValueOrType === 'string' && isValidFieldType(originalValueOrType)) {
@@ -1168,6 +1183,7 @@ export function createSPUpdater() {
       } else {
         // Third param is original value
         originalValue = originalValueOrType;
+        originalValueProvided = arguments.length >= 3;
       }
 
       // Detect type from value if not explicitly provided
@@ -1178,7 +1194,7 @@ export function createSPUpdater() {
 
       // Determine if the value has actually changed
       let hasChanged = true;
-      if (originalValue !== undefined) {
+      if (originalValueProvided) {
         const normalizedOriginal = normalizeValue(originalValue, detectedType);
         hasChanged = !isEqual(normalizedValue, normalizedOriginal);
       }
@@ -1212,7 +1228,9 @@ export function createSPUpdater() {
      * @example updater.setText('Title', 'My Title')
      */
     setText: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'string');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'string')
+        : this.set(fieldName, value, 'string');
     },
 
     /**
@@ -1220,7 +1238,9 @@ export function createSPUpdater() {
      * @example updater.setNumber('Amount', 100)
      */
     setNumber: function (fieldName: string, value: number | null | undefined, originalValue?: number | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'number');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'number')
+        : this.set(fieldName, value, 'number');
     },
 
     /**
@@ -1228,7 +1248,9 @@ export function createSPUpdater() {
      * @example updater.setBoolean('IsActive', true)
      */
     setBoolean: function (fieldName: string, value: boolean | null | undefined, originalValue?: boolean | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'boolean');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'boolean')
+        : this.set(fieldName, value, 'boolean');
     },
 
     /**
@@ -1246,7 +1268,9 @@ export function createSPUpdater() {
      * @example updater.setDate('CreatedTimestamp', new Date())
      */
     setDate: function (fieldName: string, value: Date | null | undefined, originalValue?: Date | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'date');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'date')
+        : this.set(fieldName, value, 'date');
     },
 
     /**
@@ -1270,7 +1294,9 @@ export function createSPUpdater() {
       value: Date | string | null | undefined,
       originalValue?: Date | string | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'dateOnly');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'dateOnly')
+        : this.set(fieldName, value, 'dateOnly');
     },
 
     /**
@@ -1278,7 +1304,9 @@ export function createSPUpdater() {
      * @example updater.setChoice('Status', 'Active')
      */
     setChoice: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'choice');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'choice')
+        : this.set(fieldName, value, 'choice');
     },
 
     /**
@@ -1286,7 +1314,9 @@ export function createSPUpdater() {
      * @example updater.setMultiChoice('Categories', ['Cat1', 'Cat2'])
      */
     setMultiChoice: function (fieldName: string, value: string[] | null | undefined, originalValue?: string[] | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'multiChoice');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'multiChoice')
+        : this.set(fieldName, value, 'multiChoice');
     },
 
     /**
@@ -1294,7 +1324,9 @@ export function createSPUpdater() {
      * @example updater.setUser('AssignedTo', { id: '1', email: 'user@contoso.com', title: 'John Doe' })
      */
     setUser: function (fieldName: string, value: IPrincipal | null | undefined, originalValue?: IPrincipal | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'user');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'user')
+        : this.set(fieldName, value, 'user');
     },
 
     /**
@@ -1302,7 +1334,9 @@ export function createSPUpdater() {
      * @example updater.setUserMulti('TeamMembers', [{ id: '1', email: 'user1@...' }, { id: '2', email: 'user2@...' }])
      */
     setUserMulti: function (fieldName: string, value: IPrincipal[] | null | undefined, originalValue?: IPrincipal[] | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'userMulti');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'userMulti')
+        : this.set(fieldName, value, 'userMulti');
     },
 
     /**
@@ -1310,7 +1344,9 @@ export function createSPUpdater() {
      * @example updater.setLookup('Category', { Id: 1, Title: 'Category A' })
      */
     setLookup: function (fieldName: string, value: { Id: number; Title?: string } | null | undefined, originalValue?: { Id: number; Title?: string } | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'lookup');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'lookup')
+        : this.set(fieldName, value, 'lookup');
     },
 
     /**
@@ -1318,7 +1354,9 @@ export function createSPUpdater() {
      * @example updater.setLookupMulti('Tags', [{ Id: 1, Title: 'Tag1' }, { Id: 2, Title: 'Tag2' }])
      */
     setLookupMulti: function (fieldName: string, value: Array<{ Id: number; Title?: string }> | null | undefined, originalValue?: Array<{ Id: number; Title?: string }> | null | undefined) {
-      return this.set(fieldName, value, originalValue, 'lookupMulti');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'lookupMulti')
+        : this.set(fieldName, value, 'lookupMulti');
     },
 
     /**
@@ -1339,7 +1377,9 @@ export function createSPUpdater() {
       value: { Label: string; TermGuid: string; WssId?: number } | null | undefined,
       originalValue?: { Label: string; TermGuid: string; WssId?: number } | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'taxonomy');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'taxonomy')
+        : this.set(fieldName, value, 'taxonomy');
     },
 
     /**
@@ -1366,7 +1406,9 @@ export function createSPUpdater() {
       value: Array<{ Label: string; TermGuid: string; WssId?: number }> | null | undefined,
       originalValue?: Array<{ Label: string; TermGuid: string; WssId?: number }> | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'taxonomyMulti');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'taxonomyMulti')
+        : this.set(fieldName, value, 'taxonomyMulti');
     },
 
     /**
@@ -1378,7 +1420,9 @@ export function createSPUpdater() {
       value: { url: string; description?: string } | null | undefined,
       originalValue?: { url: string; description?: string } | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'url');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'url')
+        : this.set(fieldName, value, 'url');
     },
 
     /**
@@ -1390,7 +1434,9 @@ export function createSPUpdater() {
       value: { latitude: number; longitude: number } | { Latitude: number; Longitude: number } | null | undefined,
       originalValue?: { latitude: number; longitude: number } | { Latitude: number; Longitude: number } | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'location');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'location')
+        : this.set(fieldName, value, 'location');
     },
 
     /**
@@ -1416,7 +1462,9 @@ export function createSPUpdater() {
         fieldName?: string;
       } | null | undefined
     ) {
-      return this.set(fieldName, value, originalValue, 'image');
+      return arguments.length >= 3
+        ? this.set(fieldName, value, originalValue, 'image')
+        : this.set(fieldName, value, 'image');
     },
 
     /**

@@ -258,7 +258,7 @@ describe('applyFieldToUpdater — typed dispatch produces correct wire shapes', 
     ]);
     assert.deepEqual(updater.getUpdates(), { TagsId: [1, 2] });
     assert.deepEqual(updater.getValidateUpdates(), [
-      { FieldName: 'Tags', FieldValue: '1;#2' },
+      { FieldName: 'Tags', FieldValue: '1;#A;#2;#B' },
     ]);
   });
 
