@@ -312,6 +312,23 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
  *
  * If the caller passes a `YYYY-MM-DD` string, it is returned as-is.
  */
+/**
+ * Format a Date as ISO 8601 *without* the millisecond suffix
+ * (`YYYY-MM-DDTHH:mm:ssZ` instead of `YYYY-MM-DDTHH:mm:ss.sssZ`).
+ *
+ * `validateUpdateListItem` on some SharePoint Online tenants rejects the
+ * `.000Z` form with the generic error "You must specify a valid date within
+ * the range of 1/1/1900 and 12/31/8900" — the date is fine, the parser just
+ * refuses fractional seconds. The PnP `update()` path (different endpoint,
+ * different parser) accepts both forms, so this strip applies only to the
+ * validate path.
+ *
+ * Both forms are valid ISO 8601, so this is safe across modern SPO.
+ */
+function toIsoSecondsZ(value: Date): string {
+  return value.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 function formatAsDateOnly(value: Date | string): string {
   if (typeof value === 'string') {
     // If it's already YYYY-MM-DD shape, trust it; otherwise parse + format.
@@ -788,16 +805,20 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       return typeof value === 'number' ? value.toString() : String(Number(value));
 
     case 'boolean':
-      return value ? '1' : '0';
+      // `validateUpdateListItem` expects the literal display strings 'Yes'/'No'
+      // for Yes/No (Boolean) columns. The numeric '1'/'0' form works on some
+      // tenants but isn't the canonical FieldValue per SP documentation.
+      return value ? 'Yes' : 'No';
 
     case 'date':
-      // DateTime: ISO is unambiguous and accepted by modern SPO across regions.
-      // Some legacy tenants only accept locale-format; if you hit that, switch
-      // to `setDateOnly` (for date-only columns) or pre-format the string.
-      if (value instanceof Date) return value.toISOString();
+      // DateTime: ISO without the `.000` millisecond suffix. The full
+      // `toISOString()` form is rejected on some SPO tenants by
+      // `validateUpdateListItem` with the generic "must specify a valid date"
+      // error — see `toIsoSecondsZ`. Both forms are valid ISO 8601.
+      if (value instanceof Date) return toIsoSecondsZ(value);
       if (typeof value === 'string') {
         const d = new Date(value);
-        return isNaN(d.getTime()) ? '' : d.toISOString();
+        return isNaN(d.getTime()) ? '' : toIsoSecondsZ(d);
       }
       return '';
 
@@ -805,8 +826,12 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       return formatAsDateOnly(value);
 
     case 'multiChoice':
+      // Canonical FieldValue format is `<choice1>;#<choice2>` — choices joined
+      // by `;#` with NO leading or trailing marker. The leading-marker form
+      // `;#A;#B;#` parses as an empty initial choice on SP, silently dropping
+      // or corrupting values.
       if (!Array.isArray(value) || value.length === 0) return '';
-      return `;#${value.map((v) => String(v)).join(';#')};#`;
+      return value.map((v) => String(v)).join(';#');
 
     case 'user':
       // Single user is still wrapped in an array of one entry — SP's
@@ -828,32 +853,44 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       return String(id);
     }
 
-    case 'lookupMulti':
+    case 'lookupMulti': {
+      // Documented `validateUpdateListItem` format for MultiLookup is
+      // `<id1>;#;#<id2>;#;#<id3>` — IDs joined by the literal `;#;#`
+      // separator, no leading or trailing marker. The earlier
+      // leading-marker form `;#1;#2;#` silently dropped values; a trailing
+      // `;#` on the last id can be interpreted as an extra empty entry.
       if (!Array.isArray(value) || value.length === 0) return '';
-      return `;#${value
+      const ids = value
         .map((item) =>
           typeof item === 'number'
             ? String(item)
             : String((item as any).id ?? (item as any).Id ?? '')
         )
-        .filter((s) => s !== '')
-        .join(';#')};#`;
+        .filter((s) => s !== '');
+      if (ids.length === 0) return '';
+      return ids.join(';#;#');
+    }
 
     case 'taxonomy': {
+      // Documented FieldValue: `Label|TermGuid` — pipe-separated, NO trailing
+      // semicolon. The trailing-semicolon variant is sometimes accepted but
+      // not the canonical form per SP REST documentation.
       const label = (value as any).label || (value as any).Label;
       const termId = (value as any).termId || (value as any).TermGuid || (value as any).TermID;
-      return `${label}|${termId};`;
+      return `${label}|${termId}`;
     }
 
     case 'taxonomyMulti':
+      // Documented FieldValue: `L1|G1;L2|G2` — `Label|TermGuid` pairs joined
+      // by a single `;`, NO trailing semicolon.
       if (!Array.isArray(value) || value.length === 0) return '';
       return value
         .map((item) => {
           const label = item.label || item.Label;
           const termId = item.termId || item.TermGuid || item.TermID;
-          return `${label}|${termId};`;
+          return `${label}|${termId}`;
         })
-        .join('');
+        .join(';');
 
     case 'url': {
       const url =
@@ -900,14 +937,18 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
   }
 
   if (typeof value === 'boolean') {
-    return value ? '1' : '0';
+    // `validateUpdateListItem` canonical FieldValue for Yes/No columns is the
+    // literal display string. '1'/'0' works on some tenants but isn't the
+    // documented form.
+    return value ? 'Yes' : 'No';
   }
 
   if (value instanceof Date) {
-    // ISO format is the canonical wire format for `validateUpdateListItem`.
-    // Locale strings (e.g. `toLocaleString('en-US')`) are server-config
-    // dependent and break on non-US tenants where SP can't parse the format.
-    return value.toISOString();
+    // ISO without the `.000` millisecond suffix — see `toIsoSecondsZ`.
+    // Some SPO tenants reject `…T…:…:….000Z` from `validateUpdateListItem`
+    // with the generic "must specify a valid date" error. Both forms are
+    // valid ISO 8601; the stripped form is universally accepted.
+    return toIsoSecondsZ(value);
   }
 
   if (Array.isArray(value)) {
@@ -918,18 +959,17 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
     const firstItem = value[0];
 
     if (typeof firstItem === 'string') {
-      // SP MultiChoice canonical wire format: `;#a;#b;#` (leading + trailing
-      // markers). The bare `a;#b` form usually works on modern SPO but is
-      // rejected by stricter list configs and content-type-inherited fields.
-      return `;#${value.join(';#')};#`;
+      // SP MultiChoice canonical FieldValue: `<choice1>;#<choice2>` — joined
+      // by `;#` with NO leading/trailing marker. The leading-marker variant
+      // `;#A;#B;#` parses as an empty initial choice on SP.
+      return value.join(';#');
     }
 
     if (typeof firstItem === 'number') {
-      // SP MultiLookup canonical wire format: `;#1;#2;#3;#` (leading +
-      // trailing markers, no titles). The previous form `1;#;#2;#;#3;#`
-      // (id-with-empty-title-pairs) parses on modern SPO but is unambiguous
-      // and harder to reason about.
-      return `;#${value.map(id => String(id)).join(';#')};#`;
+      // Documented MultiLookup format: `<id>;#;#<id>;#;#<id>` — IDs joined
+      // by `;#;#`, no leading/trailing marker. Trailing `;#` is parsed as an
+      // extra empty entry on SP.
+      return value.map(id => String(id)).join(';#;#');
     }
 
     if (typeof firstItem === 'object' && firstItem !== null) {
@@ -941,19 +981,19 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
         return JSON.stringify(persons);
       }
 
-      // Lookup multi (object form: `{ Id, Title }[]`) — canonical wire format
-      // matches the number-array branch above.
+      // Lookup multi (object form: `{ Id, Title }[]`) — canonical format
+      // matches the number-array branch above (`<id>;#;#<id>;#;#<id>`).
       if ('id' in firstItem || 'Id' in firstItem) {
-        return `;#${value.map(item => String(item.id ?? item.Id)).join(';#')};#`;
+        return value.map(item => String(item.id ?? item.Id)).join(';#;#');
       }
 
-      // Taxonomy multi
+      // Taxonomy multi — `Label|TermGuid` pairs joined by `;`, no trailing.
       if ('termId' in firstItem || 'TermGuid' in firstItem) {
         return value.map(item => {
           const label = item.label || item.Label;
           const termId = item.termId || item.TermGuid || item.TermID;
-          return `${label}|${termId};`;
-        }).join('');
+          return `${label}|${termId}`;
+        }).join(';');
       }
     }
 
@@ -971,11 +1011,11 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
       return (value.id || value.Id).toString();
     }
 
-    // Taxonomy single
+    // Taxonomy single — `Label|TermGuid`, no trailing semicolon.
     if ('termId' in value || 'TermGuid' in value) {
       const label = value.label || value.Label;
       const termId = value.termId || value.TermGuid || value.TermID;
-      return `${label}|${termId};`;
+      return `${label}|${termId}`;
     }
 
     // URL field

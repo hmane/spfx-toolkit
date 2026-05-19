@@ -10,7 +10,9 @@
       "Bash(node -e \"const p=require\\('/Users/hemantmane/Development/spfx-toolkit/package.json'\\); console.log\\('files:', JSON.stringify\\(p.files, null, 2\\)\\); console.log\\('typesVersions:', JSON.stringify\\(p.typesVersions, null, 2\\)\\);\")",
       "mcp__plugin_context7_context7__resolve-library-id",
       "mcp__plugin_context7_context7__query-docs",
-      "Bash(node --test tests/utilities/listItemHelper/spUpdaterFieldTypes.test.mjs)"
+      "Bash(node --test tests/utilities/listItemHelper/spUpdaterFieldTypes.test.mjs)",
+      "WebFetch(domain:www.programmersought.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

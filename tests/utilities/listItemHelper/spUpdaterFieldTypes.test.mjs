@@ -257,14 +257,17 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Amount', FieldValue: '42' }]);
   });
 
-  test('boolean → "1" / "0"', () => {
+  test('boolean → "Yes" / "No" (canonical FieldValue, not 1/0)', () => {
+    // Documented `validateUpdateListItem` FieldValue for Yes/No columns is
+    // the literal display string ('Yes' or 'No'). '1'/'0' works on some
+    // tenants but isn't the canonical form.
     const out = createSPUpdater()
       .setBoolean('A', true)
       .setBoolean('B', false)
       .getValidateUpdates();
     const map = Object.fromEntries(out.map((e) => [e.FieldName, e.FieldValue]));
-    assert.equal(map.A, '1');
-    assert.equal(map.B, '0');
+    assert.equal(map.A, 'Yes');
+    assert.equal(map.B, 'No');
   });
 
   test('user single → JSON [{Key}]', () => {
@@ -290,35 +293,37 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Category', FieldValue: '5' }]);
   });
 
-  test('taxonomy single → "Label|TermGuid;"', () => {
+  test('taxonomy single → "Label|TermGuid" (no trailing semicolon)', () => {
+    // Documented FieldValue: pipe-separated, NO trailing `;`. The earlier
+    // trailing-semicolon form is accepted on some tenants but isn't the
+    // canonical form per SP REST docs.
     const out = createSPUpdater()
       .setTaxonomy('Topic', { label: 'Cats', termId: 'a' })
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|a;' }]);
+    assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|a' }]);
   });
 
-  test('multiChoice → ";#"-joined with leading + trailing markers', () => {
-    // SP MultiChoice canonical wire format includes the leading and trailing
-    // `;#` markers — required by stricter list configs and content-type-
-    // inherited fields. Both `';#A;#B;#C;#'` and `'A;#B;#C'` parse on modern
-    // SPO, but the marker form is the documented form-value shape.
+  test('multiChoice → "Choice1;#Choice2" (NO leading/trailing markers)', () => {
+    // Documented MultiChoice FieldValue is `<choice1>;#<choice2>` — joined
+    // by `;#` with no leading/trailing marker. The earlier `;#A;#B;#` form
+    // is parsed by SP as an empty initial choice (silent drop / corrupt).
     const out = createSPUpdater()
       .setMultiChoice('Cats', ['A', 'B', 'C'])
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: ';#A;#B;#C;#' }]);
+    assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: 'A;#B;#C' }]);
   });
 
-  test('lookupMulti via number array → ";#1;#2;#3;#"', () => {
-    // Number-array form: the previous `'1;#;#2;#;#3;#'` (id-with-empty-titles)
-    // parses on SPO but is hard to reason about. The canonical wire format
-    // `;#1;#2;#3;#` is unambiguous.
+  test('lookupMulti via number array → "1;#;#2;#;#3" (no trailing ;#)', () => {
+    // Documented MultiLookup FieldValue: IDs joined by literal `;#;#`,
+    // NO trailing marker. Verified against the live tenant where the
+    // previous formats produced ErrorCode 0 but silently dropped values.
     const out = createSPUpdater()
       .set('CategoriesId', [1, 2, 3])
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: ';#1;#2;#3;#' }]);
+    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: '1;#;#2;#;#3' }]);
   });
 
-  test('lookupMulti via {Id,Title} array → ";#1;#2;#3;#"', () => {
+  test('lookupMulti via {Id,Title} array → "1;#;#2;#;#3" (no trailing ;#)', () => {
     const out = createSPUpdater()
       .setLookupMulti('Categories', [
         { Id: 1, Title: 'A' },
@@ -327,20 +332,22 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
       ])
       .getValidateUpdates();
     assert.deepEqual(out, [
-      { FieldName: 'Categories', FieldValue: ';#1;#2;#3;#' },
+      { FieldName: 'Categories', FieldValue: '1;#;#2;#;#3' },
     ]);
   });
 
-  test('Date → ISO 8601 (not locale string)', () => {
-    // Locale strings (`toLocaleString('en-US')`) are server-config dependent
-    // and break on non-US tenants. ISO 8601 is unambiguous and accepted by
-    // every SP regional setting.
+  test('Date → ISO 8601 *without* millisecond suffix', () => {
+    // REGRESSION: `validateUpdateListItem` on some SPO tenants rejects the
+    // `.000Z` millisecond form with the generic "must specify a valid date
+    // within the range of 1/1/1900 and 12/31/8900" error (reproduced on
+    // dodgeandcox.sharepoint.com against TargetReturnDate). Both forms are
+    // valid ISO 8601 and the stripped form is universally accepted.
     const date = new Date(Date.UTC(2026, 4, 8, 12, 0, 0));
     const out = createSPUpdater()
       .set('Due', date)
       .getValidateUpdates();
     assert.equal(out[0].FieldName, 'Due');
-    assert.equal(out[0].FieldValue, '2026-05-08T12:00:00.000Z');
+    assert.equal(out[0].FieldValue, '2026-05-08T12:00:00Z');
   });
 
   test('user single without loginName/value → throws (email is not accepted as Key)', () => {
