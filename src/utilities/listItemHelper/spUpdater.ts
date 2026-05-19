@@ -819,26 +819,38 @@ export function formatValueForPnP(
  * `validateUpdateListItem` expects for user/group fields.
  *
  * For regular users, SharePoint accepts the membership claim built from the
- * email address, with `IsResolved: false` so the server resolves the principal
- * during validation. If the caller already has a claim (`value` / `loginName`)
- * but no email, preserve it as a fallback for group or custom principal shapes.
+ * email / UPN, with `IsResolved: false` so the server resolves the principal
+ * during validation. `loginName` is treated as an email/UPN or an already
+ * claims-formatted login, never as a person's display name.
  */
 function buildUserValidateEntry(person: IPrincipal): { Key: string; IsResolved: boolean } {
-  const email = person.email || (person as any).EMail;
-  const key = email ? `i:0#.f|membership|${email}` : person.value || person.loginName;
+  const key = toValidateUserKey(
+    person.email || (person as any).EMail || person.loginName || person.value
+  );
   if (!key) {
     throw new Error(
-      `spUpdater: cannot build user field write — IPrincipal is missing 'email' / 'EMail' / 'loginName' / 'value'. ` +
+      `spUpdater: cannot build user field write — IPrincipal is missing a valid email/UPN or claims login in ` +
+        `'email' / 'EMail' / 'loginName' / 'value'. ` +
         `SP validateUpdateListItem requires a people-picker Key such as ` +
         `'i:0#.f|membership|user@contoso.com'. Got: ${JSON.stringify({
           id: person.id,
           email: person.email,
           EMail: (person as any).EMail,
+          loginName: person.loginName,
+          value: person.value,
           title: person.title,
         })}`
     );
   }
   return { Key: key, IsResolved: false };
+}
+
+function toValidateUserKey(identifier: string | undefined): string | null {
+  const value = (identifier || '').trim();
+  if (!value) return null;
+  if (value.includes('|')) return value;
+  if (value.includes('@')) return `i:0#.f|membership|${value}`;
+  return null;
 }
 
 /**

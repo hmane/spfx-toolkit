@@ -472,8 +472,34 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     const u = createSPUpdater().setUser('AssignedTo', { id: '5', title: 'A' });
     assert.throws(
       () => u.getValidateUpdates(),
-      /missing 'email' \/ 'EMail' \/ 'loginName' \/ 'value'/
+      /missing a valid email\/UPN or claims login/
     );
+  });
+
+  test('user single with display-name loginName → throws', () => {
+    const u = createSPUpdater().setUser('AssignedTo', {
+      id: '5',
+      loginName: 'Alice Adams',
+      title: 'Alice Adams',
+    });
+    assert.throws(
+      () => u.getValidateUpdates(),
+      /missing a valid email\/UPN or claims login/
+    );
+  });
+
+  test('user single with email loginName → membership claim', () => {
+    const out = createSPUpdater()
+      .setUser('AssignedTo', {
+        id: '5',
+        loginName: 'a@b.com',
+        title: 'A',
+      })
+      .getValidateUpdates();
+    const parsed = JSON.parse(out[0].FieldValue);
+    assert.deepEqual(parsed, [
+      { Key: 'i:0#.f|membership|a@b.com', IsResolved: false },
+    ]);
   });
 
   test('user single with EMail → JSON [{ Key: membership claim, IsResolved: false }]', () => {
@@ -817,7 +843,7 @@ describe('spUpdater — typed setter overrides value-shape detection', () => {
     const u = createSPUpdater().setUser('AssignedTo', { Id: 5, Title: 'Alice' });
     assert.throws(
       () => u.getValidateUpdates(),
-      /missing 'email' \/ 'EMail' \/ 'loginName' \/ 'value'/
+      /missing a valid email\/UPN or claims login/
     );
   });
 
