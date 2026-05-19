@@ -230,6 +230,18 @@ describe('applyFieldToUpdater — typed dispatch produces correct wire shapes', 
     const updater = createSPUpdater();
     applyFieldToUpdater(updater, makeField('Reviewers', 'UserMulti'), undefined);
     assert.deepEqual(updater.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(updater.getValidateUpdates(true), [
+      { FieldName: 'Reviewers', FieldValue: '' },
+    ]);
+  });
+
+  test('UserMulti with null value → empty array on both writer paths', () => {
+    const updater = createSPUpdater();
+    applyFieldToUpdater(updater, makeField('Reviewers', 'UserMulti'), null);
+    assert.deepEqual(updater.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(updater.getValidateUpdates(true), [
+      { FieldName: 'Reviewers', FieldValue: '' },
+    ]);
   });
 
   test('Lookup → setLookup → { FieldId: number }', () => {
@@ -245,12 +257,50 @@ describe('applyFieldToUpdater — typed dispatch produces correct wire shapes', 
       { Id: 2, Title: 'B' },
     ]);
     assert.deepEqual(updater.getUpdates(), { TagsId: [1, 2] });
+    assert.deepEqual(updater.getValidateUpdates(), [
+      { FieldName: 'Tags', FieldValue: '1;#2' },
+    ]);
+  });
+
+  test('LookupMulti with null / undefined value → empty array clear', () => {
+    const fromNull = createSPUpdater();
+    applyFieldToUpdater(fromNull, makeField('Tags', 'LookupMulti'), null);
+    assert.deepEqual(fromNull.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(fromNull.getValidateUpdates(true), [
+      { FieldName: 'Tags', FieldValue: '' },
+    ]);
+
+    const fromUndefined = createSPUpdater();
+    applyFieldToUpdater(fromUndefined, makeField('Tags', 'LookupMulti'), undefined);
+    assert.deepEqual(fromUndefined.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(fromUndefined.getValidateUpdates(true), [
+      { FieldName: 'Tags', FieldValue: '' },
+    ]);
   });
 
   test('MultiChoice → setMultiChoice', () => {
     const updater = createSPUpdater();
     applyFieldToUpdater(updater, makeField('Cats', 'MultiChoice'), ['A', 'B']);
     assert.deepEqual(updater.getUpdates(), { Cats: ['A', 'B'] });
+    assert.deepEqual(updater.getValidateUpdates(), [
+      { FieldName: 'Cats', FieldValue: 'A;#B' },
+    ]);
+  });
+
+  test('MultiChoice with null / undefined value → empty array clear', () => {
+    const fromNull = createSPUpdater();
+    applyFieldToUpdater(fromNull, makeField('Cats', 'MultiChoice'), null);
+    assert.deepEqual(fromNull.getUpdates(true), { Cats: [] });
+    assert.deepEqual(fromNull.getValidateUpdates(true), [
+      { FieldName: 'Cats', FieldValue: '' },
+    ]);
+
+    const fromUndefined = createSPUpdater();
+    applyFieldToUpdater(fromUndefined, makeField('Cats', 'MultiChoice'), undefined);
+    assert.deepEqual(fromUndefined.getUpdates(true), { Cats: [] });
+    assert.deepEqual(fromUndefined.getValidateUpdates(true), [
+      { FieldName: 'Cats', FieldValue: '' },
+    ]);
   });
 
   test('TaxonomyFieldType → setTaxonomy → { Label, TermGuid, WssId }', () => {

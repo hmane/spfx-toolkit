@@ -53,7 +53,7 @@ import { IListItemFormUpdateValue, IPrincipal } from '../../types';
  *
  * `date` vs `dateOnly`:
  *   - `date` → DateTime column. Writes `Date` instance for `update()` (PnP
- *     serializes to ISO `…T…Z`) and ISO string for `validateUpdateListItem`.
+ *     serializes to ISO `…T…Z`) and locale date/time for `validateUpdateListItem`.
  *     Use for timestamps where time-of-day matters.
  *   - `dateOnly` → DateOnly column. Writes `YYYY-MM-DD` (no time, no TZ) for
  *     both paths. Prevents the ±1 day shift that ISO-with-Z causes when the
@@ -333,6 +333,7 @@ function normalizeValue(value: any, fieldType: SPUpdateFieldType | 'unknown' | '
  * for the validate path.
  */
 function toSpDateTimeString(value: Date): string {
+  if (!(value instanceof Date) || isNaN(value.getTime())) return '';
   const m = value.getMonth() + 1;
   const d = value.getDate();
   const y = value.getFullYear();
@@ -350,6 +351,7 @@ function toSpDateTimeString(value: Date): string {
  * US English sites. Same locale caveat as `toSpDateTimeString`.
  */
 function toSpDateString(value: Date): string {
+  if (!(value instanceof Date) || isNaN(value.getTime())) return '';
   const m = value.getMonth() + 1;
   const d = value.getDate();
   const y = value.getFullYear();
@@ -377,6 +379,26 @@ function formatAsDateOnly(value: Date | string): string {
  */
 function withIdSuffix(fieldName: string): string {
   return fieldName.endsWith('Id') ? fieldName : `${fieldName}Id`;
+}
+
+function buildLocationPayload(value: any): string {
+  return JSON.stringify({
+    Coordinates: {
+      Latitude: value.latitude ?? value.Latitude,
+      Longitude: value.longitude ?? value.Longitude,
+    },
+  });
+}
+
+function buildImagePayload(fieldName: string, value: any): string {
+  return JSON.stringify({
+    type: value.type || 'thumbnail',
+    fileName: value.fileName,
+    fieldName: value.fieldName || fieldName,
+    serverUrl: value.serverUrl,
+    serverRelativeUrl: value.serverRelativeUrl,
+    id: value.id,
+  });
 }
 
 /**
@@ -426,19 +448,23 @@ function formatByExplicitTypeForPnP(
 ): Record<string, any> {
   const updates: Record<string, any> = {};
 
-  // Null clears the field — but for user/lookup fields the cleared property
-  // is `${field}Id`, not the bare field name.
+  // Null/undefined clears the field. The "empty" wire shape depends on the
+  // field type:
+  //   - user / lookup single → null assigned to `${field}Id`
+  //   - user / lookup multi → [] assigned to `${field}Id`
+  //   - multi-value collections (multiChoice, taxonomyMulti) → [] on the
+  //     bare field name. SP also accepts null but `[]` is the canonical
+  //     "no values" form.
+  //   - everything else (single-value: text, number, boolean, date,
+  //     dateOnly, choice, taxonomy, url, location, image) → null on the
+  //     bare field name.
   if (value === null || value === undefined) {
-    if (
-      explicitType === 'lookup' ||
-      explicitType === 'user'
-    ) {
+    if (explicitType === 'lookup' || explicitType === 'user') {
       updates[withIdSuffix(fieldName)] = null;
-    } else if (
-      explicitType === 'lookupMulti' ||
-      explicitType === 'userMulti'
-    ) {
+    } else if (explicitType === 'lookupMulti' || explicitType === 'userMulti') {
       updates[withIdSuffix(fieldName)] = [];
+    } else if (explicitType === 'multiChoice' || explicitType === 'taxonomyMulti') {
+      updates[fieldName] = [];
     } else {
       updates[fieldName] = null;
     }
@@ -557,24 +583,15 @@ function formatByExplicitTypeForPnP(
       return updates;
 
     case 'location':
-      // SP Geolocation accepts a structured object; PnP v3 writes it correctly
-      // without an `__metadata` hint on modern SPO.
-      updates[fieldName] = {
-        Latitude: (value as any).latitude ?? (value as any).Latitude,
-        Longitude: (value as any).longitude ?? (value as any).Longitude,
-        Altitude: (value as any).altitude ?? (value as any).Altitude,
-        Measure: (value as any).measure ?? (value as any).Measure,
-      };
+      // Modern SharePoint geolocation columns are stored as a JSON string.
+      // PnP's documented update path reads the existing JSON, changes
+      // `Coordinates`, then writes the stringified value back.
+      updates[fieldName] = buildLocationPayload(value);
       return updates;
 
     case 'image':
       // Modern SP Image columns accept a JSON-stringified payload.
-      updates[fieldName] = JSON.stringify({
-        type: 'thumbnail',
-        fileName: (value as any).fileName,
-        serverUrl: (value as any).serverUrl,
-        serverRelativeUrl: (value as any).serverRelativeUrl || (value as any).serverUrl,
-      });
+      updates[fieldName] = buildImagePayload(fieldName, value);
       return updates;
 
     default:
@@ -734,23 +751,17 @@ export function formatValueForPnP(
     }
 
     // Location field
-    if ('latitude' in value && 'longitude' in value) {
-      updates[fieldName] = JSON.stringify({
-        Coordinates: {
-          Latitude: value.latitude,
-          Longitude: value.longitude,
-        },
-      });
+    if (
+      ('latitude' in value && 'longitude' in value) ||
+      ('Latitude' in value && 'Longitude' in value)
+    ) {
+      updates[fieldName] = buildLocationPayload(value);
       return updates;
     }
 
     // Image field
     if ('fileName' in value && 'serverUrl' in value) {
-      updates[fieldName] = JSON.stringify({
-        fileName: value.fileName,
-        serverUrl: value.serverUrl,
-        serverRelativeUrl: value.serverRelativeUrl || value.serverUrl,
-      });
+      updates[fieldName] = buildImagePayload(fieldName, value);
       return updates;
     }
 
@@ -810,18 +821,28 @@ function requireLoginNameKey(person: IPrincipal): string {
  *   - text/note/choice  → plain string
  *   - number            → number as string
  *   - boolean           → '1' / '0'
- *   - date (DateTime)   → ISO 8601 (`2024-05-08T12:00:00.000Z`)
+ *   - date (DateTime)   → locale date/time (`6/23/2018 10:15 PM`)
  *   - dateOnly          → `YYYY-MM-DD` (no time, no TZ)
  *   - multiChoice       → `;#a;#b;#c;#`
  *   - user single/multi → `JSON.stringify([{Key: '<login claim>'}, …])`
  *   - lookup single     → numeric id as string
  *   - lookup multi      → `;#1;#2;#3;#`
- *   - taxonomy single   → `Label|TermGuid;`
- *   - taxonomy multi    → `L1|G1;L2|G2;`
+ *   - taxonomy single   → `Label|WssId|TermGuid;`
+ *   - taxonomy multi    → `L1|WssId|G1;L2|WssId|G2;`
  *   - url               → `url, description`
  */
 function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateFieldType): string {
-  if (value === null || value === undefined) return '';
+  // Per-type empty/clear FieldValue. The consumer reset the value to null or
+  // undefined → emit the SP-expected "empty" form so SP actually clears the
+  // column instead of leaving it untouched.
+  if (value === null || value === undefined) {
+    // Empty string is the universal "clear this field" FieldValue on the
+    // validate path for every SP field type — text/note/number/boolean/
+    // date/dateOnly/choice/multiChoice/user/userMulti/lookup/lookupMulti/
+    // taxonomy/taxonomyMulti/url. Specific non-empty forms ('0' for Boolean,
+    // '[]' for user JSON arrays) would set explicit values rather than clear.
+    return '';
+  }
 
   switch (explicitType) {
     case 'string':
@@ -832,10 +853,11 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       return typeof value === 'number' ? value.toString() : String(Number(value));
 
     case 'boolean':
-      // `validateUpdateListItem` expects the literal display strings 'Yes'/'No'
-      // for Yes/No (Boolean) columns. The numeric '1'/'0' form works on some
-      // tenants but isn't the canonical FieldValue per SP documentation.
-      return value ? 'Yes' : 'No';
+      // Canonical `validateUpdateListItem` FieldValue for Yes/No columns is
+      // numeric '1' / '0' per Phil Harding's documented format
+      // (https://gist.github.com/phillipharding/30714d4ee245bfc0cba5699b6bb4193e).
+      // 'Yes'/'No' works on some tenants but '1'/'0' is the canonical form.
+      return value ? '1' : '0';
 
     case 'date':
       // DateTime: ISO without the `.000` millisecond suffix. The full
@@ -883,7 +905,9 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
       return JSON.stringify([{ Key: requireLoginNameKey(value as IPrincipal) }]);
 
     case 'userMulti':
-      if (!Array.isArray(value)) return JSON.stringify([]);
+      // Empty string is the safest validateUpdateListItem clear value for
+      // people fields. Non-empty values must use the JSON `[{Key}]` form.
+      if (!Array.isArray(value) || value.length === 0) return '';
       return JSON.stringify(
         value.map((p: IPrincipal) => ({ Key: requireLoginNameKey(p) }))
       );
@@ -898,11 +922,12 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
     }
 
     case 'lookupMulti': {
-      // Documented `validateUpdateListItem` format for MultiLookup is
-      // `<id1>;#;#<id2>;#;#<id3>` — IDs joined by the literal `;#;#`
-      // separator, no leading or trailing marker. The earlier
-      // leading-marker form `;#1;#2;#` silently dropped values; a trailing
-      // `;#` on the last id can be interpreted as an extra empty entry.
+      // Documented `validateUpdateListItem` format for MultiLookup per Phil
+      // Harding's gist: `<id1>;#<id2>;#<id3>` — IDs joined by single `;#`,
+      // no leading/trailing marker, no double-separator. Both the
+      // double-separator form (`;#;#`) and this single form persist on
+      // modern SPO; Phil's single form matches the documented canonical and
+      // every other multi-value field's separator pattern.
       if (!Array.isArray(value) || value.length === 0) return '';
       const ids = value
         .map((item) =>
@@ -912,29 +937,35 @@ function formatByExplicitTypeForValidate(value: any, explicitType: SPUpdateField
         )
         .filter((s) => s !== '');
       if (ids.length === 0) return '';
-      return ids.join(';#;#');
+      return ids.join(';#');
     }
 
     case 'taxonomy': {
-      // Documented FieldValue: `Label|TermGuid` — pipe-separated, NO trailing
-      // semicolon. The trailing-semicolon variant is sometimes accepted but
-      // not the canonical form per SP REST documentation.
+      // Canonical FieldValue per Phil Harding's gist:
+      // `Label|WssId|TermGuid;` — three pipe-separated parts (label, WssId
+      // placeholder, term GUID), terminated by `;`. WssId is `-1` when
+      // unknown (SP resolves the actual id server-side); pass an explicit
+      // WssId if you already have one from a prior read. Without the WssId
+      // placeholder the parser silently fails to persist on many tenants.
       const label = (value as any).label || (value as any).Label;
       const termId = (value as any).termId || (value as any).TermGuid || (value as any).TermID;
-      return `${label}|${termId}`;
+      const wssId = (value as any).wssId ?? (value as any).WssId ?? -1;
+      return `${label}|${wssId}|${termId};`;
     }
 
     case 'taxonomyMulti':
-      // Documented FieldValue: `L1|G1;L2|G2` — `Label|TermGuid` pairs joined
-      // by a single `;`, NO trailing semicolon.
+      // Canonical FieldValue per Phil Harding's gist: each entry is
+      // `Label|WssId|TermGuid;` (terminated by `;`), entries concatenated.
+      // Result: `L1|-1|G1;L2|-1|G2;`.
       if (!Array.isArray(value) || value.length === 0) return '';
       return value
         .map((item) => {
           const label = item.label || item.Label;
           const termId = item.termId || item.TermGuid || item.TermID;
-          return `${label}|${termId}`;
+          const wssId = item.wssId ?? item.WssId ?? -1;
+          return `${label}|${wssId}|${termId};`;
         })
-        .join(';');
+        .join('');
 
     case 'url': {
       const url =
@@ -981,10 +1012,9 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
   }
 
   if (typeof value === 'boolean') {
-    // `validateUpdateListItem` canonical FieldValue for Yes/No columns is the
-    // literal display string. '1'/'0' works on some tenants but isn't the
-    // documented form.
-    return value ? 'Yes' : 'No';
+    // Canonical FieldValue for Yes/No columns per Phil Harding's documented
+    // format is numeric '1' / '0'.
+    return value ? '1' : '0';
   }
 
   if (value instanceof Date) {
@@ -1010,10 +1040,9 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
     }
 
     if (typeof firstItem === 'number') {
-      // Documented MultiLookup format: `<id>;#;#<id>;#;#<id>` — IDs joined
-      // by `;#;#`, no leading/trailing marker. Trailing `;#` is parsed as an
-      // extra empty entry on SP.
-      return value.map(id => String(id)).join(';#;#');
+      // Documented MultiLookup format per Phil Harding's gist:
+      // `<id>;#<id>;#<id>` — IDs joined by single `;#`, no leading/trailing.
+      return value.map(id => String(id)).join(';#');
     }
 
     if (typeof firstItem === 'object' && firstItem !== null) {
@@ -1026,18 +1055,20 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
       }
 
       // Lookup multi (object form: `{ Id, Title }[]`) — canonical format
-      // matches the number-array branch above (`<id>;#;#<id>;#;#<id>`).
+      // matches the number-array branch above (`<id>;#<id>;#<id>`).
       if ('id' in firstItem || 'Id' in firstItem) {
-        return value.map(item => String(item.id ?? item.Id)).join(';#;#');
+        return value.map(item => String(item.id ?? item.Id)).join(';#');
       }
 
-      // Taxonomy multi — `Label|TermGuid` pairs joined by `;`, no trailing.
+      // Taxonomy multi — `Label|WssId|TermGuid;` entries concatenated.
+      // WssId is `-1` placeholder when unknown.
       if ('termId' in firstItem || 'TermGuid' in firstItem) {
         return value.map(item => {
           const label = item.label || item.Label;
           const termId = item.termId || item.TermGuid || item.TermID;
-          return `${label}|${termId}`;
-        }).join(';');
+          const wssId = item.wssId ?? item.WssId ?? -1;
+          return `${label}|${wssId}|${termId};`;
+        }).join('');
       }
     }
 
@@ -1055,11 +1086,13 @@ function formatValueForValidate(value: any, explicitType?: SPUpdateFieldType): s
       return (value.id || value.Id).toString();
     }
 
-    // Taxonomy single — `Label|TermGuid`, no trailing semicolon.
+    // Taxonomy single — `Label|WssId|TermGuid;` per Phil Harding's gist.
+    // WssId is `-1` placeholder when unknown.
     if ('termId' in value || 'TermGuid' in value) {
       const label = value.label || value.Label;
       const termId = value.termId || value.TermGuid || value.TermID;
-      return `${label}|${termId}`;
+      const wssId = value.wssId ?? value.WssId ?? -1;
+      return `${label}|${wssId}|${termId};`;
     }
 
     // URL field
@@ -1179,7 +1212,7 @@ export function createSPUpdater() {
      * Set a text/string field value
      * @example updater.setText('Title', 'My Title')
      */
-    setText: function (fieldName: string, value: string | null, originalValue?: string | null) {
+    setText: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
       return this.set(fieldName, value, originalValue, 'string');
     },
 
@@ -1187,7 +1220,7 @@ export function createSPUpdater() {
      * Set a number field value
      * @example updater.setNumber('Amount', 100)
      */
-    setNumber: function (fieldName: string, value: number | null, originalValue?: number | null) {
+    setNumber: function (fieldName: string, value: number | null | undefined, originalValue?: number | null | undefined) {
       return this.set(fieldName, value, originalValue, 'number');
     },
 
@@ -1195,7 +1228,7 @@ export function createSPUpdater() {
      * Set a boolean/Yes-No field value
      * @example updater.setBoolean('IsActive', true)
      */
-    setBoolean: function (fieldName: string, value: boolean | null, originalValue?: boolean | null) {
+    setBoolean: function (fieldName: string, value: boolean | null | undefined, originalValue?: boolean | null | undefined) {
       return this.set(fieldName, value, originalValue, 'boolean');
     },
 
@@ -1205,14 +1238,15 @@ export function createSPUpdater() {
      * Wire format:
      *   - `getUpdates()` → passes the `Date` instance; PnP serializes to ISO
      *     `…T…Z` via `JSON.stringify`.
-     *   - `getValidateUpdates()` → `value.toISOString()`.
+     *   - `getValidateUpdates()` → locale date/time string, e.g.
+     *     `6/23/2018 10:15 PM` for US-English sites.
      *
      * For **Date Only** columns, use {@link setDateOnly} instead — it avoids
      * the ±1 day shift that ISO-with-Z causes in non-UTC tenants.
      *
      * @example updater.setDate('CreatedTimestamp', new Date())
      */
-    setDate: function (fieldName: string, value: Date | null, originalValue?: Date | null) {
+    setDate: function (fieldName: string, value: Date | null | undefined, originalValue?: Date | null | undefined) {
       return this.set(fieldName, value, originalValue, 'date');
     },
 
@@ -1234,8 +1268,8 @@ export function createSPUpdater() {
      */
     setDateOnly: function (
       fieldName: string,
-      value: Date | string | null,
-      originalValue?: Date | string | null
+      value: Date | string | null | undefined,
+      originalValue?: Date | string | null | undefined
     ) {
       return this.set(fieldName, value, originalValue, 'dateOnly');
     },
@@ -1244,7 +1278,7 @@ export function createSPUpdater() {
      * Set a choice field value
      * @example updater.setChoice('Status', 'Active')
      */
-    setChoice: function (fieldName: string, value: string | null, originalValue?: string | null) {
+    setChoice: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
       return this.set(fieldName, value, originalValue, 'choice');
     },
 
@@ -1252,7 +1286,7 @@ export function createSPUpdater() {
      * Set a multi-choice field value
      * @example updater.setMultiChoice('Categories', ['Cat1', 'Cat2'])
      */
-    setMultiChoice: function (fieldName: string, value: string[], originalValue?: string[]) {
+    setMultiChoice: function (fieldName: string, value: string[] | null | undefined, originalValue?: string[] | null | undefined) {
       return this.set(fieldName, value, originalValue, 'multiChoice');
     },
 
@@ -1260,7 +1294,7 @@ export function createSPUpdater() {
      * Set a single user/person field value
      * @example updater.setUser('AssignedTo', { id: '1', email: 'user@contoso.com', title: 'John Doe' })
      */
-    setUser: function (fieldName: string, value: IPrincipal | null, originalValue?: IPrincipal | null) {
+    setUser: function (fieldName: string, value: IPrincipal | null | undefined, originalValue?: IPrincipal | null | undefined) {
       return this.set(fieldName, value, originalValue, 'user');
     },
 
@@ -1268,7 +1302,7 @@ export function createSPUpdater() {
      * Set a multi-user/person field value
      * @example updater.setUserMulti('TeamMembers', [{ id: '1', email: 'user1@...' }, { id: '2', email: 'user2@...' }])
      */
-    setUserMulti: function (fieldName: string, value: IPrincipal[], originalValue?: IPrincipal[]) {
+    setUserMulti: function (fieldName: string, value: IPrincipal[] | null | undefined, originalValue?: IPrincipal[] | null | undefined) {
       return this.set(fieldName, value, originalValue, 'userMulti');
     },
 
@@ -1276,7 +1310,7 @@ export function createSPUpdater() {
      * Set a single lookup field value
      * @example updater.setLookup('Category', { Id: 1, Title: 'Category A' })
      */
-    setLookup: function (fieldName: string, value: { Id: number; Title?: string } | null, originalValue?: { Id: number; Title?: string } | null) {
+    setLookup: function (fieldName: string, value: { Id: number; Title?: string } | null | undefined, originalValue?: { Id: number; Title?: string } | null | undefined) {
       return this.set(fieldName, value, originalValue, 'lookup');
     },
 
@@ -1284,7 +1318,7 @@ export function createSPUpdater() {
      * Set a multi-lookup field value
      * @example updater.setLookupMulti('Tags', [{ Id: 1, Title: 'Tag1' }, { Id: 2, Title: 'Tag2' }])
      */
-    setLookupMulti: function (fieldName: string, value: Array<{ Id: number; Title?: string }>, originalValue?: Array<{ Id: number; Title?: string }>) {
+    setLookupMulti: function (fieldName: string, value: Array<{ Id: number; Title?: string }> | null | undefined, originalValue?: Array<{ Id: number; Title?: string }> | null | undefined) {
       return this.set(fieldName, value, originalValue, 'lookupMulti');
     },
 
@@ -1295,7 +1329,7 @@ export function createSPUpdater() {
      *   - `getUpdates()` (PnP `update()` path) → emits `{ FieldName: { Label,
      *     TermGuid, WssId } }`. Works on regular list items.
      *   - `getValidateUpdates()` (`validateUpdateListItem`) → emits
-     *     `{ FieldName, FieldValue: 'Label|TermGuid;' }`. **Required for
+     *     `{ FieldName, FieldValue: 'Label|-1|TermGuid;' }`. **Required for
      *     document libraries (file items)** — `update()` does not work for
      *     taxonomy on libraries.
      *
@@ -1303,8 +1337,8 @@ export function createSPUpdater() {
      */
     setTaxonomy: function (
       fieldName: string,
-      value: { Label: string; TermGuid: string; WssId?: number } | null,
-      originalValue?: { Label: string; TermGuid: string; WssId?: number } | null
+      value: { Label: string; TermGuid: string; WssId?: number } | null | undefined,
+      originalValue?: { Label: string; TermGuid: string; WssId?: number } | null | undefined
     ) {
       return this.set(fieldName, value, originalValue, 'taxonomy');
     },
@@ -1321,7 +1355,7 @@ export function createSPUpdater() {
      *     get a partial save (visible field updated, TaxCatchAll join may
      *     not refresh).
      *   - `getValidateUpdates()` (`validateUpdateListItem`) → emits
-     *     `{ FieldName, FieldValue: 'L1|g1;L2|g2;' }`. **Recommended path
+     *     `{ FieldName, FieldValue: 'L1|-1|g1;L2|-1|g2;' }`. **Recommended path
      *     for taxonomy multi.** Handles the hidden Note field server-side
      *     regardless of list type. SPDynamicForm's autoSave routes here by
      *     default via `VALIDATE_PREFERRED_TYPES`.
@@ -1330,8 +1364,8 @@ export function createSPUpdater() {
      */
     setTaxonomyMulti: function (
       fieldName: string,
-      value: Array<{ Label: string; TermGuid: string; WssId?: number }>,
-      originalValue?: Array<{ Label: string; TermGuid: string; WssId?: number }>
+      value: Array<{ Label: string; TermGuid: string; WssId?: number }> | null | undefined,
+      originalValue?: Array<{ Label: string; TermGuid: string; WssId?: number }> | null | undefined
     ) {
       return this.set(fieldName, value, originalValue, 'taxonomyMulti');
     },
@@ -1342,10 +1376,48 @@ export function createSPUpdater() {
      */
     setUrl: function (
       fieldName: string,
-      value: { url: string; description?: string } | null,
-      originalValue?: { url: string; description?: string } | null
+      value: { url: string; description?: string } | null | undefined,
+      originalValue?: { url: string; description?: string } | null | undefined
     ) {
       return this.set(fieldName, value, originalValue, 'url');
+    },
+
+    /**
+     * Set a geolocation field value.
+     * @example updater.setLocation('Office', { latitude: 47.672082, longitude: -122.1409983 })
+     */
+    setLocation: function (
+      fieldName: string,
+      value: { latitude: number; longitude: number } | { Latitude: number; Longitude: number } | null | undefined,
+      originalValue?: { latitude: number; longitude: number } | { Latitude: number; Longitude: number } | null | undefined
+    ) {
+      return this.set(fieldName, value, originalValue, 'location');
+    },
+
+    /**
+     * Set a modern SharePoint image column value.
+     * @example updater.setImage('Thumbnail', { fileName: 'a.png', serverUrl: 'https://tenant.sharepoint.com', serverRelativeUrl: '/sites/demo/SiteAssets/a.png' })
+     */
+    setImage: function (
+      fieldName: string,
+      value: {
+        fileName: string;
+        serverUrl: string;
+        serverRelativeUrl: string;
+        id?: string;
+        type?: string;
+        fieldName?: string;
+      } | null | undefined,
+      originalValue?: {
+        fileName: string;
+        serverUrl: string;
+        serverRelativeUrl: string;
+        id?: string;
+        type?: string;
+        fieldName?: string;
+      } | null | undefined
+    ) {
+      return this.set(fieldName, value, originalValue, 'image');
     },
 
     /**

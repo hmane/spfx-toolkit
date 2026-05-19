@@ -243,6 +243,61 @@ describe('spUpdater — URL fields', () => {
 });
 
 // ----------------------------------------------------------------------------
+// LOCATION / IMAGE
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — location / image fields', () => {
+  test('location → JSON string with Coordinates', () => {
+    const u = createSPUpdater().setLocation('Office', {
+      latitude: 47.672082,
+      longitude: -122.1409983,
+    });
+    assert.deepEqual(u.getUpdates(), {
+      Office: JSON.stringify({
+        Coordinates: {
+          Latitude: 47.672082,
+          Longitude: -122.1409983,
+        },
+      }),
+    });
+  });
+
+  test('location accepts PascalCase coordinate keys', () => {
+    const u = createSPUpdater().setLocation('Office', {
+      Latitude: 47.672082,
+      Longitude: -122.1409983,
+    });
+    assert.deepEqual(u.getUpdates(), {
+      Office: JSON.stringify({
+        Coordinates: {
+          Latitude: 47.672082,
+          Longitude: -122.1409983,
+        },
+      }),
+    });
+  });
+
+  test('image → JSON string with image column metadata', () => {
+    const u = createSPUpdater().setImage('Thumbnail', {
+      fileName: 'image.png',
+      serverUrl: 'https://contoso.sharepoint.com',
+      serverRelativeUrl: '/sites/demo/SiteAssets/Lists/list/image.png',
+      id: 'image-id',
+    });
+    assert.deepEqual(u.getUpdates(), {
+      Thumbnail: JSON.stringify({
+        type: 'thumbnail',
+        fileName: 'image.png',
+        fieldName: 'Thumbnail',
+        serverUrl: 'https://contoso.sharepoint.com',
+        serverRelativeUrl: '/sites/demo/SiteAssets/Lists/list/image.png',
+        id: 'image-id',
+      }),
+    });
+  });
+});
+
+// ----------------------------------------------------------------------------
 // validateUpdateListItem path
 // ----------------------------------------------------------------------------
 
@@ -257,17 +312,17 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Amount', FieldValue: '42' }]);
   });
 
-  test('boolean → "Yes" / "No" (canonical FieldValue, not 1/0)', () => {
-    // Documented `validateUpdateListItem` FieldValue for Yes/No columns is
-    // the literal display string ('Yes' or 'No'). '1'/'0' works on some
-    // tenants but isn't the canonical form.
+  test('boolean → "1" / "0" (canonical per Phil Harding\'s gist)', () => {
+    // Canonical `validateUpdateListItem` FieldValue for Yes/No columns per
+    // Phil Harding's documented format is numeric '1' / '0', not 'Yes'/'No'.
+    // Source: https://gist.github.com/phillipharding/30714d4ee245bfc0cba5699b6bb4193e
     const out = createSPUpdater()
       .setBoolean('A', true)
       .setBoolean('B', false)
       .getValidateUpdates();
     const map = Object.fromEntries(out.map((e) => [e.FieldName, e.FieldValue]));
-    assert.equal(map.A, 'Yes');
-    assert.equal(map.B, 'No');
+    assert.equal(map.A, '1');
+    assert.equal(map.B, '0');
   });
 
   test('user single → JSON [{Key}]', () => {
@@ -293,14 +348,35 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Category', FieldValue: '5' }]);
   });
 
-  test('taxonomy single → "Label|TermGuid" (no trailing semicolon)', () => {
-    // Documented FieldValue: pipe-separated, NO trailing `;`. The earlier
-    // trailing-semicolon form is accepted on some tenants but isn't the
-    // canonical form per SP REST docs.
+  test('taxonomy single → "Label|WssId|TermGuid;" (Phil Harding\'s gist)', () => {
+    // Canonical FieldValue: three pipe-separated parts (Label, WssId
+    // placeholder, TermGuid), terminated by `;`. WssId is `-1` when unknown
+    // (SP resolves server-side); pass an explicit WssId from a prior read.
+    // Without the WssId placeholder, taxonomy writes silently fail to
+    // persist on many tenants — same anti-pattern as the multi-lookup bug.
     const out = createSPUpdater()
       .setTaxonomy('Topic', { label: 'Cats', termId: 'a' })
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|a' }]);
+    assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|-1|a;' }]);
+  });
+
+  test('taxonomy single with explicit WssId preserved', () => {
+    const out = createSPUpdater()
+      .setTaxonomy('Topic', { label: 'Cats', termId: 'a', wssId: 17 })
+      .getValidateUpdates();
+    assert.deepEqual(out, [{ FieldName: 'Topic', FieldValue: 'Cats|17|a;' }]);
+  });
+
+  test('taxonomyMulti → "L1|-1|G1;L2|-1|G2;"', () => {
+    const out = createSPUpdater()
+      .setTaxonomyMulti('Topics', [
+        { label: 'Cats', termId: 'g1' },
+        { label: 'Dogs', termId: 'g2' },
+      ])
+      .getValidateUpdates();
+    assert.deepEqual(out, [
+      { FieldName: 'Topics', FieldValue: 'Cats|-1|g1;Dogs|-1|g2;' },
+    ]);
   });
 
   test('multiChoice → "Choice1;#Choice2" (NO leading/trailing markers)', () => {
@@ -313,17 +389,18 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
     assert.deepEqual(out, [{ FieldName: 'Cats', FieldValue: 'A;#B;#C' }]);
   });
 
-  test('lookupMulti via number array → "1;#;#2;#;#3" (no trailing ;#)', () => {
-    // Documented MultiLookup FieldValue: IDs joined by literal `;#;#`,
-    // NO trailing marker. Verified against the live tenant where the
-    // previous formats produced ErrorCode 0 but silently dropped values.
+  test('lookupMulti via number array → "1;#2;#3" (single ;# per Phil)', () => {
+    // Canonical MultiLookup FieldValue per Phil Harding's gist: IDs joined
+    // by single `;#` (same separator as MultiChoice), no leading/trailing.
+    // The double `;#;#` form also persists on modern SPO, but Phil's form
+    // matches every other multi-value field's separator pattern.
     const out = createSPUpdater()
       .set('CategoriesId', [1, 2, 3])
       .getValidateUpdates();
-    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: '1;#;#2;#;#3' }]);
+    assert.deepEqual(out, [{ FieldName: 'CategoriesId', FieldValue: '1;#2;#3' }]);
   });
 
-  test('lookupMulti via {Id,Title} array → "1;#;#2;#;#3" (no trailing ;#)', () => {
+  test('lookupMulti via {Id,Title} array → "1;#2;#3"', () => {
     const out = createSPUpdater()
       .setLookupMulti('Categories', [
         { Id: 1, Title: 'A' },
@@ -332,7 +409,7 @@ describe('spUpdater — validateUpdateListItem (FormUpdateValue) format', () => 
       ])
       .getValidateUpdates();
     assert.deepEqual(out, [
-      { FieldName: 'Categories', FieldValue: '1;#;#2;#;#3' },
+      { FieldName: 'Categories', FieldValue: '1;#2;#3' },
     ]);
   });
 
@@ -465,6 +542,216 @@ describe('spUpdater — auto-detection from value shape', () => {
 // ----------------------------------------------------------------------------
 // REGRESSION: typed setters override value-shape detection
 // ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// NULL / UNDEFINED clearing — every type must clear correctly on both paths
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — null / undefined clears the field on both paths', () => {
+  test('text: null → null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setText('Title', null);
+    assert.deepEqual(u.getUpdates(true), { Title: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Title', FieldValue: '' }]);
+  });
+
+  test('number: undefined → null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setNumber('Amount', undefined);
+    assert.deepEqual(u.getUpdates(true), { Amount: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Amount', FieldValue: '' }]);
+  });
+
+  test('boolean: null → null (update) / "" (validate, NOT "0")', () => {
+    // "0" would explicitly set the field to "No"; "" actually clears it.
+    const u = createSPUpdater().setBoolean('Active', null);
+    assert.deepEqual(u.getUpdates(true), { Active: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Active', FieldValue: '' }]);
+  });
+
+  test('date: null → null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setDate('Due', null);
+    assert.deepEqual(u.getUpdates(true), { Due: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Due', FieldValue: '' }]);
+  });
+
+  test('dateOnly: undefined → null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setDateOnly('Due', undefined);
+    assert.deepEqual(u.getUpdates(true), { Due: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Due', FieldValue: '' }]);
+  });
+
+  test('choice: null → null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setChoice('Status', null);
+    assert.deepEqual(u.getUpdates(true), { Status: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Status', FieldValue: '' }]);
+  });
+
+  test('multiChoice: null → [] (update) / "" (validate)', () => {
+    const u = createSPUpdater().setMultiChoice('Cats', null);
+    assert.deepEqual(u.getUpdates(true), { Cats: [] });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Cats', FieldValue: '' }]);
+  });
+
+  test('user: null → AssignedToId: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setUser('AssignedTo', null);
+    assert.deepEqual(u.getUpdates(true), { AssignedToId: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'AssignedTo', FieldValue: '' }]);
+  });
+
+  test('userMulti: undefined → ReviewersId: [] (update) / "" (validate)', () => {
+    const u = createSPUpdater().setUserMulti('Reviewers', undefined);
+    assert.deepEqual(u.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Reviewers', FieldValue: '' }]);
+  });
+
+  test('lookup: null → CategoryId: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setLookup('Category', null);
+    assert.deepEqual(u.getUpdates(true), { CategoryId: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Category', FieldValue: '' }]);
+  });
+
+  test('lookupMulti: null → TagsId: [] (update) / "" (validate)', () => {
+    const u = createSPUpdater().setLookupMulti('Tags', null);
+    assert.deepEqual(u.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Tags', FieldValue: '' }]);
+  });
+
+  test('taxonomy: null → Topic: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setTaxonomy('Topic', null);
+    assert.deepEqual(u.getUpdates(true), { Topic: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Topic', FieldValue: '' }]);
+  });
+
+  test('taxonomyMulti: null → Topics: [] (update) / "" (validate)', () => {
+    const u = createSPUpdater().setTaxonomyMulti('Topics', null);
+    assert.deepEqual(u.getUpdates(true), { Topics: [] });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Topics', FieldValue: '' }]);
+  });
+
+  test('url: null → Homepage: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setUrl('Homepage', null);
+    assert.deepEqual(u.getUpdates(true), { Homepage: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Homepage', FieldValue: '' }]);
+  });
+
+  test('location: undefined → Office: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setLocation('Office', undefined);
+    assert.deepEqual(u.getUpdates(true), { Office: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Office', FieldValue: '' }]);
+  });
+
+  test('image: null → Thumbnail: null (update) / "" (validate)', () => {
+    const u = createSPUpdater().setImage('Thumbnail', null);
+    assert.deepEqual(u.getUpdates(true), { Thumbnail: null });
+    assert.deepEqual(u.getValidateUpdates(true), [{ FieldName: 'Thumbnail', FieldValue: '' }]);
+  });
+});
+
+describe('spUpdater — select and multi-select value matrix', () => {
+  test('single select / choice: value, null, undefined', () => {
+    const selected = createSPUpdater().setChoice('Status', 'Active');
+    assert.deepEqual(selected.getUpdates(), { Status: 'Active' });
+    assert.deepEqual(selected.getValidateUpdates(), [
+      { FieldName: 'Status', FieldValue: 'Active' },
+    ]);
+
+    const clearedNull = createSPUpdater().setChoice('Status', null);
+    assert.deepEqual(clearedNull.getUpdates(true), { Status: null });
+    assert.deepEqual(clearedNull.getValidateUpdates(true), [
+      { FieldName: 'Status', FieldValue: '' },
+    ]);
+
+    const clearedUndefined = createSPUpdater().setChoice('Status', undefined);
+    assert.deepEqual(clearedUndefined.getUpdates(true), { Status: null });
+    assert.deepEqual(clearedUndefined.getValidateUpdates(true), [
+      { FieldName: 'Status', FieldValue: '' },
+    ]);
+  });
+
+  test('multi-select / multi-choice: values, empty, null, undefined', () => {
+    const selected = createSPUpdater().setMultiChoice('Cats', ['A', 'B']);
+    assert.deepEqual(selected.getUpdates(), { Cats: ['A', 'B'] });
+    assert.deepEqual(selected.getValidateUpdates(), [
+      { FieldName: 'Cats', FieldValue: 'A;#B' },
+    ]);
+
+    const empty = createSPUpdater().setMultiChoice('Cats', []);
+    assert.deepEqual(empty.getUpdates(true), { Cats: [] });
+    assert.deepEqual(empty.getValidateUpdates(true), [
+      { FieldName: 'Cats', FieldValue: '' },
+    ]);
+
+    const clearedNull = createSPUpdater().setMultiChoice('Cats', null);
+    assert.deepEqual(clearedNull.getUpdates(true), { Cats: [] });
+    assert.deepEqual(clearedNull.getValidateUpdates(true), [
+      { FieldName: 'Cats', FieldValue: '' },
+    ]);
+
+    const clearedUndefined = createSPUpdater().setMultiChoice('Cats', undefined);
+    assert.deepEqual(clearedUndefined.getUpdates(true), { Cats: [] });
+    assert.deepEqual(clearedUndefined.getValidateUpdates(true), [
+      { FieldName: 'Cats', FieldValue: '' },
+    ]);
+  });
+
+  test('multi-lookup: values, empty, null, undefined', () => {
+    const selected = createSPUpdater().setLookupMulti('Tags', [
+      { Id: 1, Title: 'A' },
+      { Id: 2, Title: 'B' },
+    ]);
+    assert.deepEqual(selected.getUpdates(), { TagsId: [1, 2] });
+    assert.deepEqual(selected.getValidateUpdates(), [
+      { FieldName: 'Tags', FieldValue: '1;#2' },
+    ]);
+
+    const empty = createSPUpdater().setLookupMulti('Tags', []);
+    assert.deepEqual(empty.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(empty.getValidateUpdates(true), [
+      { FieldName: 'Tags', FieldValue: '' },
+    ]);
+
+    const clearedNull = createSPUpdater().setLookupMulti('Tags', null);
+    assert.deepEqual(clearedNull.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(clearedNull.getValidateUpdates(true), [
+      { FieldName: 'Tags', FieldValue: '' },
+    ]);
+
+    const clearedUndefined = createSPUpdater().setLookupMulti('Tags', undefined);
+    assert.deepEqual(clearedUndefined.getUpdates(true), { TagsId: [] });
+    assert.deepEqual(clearedUndefined.getValidateUpdates(true), [
+      { FieldName: 'Tags', FieldValue: '' },
+    ]);
+  });
+
+  test('multi-user: values, empty, null, undefined', () => {
+    const selected = createSPUpdater().setUserMulti('Reviewers', [
+      { id: '1', email: 'a@b.com', loginName: 'i:0#.f|membership|a@b.com', title: 'A' },
+      { id: '2', email: 'c@d.com', loginName: 'i:0#.f|membership|c@d.com', title: 'C' },
+    ]);
+    assert.deepEqual(selected.getUpdates(), { ReviewersId: [1, 2] });
+    assert.deepEqual(JSON.parse(selected.getValidateUpdates()[0].FieldValue), [
+      { Key: 'i:0#.f|membership|a@b.com' },
+      { Key: 'i:0#.f|membership|c@d.com' },
+    ]);
+
+    const empty = createSPUpdater().setUserMulti('Reviewers', []);
+    assert.deepEqual(empty.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(empty.getValidateUpdates(true), [
+      { FieldName: 'Reviewers', FieldValue: '' },
+    ]);
+
+    const clearedNull = createSPUpdater().setUserMulti('Reviewers', null);
+    assert.deepEqual(clearedNull.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(clearedNull.getValidateUpdates(true), [
+      { FieldName: 'Reviewers', FieldValue: '' },
+    ]);
+
+    const clearedUndefined = createSPUpdater().setUserMulti('Reviewers', undefined);
+    assert.deepEqual(clearedUndefined.getUpdates(true), { ReviewersId: [] });
+    assert.deepEqual(clearedUndefined.getValidateUpdates(true), [
+      { FieldName: 'Reviewers', FieldValue: '' },
+    ]);
+  });
+});
 
 describe('spUpdater — typed setter overrides value-shape detection', () => {
   test('setUserMulti with {Id,Title} objects writes user id list (not the ;# lookup form)', () => {
