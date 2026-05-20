@@ -18,6 +18,7 @@ import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
 import { ISPUrlFieldProps } from './SPUrlField.types';
 import { ISPUrlFieldValue } from '../types';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
@@ -241,6 +242,10 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                 <TextBox
                   value={urlValue}
                   onValueChanged={(e: any) => {
+                    if (!isDevExtremeUserValueChange(e)) {
+                      return;
+                    }
+
                     const newValue = { ...fieldValue, Url: e.value };
                     fieldOnChange(newValue);
                   }}
@@ -265,6 +270,10 @@ export const SPUrlField: React.FC<ISPUrlFieldProps> = (props) => {
                   <TextBox
                     value={descriptionValue}
                     onValueChanged={(e: any) => {
+                      if (!isDevExtremeUserValueChange(e)) {
+                        return;
+                      }
+
                       const newValue = { ...fieldValue, Description: e.value };
                       fieldOnChange(newValue);
                     }}

@@ -186,3 +186,7 @@ export function useControllableValue<T>(
   const isControlled = controlledValue !== undefined;
   return [isControlled ? (controlledValue as T) : internalValue, setInternalValue];
 }
+
+export function isDevExtremeUserValueChange(event: { event?: unknown } | undefined): boolean {
+  return event?.event !== undefined;
+}

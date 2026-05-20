@@ -6,6 +6,7 @@ import {
   CharCountSync,
   DevExtremeFieldMetaRow,
   IDevExtremeValidationProps,
+  isDevExtremeUserValueChange,
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
@@ -124,7 +125,7 @@ function DevExtremeTextBoxInner<T extends FieldValues>({
           value={fieldTextValue}
           onValueChanged={e => {
             const nextValue = e.value || '';
-            if (fieldTextValue !== nextValue) {
+            if (isDevExtremeUserValueChange(e) && fieldTextValue !== nextValue) {
               fieldOnChange(nextValue);
               onValueChanged?.(nextValue);
             }

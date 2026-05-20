@@ -15,6 +15,7 @@ import { Label } from '@fluentui/react/lib/Label';
 import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPNumberFieldProps } from './SPNumberField.types';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
@@ -245,7 +246,11 @@ export const SPNumberField: React.FC<ISPNumberFieldProps> = (props) => {
             <NumberBox
               key={`numberbox-${disabled}-${readOnly}`}
               value={fieldValue}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              onValueChanged={(e: any) => {
+                if (isDevExtremeUserValueChange(e)) {
+                  fieldOnChange(e.value);
+                }
+              }}
               disabled={disabled}
               readOnly={readOnly}
               placeholder={placeholder}

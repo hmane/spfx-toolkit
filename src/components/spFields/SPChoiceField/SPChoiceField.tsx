@@ -27,6 +27,7 @@ import {
 } from './SPChoiceField.types';
 import { useSPChoiceField } from './hooks/useSPChoiceField';
 import { validateCustomValue } from './utils/choiceFieldLoader';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
@@ -532,7 +533,6 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     disabled: disabled || loading || readOnly,
     placeholder: loading ? 'Loading choices...' : placeholder,
     showClearButton: showClearButton && !readOnly && !loading,
-    onValueChanged: (e: any) => handleDropdownChange(e.value),
     onFocusIn: onFocus,
     onFocusOut: onBlur,
     readOnly: readOnly,
@@ -572,7 +572,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             value={!Array.isArray(fieldValue) ? fieldValue : undefined}
             disabled={disabled || loading || readOnly}
             readOnly={readOnly}
-            onValueChanged={(e: any) => fieldOnChange(e.value)}
+            onValueChanged={(e: any) => {
+              if (isDevExtremeUserValueChange(e)) {
+                fieldOnChange(e.value);
+              }
+            }}
             layout="vertical"
             isValid={validation.isValid}
           />
@@ -615,7 +619,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
                 value={currentValues.includes(choice)}
                 disabled={disabled || loading || readOnly}
                 readOnly={readOnly}
-                onValueChanged={(e: any) => handleCheckboxChange(choice, e.value)}
+                onValueChanged={(e: any) => {
+                  if (isDevExtremeUserValueChange(e)) {
+                    handleCheckboxChange(choice, e.value);
+                  }
+                }}
                 className=""
               />
             ))}
@@ -646,7 +654,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               value={Array.isArray(fieldValue) ? fieldValue : undefined}
               maxDisplayedTags={maxDisplayedTags}
               showMultiTagOnly={showMultiTagOnly}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              onValueChanged={(e: any) => {
+                if (isDevExtremeUserValueChange(e)) {
+                  fieldOnChange(e.value);
+                }
+              }}
               isValid={validation.isValid}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
             />
@@ -655,7 +667,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
               key={`selectbox-${loading}-${finalChoices.length}`}
               {...commonProps}
               value={!Array.isArray(fieldValue) ? fieldValue : undefined}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              onValueChanged={(e: any) => {
+                if (isDevExtremeUserValueChange(e)) {
+                  fieldOnChange(e.value);
+                }
+              }}
               isValid={validation.isValid}
               itemRender={renderItem ? (item: any) => renderItem(item) : undefined}
               fieldRender={renderValue ? (data: any) => renderValue(data as string) : undefined}
@@ -719,7 +735,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
             <TextBox
               value={otherState.customValue}
               placeholder={otherConfig?.otherTextboxPlaceholder || 'Enter custom value...'}
-              onValueChanged={(e: any) => handleCustomValueChange(e.value)}
+              onValueChanged={(e: any) => {
+                if (isDevExtremeUserValueChange(e)) {
+                  handleCustomValueChange(e.value);
+                }
+              }}
               disabled={disabled}
               readOnly={readOnly}
               isValid={!otherState.customValueError}

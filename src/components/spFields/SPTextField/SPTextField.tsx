@@ -18,6 +18,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { Label } from '@fluentui/react/lib/Label';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { NoteHistory } from './NoteHistory';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { CharCountSync } from '../../spForm/FormCharCount/CharCountSync';
 import { resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
@@ -320,7 +321,11 @@ export const SPTextField: React.FC<ISPTextFieldProps> = (props) => {
     const fieldProps = {
       key: `textbox-${disabled}-${readOnly}`,
       value: effectiveFieldValue || '',
-      onValueChanged: (e: any) => fieldOnChange(e.value),
+      onValueChanged: (e: any) => {
+        if (isDevExtremeUserValueChange(e)) {
+          fieldOnChange(e.value);
+        }
+      },
       valueChangeEvent: 'input', // Update on every keystroke for real-time character count
       disabled: disabled,
       readOnly: readOnly,

@@ -5,6 +5,7 @@ import { useFormContext } from '../context/FormContext';
 import {
   DevExtremeInlineError,
   IDevExtremeValidationProps,
+  isDevExtremeUserValueChange,
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
@@ -90,7 +91,7 @@ const DevExtremeCheckBox = <T extends FieldValues>({
         <CheckBox
           value={fieldValue ?? false}
           onValueChanged={e => {
-            if (fieldValue !== e.value) {
+            if (isDevExtremeUserValueChange(e) && fieldValue !== e.value) {
               fieldOnChange(e.value);
               onValueChanged?.(e.value);
             }

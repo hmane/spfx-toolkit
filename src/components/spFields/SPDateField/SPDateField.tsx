@@ -16,6 +16,7 @@ import { Text } from '@fluentui/react/lib/Text';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { ISPDateFieldProps } from './SPDateField.types';
 import { SPDateTimeFormat } from '../types';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
@@ -356,6 +357,10 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
               key={componentKey}
               value={normalizedValue}
               onValueChanged={(e: any) => {
+                if (!isDevExtremeUserValueChange(e)) {
+                  return;
+                }
+
                 if (e.value !== undefined && e.value !== null) {
                   fieldOnChange(e.value);
                 } else {
@@ -387,7 +392,11 @@ export const SPDateField: React.FC<ISPDateFieldProps> = (props) => {
             <DateBox
               key={componentKey}
               value={normalizedValue}
-              onValueChanged={(e: any) => fieldOnChange(e.value)}
+              onValueChanged={(e: any) => {
+                if (isDevExtremeUserValueChange(e)) {
+                  fieldOnChange(e.value);
+                }
+              }}
               type={includeTime ? 'datetime' : 'date'}
               displayFormat={format}
               disabled={disabled}

@@ -6,6 +6,7 @@ import { useFormContext } from '../context/FormContext';
 import {
   DevExtremeInlineError,
   IDevExtremeValidationProps,
+  isDevExtremeUserValueChange,
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
@@ -139,7 +140,7 @@ const DevExtremeSelectBox = <T extends FieldValues>({
           items={items}
           value={fieldValue}
           onValueChanged={e => {
-            if (!isEqual(fieldValue, e.value)) {
+            if (isDevExtremeUserValueChange(e) && !isEqual(fieldValue, e.value)) {
               fieldOnChange(e.value);
               onValueChanged?.(e.value);
             }

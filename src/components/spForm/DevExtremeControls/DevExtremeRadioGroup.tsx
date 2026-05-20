@@ -6,6 +6,7 @@ import { useFormContext } from '../context/FormContext';
 import {
   DevExtremeInlineError,
   IDevExtremeValidationProps,
+  isDevExtremeUserValueChange,
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
@@ -38,6 +39,27 @@ export interface IDevExtremeRadioGroupProps<T extends FieldValues> extends IDevE
   onValueChanged?: (value: any) => void;
   onFocusIn?: () => void;
   onFocusOut?: () => void;
+}
+
+export function usesSimpleRadioOptions(items?: IRadioOption[], dataSource?: any[] | any): boolean {
+  return (
+    dataSource === undefined &&
+    Array.isArray(items) &&
+    items.every(item =>
+      item !== null &&
+      typeof item === 'object' &&
+      Object.prototype.hasOwnProperty.call(item, 'text') &&
+      Object.prototype.hasOwnProperty.call(item, 'value')
+    )
+  );
+}
+
+export function shouldCommitRadioGroupValueChange(
+  previousValue: any,
+  nextValue: any,
+  hasUserEvent: boolean
+): boolean {
+  return hasUserEvent && !isEqual(previousValue, nextValue);
 }
 
 const DevExtremeRadioGroup = <T extends FieldValues>({
@@ -73,6 +95,9 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
   const effectiveControl = control || formContext?.control;
   const fieldRef = React.useRef<HTMLDivElement>(null);
   const [standaloneValue, setStandaloneValue] = useControllableValue<any>(value, defaultValue);
+  const hasSimpleRadioOptions = usesSimpleRadioOptions(items, dataSource);
+  const effectiveDisplayExpr = displayExpr ?? (hasSimpleRadioOptions ? 'text' : undefined);
+  const effectiveValueExpr = valueExpr ?? (hasSimpleRadioOptions ? 'value' : undefined);
 
   // Register field with FormContext for scroll-to-error functionality
   React.useEffect(() => {
@@ -125,15 +150,15 @@ const DevExtremeRadioGroup = <T extends FieldValues>({
         <RadioGroup
           value={fieldValue}
           onValueChanged={e => {
-            if (!isEqual(fieldValue, e.value)) {
+            if (shouldCommitRadioGroupValueChange(fieldValue, e.value, isDevExtremeUserValueChange(e))) {
               fieldOnChange(e.value);
               onValueChanged?.(e.value);
             }
           }}
           items={items}
           dataSource={dataSource}
-          displayExpr={displayExpr}
-          valueExpr={valueExpr}
+          displayExpr={effectiveDisplayExpr}
+          valueExpr={effectiveValueExpr}
           itemRender={itemRender}
           disabled={disabled}
           readOnly={readOnly}

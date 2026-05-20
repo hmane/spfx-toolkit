@@ -5,6 +5,7 @@ import { useFormContext } from '../context/FormContext';
 import {
   DevExtremeInlineError,
   IDevExtremeValidationProps,
+  isDevExtremeUserValueChange,
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
@@ -189,6 +190,10 @@ function DevExtremeFileUploaderInner<T extends FieldValues>({
         <FileUploader
           value={files}
           onValueChanged={(e) => {
+            if (!isDevExtremeUserValueChange(e)) {
+              return;
+            }
+
             const next = (e.value as File[]) || [];
             fieldOnChange(next);
             onValueChanged?.(next);

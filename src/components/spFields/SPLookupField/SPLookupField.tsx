@@ -24,6 +24,7 @@ import { ISPLookupFieldProps, SPLookupDisplayMode } from './SPLookupField.types'
 import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
+import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/validation';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
@@ -727,6 +728,10 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 return Array.isArray(dv) ? dv : [];
               })()}
               onValueChanged={(e: any) => {
+                if (!isDevExtremeUserValueChange(e)) {
+                  return;
+                }
+
                 const selectedIds = e.value || [];
 
                 // If no items selected, set to empty array
@@ -765,6 +770,10 @@ export const SPLookupField: React.FC<ISPLookupFieldProps> = (props) => {
                 return !Array.isArray(dv) ? dv : null;
               })()}
               onValueChanged={(e: any) => {
+                if (!isDevExtremeUserValueChange(e)) {
+                  return;
+                }
+
                 const selectedId = e.value;
 
                 // Handle clear/null selection
