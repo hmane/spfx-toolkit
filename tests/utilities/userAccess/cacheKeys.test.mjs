@@ -58,4 +58,12 @@ describe('cacheKeys', () => {
   test('brokenInheritanceKey is constant', () => {
     assert.equal(brokenInheritanceKey(), 'brokenInheritance');
   });
+
+  test('level1Key delegates throw to normalizeLoginForCacheKey on empty', () => {
+    assert.throws(() => level1Key(''), /empty login/i);
+  });
+
+  test('groupMembersKey throws when neither id nor name provided', () => {
+    assert.throws(() => groupMembersKey({}), /groupRef/i);
+  });
 });

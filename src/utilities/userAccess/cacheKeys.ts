@@ -20,7 +20,10 @@ export function level1Key(login: string): string {
  * Prioritizes id over title for stability.
  */
 function listRefSegment(ref: ListRef): string {
-  if (ref.id) return `id=${ref.id}`;
+  if (ref.id !== undefined) {
+    if (ref.id === '') throw new Error('listRef: id must not be empty string');
+    return `id=${ref.id}`;
+  }
   if (ref.title) return `title=${ref.title}`;
   throw new Error('listRef: provide id or title');
 }
