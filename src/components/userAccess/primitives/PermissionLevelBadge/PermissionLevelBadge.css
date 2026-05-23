@@ -1,0 +1,15 @@
+/* PermissionLevelBadge.css */
+.spf-permbadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  border: 1px solid transparent;
+}
+.spf-permbadge--owner { background: #fde7e9; color: #a4262c; border-color: #f5b3b8; }
+.spf-permbadge--member { background: #deecf9; color: #005a9e; border-color: #b6d9f5; }
+.spf-permbadge--visitor { background: #f3f2f1; color: #323130; border-color: #d2d0ce; }
+.spf-permbadge--custom { background: #fff4ce; color: #614e02; border-color: #f9e498; }
+.spf-permbadge--none { background: #faf9f8; color: #a19f9d; border-color: #edebe9; }
