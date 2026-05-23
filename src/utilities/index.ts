@@ -9,6 +9,5 @@ export * from './listItemHelper';
 export * from './permissionHelper';
 export * from './spHelper';
 export * from './stringUtils';
-export * from './userAccess';
 export * from './userPhotoHelper';
 export * from './CssLoader';
