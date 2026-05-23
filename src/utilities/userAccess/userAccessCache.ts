@@ -26,19 +26,18 @@ function store(): Map<string, IEntry> {
 }
 
 /**
- * Get a cached value by key.
- * Returns undefined if key is missing or TTL has expired.
- *
- * @template T - The type of the cached value
- * @param key - The cache key
- * @returns The cached value, or undefined if not found or expired
+ * Returns the cached value for `key`, or `undefined` if missing/expired.
+ * The return type `T` is an asserted cast — the cache stores `unknown`,
+ * so callers that store heterogeneous values under one key must validate
+ * shape themselves.
  */
 export function getCache<T = unknown>(key: string): T | undefined {
-  const entry = store().get(key);
+  const s = store();
+  const entry = s.get(key);
   if (!entry) return undefined;
 
   if (entry.expiresAt < Date.now()) {
-    store().delete(key);
+    s.delete(key);
     return undefined;
   }
 
@@ -51,9 +50,11 @@ export function getCache<T = unknown>(key: string): T | undefined {
  * @template T - The type of the value being cached
  * @param key - The cache key
  * @param value - The value to cache
- * @param ttlMs - Time-to-live in milliseconds
+ * @param ttlMs - Time-to-live in milliseconds (must be > 0)
+ * @throws Error if ttlMs is <= 0
  */
 export function setCache<T>(key: string, value: T, ttlMs: number): void {
+  if (ttlMs <= 0) throw new Error(`setCache: ttlMs must be > 0, got ${ttlMs}`);
   store().set(key, {
     value,
     expiresAt: Date.now() + ttlMs,
