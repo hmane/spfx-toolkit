@@ -1,0 +1,12 @@
+.spf-groupmembers {
+  overflow-y: auto;
+  border: 1px solid #edebe9;
+  padding: 8px;
+}
+.spf-groupmembers__row {
+  padding: 4px 0;
+  cursor: pointer;
+}
+.spf-groupmembers__row:hover {
+  background: #f3f2f1;
+}
