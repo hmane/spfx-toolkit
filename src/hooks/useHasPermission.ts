@@ -39,7 +39,7 @@ export function useHasPermission(
     setState(s => ({ ...s, loading: true, error: null }));
     (async () => {
       try {
-        const ok: boolean = await (SPContext.sp.web as any).currentUserHasPermissions(kind);
+        const ok: boolean = await SPContext.sp.web.currentUserHasPermissions(kind);
         if (!cancelled) setState({ allowed: ok, loading: false, error: null });
       } catch (err) {
         if (!cancelled) {
