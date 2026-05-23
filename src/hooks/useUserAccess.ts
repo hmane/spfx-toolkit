@@ -1,4 +1,5 @@
 // src/hooks/useUserAccess.ts
+import * as React from 'react';
 import {
   invalidatePrefix,
   level1Key,
@@ -21,13 +22,13 @@ export function useUserAccess(
 
   // refresh() must also bust the service-level cache for this login,
   // otherwise the next call returns stale cached data.
-  const refresh = (): void => {
+  const baseRefresh = resource.refresh;
+  const refresh = React.useCallback((): void => {
     if (login) {
-      const key = level1Key(login === 'current' ? 'current' : login);
-      invalidatePrefix(key);
+      invalidatePrefix(level1Key(login));
     }
-    resource.refresh();
-  };
+    baseRefresh();
+  }, [login, baseRefresh]);
 
   return { ...resource, refresh };
 }

@@ -48,7 +48,7 @@ export function useAsyncResource<T>(
       },
       err => {
         if (!cancelled)
-          setState({ data: null, loading: false, error: toUserAccessError(err) });
+          setState(s => ({ data: s.data, loading: false, error: toUserAccessError(err) }));
       }
     );
     return () => {
