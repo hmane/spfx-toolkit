@@ -1,6 +1,5 @@
 import type {
   IAccessDiff,
-  IAccessDiffSection,
   IDirectListPermission,
   ISiteGroup,
   IUserAccessLevel1,
