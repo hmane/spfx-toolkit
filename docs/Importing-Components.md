@@ -390,7 +390,33 @@ import { LazyVersionHistory, LazyManageAccessPanel } from 'spfx-toolkit/componen
 
 ---
 
-## 14. Bundle Verification
+## 14. User Access
+
+The `userAccess` family of components provides self-service and admin-facing SharePoint permission UIs.
+
+| Symbol | Import path |
+|---|---|
+| `MyAccessView` | `spfx-toolkit/components/userAccess/MyAccessView` |
+| `UserAccessAdmin` | `spfx-toolkit/components/userAccess/UserAccessAdmin` |
+| `GroupMembersList` | `spfx-toolkit/components/userAccess/GroupMembersList` |
+| `PermissionLevelBadge` | `spfx-toolkit/components/userAccess/PermissionLevelBadge` |
+| `RequirePermission` | `spfx-toolkit/components/userAccess/RequirePermission` |
+| `UserGroupChips` | `spfx-toolkit/components/userAccess/UserGroupChips` |
+| `DirectPermissionsTable` | `spfx-toolkit/components/userAccess/DirectPermissionsTable` |
+| `userAccessService`, `UserAccessError`, types | `spfx-toolkit/utilities/userAccess` |
+| `useUserAccess`, `useEffectiveListPermission`, `useEffectiveItemPermission`, `useSiteGroups`, `useGroupMembers`, `useGroupMembershipEditor`, `useUserAccessComparison`, `useHasPermission`, `useBrokenInheritanceLists` | `spfx-toolkit/hooks` |
+
+All types travel with their component:
+
+```typescript
+import { MyAccessView, IMyAccessViewProps } from 'spfx-toolkit/components/userAccess/MyAccessView';
+import { UserAccessAdmin, IUserAccessAdminProps } from 'spfx-toolkit/components/userAccess/UserAccessAdmin';
+import { GroupMembersList, IGroupMembersListProps } from 'spfx-toolkit/components/userAccess/GroupMembersList';
+```
+
+---
+
+## 15. Bundle Verification
 
 After importing, verify the bundle impact in your SPFx project:
 

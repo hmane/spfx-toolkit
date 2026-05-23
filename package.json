@@ -91,6 +91,46 @@
       "import": "./lib/components/UserPersona/index.js",
       "require": "./lib/components/UserPersona/index.js"
     },
+    "./components/userAccess": {
+      "types": "./lib/components/userAccess/index.d.ts",
+      "import": "./lib/components/userAccess/index.js",
+      "require": "./lib/components/userAccess/index.js"
+    },
+    "./components/userAccess/MyAccessView": {
+      "types": "./lib/components/userAccess/MyAccessView/index.d.ts",
+      "import": "./lib/components/userAccess/MyAccessView/index.js",
+      "require": "./lib/components/userAccess/MyAccessView/index.js"
+    },
+    "./components/userAccess/UserAccessAdmin": {
+      "types": "./lib/components/userAccess/UserAccessAdmin/index.d.ts",
+      "import": "./lib/components/userAccess/UserAccessAdmin/index.js",
+      "require": "./lib/components/userAccess/UserAccessAdmin/index.js"
+    },
+    "./components/userAccess/GroupMembersList": {
+      "types": "./lib/components/userAccess/GroupMembersList/index.d.ts",
+      "import": "./lib/components/userAccess/GroupMembersList/index.js",
+      "require": "./lib/components/userAccess/GroupMembersList/index.js"
+    },
+    "./components/userAccess/PermissionLevelBadge": {
+      "types": "./lib/components/userAccess/primitives/PermissionLevelBadge/index.d.ts",
+      "import": "./lib/components/userAccess/primitives/PermissionLevelBadge/index.js",
+      "require": "./lib/components/userAccess/primitives/PermissionLevelBadge/index.js"
+    },
+    "./components/userAccess/RequirePermission": {
+      "types": "./lib/components/userAccess/primitives/RequirePermission/index.d.ts",
+      "import": "./lib/components/userAccess/primitives/RequirePermission/index.js",
+      "require": "./lib/components/userAccess/primitives/RequirePermission/index.js"
+    },
+    "./components/userAccess/UserGroupChips": {
+      "types": "./lib/components/userAccess/primitives/UserGroupChips/index.d.ts",
+      "import": "./lib/components/userAccess/primitives/UserGroupChips/index.js",
+      "require": "./lib/components/userAccess/primitives/UserGroupChips/index.js"
+    },
+    "./components/userAccess/DirectPermissionsTable": {
+      "types": "./lib/components/userAccess/primitives/DirectPermissionsTable/index.d.ts",
+      "import": "./lib/components/userAccess/primitives/DirectPermissionsTable/index.js",
+      "require": "./lib/components/userAccess/primitives/DirectPermissionsTable/index.js"
+    },
     "./components/VersionHistory": {
       "types": "./lib/components/VersionHistory/index.d.ts",
       "import": "./lib/components/VersionHistory/index.js",
@@ -190,6 +230,11 @@
       "types": "./lib/utilities/stringUtils/index.d.ts",
       "import": "./lib/utilities/stringUtils/index.js",
       "require": "./lib/utilities/stringUtils/index.js"
+    },
+    "./utilities/userAccess": {
+      "types": "./lib/utilities/userAccess/index.d.ts",
+      "import": "./lib/utilities/userAccess/index.js",
+      "require": "./lib/utilities/userAccess/index.js"
     },
     "./utilities/userPhotoHelper": {
       "types": "./lib/utilities/userPhotoHelper/index.d.ts",

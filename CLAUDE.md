@@ -204,6 +204,9 @@ import { Card } from 'spfx-toolkit';
 | [**GroupViewer**](./src/components/GroupViewer/)           | SharePoint group display      | Low           | Rich tooltips, caching                    |
 | [**ErrorBoundary**](./src/components/ErrorBoundary/)       | Error handling wrapper        | Low           | Retry functionality, logging              |
 | [**spForm**](./src/components/spForm/)                     | Form component suite          | Variable      | DevExtreme integration                    |
+| [**MyAccessView**](./src/components/userAccess/)           | Self-service "what can I see" view | Low      | Plain-English UAT view, drill-down on demand |
+| [**UserAccessAdmin**](./src/components/userAccess/)        | Admin investigation + bulk group editor | Medium | Pivot tabs, allowBrowse prop, PermissionKind gate |
+| [**GroupMembersList**](./src/components/userAccess/)       | List members of a SharePoint group | Low      | Search filter, persona rows               |
 
 ### 🎣 Custom Hooks
 

@@ -14,6 +14,8 @@ export * from './UserPersona';
 export * from './VersionHistory';
 export * from './WorkflowStepper';
 
+export * from './userAccess';
+
 // Lazy-loaded versions of heavy components (for optimal bundle size)
 // Note: Import from 'spfx-toolkit/lib/components/lazy' for tree-shaking
 export * from './lazy';
