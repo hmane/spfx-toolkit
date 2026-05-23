@@ -67,6 +67,8 @@ export function useGroupMembershipEditor(
 
   const allGroups = sg.data ?? [];
 
+  // Note: callers are responsible for disabling the trigger UI while `applying === true`.
+  // A second concurrent apply() will run with stale `state` and the last-resolver wins lastResult.
   const apply = React.useCallback(async (): Promise<IBulkResult> => {
     if (!login) {
       const empty = emptyBulkResult();
@@ -95,10 +97,6 @@ export function useGroupMembershipEditor(
         return result;
       }
 
-      // 2. Trigger refresh of current membership (cache invalidation happens here;
-      //    the next render after apply will see fresh data).
-      ua.refresh();
-
       const adds = selectPendingAdds(state);
       const removes = selectPendingRemoves(state);
 
@@ -118,7 +116,7 @@ export function useGroupMembershipEditor(
         items: [...addResult.items, ...removeResult.items],
       };
 
-      // Rebase reducer to actual server state after success
+      // Rebase reducer to actual server state after writes settle.
       ua.refresh();
       setLastResult(merged);
       return merged;
@@ -131,7 +129,7 @@ export function useGroupMembershipEditor(
     } finally {
       setApplying(false);
     }
-  }, [login, managePermission, state, ua]);
+  }, [login, managePermission, state, ua.refresh]);
 
   return {
     allGroups,
