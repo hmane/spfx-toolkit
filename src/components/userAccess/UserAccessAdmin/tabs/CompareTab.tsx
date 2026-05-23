@@ -38,6 +38,43 @@ interface IPickedPersona extends IPersonaProps {
   text: string;
 }
 
+function masksDiffer(
+  a: { high: string; low: string },
+  b: { high: string; low: string }
+): boolean {
+  return a.high !== b.high || a.low !== b.low;
+}
+
+/**
+ * Stable, order-independent signature of a list of matched role assignments.
+ *
+ * Two users' assignment sets compare equal when every visible principal +
+ * role-definition combination is the same. We compare by signature rather
+ * than by count, so:
+ *   - Same count but different principal/role contents → assignments
+ *     account for differences (NOT unexplained).
+ *   - Different count → assignments clearly account for differences.
+ *   - Identical signatures + non-zero mask delta → unexplained (Entra
+ *     security group, sharing link, app-only, tenant overlay).
+ */
+function assignmentsSignature(
+  assignments: ReadonlyArray<{
+    principal: { type: 'user' | 'group'; id: number };
+    roleDefinitions: ReadonlyArray<{ id: number }>;
+  }>
+): string {
+  return assignments
+    .map(a => {
+      const roleIds = [...a.roleDefinitions]
+        .map(r => r.id)
+        .sort((x, y) => x - y)
+        .join(',');
+      return `${a.principal.type}:${a.principal.id}|${roleIds}`;
+    })
+    .sort()
+    .join(';');
+}
+
 function downloadCsv(filename: string, content: string): void {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -65,9 +102,9 @@ function CompareListRow({
   const unexplained =
     !!lpA.data &&
     !!lpB.data &&
-    (lpA.data.permissionMask.high !== lpB.data.permissionMask.high ||
-      lpA.data.permissionMask.low !== lpB.data.permissionMask.low) &&
-    lpA.data.matchedAssignments.length === lpB.data.matchedAssignments.length;
+    masksDiffer(lpA.data.permissionMask, lpB.data.permissionMask) &&
+    assignmentsSignature(lpA.data.matchedAssignments) ===
+      assignmentsSignature(lpB.data.matchedAssignments);
 
   return (
     <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">

@@ -52,16 +52,22 @@ function groupKey(g: ISiteGroup): string {
 }
 
 /**
- * Extracts a unique key for a direct list permission based on listId, source identity, and permission level.
- * Two permissions are considered "the same" if they grant the same list access via the same source
- * (Direct or via the same group) at the same level.
+ * Extracts a unique key for a direct list permission based on listId, source
+ * identity, and the underlying role definition IDs.
  *
- * @param d Direct list permission
- * @returns Unique key string encoding list.id, source identity, and permission level
+ * Role definition IDs (not the derived `permissionLevel` label) are used so
+ * that two genuinely different custom role-binding sets both labeled `'Custom'`
+ * remain distinguishable in the diff. Without this, distinct custom grants
+ * would collapse into a single "common" entry and disappear from `Only A`/
+ * `Only B`.
  */
 function dlpKey(d: IDirectListPermission): string {
   const sourceKey = d.source === 'Direct' ? 'direct' : `via:${d.source.viaGroupId}`;
-  return `l:${d.list.id}|s:${sourceKey}|lvl:${d.permissionLevel}`;
+  const roleSig = [...d.roleDefinitions]
+    .map(r => r.id)
+    .sort((a, b) => a - b)
+    .join(',');
+  return `l:${d.list.id}|s:${sourceKey}|roles:${roleSig}`;
 }
 
 /**

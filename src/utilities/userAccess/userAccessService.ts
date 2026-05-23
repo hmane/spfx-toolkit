@@ -6,6 +6,7 @@ import '@pnp/sp/security';
 import '@pnp/sp/site-groups';
 import '@pnp/sp/site-users';
 import '@pnp/sp/webs';
+import { PermissionKind } from '@pnp/sp/security';
 
 import { getListsWithUniqueRoleAssignments } from './brokenInheritance';
 import {
@@ -88,6 +89,44 @@ function derivePermissionLevel(
   return 'Custom';
 }
 
+/**
+ * Tests a single PermissionKind bit against a serialized mask.
+ *
+ * SharePoint encodes effective permissions as a 64-bit `BasePermissions` value
+ * split across two 32-bit halves (`High`/`Low`). PermissionKind is 1-based:
+ * kind `n` maps to bit `n - 1` in the 64-bit value.
+ */
+function hasMaskPermission(
+  mask: { high: string; low: string },
+  kind: PermissionKind
+): boolean {
+  // TS target is pre-ES2020; use BigInt() constructor form instead of literals.
+  const SHIFT_32 = BigInt(32);
+  const ONE = BigInt(1);
+  const ZERO = BigInt(0);
+  const m = (BigInt(mask.high) << SHIFT_32) | BigInt(mask.low);
+  return (m & (ONE << BigInt(kind - 1))) !== ZERO;
+}
+
+/**
+ * Derives a permission level label from a SharePoint base-permissions mask.
+ *
+ * Used as a fallback when no SharePoint role assignments matched the user
+ * directly (e.g., access via an Entra ID security group, a sharing link, or
+ * an app-only grant) but `getUserEffectivePermissions` still returns a
+ * non-empty mask. The visible "Source" column in the UI will show no matched
+ * assignments; this label communicates the actual effective level.
+ */
+function derivePermissionLevelFromMask(
+  mask: { high: string; low: string }
+): PermissionLevelLabel {
+  if (Number(mask.high) === 0 && Number(mask.low) === 0) return 'None';
+  if (hasMaskPermission(mask, PermissionKind.ManageWeb)) return 'Owner';
+  if (hasMaskPermission(mask, PermissionKind.EditListItems)) return 'Member';
+  if (hasMaskPermission(mask, PermissionKind.ViewListItems)) return 'Visitor';
+  return 'Custom';
+}
+
 interface IRawRoleAssignment {
   Member: {
     Id: number;
@@ -129,6 +168,49 @@ function matchAssignments(
   });
 }
 
+/**
+ * Surgically invalidates cache entries affected by a group-membership change
+ * for a single user.
+ *
+ * Invalidates:
+ *  - Level-1/2/3 entries for both the raw login passed to the public API AND
+ *    the canonical SharePoint LoginName resolved from it (since callers may
+ *    pass email, claims, or 'current' for the same identity)
+ *  - 'current' aliases for the same three levels (the affected user may be
+ *    cached under the 'current' sentinel)
+ *  - `groupMembers:id=<gid>` for every group touched by this operation
+ *
+ * Does NOT invalidate:
+ *  - `siteGroupsKey()` — the list of groups on the site does not change when
+ *    membership changes; that cache stays valid.
+ *  - L1/L2/L3 caches for *other* users (untouched, including other admins
+ *    who happen to be browsing).
+ */
+function invalidateAfterMembershipChange(
+  rawLogin: LoginInput,
+  canonicalLoginName: string,
+  affectedGroupIds: ReadonlyArray<number>
+): void {
+  const keysToInvalidate = new Set<string>();
+  const rawForKey = rawLogin === 'current' ? 'current' : rawLogin;
+  keysToInvalidate.add(rawForKey);
+  keysToInvalidate.add(canonicalLoginName);
+  keysToInvalidate.add('current');
+
+  for (const key of keysToInvalidate) {
+    invalidatePrefix(level1Key(key));
+    // L2/L3 keys share a common prefix `l2:<login>:` and `l3:<login>:`.
+    // Construct a representative key, then strip the listRef segment.
+    invalidatePrefix(level2Key(key, { id: '__prefix__' }).split(':id=')[0]);
+    invalidatePrefix(level3Key(key, { id: '__prefix__' }, 0).split(':id=')[0]);
+  }
+
+  // Group-members caches: invalidate each affected group's members list.
+  for (const gid of affectedGroupIds) {
+    invalidatePrefix(groupMembersKey({ id: gid }));
+  }
+}
+
 function buildDirectListPermission(
   list: IListWithUniqueRoles,
   matched: IRawRoleAssignment,
@@ -158,10 +240,15 @@ export const userAccessService = {
     clearAll();
   },
 
-  async getUserAccessLevel1(login: LoginInput): Promise<IUserAccessLevel1> {
+  async getUserAccessLevel1(
+    login: LoginInput,
+    opts: { bypassCache?: boolean } = {}
+  ): Promise<IUserAccessLevel1> {
     const cacheKey = level1Key(login === 'current' ? 'current' : login);
-    const cached = getCache<IUserAccessLevel1>(cacheKey);
-    if (cached) return cached;
+    if (!opts.bypassCache) {
+      const cached = getCache<IUserAccessLevel1>(cacheKey);
+      if (cached) return cached;
+    }
 
     const user = await ensureSiteUser(login);
     if (user.isHiddenInUI) {
@@ -196,12 +283,22 @@ export const userAccessService = {
           )() as Promise<IRawRoleAssignment[]>).then((asg: IRawRoleAssignment[]) => ({ list, asg }))
       );
       await execute();
-      const settled = await Promise.all(promises);
+      // Best-effort per list: a single inaccessible/problematic list must not
+      // fail the entire Level-1 view. Log and skip rejected lists.
+      const settled = await Promise.allSettled(promises);
 
-      for (const { list, asg } of settled) {
-        const matched = matchAssignments(asg, user, groupIdSet);
-        for (const m of matched) {
-          directListPermissions.push(buildDirectListPermission(list, m, user));
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          const { list, asg } = result.value;
+          const matched = matchAssignments(asg, user, groupIdSet);
+          for (const m of matched) {
+            directListPermissions.push(buildDirectListPermission(list, m, user));
+          }
+        } else {
+          logger().warn(
+            'userAccess.getUserAccessLevel1: skipping list (role-assignment fetch failed)',
+            { error: result.reason }
+          );
         }
       }
     }
@@ -255,15 +352,25 @@ export const userAccessService = {
     const allRoles = matched.flatMap(m =>
       m.RoleDefinitionBindings.filter(r => !r.Hidden)
     );
-    const permissionLevel = derivePermissionLevel(allRoles.map(r => r.Name));
+    const roleBasedLevel = derivePermissionLevel(allRoles.map(r => r.Name));
 
     // Mask comparison
     const perms: any = await (list as any).getUserEffectivePermissions(user.loginName);
+    const permissionMask = { high: String(perms.High), low: String(perms.Low) };
+
+    // If no SharePoint role assignments matched but the effective-permissions
+    // mask is non-zero, derive the level from the mask. This covers access
+    // routed through invisible sources (Entra groups, sharing links, app-only).
+    // See spec §3 "What the toolkit can and cannot explain".
+    const permissionLevel: PermissionLevelLabel =
+      roleBasedLevel === 'None'
+        ? derivePermissionLevelFromMask(permissionMask)
+        : roleBasedLevel;
 
     const result: IListPermission = {
       list: listInfo,
       permissionLevel,
-      permissionMask: { high: String(perms.High), low: String(perms.Low) },
+      permissionMask,
       matchedAssignments: matched.map(m => ({
         principal: {
           type: m.Member.PrincipalType === 1 ? 'user' : 'group',
@@ -364,10 +471,14 @@ export const userAccessService = {
     }
 
     const allRoles = matchedAssignments.flatMap(m => m.roleDefinitions);
-    let permissionLevel = derivePermissionLevel(allRoles.map(r => r.name));
+    let permissionLevel: PermissionLevelLabel = derivePermissionLevel(allRoles.map(r => r.name));
+    const permissionMask = { high: String(perms.High), low: String(perms.Low) };
 
     if (matchedAssignments.length === 0) {
-      // Item inherits from list; derive level from the list-level effective perms.
+      // No item-level role assignments matched. Try the list-level (covers the
+      // common case of an item inheriting from its parent list). If that also
+      // returns 'None' but the item's effective-permissions mask is non-zero,
+      // fall back to mask-derived level (Entra group / sharing link / app-only).
       try {
         const listLevel = await userAccessService.getEffectiveListPermission(login, listRef);
         permissionLevel = listLevel.permissionLevel;
@@ -377,13 +488,16 @@ export const userAccessService = {
           { itemId, listRef, err }
         );
       }
+      if (permissionLevel === 'None') {
+        permissionLevel = derivePermissionLevelFromMask(permissionMask);
+      }
     }
 
     const result: IItemPermission = {
       list: listInfo,
       itemId,
       permissionLevel,
-      permissionMask: { high: String(perms.High), low: String(perms.Low) },
+      permissionMask,
       matchedAssignments,
     };
     setCache(cacheKey, result, TTL.level3);
@@ -447,8 +561,7 @@ export const userAccessService = {
     }
     await Promise.all(promises);
 
-    invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
-    invalidatePrefix(siteGroupsKey()); // group membership state changed
+    invalidateAfterMembershipChange(login, user.loginName, uniqueIds);
     return fromItems(items);
   },
 
@@ -491,8 +604,7 @@ export const userAccessService = {
     }
     await Promise.all(promises);
 
-    invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
-    invalidatePrefix(siteGroupsKey()); // group membership state changed
+    invalidateAfterMembershipChange(login, user.loginName, uniqueIds);
     return fromItems(items);
   },
 

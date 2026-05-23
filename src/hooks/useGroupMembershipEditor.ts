@@ -97,8 +97,29 @@ export function useGroupMembershipEditor(
         return result;
       }
 
-      const adds = selectPendingAdds(state);
-      const removes = selectPendingRemoves(state);
+      // Pre-flight: re-fetch fresh server membership (bypass cache) so we can
+      // recompute adds/removes against the live state. This handles concurrent
+      // edits — if someone else added/removed the user from a group while the
+      // dialog was open, we don't redundantly re-call SP for it.
+      //
+      // We bypass the cache rather than calling ua.refresh() to avoid triggering
+      // the React-layer seed effect mid-apply (which would snap pendingMembership
+      // back and lose the user's intent).
+      let serverCurrent: Set<number>;
+      try {
+        const fresh = await userAccessService.getUserAccessLevel1(login, {
+          bypassCache: true,
+        });
+        serverCurrent = new Set(fresh.siteGroups.map(g => g.id));
+      } catch {
+        // If the pre-flight fetch fails, fall back to the reducer's last-known
+        // current membership rather than aborting the whole apply.
+        serverCurrent = new Set(state.currentMembership);
+      }
+
+      const intent = state.pendingMembership;
+      const adds = Array.from(intent).filter(id => !serverCurrent.has(id));
+      const removes = Array.from(serverCurrent).filter(id => !intent.has(id));
 
       const [addResult, removeResult] = await Promise.all([
         adds.length > 0

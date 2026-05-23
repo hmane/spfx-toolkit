@@ -59,4 +59,57 @@ describe('diffUserAccess', () => {
     assert.deepEqual(d.onlyB.groups, []);
     assert.deepEqual(d.common.directListPermissions, []);
   });
+
+  test('two different custom role-definition sets both labeled "Custom" do NOT collapse to common', () => {
+    // Same list, same source (Direct), same derived label ('Custom'), but
+    // different actual role definitions. Must remain distinguishable.
+    const customA = {
+      list: list('L1', 'List-L1'),
+      source: 'Direct',
+      roleDefinitions: [{ id: 1001, name: 'CustomRoleA' }],
+      permissionLevel: 'Custom',
+    };
+    const customB = {
+      list: list('L1', 'List-L1'),
+      source: 'Direct',
+      roleDefinitions: [{ id: 1002, name: 'CustomRoleB' }],
+      permissionLevel: 'Custom',
+    };
+    const a = { user: user(1, 'A'), siteGroups: [], directListPermissions: [customA] };
+    const b = { user: user(2, 'B'), siteGroups: [], directListPermissions: [customB] };
+    const d = diffUserAccess(a, b);
+    assert.equal(d.common.directListPermissions.length, 0);
+    assert.equal(d.onlyA.directListPermissions.length, 1);
+    assert.equal(d.onlyA.directListPermissions[0].roleDefinitions[0].id, 1001);
+    assert.equal(d.onlyB.directListPermissions.length, 1);
+    assert.equal(d.onlyB.directListPermissions[0].roleDefinitions[0].id, 1002);
+  });
+
+  test('same custom role-definition sets in different order DO collapse to common', () => {
+    // Sorting in dlpKey ensures order-independence for multi-role bindings.
+    const a = {
+      user: user(1, 'A'),
+      siteGroups: [],
+      directListPermissions: [{
+        list: list('L1', 'L1'),
+        source: 'Direct',
+        roleDefinitions: [{ id: 5, name: 'X' }, { id: 1, name: 'Y' }],
+        permissionLevel: 'Custom',
+      }],
+    };
+    const b = {
+      user: user(2, 'B'),
+      siteGroups: [],
+      directListPermissions: [{
+        list: list('L1', 'L1'),
+        source: 'Direct',
+        roleDefinitions: [{ id: 1, name: 'Y' }, { id: 5, name: 'X' }],
+        permissionLevel: 'Custom',
+      }],
+    };
+    const d = diffUserAccess(a, b);
+    assert.equal(d.common.directListPermissions.length, 1);
+    assert.equal(d.onlyA.directListPermissions.length, 0);
+    assert.equal(d.onlyB.directListPermissions.length, 0);
+  });
 });
