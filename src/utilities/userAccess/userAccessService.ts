@@ -9,15 +9,19 @@ import '@pnp/sp/webs';
 
 import { getListsWithUniqueRoleAssignments } from './brokenInheritance';
 import {
+  brokenInheritanceKey,
+  groupMembersKey,
   level1Key,
   level2Key,
   level3Key,
   siteGroupsKey,
 } from './cacheKeys';
-import { getCache, setCache, TTL, invalidatePrefix } from './userAccessCache';
+import { getCache, setCache, TTL, invalidatePrefix, clearAll } from './userAccessCache';
 import { fromItems } from './bulkResult';
+import { diffUserAccess } from './userAccessDiff';
 import { UserAccessError } from './UserAccessError';
 import type {
+  IAccessDiff,
   IDirectListPermission,
   IItemPermission,
   IListPermission,
@@ -149,6 +153,9 @@ function buildDirectListPermission(
 export const userAccessService = {
   configure(cfg: IUserAccessConfig): void {
     serviceConfig = { ...serviceConfig, ...cfg };
+    // Config may change which lists are included; clear caches so subsequent
+    // reads reflect the new config rather than stale results.
+    clearAll();
   },
 
   async getUserAccessLevel1(login: LoginInput): Promise<IUserAccessLevel1> {
@@ -487,5 +494,46 @@ export const userAccessService = {
     invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
     invalidatePrefix(siteGroupsKey()); // group membership state changed
     return fromItems(items);
+  },
+
+  async diffUserAccess(
+    loginA: LoginInput,
+    loginB: LoginInput
+  ): Promise<IAccessDiff> {
+    const [a, b] = await Promise.all([
+      userAccessService.getUserAccessLevel1(loginA),
+      userAccessService.getUserAccessLevel1(loginB),
+    ]);
+    return diffUserAccess(a, b);
+  },
+
+  async listsWithBrokenInheritance(): Promise<IListWithUniqueRoles[]> {
+    const key = brokenInheritanceKey();
+    const cached = getCache<IListWithUniqueRoles[]>(key);
+    if (cached) return cached;
+    const result = await getListsWithUniqueRoleAssignments(serviceConfig);
+    setCache(key, result, TTL.brokenInheritance);
+    return result;
+  },
+
+  async getGroupMembers(ref: { id?: number; name?: string }): Promise<ISiteUser[]> {
+    const key = groupMembersKey(ref);
+    const cached = getCache<ISiteUser[]>(key);
+    if (cached) return cached;
+    const group = ref.id
+      ? (SPContext.sp.web.siteGroups.getById(ref.id) as any)
+      : (SPContext.sp.web.siteGroups.getByName(ref.name!) as any);
+    const raw: any[] = await group.users.select(
+      'Id', 'LoginName', 'Title', 'Email', 'IsHiddenInUI'
+    )();
+    const result = raw.map<ISiteUser>(u => ({
+      id: u.Id,
+      loginName: u.LoginName,
+      title: u.Title,
+      email: u.Email,
+      isHiddenInUI: u.IsHiddenInUI,
+    }));
+    setCache(key, result, TTL.groupMembers);
+    return result;
   },
 };
