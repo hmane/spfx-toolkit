@@ -405,12 +405,14 @@ export const userAccessService = {
     login: LoginInput,
     groupIds: ReadonlyArray<number>
   ): Promise<import('./types').IBulkResult> {
-    if (groupIds.length === 0) return { succeeded: [], failed: [], items: [] };
+    // Deduplicate to avoid double-calls (especially harmful for remove).
+    const uniqueIds = Array.from(new Set(groupIds));
+    if (uniqueIds.length === 0) return { succeeded: [], failed: [], items: [] };
     const user = await ensureSiteUser(login);
 
     const [spBatch, execute] = SPContext.sp.batched();
     const items: Array<{ groupId: number; success: boolean; error?: string }> = [];
-    const promises = groupIds.map(gid =>
+    const promises = uniqueIds.map(gid =>
       (spBatch.web.siteGroups
         .getById(gid) as any).users.add(user.loginName)
         .then(
@@ -423,11 +425,23 @@ export const userAccessService = {
             })
         )
     );
-    await execute();
+
+    // execute() can throw at the batch level (network, CSRF, throttle). Per-op
+    // rejection handlers don't fire in that case, so synthesize a failure entry
+    // for any groupId not already represented in items[] before returning.
+    try {
+      await execute();
+    } catch (batchErr) {
+      const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+      const seen = new Set(items.map(i => i.groupId));
+      for (const gid of uniqueIds) {
+        if (!seen.has(gid)) items.push({ groupId: gid, success: false, error: msg });
+      }
+    }
     await Promise.all(promises);
 
     invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
-    invalidatePrefix(siteGroupsKey()); // member counts changed
+    invalidatePrefix(siteGroupsKey()); // group membership state changed
     return fromItems(items);
   },
 
@@ -435,12 +449,14 @@ export const userAccessService = {
     login: LoginInput,
     groupIds: ReadonlyArray<number>
   ): Promise<import('./types').IBulkResult> {
-    if (groupIds.length === 0) return { succeeded: [], failed: [], items: [] };
+    // Deduplicate to avoid double-calls (especially harmful for remove).
+    const uniqueIds = Array.from(new Set(groupIds));
+    if (uniqueIds.length === 0) return { succeeded: [], failed: [], items: [] };
     const user = await ensureSiteUser(login);
 
     const [spBatch, execute] = SPContext.sp.batched();
     const items: Array<{ groupId: number; success: boolean; error?: string }> = [];
-    const promises = groupIds.map(gid =>
+    const promises = uniqueIds.map(gid =>
       (spBatch.web.siteGroups
         .getById(gid) as any).users.removeByLoginName(user.loginName)
         .then(
@@ -453,11 +469,23 @@ export const userAccessService = {
             })
         )
     );
-    await execute();
+
+    // execute() can throw at the batch level (network, CSRF, throttle). Per-op
+    // rejection handlers don't fire in that case, so synthesize a failure entry
+    // for any groupId not already represented in items[] before returning.
+    try {
+      await execute();
+    } catch (batchErr) {
+      const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
+      const seen = new Set(items.map(i => i.groupId));
+      for (const gid of uniqueIds) {
+        if (!seen.has(gid)) items.push({ groupId: gid, success: false, error: msg });
+      }
+    }
     await Promise.all(promises);
 
     invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
-    invalidatePrefix(siteGroupsKey());
+    invalidatePrefix(siteGroupsKey()); // group membership state changed
     return fromItems(items);
   },
 };
