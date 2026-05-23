@@ -1,6 +1,6 @@
 export interface IMembershipState {
-  currentMembership: Set<number>;
-  pendingMembership: Set<number>;
+  currentMembership: ReadonlySet<number>;
+  pendingMembership: ReadonlySet<number>;
 }
 
 export type MembershipAction =

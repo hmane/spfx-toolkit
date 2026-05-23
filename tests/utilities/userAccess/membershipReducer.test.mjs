@@ -28,6 +28,15 @@ describe('membershipReducer', () => {
     assert.equal(selectIsDirty(s), true);
   });
 
+  test('toggling the same groupId twice cancels out (no longer dirty)', () => {
+    let s = initMembershipState([1, 2]);
+    s = membershipReducer(s, { type: 'toggle', groupId: 3 });
+    assert.equal(selectIsDirty(s), true);
+    s = membershipReducer(s, { type: 'toggle', groupId: 3 });
+    assert.equal(s.pendingMembership.has(3), false);
+    assert.equal(selectIsDirty(s), false);
+  });
+
   test('reset restores pending to current', () => {
     let s = initMembershipState([1, 2]);
     s = membershipReducer(s, { type: 'toggle', groupId: 3 });
