@@ -12,8 +12,10 @@ import {
   level1Key,
   level2Key,
   level3Key,
+  siteGroupsKey,
 } from './cacheKeys';
-import { getCache, setCache, TTL } from './userAccessCache';
+import { getCache, setCache, TTL, invalidatePrefix } from './userAccessCache';
+import { fromItems } from './bulkResult';
 import { UserAccessError } from './UserAccessError';
 import type {
   IDirectListPermission,
@@ -379,5 +381,83 @@ export const userAccessService = {
     };
     setCache(cacheKey, result, TTL.level3);
     return result;
+  },
+
+  async getAllSiteGroups(): Promise<ISiteGroup[]> {
+    const key = siteGroupsKey();
+    const cached = getCache<ISiteGroup[]>(key);
+    if (cached) return cached;
+    const raw: any[] = await (SPContext.sp.web.siteGroups as any).select(
+      'Id', 'LoginName', 'Title', 'Description', 'OwnerTitle'
+    )();
+    const result = raw.map<ISiteGroup>(g => ({
+      id: g.Id,
+      loginName: g.LoginName,
+      title: g.Title,
+      description: g.Description,
+      ownerTitle: g.OwnerTitle,
+    }));
+    setCache(key, result, TTL.siteGroups);
+    return result;
+  },
+
+  async addUserToGroups(
+    login: LoginInput,
+    groupIds: ReadonlyArray<number>
+  ): Promise<import('./types').IBulkResult> {
+    if (groupIds.length === 0) return { succeeded: [], failed: [], items: [] };
+    const user = await ensureSiteUser(login);
+
+    const [spBatch, execute] = SPContext.sp.batched();
+    const items: Array<{ groupId: number; success: boolean; error?: string }> = [];
+    const promises = groupIds.map(gid =>
+      (spBatch.web.siteGroups
+        .getById(gid) as any).users.add(user.loginName)
+        .then(
+          () => items.push({ groupId: gid, success: true }),
+          (err: unknown) =>
+            items.push({
+              groupId: gid,
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
+            })
+        )
+    );
+    await execute();
+    await Promise.all(promises);
+
+    invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
+    invalidatePrefix(siteGroupsKey()); // member counts changed
+    return fromItems(items);
+  },
+
+  async removeUserFromGroups(
+    login: LoginInput,
+    groupIds: ReadonlyArray<number>
+  ): Promise<import('./types').IBulkResult> {
+    if (groupIds.length === 0) return { succeeded: [], failed: [], items: [] };
+    const user = await ensureSiteUser(login);
+
+    const [spBatch, execute] = SPContext.sp.batched();
+    const items: Array<{ groupId: number; success: boolean; error?: string }> = [];
+    const promises = groupIds.map(gid =>
+      (spBatch.web.siteGroups
+        .getById(gid) as any).users.removeByLoginName(user.loginName)
+        .then(
+          () => items.push({ groupId: gid, success: true }),
+          (err: unknown) =>
+            items.push({
+              groupId: gid,
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
+            })
+        )
+    );
+    await execute();
+    await Promise.all(promises);
+
+    invalidatePrefix(level1Key(login === 'current' ? 'current' : login));
+    invalidatePrefix(siteGroupsKey());
+    return fromItems(items);
   },
 };
