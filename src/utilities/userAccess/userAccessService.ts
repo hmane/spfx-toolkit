@@ -178,7 +178,13 @@ function matchAssignments(
  *    pass email, claims, or 'current' for the same identity)
  *  - 'current' aliases for the same three levels (the affected user may be
  *    cached under the 'current' sentinel)
- *  - `groupMembers:id=<gid>` for every group touched by this operation
+ *  - The ENTIRE `groupMembers:` prefix. `useGroupMembers` accepts either
+ *    `{ id }` or `{ name }`, producing two different cache keys for the same
+ *    group. Resolving id→title from the (possibly-stale) site-groups cache to
+ *    invalidate both forms surgically risks missing entries; clearing the
+ *    whole `groupMembers:` namespace is correct and simple. The over-
+ *    invalidation cost is one cache miss per group-members lookup after a
+ *    rare admin bulk edit — acceptable.
  *
  * Does NOT invalidate:
  *  - `siteGroupsKey()` — the list of groups on the site does not change when
@@ -189,7 +195,7 @@ function matchAssignments(
 function invalidateAfterMembershipChange(
   rawLogin: LoginInput,
   canonicalLoginName: string,
-  affectedGroupIds: ReadonlyArray<number>
+  _affectedGroupIds: ReadonlyArray<number>
 ): void {
   const keysToInvalidate = new Set<string>();
   const rawForKey = rawLogin === 'current' ? 'current' : rawLogin;
@@ -205,10 +211,9 @@ function invalidateAfterMembershipChange(
     invalidatePrefix(level3Key(key, { id: '__prefix__' }, 0).split(':id=')[0]);
   }
 
-  // Group-members caches: invalidate each affected group's members list.
-  for (const gid of affectedGroupIds) {
-    invalidatePrefix(groupMembersKey({ id: gid }));
-  }
+  // Clear the entire groupMembers namespace — covers both id-keyed and
+  // name-keyed entries for the affected (and any other cached) group.
+  invalidatePrefix('groupMembers:');
 }
 
 function buildDirectListPermission(

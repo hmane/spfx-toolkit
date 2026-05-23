@@ -98,9 +98,7 @@ export function useGroupMembershipEditor(
       }
 
       // Pre-flight: re-fetch fresh server membership (bypass cache) so we can
-      // recompute adds/removes against the live state. This handles concurrent
-      // edits — if someone else added/removed the user from a group while the
-      // dialog was open, we don't redundantly re-call SP for it.
+      // reconcile the UI session's intent with the live state.
       //
       // We bypass the cache rather than calling ua.refresh() to avoid triggering
       // the React-layer seed effect mid-apply (which would snap pendingMembership
@@ -117,9 +115,21 @@ export function useGroupMembershipEditor(
         serverCurrent = new Set(state.currentMembership);
       }
 
-      const intent = state.pendingMembership;
-      const adds = Array.from(intent).filter(id => !serverCurrent.has(id));
-      const removes = Array.from(serverCurrent).filter(id => !intent.has(id));
+      // The UI session's intent is the DIFF between what the user saw when they
+      // opened the dialog and what they toggled. We MUST NOT compute this from
+      // (pendingMembership vs serverCurrent), because that would express
+      // opinions about groups the user never saw — e.g., if another admin
+      // concurrently added the user to group C, pending={A,B} vs serverCurrent
+      // ={A,C} would yield a spurious remove of C.
+      //
+      // Correct: take the UI's diff (pending vs reducer's `current`), then
+      // reconcile against `serverCurrent` for idempotency:
+      //   - only add groups not already on the server
+      //   - only remove groups still on the server
+      const intendedAdds = selectPendingAdds(state);     // pending - current
+      const intendedRemoves = selectPendingRemoves(state); // current - pending
+      const adds = intendedAdds.filter(id => !serverCurrent.has(id));
+      const removes = intendedRemoves.filter(id => serverCurrent.has(id));
 
       const [addResult, removeResult] = await Promise.all([
         adds.length > 0
