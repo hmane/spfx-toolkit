@@ -72,7 +72,7 @@ Add-ons in v1:
 
 The default open of any user-inspection view loads only Level 1. Deeper data is fetched on user action.
 
-- **Level 1 (auto, on open):** Groups the user belongs to + lists/libraries where the user (directly or via a group they're in) has been **explicitly granted permissions** (i.e., appears in role assignments of a list with broken inheritance from the web). Implementation is a two-step scan: (1) one site-wide call `sp.web.lists.filter("HasUniqueRoleAssignments eq true").select(...)()` to enumerate broken-inheritance lists, (2) one batched fetch of role assignments across those lists. The total cost is bounded by the count of unique-role lists, which is typically small but is NOT zero — there is a site-wide enumeration step.
+- **Level 1 (auto, on open):** Groups the user belongs to + lists/libraries where the user (directly or via a group they're in) has been **explicitly granted permissions** (i.e., appears in role assignments of a list with broken inheritance from the web). Implementation is a two-step scan: (1) one site-wide call `sp.web.lists.filter("HasUniqueRoleAssignments eq true").select(...)()` to enumerate broken-inheritance lists, (2) one batched fetch of role assignments across those lists. The total cost is bounded by the count of unique-role lists, which is typically small but is NOT zero — there is a site-wide enumeration step. **Implementation spike must validate that the `HasUniqueRoleAssignments eq true` server-side filter is honored in the target tenant**; if a tenant rejects or silently mis-evaluates the filter, the fallback is to enumerate visible lists with `HasUniqueRoleAssignments` in `$select` and filter client-side. Choose at runtime per call; do not maintain a permanent client-side branch.
 - **Level 2 (user picks a list):** Effective permissions for that user on the chosen list.
 - **Level 3 (user enters an item ID):** Effective permissions on that specific list item.
 
@@ -141,8 +141,8 @@ src/
 2. **Hooks have no SP calls.** Hooks orchestrate service calls + React state only. Easier to reason about and easier to swap the data source later.
 3. **Reused, not duplicated:**
    - `SPContext` — required initialized; service uses `SPContext.sp` and `SPContext.logger`.
-   - Native PnP batching (`sp.batched()` / `sp.web.createBatch()` from `@pnp/sp`) — used for bulk group ops and parallel role-assignment fetches. The existing `BatchBuilder` is **not** used here: it only supports list-item create/update/delete via `ListOperationBuilder` and does not cover `siteGroups.getById(...).users.add/removeByLoginName(...)` or batched role-assignment reads. We deliberately do not extend `BatchBuilder` for this feature — keeping its surface focused on list-item ops.
-   - `PermissionHelper` — reused for richer permission semantics on lists (e.g., `userHasSpecificPermissionOnList`); the lightweight `useHasPermission` gate calls `sp.web.currentUserHasPermissions(PermissionKind.X)` directly because the helper has no current-user-on-web wrapper.
+   - Native PnP batching (`sp.batched(props?)` / `sp.web.batched(props?)`, or the exported `createBatch(base, props?)` — all from `@pnp/sp/batching`). Used for bulk group ops and parallel role-assignment fetches. The existing `BatchBuilder` is **not** used here: it only supports list-item create/update/delete via `ListOperationBuilder` and does not cover `siteGroups.getById(...).users.add/removeByLoginName(...)` or batched role-assignment reads. We deliberately do not extend `BatchBuilder` for this feature — keeping its surface focused on list-item ops.
+   - `PermissionHelper` — reused for richer permission semantics on lists (e.g., `userHasSpecificPermission(listName, permissionKind)`); the lightweight `useHasPermission` gate calls `sp.web.currentUserHasPermissions(PermissionKind.X)` directly because the helper has no current-user-on-web wrapper.
    - `<UserPersona>`, `<GroupViewer>` — reused inside surfaces for rendering people and groups.
    - `<ErrorBoundary>` — wrapped internally around the admin surface.
 
@@ -284,7 +284,10 @@ useUserAccessComparison(loginA, loginB)
 ### Bulk-edit state machine
 
 ```typescript
-useGroupMembershipEditor(login: string | null)
+useGroupMembershipEditor(
+  login: string | null,
+  managePermission: PermissionKind = PermissionKind.ManageWeb
+)
   → {
       allGroups: ISiteGroup[],
       currentMembership: Set<number>,     // server truth
@@ -294,12 +297,14 @@ useGroupMembershipEditor(login: string | null)
       isDirty: boolean,
       toggle(groupId): void,
       reset(): void,
-      apply(): Promise<IBulkResult>,
+      apply(): Promise<IBulkResult>,       // re-checks `managePermission` before dispatch
       applying: boolean,
       lastResult: IBulkResult | null,      // partial-success here
       error,
     }
 ```
+
+`UserAccessAdmin` passes its `managePermission` prop into this hook so the UI gate and the apply-time re-check use the same `PermissionKind`. Consumers building custom UIs should pass whatever kind matches their `<RequirePermission>` wrapper.
 
 Why this shape:
 
@@ -319,7 +324,7 @@ useHasPermission(kind: PermissionKind = PermissionKind.ManageWeb)
   // SPPermissionLevel (the display-name enum: Full Control / Edit / Read / ...) is
   // intentionally NOT used here — ManageWeb is a permission bit, not a display level.
   // For list/item-scoped specific-permission checks, callers can use the existing
-  // PermissionHelper.userHasSpecificPermissionOnList(...) instead.
+  // PermissionHelper.userHasSpecificPermission(listName, permissionKind) instead.
 ```
 
 ---
@@ -387,10 +392,11 @@ Wraps `useHasPermission`. Takes a `PermissionKind` (from `@pnp/sp/security`), de
 **Tab 2 — Compare**
 
 - Two `<PeoplePicker>` side-by-side.
-- Below: 3-column diff grid: **Only A** | **Common** | **Only B**. Each column has subsections "Groups" and "Direct list permissions".
+- Below: 3-column diff grid: **Only A** | **Common** | **Only B**. Each column has subsections "Groups" and "Matched list role assignments".
 - Header shows counts (e.g., "Only Mary: 3 groups, 1 list").
 - "Export CSV" button → `accessExportToCsv(diff)` → triggers download.
-- Backed by `useUserAccessComparison`.
+- Backed by `useUserAccessComparison`. **Level-1 only** by default — the grid compares groups and matched role assignments from each user's `IUserAccessLevel1`. It does NOT eagerly fetch effective permission masks for shared lists; that would break the progressive-disclosure rule.
+- Each row in "Matched list role assignments" has a "Compare permissions" affordance that fires Level-2 fetches (`useEffectiveListPermission` for both users) for that one list. Only then is `unexplainedDifference` computed and surfaced — when masks differ but the visible assignments don't account for it. Optional drill-into-item works the same way at Level 3.
 
 **Tab 3 — Manage groups** (gated by `<RequirePermission kind={managePermission}>`)
 
@@ -421,7 +427,7 @@ Renders `<UserPersona>` rows with a search filter. Backed by `useGroupMembers`. 
 Three layers, each catching different mistakes:
 
 1. **UI gate** — `<RequirePermission kind={PermissionKind.ManageWeb}>` hides write surfaces. Prevents the *option* from appearing.
-2. **Hook gate** — `useGroupMembershipEditor.apply()` re-checks `sp.web.currentUserHasPermissions(PermissionKind.ManageWeb)` immediately before dispatch and resolves with an `IBulkResult` where every operation is `failed: { error: 'ACCESS_DENIED' }` if the check fails. Catches direct hook invocation.
+2. **Hook gate** — `useGroupMembershipEditor.apply()` re-checks `sp.web.currentUserHasPermissions(managePermission)` immediately before dispatch (where `managePermission` is the hook's second argument, default `PermissionKind.ManageWeb`). On failure, resolves with an `IBulkResult` where every operation is `failed: { error: 'ACCESS_DENIED' }`. Catches direct hook invocation and keeps the apply-time check aligned with whatever `PermissionKind` the consuming UI uses for its `<RequirePermission>` wrapper.
 3. **Server gate** — SharePoint itself rejects unauthorized adds/removes; surfaced through `IBulkResult.failed[]`. The toolkit doesn't pretend to be the security boundary; SP is.
 
 **Read-surface gating:**
@@ -455,7 +461,7 @@ Components are wrapped in `<ErrorBoundary>` internally so a render-time bug does
 - **Bulk atomicity.** SP $batch is not transactional. We batch into one request but partial success is real, surfaced via `IBulkResult`. Confirmation dialog warns "Some changes may succeed while others fail."
 - **No SPContext.** The service layer throws synchronously if `SPContext` isn't initialized — that's a programmer wiring error and should surface loudly to the developer. Hooks **catch** this and expose it as `error: UserAccessError({ code: 'UNKNOWN' })` so a missing-context bug never escapes a `useEffect`-style fetch into React's error boundary. Non-React service callers still see the throw.
 
-- **Source coverage limits.** As called out in Section 3, the toolkit explains permissions in terms of **matched SharePoint role assignments** only. Entra ID security groups (used as principals), sharing links, app-only grants, and tenant-level overlays are not expanded. The comparison view annotates rows with `unexplainedDifference: true` when the two users' permission masks differ on a list/item but the visible role assignments don't account for it — alerting the admin to look beyond what we can show.
+- **Source coverage limits.** As called out in Section 3, the toolkit explains permissions in terms of **matched SharePoint role assignments** only. Entra ID security groups (used as principals), sharing links, app-only grants, and tenant-level overlays are not expanded. The `unexplainedDifference: true` annotation appears **only inside a Level-2 or Level-3 drill-down**, where effective permission masks for both users are actually fetched — not on the Compare tab's default Level-1 diff. The default Compare view shows only "matched SharePoint role assignments differ here"; the admin must click into a specific list (Level 2) or item (Level 3) to see a mask comparison and the `unexplainedDifference` flag if it applies. This preserves the progressive-disclosure guarantee.
 - **Login format variation.** Service normalizes to `LoginName` at the boundary so cache keys are stable.
 
 ---
@@ -525,4 +531,4 @@ Behavioral:
 - Non-`ManageWeb` users see Browse/Compare inside `<UserAccessAdmin>` **only when** the consuming web part sets `allowBrowse={true}`. Manage Groups is hidden from them regardless.
 - Hooks never throw to render: a missing `SPContext` surfaces as `error: UserAccessError({ code: 'UNKNOWN' })`.
 - `useHasPermission` and `<RequirePermission>` take `PermissionKind` (from `@pnp/sp/security`), not `SPPermissionLevel`.
-- Comparison-view rows where the visible role assignments don't account for an observed mask difference are annotated `unexplainedDifference: true`.
+- Comparison view is Level-1 only by default. `unexplainedDifference: true` is only computed and surfaced after an explicit per-list (Level-2) or per-item (Level-3) drill-down for both users.
