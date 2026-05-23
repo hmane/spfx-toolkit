@@ -1,2 +1,10 @@
 /* UserAccessAdmin.css */
 .spf-useradmin { padding: 8px; }
+
+.spf-recentuser {
+  border: 1px solid #d2d0ce;
+  background: #faf9f8;
+  border-radius: 12px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
