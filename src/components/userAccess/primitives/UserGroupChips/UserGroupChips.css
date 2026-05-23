@@ -1,0 +1,26 @@
+.spf-usergroupchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spf-usergroupchip {
+  border: 1px solid #d2d0ce;
+  background: #faf9f8;
+  border-radius: 14px;
+  padding: 2px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.1s ease;
+}
+
+.spf-usergroupchip:hover {
+  background: #f3f2f1;
+}
+
+.spf-usergroupchips--empty {
+  color: #605e5c;
+  font-style: italic;
+}
