@@ -346,15 +346,34 @@ export const userAccessService = {
           name: r.Name,
         })),
       }));
-    } catch {
+    } catch (err) {
       // Item likely inherits — role assignments lookup is best-effort.
+      logger().warn(
+        'userAccess.getEffectiveItemPermission: role assignments walk failed (best-effort)',
+        { itemId, err }
+      );
     }
 
     const allRoles = matchedAssignments.flatMap(m => m.roleDefinitions);
+    let permissionLevel = derivePermissionLevel(allRoles.map(r => r.name));
+
+    if (matchedAssignments.length === 0) {
+      // Item inherits from list; derive level from the list-level effective perms.
+      try {
+        const listLevel = await userAccessService.getEffectiveListPermission(login, listRef);
+        permissionLevel = listLevel.permissionLevel;
+      } catch (err) {
+        logger().warn(
+          'userAccess.getEffectiveItemPermission: could not derive inherited level from list',
+          { itemId, listRef, err }
+        );
+      }
+    }
+
     const result: IItemPermission = {
       list: listInfo,
       itemId,
-      permissionLevel: derivePermissionLevel(allRoles.map(r => r.name)),
+      permissionLevel,
       permissionMask: { high: String(perms.High), low: String(perms.Low) },
       matchedAssignments,
     };
