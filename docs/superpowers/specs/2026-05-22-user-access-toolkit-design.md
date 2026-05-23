@@ -527,7 +527,7 @@ Bundle expectations:
 Behavioral:
 
 - Default open of any inspection view fetches only Level 1 (one site-wide list call + one PnP batch of role-assignment reads).
-- Bulk apply uses native PnP batching (`sp.batched()`), not `BatchBuilder`, and surfaces partial failures without throwing.
+- Bulk apply uses one of the native PnP batching entry points from `@pnp/sp/batching` (`sp.batched(props?)`, `sp.web.batched(props?)`, or the exported `createBatch(base, props?)` — implementer's choice), not `BatchBuilder`, and surfaces partial failures without throwing.
 - Non-`ManageWeb` users see Browse/Compare inside `<UserAccessAdmin>` **only when** the consuming web part sets `allowBrowse={true}`. Manage Groups is hidden from them regardless.
 - Hooks never throw to render: a missing `SPContext` surfaces as `error: UserAccessError({ code: 'UNKNOWN' })`.
 - `useHasPermission` and `<RequirePermission>` take `PermissionKind` (from `@pnp/sp/security`), not `SPPermissionLevel`.
