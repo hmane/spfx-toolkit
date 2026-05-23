@@ -6,7 +6,9 @@
  * lowercase and trim. The actual API-bound LoginName comes from
  * `sp.web.ensureUser(input)` — this helper is for cache keys only.
  */
-export function normalizeLoginForCacheKey(input: string | 'current'): string {
+import type { LoginInput } from './types';
+
+export function normalizeLoginForCacheKey(input: LoginInput): string {
   if (input === null || input === undefined) {
     throw new Error('Invalid login: null/undefined');
   }
