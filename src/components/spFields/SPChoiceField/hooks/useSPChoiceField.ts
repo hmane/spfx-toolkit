@@ -18,6 +18,7 @@ import {
   shouldEnableOtherOption,
   validateCustomValue,
 } from '../utils/choiceFieldLoader';
+import { shouldCollectOtherValue } from '../utils/otherConfig';
 
 export interface IUseSPChoiceFieldResult {
   /**
@@ -93,6 +94,7 @@ export function useSPChoiceField(
   const [retryCount, setRetryCount] = React.useState<number>(0);
 
   const otherOptionText = otherConfig.otherOptionText || 'Other';
+  const collectOtherValue = shouldCollectOtherValue(otherConfig);
 
   // Helper to safely convert value to string
   const toSafeString = (val: unknown): string => {
@@ -111,6 +113,10 @@ export function useSPChoiceField(
   // Initialize otherState - detect "Other" values even without explicit enableOtherOption
   // This handles loading saved "Other" values from SharePoint fields with allowFillIn
   const getInitialOtherState = (): IOtherOptionState => {
+    if (!collectOtherValue) {
+      return { isOtherSelected: false, customValue: '', customValueError: undefined };
+    }
+
     if (!value) {
       return { isOtherSelected: false, customValue: '', customValueError: undefined };
     }
@@ -241,6 +247,10 @@ export function useSPChoiceField(
   // Determine if "Other" option should be enabled
   // Note: We return true early if explicitly configured, even before metadata loads
   const otherEnabled = React.useMemo(() => {
+    if (!collectOtherValue) {
+      return false;
+    }
+
     // Force enable if explicitly configured (works even before metadata loads)
     if (otherConfig.enableOtherOption) {
       return true;
@@ -257,7 +267,7 @@ export function useSPChoiceField(
 
     // Auto-detect from field metadata
     return shouldEnableOtherOption(metadata, otherOptionText);
-  }, [metadata, otherConfig.enableOtherOption, otherOptionText, otherState.isOtherSelected, otherState.customValue]);
+  }, [metadata, collectOtherValue, otherConfig.enableOtherOption, otherOptionText, otherState.isOtherSelected, otherState.customValue]);
 
   // Build final choices array (inject "Other" if needed)
   const choices = React.useMemo(() => {
@@ -267,8 +277,9 @@ export function useSPChoiceField(
     // 1. enableOtherOption is explicitly set to true (forced injection)
     // 2. allowFillIn is true (SharePoint fill-in choices enabled)
     const shouldInjectOther =
-      otherConfig.enableOtherOption ||
-      (otherEnabled && metadata.allowFillIn);
+      collectOtherValue &&
+      (otherConfig.enableOtherOption ||
+        (otherEnabled && metadata.allowFillIn));
 
     if (shouldInjectOther) {
       // Inject "Other" option if not already in choices
@@ -276,7 +287,7 @@ export function useSPChoiceField(
     }
 
     return metadata.choices;
-  }, [metadata, otherEnabled, otherConfig.enableOtherOption, otherOptionText]);
+  }, [metadata, collectOtherValue, otherEnabled, otherConfig.enableOtherOption, otherOptionText]);
 
   // Check if a value is an "Other" value (not in original choices)
   const isOtherValue = React.useCallback(

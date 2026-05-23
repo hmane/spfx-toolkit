@@ -79,6 +79,13 @@ export interface IOtherOptionConfig {
   enableOtherOption?: boolean;
 
   /**
+   * Whether selecting otherOptionText should collect a custom value in a textbox.
+   * Set to false when "Other" is a literal choice and should be saved as-is.
+   * @default true
+   */
+  collectOtherValue?: boolean;
+
+  /**
    * Placeholder text for the custom value textbox
    * @default "Enter custom value..."
    */
@@ -280,6 +287,7 @@ export const DefaultSPChoiceFieldProps: Partial<ISPChoiceFieldProps> = {
   otherConfig: {
     otherOptionText: 'Other',
     enableOtherOption: false,
+    collectOtherValue: true,
     otherTextboxPlaceholder: 'Enter custom value...',
     otherValidation: {
       required: true,
