@@ -29,6 +29,9 @@ describe('bulkResult helpers', () => {
     assert.deepEqual(r.succeeded.sort(), [1, 3]);
     assert.deepEqual(r.failed, [{ groupId: 2, error: 'denied' }]);
     assert.equal(r.items.length, 3);
+    // fallback error message when item.error is missing
+    const fallbackResult = fromItems([{ groupId: 99, success: false }]);
+    assert.deepEqual(fallbackResult.failed, [{ groupId: 99, error: 'unknown' }]);
   });
 
   test('mergeBulkResults concatenates', () => {
@@ -38,6 +41,8 @@ describe('bulkResult helpers', () => {
     assert.deepEqual(m.succeeded, [1]);
     assert.deepEqual(m.failed, [{ groupId: 2, error: 'x' }]);
     assert.equal(m.items.length, 2);
+    const empty = mergeBulkResults();
+    assert.deepEqual(empty, { succeeded: [], failed: [], items: [] });
   });
 
   test('isFullSuccess / isFullFailure correctly classify mixed results', () => {
