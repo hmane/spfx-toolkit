@@ -3,14 +3,13 @@ import type {
   IAccessDiffSection,
   IDirectListPermission,
   ISiteGroup,
-  ISiteUser,
   IUserAccessLevel1,
 } from './types';
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return '';
   const s = String(value);
-  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  if (/[",\r\n\t]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
@@ -79,6 +78,7 @@ function level1Csv(p: IUserAccessLevel1): string {
   parts.push('');
   parts.push('# Direct List Permissions');
   parts.push(...dlpBlock(p.directListPermissions));
+  // CSV uses LF line endings; modern parsers and browser-Blob downloads accept this.
   return parts.join('\n');
 }
 
