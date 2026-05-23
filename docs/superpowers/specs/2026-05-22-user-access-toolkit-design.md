@@ -72,11 +72,22 @@ Add-ons in v1:
 
 The default open of any user-inspection view loads only Level 1. Deeper data is fetched on user action.
 
-- **Level 1 (auto, on open):** Groups the user belongs to + lists/libraries where the user (directly or via a group they're in) has been **explicitly granted permissions** (i.e., appears in role assignments of a list with broken inheritance from the web). Bounded by the count of broken-inheritance lists, which is typically small.
+- **Level 1 (auto, on open):** Groups the user belongs to + lists/libraries where the user (directly or via a group they're in) has been **explicitly granted permissions** (i.e., appears in role assignments of a list with broken inheritance from the web). Implementation is a two-step scan: (1) one site-wide call `sp.web.lists.filter("HasUniqueRoleAssignments eq true").select(...)()` to enumerate broken-inheritance lists, (2) one batched fetch of role assignments across those lists. The total cost is bounded by the count of unique-role lists, which is typically small but is NOT zero — there is a site-wide enumeration step.
 - **Level 2 (user picks a list):** Effective permissions for that user on the chosen list.
 - **Level 3 (user enters an item ID):** Effective permissions on that specific list item.
 
-This rule forbids any "enumerate every list, check effective permissions for the user on each" implementation. The default cost is bounded.
+This rule forbids any "enumerate every list and call effective-permission APIs per list per user" implementation. The default cost is one site-wide list call plus one batched role-assignment fetch.
+
+### What the toolkit can and cannot explain
+
+The toolkit displays **matched SharePoint role assignments** — i.e., entries in `RoleAssignments` on the web/list/item where the principal is the user OR a SharePoint group the user belongs to. It does NOT claim to explain "complete effective permission causality." Sources we cannot resolve from SP REST:
+
+- Entra ID security groups used as principals (we see the group, but cannot expand its membership through SP).
+- Sharing links (anonymous, "anyone with link", flexible-link system principals).
+- App-only / Azure AD app grants.
+- Tenant-level / hub-permission overlays.
+
+The UI labels its rows accordingly (e.g., "Granted via SharePoint group: Site Members"), and the comparison view notes when the diff cannot fully account for an observed difference.
 
 ---
 
@@ -86,7 +97,7 @@ This rule forbids any "enumerate every list, check effective permissions for the
 src/
 ├── utilities/
 │   └── userAccess/                       # NEW — shared core (no React)
-│       ├── userAccessService.ts          # All SP calls (uses SPContext.sp + BatchBuilder)
+│       ├── userAccessService.ts          # All SP calls (uses SPContext.sp + native PnP batching)
 │       ├── userAccessCache.ts            # window-level cache (per existing toolkit pattern)
 │       ├── userAccessDiff.ts             # pure diff function (testable, no SP)
 │       ├── userAccessExport.ts           # accessExportToCsv (pure, no SP)
@@ -130,8 +141,8 @@ src/
 2. **Hooks have no SP calls.** Hooks orchestrate service calls + React state only. Easier to reason about and easier to swap the data source later.
 3. **Reused, not duplicated:**
    - `SPContext` — required initialized; service uses `SPContext.sp` and `SPContext.logger`.
-   - `BatchBuilder` — used for bulk group ops and parallel Level-1 fetches.
-   - `PermissionHelper` — backs `useHasPermission`; not reinvented.
+   - Native PnP batching (`sp.batched()` / `sp.web.createBatch()` from `@pnp/sp`) — used for bulk group ops and parallel role-assignment fetches. The existing `BatchBuilder` is **not** used here: it only supports list-item create/update/delete via `ListOperationBuilder` and does not cover `siteGroups.getById(...).users.add/removeByLoginName(...)` or batched role-assignment reads. We deliberately do not extend `BatchBuilder` for this feature — keeping its surface focused on list-item ops.
+   - `PermissionHelper` — reused for richer permission semantics on lists (e.g., `userHasSpecificPermissionOnList`); the lightweight `useHasPermission` gate calls `sp.web.currentUserHasPermissions(PermissionKind.X)` directly because the helper has no current-user-on-web wrapper.
    - `<UserPersona>`, `<GroupViewer>` — reused inside surfaces for rendering people and groups.
    - `<ErrorBoundary>` — wrapped internally around the admin surface.
 
@@ -154,7 +165,11 @@ getUserAccessLevel1(login): Promise<IUserAccessLevel1>
   // - user: resolved ISiteUser (ensureUser if needed)
   // - siteGroups: groups this user belongs to
   // - directListPermissions: lists with broken inheritance where user OR
-  //   any of their groups appears in role assignments. Fetched via one $batch.
+  //   any of their groups appears in role assignments.
+  //   Implementation: site-wide enumeration via
+  //     sp.web.lists.filter("HasUniqueRoleAssignments eq true").select("Id","Title","Hidden")()
+  //   then one PnP batch (sp.batched()) fetching RoleAssignments
+  //   (with Member, RoleDefinitionBindings) for each unique-role list.
 
 // Level 2 (on demand)
 getEffectiveListPermission(login, listRef): Promise<IListPermission>
@@ -173,7 +188,9 @@ diffUserAccess(loginA, loginB): Promise<IAccessDiff>
 getAllSiteGroups(): Promise<ISiteGroup[]>
 addUserToGroups(login, groupIds[]): Promise<IBulkResult>
 removeUserFromGroups(login, groupIds[]): Promise<IBulkResult>
-  // Both use BatchBuilder.
+  // Both use native PnP batching via sp.batched() (NOT BatchBuilder).
+  // Each enqueues one sp.web.siteGroups.getById(id).users.add(loginName)
+  // or .removeByLoginName(loginName) call into the batch.
   // IBulkResult = { succeeded: number[], failed: Array<{groupId, error}> }
   // Partial failures are returned, NOT thrown.
 
@@ -226,7 +243,7 @@ All hooks share a uniform shape so consumers learn one mental model:
 - `error: UserAccessError | null` (never a thrown promise React can't catch)
 - `refresh()` busts the cache for that hook's key and re-fetches
 - **Null-arg → idle.** If a required arg is `null`/`undefined`, the hook does nothing (no fetch, no error). Caller controls when to load. This drives the drill-down UX.
-- Hooks assume `SPContext` is initialized; they don't initialize it.
+- **Error contract is uniform.** Service methods may throw on programmer error (e.g., uninitialized `SPContext`). Hooks **catch** these and return them as `error: UserAccessError({ code: 'UNKNOWN', cause })` — the hook contract is "never throws to render". This split keeps non-React service callers from silently swallowing wiring bugs while keeping React rendering safe.
 
 ### Read hooks
 
@@ -294,9 +311,15 @@ Why this shape:
 ### Gate
 
 ```typescript
-useHasPermission(level: SPPermissionLevel = 'ManageWeb')
+import { PermissionKind } from '@pnp/sp/security';
+
+useHasPermission(kind: PermissionKind = PermissionKind.ManageWeb)
   → { allowed: boolean, loading, error }
-  // Backed by PermissionHelper.currentUserHasPermission(level)
+  // Backed by sp.web.currentUserHasPermissions(kind).
+  // SPPermissionLevel (the display-name enum: Full Control / Edit / Read / ...) is
+  // intentionally NOT used here — ManageWeb is a permission bit, not a display level.
+  // For list/item-scoped specific-permission checks, callers can use the existing
+  // PermissionHelper.userHasSpecificPermissionOnList(...) instead.
 ```
 
 ---
@@ -314,8 +337,8 @@ Horizontal chip row. Each chip's hover renders the existing `<GroupViewer>` (no 
 **`<DirectPermissionsTable lists={IDirectListPermission[]} onListClick?(listRef) />`**
 Compact table: list title, permission level (badge), source ("Direct" or "Via {group}"). `onListClick` triggers Level-2 drill-down. Empty state copy provided.
 
-**`<RequirePermission level="ManageWeb" fallback?>{children}</RequirePermission>`**
-Wraps `useHasPermission`. While `loading`, renders a Fluent `Shimmer` placeholder. While `!allowed`, renders `fallback ?? null`. Used by `UserAccessAdmin` to gate write tabs; also exported standalone.
+**`<RequirePermission kind={PermissionKind.ManageWeb} fallback?>{children}</RequirePermission>`**
+Wraps `useHasPermission`. Takes a `PermissionKind` (from `@pnp/sp/security`), default `PermissionKind.ManageWeb`. While `loading`, renders a Fluent `Shimmer` placeholder. While `!allowed`, renders `fallback ?? null`. Used by `UserAccessAdmin` to gate write tabs; also exported standalone.
 
 ### `<MyAccessView />` — self-service surface
 
@@ -333,10 +356,27 @@ Wraps `useHasPermission`. While `loading`, renders a Fluent `Shimmer` placeholde
 
 ### `<UserAccessAdmin />` — admin surface
 
-**Props:** `{ className?, title?, requirePermission?: SPPermissionLevel, onError? }`
-Default `requirePermission = 'ManageWeb'`. If current user fails the gate, renders a "not authorized" message instead of tabs. Read tabs (Browse, Compare) are **not** gated by `ManageWeb` — the gate only blocks the Manage Groups tab. Consuming web parts decide who sees which surface overall.
+**Props:**
 
-**Layout:** Fluent `Pivot` with three tabs.
+```typescript
+{
+  className?: string;
+  title?: string;
+  managePermission?: PermissionKind;  // default PermissionKind.ManageWeb
+  allowBrowse?: boolean;              // default false
+  onError?: (error: UserAccessError) => void;
+}
+```
+
+**Gating model:**
+
+- The component shell **always renders** (header, Pivot chrome) — no full "not authorized" replacement. This matters for embed scenarios where the consumer's layout depends on the chrome being visible.
+- **Browse tab** and **Compare tab** are visible if `allowBrowse === true` **OR** the current user has `managePermission`. Default `allowBrowse = false` means non-admins see no other users' data unless the consuming web part deliberately opts them in.
+- **Manage Groups tab** is always gated by `<RequirePermission kind={managePermission}>`. Never shown to users without it, regardless of `allowBrowse`.
+- A tab that is gated-out is **hidden from the Pivot** (not greyed-out), so the UI doesn't advertise capabilities the user can't use.
+- If the user has access to no tabs, an inline "You don't have access to any user-admin features on this site" message replaces the Pivot. This is the only "not authorized" surface; the shell stays.
+
+**Layout:** Fluent `Pivot` with up to three tabs (filtered by the gating model above).
 
 **Tab 1 — Browse**
 
@@ -352,7 +392,7 @@ Default `requirePermission = 'ManageWeb'`. If current user fails the gate, rende
 - "Export CSV" button → `accessExportToCsv(diff)` → triggers download.
 - Backed by `useUserAccessComparison`.
 
-**Tab 3 — Manage groups** (gated by `<RequirePermission level={requirePermission}>`)
+**Tab 3 — Manage groups** (gated by `<RequirePermission kind={managePermission}>`)
 
 - `<PeoplePicker>` + group filter `SearchBox`.
 - Scrollable checkbox list of ALL site groups (from `useSiteGroups`). Each row: checkbox, group name, member count.
@@ -380,11 +420,15 @@ Renders `<UserPersona>` rows with a search filter. Backed by `useGroupMembers`. 
 
 Three layers, each catching different mistakes:
 
-1. **UI gate** — `<RequirePermission level="ManageWeb">` hides write surfaces. Prevents the *option* from appearing.
-2. **Hook gate** — `useGroupMembershipEditor.apply()` re-checks `useHasPermission('ManageWeb')` immediately before dispatch and rejects with `ACCESS_DENIED` if it fails. Catches direct hook invocation.
+1. **UI gate** — `<RequirePermission kind={PermissionKind.ManageWeb}>` hides write surfaces. Prevents the *option* from appearing.
+2. **Hook gate** — `useGroupMembershipEditor.apply()` re-checks `sp.web.currentUserHasPermissions(PermissionKind.ManageWeb)` immediately before dispatch and resolves with an `IBulkResult` where every operation is `failed: { error: 'ACCESS_DENIED' }` if the check fails. Catches direct hook invocation.
 3. **Server gate** — SharePoint itself rejects unauthorized adds/removes; surfaced through `IBulkResult.failed[]`. The toolkit doesn't pretend to be the security boundary; SP is.
 
-**Read surfaces are NOT gated by ManageWeb.** `MyAccessView`, Browse, and Compare are read-only — anyone can use them. The consuming web part decides which surface to expose to whom.
+**Read-surface gating:**
+
+- `<MyAccessView>` is always available — a user inspecting their **own** access needs no extra permission.
+- Inside `<UserAccessAdmin>`, **Browse** and **Compare** require either `allowBrowse === true` (consuming web part's explicit opt-in) OR the current user holds `managePermission` (default `PermissionKind.ManageWeb`). Reading other users' group memberships and role assignments may surface information the tenant or site policy intends to keep restricted; the toolkit defaults to "show only to people with manage rights" and forces the consuming web part to opt-in for broader audiences.
+- **Manage Groups** is always gated by `managePermission`, regardless of `allowBrowse`.
 
 ### Error UX
 
@@ -393,7 +437,7 @@ Three layers, each catching different mistakes:
 | `USER_NOT_FOUND` | Friendly message: "We couldn't find this user on this site." People picker should prevent this. |
 | `LIST_NOT_FOUND` | Inline `MessageBar`; dropdown refreshes. Stale dropdown case. |
 | `ITEM_NOT_FOUND` | Inline validation under the item-id input. |
-| `ACCESS_DENIED` | Replace surface with "not authorized" view; offer reload. |
+| `ACCESS_DENIED` | Show an inline "You don't have access" message inside the affected pane (shell + chrome remain). Offer "Reload" only when caused by a session change. |
 | `NETWORK_ERROR` | Retry button on affected card; auto-retry once with 500ms backoff before surfacing. |
 | `UNKNOWN` | Generic error card with "Copy diagnostic" button (logs go to `SPContext.logger` and to clipboard JSON). |
 
@@ -409,7 +453,9 @@ Components are wrapped in `<ErrorBoundary>` internally so a render-time bug does
 - **Many groups (20–50+).** `useSiteGroups` cache is 10 min so the picker doesn't refetch. Manage tab uses a virtualized list once group count > 50.
 - **Concurrent edits.** Bulk-edit doesn't take a lock. On Apply, re-fetch `currentMembership` first and re-derive `pendingAdds`/`pendingRemoves` from the fresh server state — so if someone else added the user to a group while the dialog was open, we don't redundantly re-add. If a pending *remove* targets a group the user is no longer in (someone else already removed them), the operation is dropped before dispatch and reported in `IBulkResult.succeeded` (idempotent no-op). No error is surfaced for either case.
 - **Bulk atomicity.** SP $batch is not transactional. We batch into one request but partial success is real, surfaced via `IBulkResult`. Confirmation dialog warns "Some changes may succeed while others fail."
-- **No SPContext.** Hooks throw at use-site if `SPContext` isn't initialized — same pattern as the rest of the toolkit.
+- **No SPContext.** The service layer throws synchronously if `SPContext` isn't initialized — that's a programmer wiring error and should surface loudly to the developer. Hooks **catch** this and expose it as `error: UserAccessError({ code: 'UNKNOWN' })` so a missing-context bug never escapes a `useEffect`-style fetch into React's error boundary. Non-React service callers still see the throw.
+
+- **Source coverage limits.** As called out in Section 3, the toolkit explains permissions in terms of **matched SharePoint role assignments** only. Entra ID security groups (used as principals), sharing links, app-only grants, and tenant-level overlays are not expanded. The comparison view annotates rows with `unexplainedDifference: true` when the two users' permission masks differ on a list/item but the visible role assignments don't account for it — alerting the admin to look beyond what we can show.
 - **Login format variation.** Service normalizes to `LoginName` at the boundary so cache keys are stable.
 
 ---
@@ -474,6 +520,9 @@ Bundle expectations:
 
 Behavioral:
 
-- Default open of any inspection view fetches only Level 1.
-- Bulk apply uses a single `$batch` and surfaces partial failures without throwing.
-- Non-ManageWeb users see Browse/Compare but cannot reach Manage Groups inside `UserAccessAdmin`.
+- Default open of any inspection view fetches only Level 1 (one site-wide list call + one PnP batch of role-assignment reads).
+- Bulk apply uses native PnP batching (`sp.batched()`), not `BatchBuilder`, and surfaces partial failures without throwing.
+- Non-`ManageWeb` users see Browse/Compare inside `<UserAccessAdmin>` **only when** the consuming web part sets `allowBrowse={true}`. Manage Groups is hidden from them regardless.
+- Hooks never throw to render: a missing `SPContext` surfaces as `error: UserAccessError({ code: 'UNKNOWN' })`.
+- `useHasPermission` and `<RequirePermission>` take `PermissionKind` (from `@pnp/sp/security`), not `SPPermissionLevel`.
+- Comparison-view rows where the visible role assignments don't account for an observed mask difference are annotated `unexplainedDifference: true`.
