@@ -181,6 +181,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     otherState,
     setCustomValue,
     isOtherValue,
+    collectOtherValue,
   } = useSPChoiceField(dataSource, staticChoices, hookValue, otherConfig, useCache);
 
   // Sort choices if requested
@@ -412,6 +413,10 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
   const validateOtherSelection = React.useCallback(
     (fieldValue: string | string[] | undefined | null): true | string => {
       if (!otherEnabled) return true;
+      // When the field isn't configured to collect a custom value, "Other"
+      // by itself is a valid terminal selection. Skip both the "Custom value
+      // is required" and the custom-value validity branches.
+      if (!collectOtherValue) return true;
 
       const values = Array.isArray(fieldValue)
         ? fieldValue
@@ -453,7 +458,7 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
 
       return validateCustomValue(customValueText, otherConfig.otherValidation) || true;
     },
-    [otherEnabled, otherOptionText, otherConfig.otherValidation, otherConfig.enableOtherOption, metadata, isOtherValue]
+    [otherEnabled, collectOtherValue, otherOptionText, otherConfig.otherValidation, otherConfig.enableOtherOption, metadata, isOtherValue]
   );
 
   // Merge validation rules
@@ -729,8 +734,11 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
           {renderControl()}
         </div>
 
-        {/* Show custom value textbox when "Other" is selected */}
-        {otherEnabled && otherState.isOtherSelected && (
+        {/* Show custom value textbox when "Other" is selected AND the field
+            is configured to collect a custom value. When
+            `otherConfig.collectOtherValue === false`, "Other" is a valid
+            terminal selection and no follow-up textbox is shown. */}
+        {otherEnabled && otherState.isOtherSelected && collectOtherValue && (
           <div className={otherTextboxClass}>
             <TextBox
               value={otherState.customValue}

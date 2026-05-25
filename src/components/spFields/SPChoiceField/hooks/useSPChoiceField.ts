@@ -70,6 +70,15 @@ export interface IUseSPChoiceFieldResult {
    * Check if current value is an "Other" value (not in original choices)
    */
   isOtherValue: (value: string) => boolean;
+
+  /**
+   * Whether selecting "Other" should reveal a textbox to collect a custom
+   * value. False when `otherConfig.collectOtherValue` was explicitly set to
+   * `false` — in that case "Other" is a valid terminal selection on its own
+   * and no follow-up textbox or "Custom value is required" validation should
+   * fire.
+   */
+  collectOtherValue: boolean;
 }
 
 /**
@@ -436,5 +445,6 @@ export function useSPChoiceField(
     otherState,
     setCustomValue,
     isOtherValue,
+    collectOtherValue,
   };
 }
