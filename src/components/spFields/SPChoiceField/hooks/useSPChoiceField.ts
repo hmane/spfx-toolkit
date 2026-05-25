@@ -253,20 +253,27 @@ export function useSPChoiceField(
     };
   }, [dataSourceKey, useCache, retryCount, staticChoices]);
 
-  // Determine if "Other" option should be enabled
-  // Note: We return true early if explicitly configured, even before metadata loads
+  // Determine if "Other" option should appear in the dropdown.
+  //
+  // IMPORTANT: this is independent of `collectOtherValue`. The two flags are
+  // orthogonal:
+  //   - `otherEnabled` controls whether "Other" is a selectable choice.
+  //   - `collectOtherValue` controls whether picking "Other" then reveals a
+  //     textbox to collect a custom value.
+  //
+  // Per the type-doc on IOtherOptionConfig.collectOtherValue:
+  //   "Set to false when 'Other' is a literal choice and should be saved as-is."
+  // So `collectOtherValue: false` must still allow "Other" in the dropdown.
   const otherEnabled = React.useMemo(() => {
-    if (!collectOtherValue) {
-      return false;
-    }
-
     // Force enable if explicitly configured (works even before metadata loads)
     if (otherConfig.enableOtherOption) {
       return true;
     }
 
-    // If we already detected an "Other" value (from initial state), keep it enabled
-    // This handles the case where a saved "Other" value is loaded before metadata
+    // If we already detected an "Other" value (from initial state), keep it enabled.
+    // This handles the case where a saved "Other" value is loaded before metadata.
+    // (Only fires when collectOtherValue is true; with collectOtherValue=false,
+    // the value-detection effect keeps customValue='' so this branch is inert.)
     if (otherState.isOtherSelected && otherState.customValue) {
       return true;
     }
@@ -276,19 +283,19 @@ export function useSPChoiceField(
 
     // Auto-detect from field metadata
     return shouldEnableOtherOption(metadata, otherOptionText);
-  }, [metadata, collectOtherValue, otherConfig.enableOtherOption, otherOptionText, otherState.isOtherSelected, otherState.customValue]);
+  }, [metadata, otherConfig.enableOtherOption, otherOptionText, otherState.isOtherSelected, otherState.customValue]);
 
-  // Build final choices array (inject "Other" if needed)
+  // Build final choices array (inject "Other" if needed).
+  //
+  // Inject "Other" regardless of `collectOtherValue` — the flag only controls
+  // whether the follow-up textbox renders. "Other" must remain a selectable
+  // option for `collectOtherValue: false` (terminal-selection mode) to work.
   const choices = React.useMemo(() => {
     if (!metadata) return [];
 
-    // Inject "Other" if:
-    // 1. enableOtherOption is explicitly set to true (forced injection)
-    // 2. allowFillIn is true (SharePoint fill-in choices enabled)
     const shouldInjectOther =
-      collectOtherValue &&
-      (otherConfig.enableOtherOption ||
-        (otherEnabled && metadata.allowFillIn));
+      otherConfig.enableOtherOption ||
+      (otherEnabled && metadata.allowFillIn);
 
     if (shouldInjectOther) {
       // Inject "Other" option if not already in choices
@@ -296,7 +303,7 @@ export function useSPChoiceField(
     }
 
     return metadata.choices;
-  }, [metadata, collectOtherValue, otherEnabled, otherConfig.enableOtherOption, otherOptionText]);
+  }, [metadata, otherEnabled, otherConfig.enableOtherOption, otherOptionText]);
 
   // Check if a value is an "Other" value (not in original choices)
   const isOtherValue = React.useCallback(
@@ -329,6 +336,28 @@ export function useSPChoiceField(
       setOtherState(prev => {
         if (!prev.isOtherSelected && !prev.customValue && !prev.customValueError) {
           return prev; // No change needed
+        }
+        return {
+          isOtherSelected: false,
+          customValue: '',
+          customValueError: undefined,
+        };
+      });
+      return;
+    }
+
+    // If "Other" is enabled but collecting a custom value is disabled, keep
+    // otherState inert. Important when the field loads a pre-existing custom
+    // value from SharePoint (e.g., from an earlier edit or allowFillIn on the
+    // SP column): without this guard, the effect would populate
+    // `otherState.customValue` from the saved string, and re-selecting "Other"
+    // would substitute that value back in instead of emitting the literal
+    // `otherOptionText`. We want `collectOtherValue: false` to mean
+    // unconditionally "Other is a terminal selection".
+    if (!collectOtherValue) {
+      setOtherState(prev => {
+        if (!prev.isOtherSelected && !prev.customValue && !prev.customValueError) {
+          return prev;
         }
         return {
           isOtherSelected: false,
