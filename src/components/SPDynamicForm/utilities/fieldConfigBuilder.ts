@@ -284,11 +284,23 @@ export function buildFieldProps(
     case SPFieldType.MultiChoice:
       props.choices = field.fieldConfig.choices;
       props.allowMultiple = field.fieldConfig.isMulti;
-      // Enable "Other" option if field allows fill-in choices
+      // SP `fillInChoice` controls whether the column accepts user-entered
+      // custom values. Map it to SPChoiceField's two-flag model:
+      //   - fillInChoice=true  → enable "Other" + collect a custom value via textbox
+      //   - fillInChoice=false → "Other" may still be a literal static choice
+      //                          in the choices array, but must be terminal
+      //                          (saved as the literal string, no textbox).
+      // Without the else branch, the SPChoiceField defaults `collectOtherValue`
+      // to true and the textbox appears for any literal "Other" choice on a
+      // column that has fill-in disabled.
       if (field.fieldConfig.fillInChoice) {
         props.otherConfig = {
           enableOtherOption: true,
           otherOptionText: 'Other',
+        };
+      } else {
+        props.otherConfig = {
+          collectOtherValue: false,
         };
       }
       break;
