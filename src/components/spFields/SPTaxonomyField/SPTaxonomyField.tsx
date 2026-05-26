@@ -141,19 +141,29 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     allowMultiple = false,
     useCache = true,
     inputRef,
+    debug = false,
   } = props;
 
-  // SharePoint returns the empty GUID for taxonomy fields without an anchor term.
-  // Passing it to ModernTaxonomyPicker as anchorTermId roots the tree at a non-existent
-  // term, so the picker renders no terms.
+  // SharePoint returns the empty GUID for taxonomy fields without an anchor
+  // term. Passing it to ModernTaxonomyPicker as anchorTermId roots the tree
+  // at a non-existent term, so the picker renders no terms. The same problem
+  // applies to termSetId — a misconfigured column may return the empty GUID
+  // (or a malformed value) and the picker will silently render nothing.
+  // Treat both as "not set".
   const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
-  const sanitizeAnchorId = (id?: string): string | undefined =>
+  const sanitizeTaxonomyGuid = (id?: string): string | undefined =>
     id && id !== EMPTY_GUID ? id : undefined;
+  // Kept for clarity at call sites; same logic as the generalized sanitizer.
+  const sanitizeAnchorId = sanitizeTaxonomyGuid;
 
   const sanitizedInitialDataSource = React.useMemo<ITaxonomyDataSource | null>(
     () =>
       dataSource
-        ? { ...dataSource, anchorId: sanitizeAnchorId(dataSource.anchorId) }
+        ? {
+            ...dataSource,
+            termSetId: sanitizeTaxonomyGuid(dataSource.termSetId) || '',
+            anchorId: sanitizeAnchorId(dataSource.anchorId),
+          }
         : null,
     // Only re-create when the meaningful primitives change, not on object identity
     [dataSource?.termSetId, dataSource?.anchorId]
@@ -170,6 +180,30 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   const [error, setError] = React.useState<string | null>(null);
   const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(sanitizedInitialDataSource);
   const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
+  // 'prop' = caller provided dataSource directly
+  // 'auto-load' = resolved via columnName + listId from SP column metadata
+  // 'fallback' = auto-load failed, fell back to caller-provided dataSource
+  // 'none' = nothing resolved yet
+  type ResolutionSource = 'prop' | 'auto-load' | 'fallback' | 'none';
+  const [resolutionSource, setResolutionSource] = React.useState<ResolutionSource>(
+    sanitizedInitialDataSource?.termSetId ? 'prop' : 'none'
+  );
+
+  // Debug-only: independently test whether the resolved termSetId is reachable
+  // via the PnP term-store API. Diagnoses the common "termSetId looks valid,
+  // picker shows nothing" failure where:
+  //   - the term set lives in a non-default term store
+  //   - the user lacks permission on the term set
+  //   - the term set is empty / deprecated
+  //   - the GUID is well-formed but wrong
+  // The ModernTaxonomyPicker swallows these errors; this test-fetch surfaces
+  // them in the debug panel.
+  type TestFetchState =
+    | { status: 'idle' }
+    | { status: 'running' }
+    | { status: 'ok'; termCount: number; setName?: string }
+    | { status: 'error'; message: string };
+  const [testFetch, setTestFetch] = React.useState<TestFetchState>({ status: 'idle' });
 
   // Create internal ref if not provided
   const internalRef = React.useRef<HTMLDivElement>(null);
@@ -201,6 +235,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       // If dataSource is provided directly, use it (sanitized)
       if (sanitizedInitialDataSource) {
         setResolvedDataSource(sanitizedInitialDataSource);
+        setResolutionSource('prop');
+      } else {
+        setResolutionSource('none');
       }
       setResolvedAllowMultiple(allowMultiple);
       return;
@@ -212,6 +249,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
       if (sanitizedInitialDataSource?.termSetId) {
         setResolvedDataSource(sanitizedInitialDataSource);
         setResolvedAllowMultiple(allowMultiple);
+        setResolutionSource('fallback');
         return true;
       }
       return false;
@@ -235,8 +273,12 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         if (!isMounted) return;
 
-        // Extract taxonomy field configuration
-        const termSetId = (field as any).TermSetId;
+        // Extract taxonomy field configuration. Both termSetId and anchorId
+        // get the empty-GUID sanitization — SP can return the empty GUID for
+        // either on a misconfigured or non-taxonomy column, and passing those
+        // through to ModernTaxonomyPicker silently renders nothing.
+        const rawTermSetId = (field as any).TermSetId;
+        const termSetId = sanitizeTaxonomyGuid(rawTermSetId);
         const rawAnchorId = (field as any).AnchorId;
         const anchorId = sanitizeAnchorId(rawAnchorId);
         const allowMultipleValues = (field as any).AllowMultipleValues || false;
@@ -263,6 +305,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
 
         setResolvedDataSource(source);
         setResolvedAllowMultiple(allowMultipleValues);
+        setResolutionSource('auto-load');
 
         SPContext.logger.info('SPTaxonomyField: Auto-loaded column metadata', {
           columnName,
@@ -307,6 +350,51 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     if (!resolvedDataSource) return '';
     return `${resolvedDataSource.termSetId}:${resolvedDataSource.anchorId || ''}:${useCache ? 'cached' : 'fresh'}`;
   }, [resolvedDataSource, useCache]);
+
+  // Debug-only term-store reachability check. Runs in parallel to the picker,
+  // talks directly to the PnP taxonomy API, and reports whether the term set
+  // exists and has terms — so a "picker shows nothing" failure can be isolated
+  // to (a) wrong/inaccessible term set vs (b) picker-internal issue.
+  // Only runs when `debug={true}` to avoid extra round-trips in production.
+  React.useEffect(() => {
+    if (!debug || !resolvedDataSource?.termSetId) {
+      setTestFetch({ status: 'idle' });
+      return;
+    }
+    const sp = SPContext.tryGetSP();
+    if (!sp) {
+      setTestFetch({ status: 'error', message: 'SPContext not initialized' });
+      return;
+    }
+    let cancelled = false;
+    setTestFetch({ status: 'running' });
+    (async () => {
+      try {
+        const termSetId = resolvedDataSource.termSetId;
+        const set = await (sp as any).termStore.sets.getById(termSetId)();
+        // .children() lists the immediate children of the term set (top-level terms).
+        const children = await (sp as any).termStore.sets.getById(termSetId).children();
+        if (cancelled) return;
+        const setName =
+          set?.localizedNames?.[0]?.name ||
+          set?.localizedNames?.find?.((n: any) => n?.name)?.name;
+        setTestFetch({
+          status: 'ok',
+          termCount: Array.isArray(children) ? children.length : 0,
+          setName,
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        setTestFetch({
+          status: 'error',
+          message: err?.message || String(err) || 'Unknown error',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debug, resolvedDataSource?.termSetId]);
 
   // Load taxonomy terms
   React.useEffect(() => {
@@ -510,6 +598,16 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
           data-field-name={name}
           data-field={name}
           aria-invalid={validation.hasError}
+          // Always-on diagnostic attributes. Inspect via DevTools to verify the
+          // resolved state when troubleshooting (e.g., "picker is empty"). The
+          // SPDebug log shows the same data; these are for cases where the log
+          // isn't available or you want to read state straight off the DOM.
+          data-spf-tax-termsetid={resolvedDataSource?.termSetId || '(none)'}
+          data-spf-tax-anchorid={resolvedDataSource?.anchorId || '(none)'}
+          data-spf-tax-source={resolutionSource}
+          data-spf-tax-loading={loading ? 'true' : 'false'}
+          data-spf-tax-error={error || '(none)'}
+          data-spf-tax-multiple={resolvedAllowMultiple ? 'true' : 'false'}
         >
           <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
             <HydratedTaxonomyPicker
@@ -533,6 +631,60 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
             />
           </React.Suspense>
         </div>
+
+        {debug && (
+          <details
+            className="sp-taxonomy-field-debug"
+            style={{
+              marginTop: 8,
+              padding: 8,
+              border: '1px solid #d2d0ce',
+              borderRadius: 4,
+              background: '#faf9f8',
+              fontSize: 12,
+              fontFamily: 'monospace',
+            }}
+            open
+          >
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+              SPTaxonomyField debug — {name || '(unnamed)'}
+            </summary>
+            <div style={{ marginTop: 6, lineHeight: 1.6 }}>
+              <div><strong>termSetId:</strong> {resolvedDataSource?.termSetId || '(none)'}</div>
+              <div><strong>anchorId:</strong> {resolvedDataSource?.anchorId || '(none)'}</div>
+              <div><strong>source:</strong> {resolutionSource}</div>
+              <div><strong>loading:</strong> {String(loading)}</div>
+              <div><strong>error:</strong> {error || '(none)'}</div>
+              <div><strong>allowMultiple:</strong> {String(resolvedAllowMultiple)}</div>
+              <div style={{ marginTop: 6 }}>
+                <strong>Term-store reachability test:</strong>{' '}
+                {testFetch.status === 'idle' && <em>(waiting for termSetId)</em>}
+                {testFetch.status === 'running' && <em>fetching…</em>}
+                {testFetch.status === 'ok' && (
+                  <span style={{ color: '#107c10' }}>
+                    ✓ reachable
+                    {testFetch.setName ? ` — "${testFetch.setName}"` : ''}
+                    {' '}({testFetch.termCount} top-level term{testFetch.termCount === 1 ? '' : 's'})
+                    {testFetch.termCount === 0 && (
+                      <div style={{ color: '#a4262c', marginTop: 4 }}>
+                        Term set is empty. Add terms in the term store, or check that you're pointing at the right set.
+                      </div>
+                    )}
+                  </span>
+                )}
+                {testFetch.status === 'error' && (
+                  <div style={{ color: '#a4262c' }}>
+                    ✗ failed: {testFetch.message}
+                    <div style={{ marginTop: 4, color: '#605e5c' }}>
+                      Likely causes: term set GUID is wrong, term set lives in a non-default term store,
+                      or the current user lacks permission on the term store.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </details>
+        )}
 
         {/* Error message row - only show when NOT in FormContext (standalone mode)
             When inside FormContext, FormItem/FormValue handles error display */}

@@ -108,4 +108,18 @@ export interface ISPTaxonomyFieldProps extends ISPFieldBaseProps<ISPTaxonomyFiel
    * ModernTaxonomyPicker and shared SPField CSS.
    */
   stylingMode?: 'outlined' | 'underlined' | 'filled';
+
+  /**
+   * Render a small collapsible diagnostic panel below the picker showing the
+   * resolved termSetId, anchorId, source (prop vs auto-load vs fallback),
+   * loading state, last error, and the parsed current value.
+   *
+   * Intended for development and troubleshooting cases like "picker opens but
+   * shows no terms". In production, also inspect the wrapper element — its
+   * `data-spf-tax-*` attributes carry the same information without rendering
+   * any UI (see README).
+   *
+   * @default false
+   */
+  debug?: boolean;
 }
