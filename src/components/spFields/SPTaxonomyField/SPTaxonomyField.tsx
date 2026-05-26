@@ -106,6 +106,47 @@ const HydratedTaxonomyPicker: React.FC<{
   );
 };
 
+/**
+ * Returns a Proxy-wrapped clone of the SPFx context that exposes sanitized
+ * `pageContext.web.absoluteUrl` / `serverRelativeUrl` (stripped of any
+ * `/_layouts/15[/...]` segment), while forwarding every other property to
+ * the original context object so SPFx auth, service scope, MS Graph
+ * factories, and the rest of the framework surface continue to work.
+ *
+ * Why a Proxy instead of an object spread: `BaseComponentContext` is a
+ * frozen class instance with getter-based properties; a `{...ctx}` spread
+ * would drop methods and prototype members the picker needs.
+ */
+function sanitizeSpfxContextForTaxonomy(ctx: any): any {
+  if (!ctx) return ctx;
+  return new Proxy(ctx, {
+    get(target, prop) {
+      if (prop === 'pageContext') {
+        const pc = target.pageContext;
+        if (!pc) return pc;
+        return new Proxy(pc, {
+          get(pcTarget, pcProp) {
+            if (pcProp === 'web') {
+              const web = pcTarget.web;
+              if (!web) return web;
+              return new Proxy(web, {
+                get(webTarget, webProp) {
+                  if (webProp === 'absoluteUrl' || webProp === 'serverRelativeUrl') {
+                    return SPContext.sanitizeSiteUrl(webTarget[webProp]);
+                  }
+                  return webTarget[webProp];
+                },
+              });
+            }
+            return pcTarget[pcProp];
+          },
+        });
+      }
+      return target[prop];
+    },
+  });
+}
+
 export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
   const formContext = useFormContext();
@@ -526,10 +567,10 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     fieldOnChange: (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]) => void,
     fieldError?: string
   ) => {
-    const spfxContext = SPContext.tryGetSPFxContext();
+    const rawSpfxContext = SPContext.tryGetSPFxContext();
 
     // Check if SPContext is available
-    if (!spfxContext) {
+    if (!rawSpfxContext) {
       return (
         <Stack className={containerClass}>
           {label && <Label required={required}>{label}</Label>}
@@ -539,6 +580,18 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
         </Stack>
       );
     }
+
+    // Sanitize the SPFx context handed to ModernTaxonomyPicker. The picker
+    // reads `context.pageContext.web.absoluteUrl` directly to compose its
+    // term-store REST/Graph URLs. When SPFx hosts the component on an
+    // application page (e.g., a form customizer at
+    // `/_layouts/15/SPListForm.aspx`), absoluteUrl is contaminated with the
+    // `_layouts/15` segment and the resulting `/_layouts/15/_api/v2.1/
+    // termstore/...` URL returns 404. We wrap the raw context with Proxies
+    // that override only `pageContext.web.absoluteUrl` and
+    // `pageContext.web.serverRelativeUrl`; every other property forwards to
+    // the original (so SPFx auth, service scope, etc. still work).
+    const spfxContext = sanitizeSpfxContextForTaxonomy(rawSpfxContext);
 
     if (error) {
       return (

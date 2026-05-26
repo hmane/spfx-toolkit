@@ -131,7 +131,14 @@ export class ContextManager {
       const { spfi, SPFx } = require('@pnp/sp');
       require('@pnp/sp/profiles');
       require('@pnp/sp/site-users/web');
-      const sp = spfi().using(SPFx(spfxContext));
+      // Initialize PnP with an explicit sanitized base URL. `spfi()` with no
+      // argument derives the base URL from SPFx's pageContext.web.absoluteUrl,
+      // which is contaminated with `/_layouts/15/...` when SPFx hosts the
+      // component on an application page (e.g., a form customizer). Passing
+      // the sanitized URL explicitly ensures every downstream PnP REST/Graph
+      // call composes against the clean site root.
+      const cleanWebUrl = ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl);
+      const sp = spfi(cleanWebUrl).using(SPFx(spfxContext));
 
       // Initialize cached instances (always available, fallback to base sp)
       let spCached: SPFI = sp;
@@ -163,9 +170,13 @@ export class ContextManager {
         context: spfxContext,
         pageContext: spfxContext.pageContext,
 
-        // Essential SharePoint URL properties (web-only)
-        webAbsoluteUrl: spfxContext.pageContext.web.absoluteUrl,
-        webServerRelativeUrl: spfxContext.pageContext.web.serverRelativeUrl,
+        // Essential SharePoint URL properties (web-only). Sanitized to strip
+        // any `/_layouts/15[/...]` segment that SPFx injects when the
+        // component is hosted on an application page (e.g., a form
+        // customizer at `/_layouts/15/SPListForm.aspx`). Without this,
+        // downstream URL concatenation produces malformed API paths.
+        webAbsoluteUrl: ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl),
+        webServerRelativeUrl: ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.serverRelativeUrl),
 
         // Web metadata
         webTitle: this.getWebTitle(spfxContext.pageContext),
@@ -186,7 +197,9 @@ export class ContextManager {
 
         // Application information
         applicationName: this.getApplicationName(spfxContext),
-        tenantUrl: this.getTenantUrl(spfxContext.pageContext.web.absoluteUrl),
+        tenantUrl: this.getTenantUrl(
+          ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl)
+        ),
 
         // Environment and runtime information
         environment,
@@ -235,8 +248,10 @@ export class ContextManager {
     const { MSGraphClientFactory } = require('@microsoft/sp-http');
 
     return {
-      // absoluteUrl - Required
-      absoluteUrl: spfxContext.pageContext.web.absoluteUrl,
+      // absoluteUrl - Required. Sanitized so the picker's REST/Graph URL
+      // composition doesn't pick up a `/_layouts/15/...` segment when the
+      // SPFx host page is an application page.
+      absoluteUrl: ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl),
 
       // msGraphClientFactory - Required for Graph API calls
       msGraphClientFactory: spfxContext.serviceScope.consume(MSGraphClientFactory.serviceKey),
@@ -303,6 +318,32 @@ export class ContextManager {
     } catch {
       return webUrl;
     }
+  }
+
+  /**
+   * Strips a trailing `/_layouts/15[/...]` segment from a SharePoint URL or
+   * server-relative path, returning the clean site-root URL.
+   *
+   * When an SPFx component is hosted in a form customizer (or any other
+   * application page under `_layouts/15/`), SPFx populates
+   * `pageContext.web.absoluteUrl` and `pageContext.web.serverRelativeUrl`
+   * with values that include the `_layouts/15` segment. Downstream
+   * consumers (PnP `sp` instance, ModernTaxonomyPicker, etc.) concatenate
+   * API paths onto this base, producing malformed URLs like
+   * `/sites/X/_layouts/15/_api/v2.1/termstore/...` which the modern
+   * term-store endpoint returns 404 for.
+   *
+   * Sanitizing at the SPContext boundary means every downstream caller
+   * sees the clean site-root URL, regardless of which page hosts them.
+   * Exposed via the static `sanitizeSiteUrl` so other modules (e.g.,
+   * SPTaxonomyField) can sanitize an SPFx context object before handing
+   * it to controls that read `context.pageContext.web.absoluteUrl`
+   * directly.
+   */
+  static sanitizeSiteUrl<T extends string | undefined>(url: T): T {
+    if (!url) return url;
+    // Match `/_layouts/15` as a whole path segment followed by `/`, `?`, or end.
+    return url.replace(/\/_layouts\/15(?=\/|\?|$)(?:\/[^?]*)?/i, '') as T;
   }
 
   private isTeamsContext(context: SPFxContextInput): boolean {

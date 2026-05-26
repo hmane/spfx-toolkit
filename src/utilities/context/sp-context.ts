@@ -34,6 +34,29 @@ export class SPContext {
   private static multiSiteManager: any = null;
 
   /**
+   * Strips a trailing `/_layouts/15[/...]` segment from a SharePoint URL or
+   * server-relative path, returning the clean site-root URL.
+   *
+   * When an SPFx component is hosted in a form customizer (or any other
+   * application page under `_layouts/15/`), SPFx populates
+   * `pageContext.web.absoluteUrl` with a value that includes the
+   * `_layouts/15` segment. Downstream consumers (PnP, ModernTaxonomyPicker,
+   * etc.) concatenate API paths onto this base and produce malformed URLs
+   * that return 404. SPContext sanitizes its own captured URLs at init
+   * time; this helper is exposed so components that pass the raw SPFx
+   * context to third-party controls (e.g., ModernTaxonomyPicker) can
+   * sanitize the context object before handoff.
+   *
+   * @example
+   * const clean = SPContext.sanitizeSiteUrl('/sites/X/_layouts/15');
+   * // → '/sites/X'
+   */
+  static sanitizeSiteUrl<T extends string | undefined>(url: T): T {
+    if (!url) return url;
+    return url.replace(/\/_layouts\/15(?=\/|\?|$)(?:\/[^?]*)?/i, '') as T;
+  }
+
+  /**
    * Initialize the context with lazy loading
    */
   static async initialize(
