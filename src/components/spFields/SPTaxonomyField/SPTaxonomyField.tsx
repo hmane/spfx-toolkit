@@ -119,6 +119,18 @@ const HydratedTaxonomyPicker: React.FC<{
  */
 function sanitizeSpfxContextForTaxonomy(ctx: any): any {
   if (!ctx) return ctx;
+  // DIAG-TAX-URL: temporary diagnostic logging while a regression in URL
+  // composition is being investigated. Logs the raw and sanitized values of
+  // pageContext.web.absoluteUrl/serverRelativeUrl every time PnP / the picker
+  // reads them. Remove after the form-customizer URL bug is resolved.
+  const logUrl = (whichProp: string, raw: any, sanitized: any): void => {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[DIAG-TAX-URL] ' + whichProp, { raw, sanitized });
+    } catch {
+      /* no-op */
+    }
+  };
   return new Proxy(ctx, {
     get(target, prop) {
       if (prop === 'pageContext') {
@@ -132,7 +144,10 @@ function sanitizeSpfxContextForTaxonomy(ctx: any): any {
               return new Proxy(web, {
                 get(webTarget, webProp) {
                   if (webProp === 'absoluteUrl' || webProp === 'serverRelativeUrl') {
-                    return SPContext.sanitizeSiteUrl(webTarget[webProp]);
+                    const raw = webTarget[webProp];
+                    const sanitized = SPContext.sanitizeSiteUrl(raw);
+                    logUrl(`web.${String(webProp)}`, raw, sanitized);
+                    return sanitized;
                   }
                   return webTarget[webProp];
                 },
