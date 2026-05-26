@@ -16,6 +16,7 @@ import type {
   IMultiSiteAPI,
 } from './types';
 import { IPrincipal } from '../../types';
+import { sanitizeSharePointSiteUrl } from './urlSanitizer';
 
 const NOOP_LOGGER: Logger = {
   debug: () => undefined,
@@ -52,8 +53,7 @@ export class SPContext {
    * // → '/sites/X'
    */
   static sanitizeSiteUrl<T extends string | undefined>(url: T): T {
-    if (!url) return url;
-    return url.replace(/\/_layouts\/15(?=\/|\?|$)(?:\/[^?]*)?/i, '') as T;
+    return sanitizeSharePointSiteUrl(url);
   }
 
   /**

@@ -10,6 +10,10 @@ import { LogLevel } from '../logLevel';
 import { SimpleHttpClient } from '../modules/http';
 import { SimpleLogger } from '../modules/logger';
 import { SimplePerformanceTracker } from '../modules/performance';
+import {
+  buildSanitizedSpfxContext,
+  sanitizeSharePointSiteUrl,
+} from '../urlSanitizer';
 import type {
   ContextConfig,
   ContextModule,
@@ -131,14 +135,22 @@ export class ContextManager {
       const { spfi, SPFx } = require('@pnp/sp');
       require('@pnp/sp/profiles');
       require('@pnp/sp/site-users/web');
-      // Initialize PnP with an explicit sanitized base URL. `spfi()` with no
-      // argument derives the base URL from SPFx's pageContext.web.absoluteUrl,
-      // which is contaminated with `/_layouts/15/...` when SPFx hosts the
-      // component on an application page (e.g., a form customizer). Passing
-      // the sanitized URL explicitly ensures every downstream PnP REST/Graph
-      // call composes against the clean site root.
+      // Initialize PnP with an explicit sanitized base URL AND a sanitized
+      // SPFx context. Two independent contamination paths exist:
+      //   1. `spfi()` without an explicit URL derives its base from
+      //      pageContext.web.absoluteUrl, which is contaminated with
+      //      `/_layouts/15/...` when SPFx hosts the component on an
+      //      application page (e.g., a form customizer). Passing the
+      //      sanitized URL to `spfi(cleanUrl)` fixes the base URL.
+      //   2. PnP v3's SPFx behavior (@pnp/sp/behaviors/spfx.js:38) registers
+      //      a pre-request hook that does
+      //        url = combine(context.pageContext.web.absoluteUrl, url)
+      //      whenever the request URL isn't absolute. It reads the RAW
+      //      context, not the spfi base, and re-injects `_layouts/15`.
+      //      Passing a sanitized context to `SPFx(...)` neutralizes this.
       const cleanWebUrl = ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl);
-      const sp = spfi(cleanWebUrl).using(SPFx(spfxContext));
+      const sanitizedSpfxContext = buildSanitizedSpfxContext(spfxContext);
+      const sp = spfi(cleanWebUrl).using(SPFx(sanitizedSpfxContext));
 
       // Initialize cached instances (always available, fallback to base sp)
       let spCached: SPFI = sp;
@@ -341,9 +353,29 @@ export class ContextManager {
    * directly.
    */
   static sanitizeSiteUrl<T extends string | undefined>(url: T): T {
-    if (!url) return url;
-    // Match `/_layouts/15` as a whole path segment followed by `/`, `?`, or end.
-    return url.replace(/\/_layouts\/15(?=\/|\?|$)(?:\/[^?]*)?/i, '') as T;
+    return sanitizeSharePointSiteUrl(url);
+  }
+
+  /**
+   * Wraps an SPFx context object (BaseComponentContext) with a Proxy that
+   * exposes sanitized `pageContext.web.absoluteUrl` and `serverRelativeUrl`,
+   * while forwarding every other property (serviceScope, spHttpClient,
+   * msGraphClientFactory, etc.) to the original.
+   *
+   * Used by both:
+   *   - ContextManager init, when passing the context to PnP v3's `SPFx()`
+   *     behavior so its pre-request hook composes URLs against the clean
+   *     site root rather than re-injecting `_layouts/15`.
+   *   - SPTaxonomyField, when handing the context to ModernTaxonomyPicker
+   *     so the picker's PnP v2 `sp.setup({ pageContext })` records the
+   *     clean URL.
+   *
+   * A Proxy is used (not an object spread) because BaseComponentContext is
+   * a frozen class instance with getter-based properties — spreading would
+   * drop methods and prototype members the framework needs.
+   */
+  static buildSanitizedSpfxContext(ctx: any): any {
+    return buildSanitizedSpfxContext(ctx);
   }
 
   private isTeamsContext(context: SPFxContextInput): boolean {

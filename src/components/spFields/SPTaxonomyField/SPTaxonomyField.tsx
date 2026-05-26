@@ -39,6 +39,7 @@ interface ITermInfo {
 import { ISPTaxonomyFieldProps, ITaxonomyDataSource } from './SPTaxonomyField.types';
 import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
+import { buildSanitizedSpfxContext } from '../../../utilities/context/urlSanitizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
@@ -105,62 +106,6 @@ const HydratedTaxonomyPicker: React.FC<{
     />
   );
 };
-
-/**
- * Returns a Proxy-wrapped clone of the SPFx context that exposes sanitized
- * `pageContext.web.absoluteUrl` / `serverRelativeUrl` (stripped of any
- * `/_layouts/15[/...]` segment), while forwarding every other property to
- * the original context object so SPFx auth, service scope, MS Graph
- * factories, and the rest of the framework surface continue to work.
- *
- * Why a Proxy instead of an object spread: `BaseComponentContext` is a
- * frozen class instance with getter-based properties; a `{...ctx}` spread
- * would drop methods and prototype members the picker needs.
- */
-function sanitizeSpfxContextForTaxonomy(ctx: any): any {
-  if (!ctx) return ctx;
-  // DIAG-TAX-URL: temporary diagnostic logging while a regression in URL
-  // composition is being investigated. Logs the raw and sanitized values of
-  // pageContext.web.absoluteUrl/serverRelativeUrl every time PnP / the picker
-  // reads them. Remove after the form-customizer URL bug is resolved.
-  const logUrl = (whichProp: string, raw: any, sanitized: any): void => {
-    try {
-      // eslint-disable-next-line no-console
-      console.log('[DIAG-TAX-URL] ' + whichProp, { raw, sanitized });
-    } catch {
-      /* no-op */
-    }
-  };
-  return new Proxy(ctx, {
-    get(target, prop) {
-      if (prop === 'pageContext') {
-        const pc = target.pageContext;
-        if (!pc) return pc;
-        return new Proxy(pc, {
-          get(pcTarget, pcProp) {
-            if (pcProp === 'web') {
-              const web = pcTarget.web;
-              if (!web) return web;
-              return new Proxy(web, {
-                get(webTarget, webProp) {
-                  if (webProp === 'absoluteUrl' || webProp === 'serverRelativeUrl') {
-                    const raw = webTarget[webProp];
-                    const sanitized = SPContext.sanitizeSiteUrl(raw);
-                    logUrl(`web.${String(webProp)}`, raw, sanitized);
-                    return sanitized;
-                  }
-                  return webTarget[webProp];
-                },
-              });
-            }
-            return pcTarget[pcProp];
-          },
-        });
-      }
-      return target[prop];
-    },
-  });
-}
 
 export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   // Get control from FormContext if not provided as prop
@@ -236,6 +181,11 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   const [error, setError] = React.useState<string | null>(null);
   const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(sanitizedInitialDataSource);
   const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
+  const rawSpfxContext = SPContext.tryGetSPFxContext();
+  const sanitizedSpfxContext = React.useMemo(
+    () => buildSanitizedSpfxContext(rawSpfxContext),
+    [rawSpfxContext]
+  );
   // 'prop' = caller provided dataSource directly
   // 'auto-load' = resolved via columnName + listId from SP column metadata
   // 'fallback' = auto-load failed, fell back to caller-provided dataSource
@@ -582,8 +532,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     fieldOnChange: (val: ISPTaxonomyFieldValue | ISPTaxonomyFieldValue[]) => void,
     fieldError?: string
   ) => {
-    const rawSpfxContext = SPContext.tryGetSPFxContext();
-
     // Check if SPContext is available
     if (!rawSpfxContext) {
       return (
@@ -606,8 +554,6 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     // that override only `pageContext.web.absoluteUrl` and
     // `pageContext.web.serverRelativeUrl`; every other property forwards to
     // the original (so SPFx auth, service scope, etc. still work).
-    const spfxContext = sanitizeSpfxContextForTaxonomy(rawSpfxContext);
-
     if (error) {
       return (
         <Stack className={containerClass}>
@@ -682,7 +628,7 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
               fieldValue={fieldValue}
               initialValues={initialTerms}
               pickerProps={{
-                context: spfxContext,
+                context: sanitizedSpfxContext,
                 termSetId: resolvedDataSource.termSetId,
                 anchorTermId: resolvedDataSource.anchorId,
                 label: label || '',
