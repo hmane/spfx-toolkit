@@ -179,6 +179,28 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
 }
 
 /**
+ * Normalizes a raw SharePoint `DefaultValue` into the JS shape the toolkit
+ * field components expect.
+ *
+ * SP serializes some defaults as strings that JavaScript truthiness would
+ * misinterpret. The most important case: Boolean fields return `'1'`
+ * (checked) or `'0'` (unchecked). Because `'0'` is a non-empty string,
+ * `'0' || false` evaluates to `'0'` (truthy) — so a "default = No" Boolean
+ * field would render as checked. Convert at the boundary so downstream
+ * components (SPBooleanField, RHF defaultValues, etc.) see a real boolean.
+ *
+ * Other field types pass through unchanged for now; add cases here if SP's
+ * raw string representation causes mis-rendering elsewhere.
+ */
+function normalizeDefaultValue(fieldType: SPFieldType, raw: any): any {
+  if (raw === undefined || raw === null) return raw;
+  if (fieldType === SPFieldType.Boolean) {
+    return raw === '1' || raw === 1 || raw === true;
+  }
+  return raw;
+}
+
+/**
  * Builds complete field metadata from SharePoint field object
  */
 export function buildFieldMetadata(field: any, order: number = 0): IFieldMetadata {
@@ -193,7 +215,7 @@ export function buildFieldMetadata(field: any, order: number = 0): IFieldMetadat
     readOnly: field.ReadOnlyField || false,
     hidden: field.Hidden || false,
     description: field.Description || '',
-    defaultValue: field.DefaultValue,
+    defaultValue: normalizeDefaultValue(fieldType, field.DefaultValue),
     group: field.Group || '_Default',
     order,
     fieldConfig,
