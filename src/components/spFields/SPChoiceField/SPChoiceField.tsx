@@ -106,11 +106,24 @@ export const SPChoiceField: React.FC<ISPChoiceFieldProps> = props => {
     inputRef,
   } = props;
 
-  // Merge user's otherConfig with defaults to ensure all properties have values
-  const otherConfig = React.useMemo(() => ({
-    ...DefaultSPChoiceFieldProps.otherConfig,
-    ...userOtherConfig,
-  }), [userOtherConfig]);
+  // Merge user's otherConfig with defaults. The top-level spread is shallow,
+  // so we explicitly deep-merge the nested `otherValidation` object: a caller
+  // passing `otherConfig: { otherValidation: { maxLength: 50 } }` would
+  // otherwise overwrite the whole `otherValidation` and lose the documented
+  // `required: true` default — letting empty custom values submit silently.
+  const otherConfig = React.useMemo(() => {
+    const merged = {
+      ...DefaultSPChoiceFieldProps.otherConfig,
+      ...userOtherConfig,
+    };
+    if (userOtherConfig?.otherValidation) {
+      merged.otherValidation = {
+        ...DefaultSPChoiceFieldProps.otherConfig?.otherValidation,
+        ...userOtherConfig.otherValidation,
+      };
+    }
+    return merged;
+  }, [userOtherConfig]);
 
   // Create stable references to prevent infinite loops
   const emptyArray = React.useRef<string[]>([]).current;
