@@ -267,7 +267,19 @@ export const SPField: React.FC<ISPFieldProps> = (props) => {
             {...commonProps}
             choices={fieldMetadata.metadata.choices}
             allowMultiple={fieldMetadata.fieldType === SPFieldType.MultiChoice}
-            otherConfig={fieldMetadata.metadata.fillInChoice ? { enableOtherOption: true } : undefined}
+            // Mirror fieldConfigBuilder's mapping of SP `fillInChoice` to the
+            // two-flag otherConfig model:
+            //   - fillInChoice=true  → enable "Other" + collect custom value
+            //   - fillInChoice=false → "Other" may be a literal static choice;
+            //                          treat it as terminal (no textbox)
+            // Without the else, SPChoiceField defaults `collectOtherValue` to
+            // true and the textbox shows for any literal "Other" choice even
+            // when SP disallows fill-in.
+            otherConfig={
+              fieldMetadata.metadata.fillInChoice
+                ? { enableOtherOption: true }
+                : { collectOtherValue: false }
+            }
           />
         );
 
