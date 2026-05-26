@@ -327,9 +327,21 @@ export const SPDynamicFormField: React.FC<ISPDynamicFormFieldProps> = React.memo
 
       case SPFieldType.TaxonomyFieldType:
       case SPFieldType.TaxonomyFieldTypeMulti: {
-        // Validate taxonomy configuration
+        // SPTaxonomyField can render via two paths:
+        //   1. fieldConfig.termSetId is known up-front (came from SP metadata)
+        //   2. columnName + listId are available — SPTaxonomyField auto-loads
+        //      the TermSetId itself via `list.fields.getByInternalNameOrTitle`
+        //
+        // The metadata loader can return without termSetId when
+        // `loadFieldsFromContentType` 404s (the item's extended content-type
+        // ID doesn't match a list-registered CT) and falls back to
+        // `loadFieldsFromList` which doesn't carry TermSetId. In that case
+        // we still have columnName + listId on the props (set unconditionally
+        // by buildFieldProps for taxonomy fields), and the field can
+        // auto-load. Only error when BOTH paths are unavailable.
         const termSetId = field.fieldConfig?.termSetId;
-        if (!termSetId) {
+        const canAutoLoad = !!(fieldPropsWithoutLabel.columnName && fieldPropsWithoutLabel.listId);
+        if (!termSetId && !canAutoLoad) {
           return (
             <MessageBar messageBarType={MessageBarType.error}>
               Taxonomy field configuration error: Missing term set ID for field "{field.displayName}"
