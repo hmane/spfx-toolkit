@@ -729,8 +729,11 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
                   <div style={{ color: '#a4262c' }}>
                     ✗ failed: {testFetch.message}
                     <div style={{ marginTop: 4, color: '#605e5c' }}>
-                      Likely causes: term set GUID is wrong, term set lives in a non-default term store,
-                      or the current user lacks permission on the term store.
+                      Likely causes: (1) the API URL is malformed — check the failed Network
+                      request; if it contains <code>/_layouts/15/_api/...</code> the SPFx host page
+                      is contaminating the base URL and the toolkit's URL sanitization isn't
+                      reaching this call site. (2) Term set GUID doesn't exist in this site's
+                      modern term store. (3) Current user lacks permission on the term store.
                     </div>
                   </div>
                 )}
