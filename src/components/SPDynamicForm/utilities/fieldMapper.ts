@@ -195,7 +195,17 @@ export function extractFieldConfig(field: any, fieldType: SPFieldType): any {
 function normalizeDefaultValue(fieldType: SPFieldType, raw: any): any {
   if (raw === undefined || raw === null) return raw;
   if (fieldType === SPFieldType.Boolean) {
-    return raw === '1' || raw === 1 || raw === true;
+    // Modern PnP/SP REST returns '1' / '0'. Older CSOM variants can return
+    // 'TRUE' / 'FALSE' (uppercase) or 'True' / 'False'. Numeric 1/0 and
+    // boolean true/false also surface in some serialization paths. Be
+    // permissive on the truthy side and let everything else fall through
+    // to false (including 'FALSE', '0', '', and arbitrary garbage).
+    if (raw === true || raw === 1) return true;
+    if (typeof raw === 'string') {
+      const lower = raw.toLowerCase();
+      return lower === '1' || lower === 'true';
+    }
+    return false;
   }
   return raw;
 }
