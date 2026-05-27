@@ -178,8 +178,10 @@ export class ContextManager {
 
       // Build focused context with essential properties only
       this.context = {
-        // Core SPFx objects
-        context: sanitizedSpfxContext,
+        // Core SPFx objects. Keep the real framework context instance here:
+        // callers may depend on SPFx internals such as serviceScope,
+        // manifest, spHttpClient, and lifecycle-owned members.
+        context: spfxContext,
         pageContext: sanitizedSpfxContext.pageContext,
 
         // Essential SharePoint URL properties (web-only). Sanitized to strip

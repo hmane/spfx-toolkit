@@ -12,6 +12,7 @@ const PeoplePicker = React.lazy(() =>
 );
 import { Controller, FieldValues, Path } from 'react-hook-form';
 import { DirectionalHint } from '../../../types/fluentui-types';
+import { sanitizeSharePointSiteUrl } from '../../../utilities/context/urlSanitizer';
 import './PnPPeoplePicker.css';
 
 export interface IPnPPeoplePickerProps<T extends FieldValues> {
@@ -71,6 +72,11 @@ const PnPPeoplePicker = <T extends FieldValues>({
   onGetErrorMessage,
   onChange,
 }: IPnPPeoplePickerProps<T>) => {
+  const sanitizedWebAbsoluteUrl = React.useMemo(
+    () => sanitizeSharePointSiteUrl(webAbsoluteUrl),
+    [webAbsoluteUrl]
+  );
+
   return (
     <Controller
       name={name}
@@ -100,7 +106,7 @@ const PnPPeoplePicker = <T extends FieldValues>({
               resolveDelay={resolveDelay}
               ensureUser={ensureUser}
               suggestionsLimit={suggestionsLimit}
-              webAbsoluteUrl={webAbsoluteUrl}
+              webAbsoluteUrl={sanitizedWebAbsoluteUrl}
               placeholder={placeholder}
               errorMessage={hasError ? error.message : errorMessage}
               errorMessageClassName={errorMessageClassName}
