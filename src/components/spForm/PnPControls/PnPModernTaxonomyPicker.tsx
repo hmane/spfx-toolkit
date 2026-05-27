@@ -10,6 +10,10 @@ const ModernTaxonomyPicker = React.lazy(() =>
   }))
 );
 import { Controller, FieldError, FieldValues, Path } from 'react-hook-form';
+import {
+  buildSanitizedSpfxContext,
+  configureLegacyPnPBaseUrl,
+} from '../../../utilities/context/urlSanitizer';
 
 export interface IPnPModernTaxonomyPickerProps<T extends FieldValues> {
   name: Path<T>;
@@ -44,6 +48,12 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
   className = '',
   onTermsChanged,
 }: IPnPModernTaxonomyPickerProps<T>) => {
+  const sanitizedContext = React.useMemo(() => {
+    const sanitized = buildSanitizedSpfxContext(context);
+    configureLegacyPnPBaseUrl(sanitized);
+    return sanitized;
+  }, [context]);
+
   return (
     <Controller
       name={name}
@@ -57,7 +67,7 @@ const PnPModernTaxonomyPicker = <T extends FieldValues>({
           >
             <React.Suspense fallback={<Spinner size={SpinnerSize.small} label="Loading taxonomy picker..." />}>
               <ModernTaxonomyPicker
-                context={context}
+                context={sanitizedContext}
                 termSetId={termSetId}
                 anchorTermId={anchorTermId}
                 label={label}

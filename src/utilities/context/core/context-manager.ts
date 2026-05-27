@@ -148,8 +148,8 @@ export class ContextManager {
       //      whenever the request URL isn't absolute. It reads the RAW
       //      context, not the spfi base, and re-injects `_layouts/15`.
       //      Passing a sanitized context to `SPFx(...)` neutralizes this.
-      const cleanWebUrl = ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl);
       const sanitizedSpfxContext = buildSanitizedSpfxContext(spfxContext);
+      const cleanWebUrl = ContextManager.sanitizeSiteUrl(sanitizedSpfxContext.pageContext.web.absoluteUrl);
       const sp = spfi(cleanWebUrl).using(SPFx(sanitizedSpfxContext));
 
       // Initialize cached instances (always available, fallback to base sp)
@@ -179,38 +179,38 @@ export class ContextManager {
       // Build focused context with essential properties only
       this.context = {
         // Core SPFx objects
-        context: spfxContext,
-        pageContext: spfxContext.pageContext,
+        context: sanitizedSpfxContext,
+        pageContext: sanitizedSpfxContext.pageContext,
 
         // Essential SharePoint URL properties (web-only). Sanitized to strip
         // any `/_layouts/15[/...]` segment that SPFx injects when the
         // component is hosted on an application page (e.g., a form
         // customizer at `/_layouts/15/SPListForm.aspx`). Without this,
         // downstream URL concatenation produces malformed API paths.
-        webAbsoluteUrl: ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl),
-        webServerRelativeUrl: ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.serverRelativeUrl),
+        webAbsoluteUrl: sanitizedSpfxContext.pageContext.web.absoluteUrl,
+        webServerRelativeUrl: sanitizedSpfxContext.pageContext.web.serverRelativeUrl,
 
         // Web metadata
-        webTitle: this.getWebTitle(spfxContext.pageContext),
-        webId: spfxContext.pageContext.web.id?.toString(),
+        webTitle: this.getWebTitle(sanitizedSpfxContext.pageContext),
+        webId: sanitizedSpfxContext.pageContext.web.id?.toString(),
 
         // List context (if available)
-        listId: spfxContext.pageContext.list?.id?.toString(),
-        listTitle: spfxContext.pageContext.list?.title,
-        listServerRelativeUrl: spfxContext.pageContext.list?.serverRelativeUrl,
+        listId: sanitizedSpfxContext.pageContext.list?.id?.toString(),
+        listTitle: sanitizedSpfxContext.pageContext.list?.title,
+        listServerRelativeUrl: sanitizedSpfxContext.pageContext.list?.serverRelativeUrl,
 
         // Culture and locale information
-        currentUICultureName: spfxContext.pageContext.cultureInfo.currentUICultureName,
-        currentCultureName: spfxContext.pageContext.cultureInfo.currentCultureName,
-        isRightToLeft: spfxContext.pageContext.cultureInfo.isRightToLeft,
+        currentUICultureName: sanitizedSpfxContext.pageContext.cultureInfo.currentUICultureName,
+        currentCultureName: sanitizedSpfxContext.pageContext.cultureInfo.currentCultureName,
+        isRightToLeft: sanitizedSpfxContext.pageContext.cultureInfo.isRightToLeft,
 
         // Simple user information (authenticated org users)
-        currentUser: await this.fetchUserProfile(sp, spfxContext.pageContext),
+        currentUser: await this.fetchUserProfile(sp, sanitizedSpfxContext.pageContext),
 
         // Application information
         applicationName: this.getApplicationName(spfxContext),
         tenantUrl: this.getTenantUrl(
-          ContextManager.sanitizeSiteUrl(spfxContext.pageContext.web.absoluteUrl)
+          sanitizedSpfxContext.pageContext.web.absoluteUrl
         ),
 
         // Environment and runtime information

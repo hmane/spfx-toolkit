@@ -554,10 +554,9 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
     // application page (e.g., a form customizer at
     // `/_layouts/15/SPListForm.aspx`), absoluteUrl is contaminated with the
     // `_layouts/15` segment and the resulting `/_layouts/15/_api/v2.1/
-    // termstore/...` URL returns 404. We wrap the raw context with Proxies
-    // that override only `pageContext.web.absoluteUrl` and
-    // `pageContext.web.serverRelativeUrl`; every other property forwards to
-    // the original (so SPFx auth, service scope, etc. still work).
+    // termstore/...` URL returns 404. SPContext exposes a sanitized context
+    // at the boundary; this field passes that clean context through so SPFx
+    // auth, service scope, and PnP control initialization still work.
     if (error) {
       return (
         <Stack className={containerClass}>
