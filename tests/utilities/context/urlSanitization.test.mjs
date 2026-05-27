@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildSanitizedSpfxContext,
+  configureLegacyPnPBaseUrl,
   sanitizeSharePointSiteUrl,
 } from '../../../lib/utilities/context/urlSanitizer.js';
 
@@ -63,5 +64,33 @@ describe('SPContext URL sanitization', () => {
     assert.equal(sanitized.pageContext.web.title, 'Demo');
     assert.equal(sanitized.pageContext.cultureInfo.currentUICultureName, 'en-US');
     assert.equal(sanitized.serviceScope, raw.serviceScope);
+  });
+
+  test('legacy PnP v2 base URL is forced clean even after dirty pageContext setup', async () => {
+    const [{ sp }, { toAbsoluteUrl }] = await Promise.all([
+      import('../../../node_modules/@pnp/spfx-controls-react/node_modules/@pnp/sp/index.js'),
+      import('../../../node_modules/@pnp/spfx-controls-react/node_modules/@pnp/sp/utils/toabsoluteurl.js'),
+    ]);
+
+    sp.setup({
+      pageContext: {
+        web: {
+          absoluteUrl: 'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6',
+        },
+      },
+    });
+
+    configureLegacyPnPBaseUrl({
+      pageContext: {
+        web: {
+          absoluteUrl: 'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6',
+        },
+      },
+    });
+
+    assert.equal(
+      await toAbsoluteUrl('_api/v2.1/termstore/sets/example'),
+      'https://contoso.sharepoint.com/sites/demo/_api/v2.1/termstore/sets/example'
+    );
   });
 });

@@ -39,7 +39,10 @@ interface ITermInfo {
 import { ISPTaxonomyFieldProps, ITaxonomyDataSource } from './SPTaxonomyField.types';
 import { ISPTaxonomyFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
-import { buildSanitizedSpfxContext } from '../../../utilities/context/urlSanitizer';
+import {
+  buildSanitizedSpfxContext,
+  configureLegacyPnPBaseUrl,
+} from '../../../utilities/context/urlSanitizer';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
@@ -182,10 +185,11 @@ export const SPTaxonomyField: React.FC<ISPTaxonomyFieldProps> = (props) => {
   const [resolvedDataSource, setResolvedDataSource] = React.useState<ITaxonomyDataSource | null>(sanitizedInitialDataSource);
   const [resolvedAllowMultiple, setResolvedAllowMultiple] = React.useState<boolean | undefined>(allowMultiple);
   const rawSpfxContext = SPContext.tryGetSPFxContext();
-  const sanitizedSpfxContext = React.useMemo(
-    () => buildSanitizedSpfxContext(rawSpfxContext),
-    [rawSpfxContext]
-  );
+  const sanitizedSpfxContext = React.useMemo(() => {
+    const context = buildSanitizedSpfxContext(rawSpfxContext);
+    configureLegacyPnPBaseUrl(context);
+    return context;
+  }, [rawSpfxContext]);
   // 'prop' = caller provided dataSource directly
   // 'auto-load' = resolved via columnName + listId from SP column metadata
   // 'fallback' = auto-load failed, fell back to caller-provided dataSource

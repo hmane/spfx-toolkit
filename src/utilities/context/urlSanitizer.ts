@@ -44,3 +44,28 @@ export function buildSanitizedSpfxContext(ctx: any): any {
     },
   });
 }
+
+/**
+ * PnP SPFx controls v3 bundles PnP JS v2 and its controls share a mutable
+ * default runtime. The v2 URL resolver prefers `sp.baseUrl` over
+ * `spfxContext`, so setting a clean base URL prevents another control's raw
+ * `sp.setup({ pageContext })` call from reintroducing `/_layouts/15`.
+ */
+export function configureLegacyPnPBaseUrl(ctx: any): void {
+  const cleanWebUrl = sanitizeSharePointSiteUrl(ctx?.pageContext?.web?.absoluteUrl);
+  if (!cleanWebUrl) return;
+
+  try {
+    const common = require('@pnp/common');
+    common.setup?.({ sp: { baseUrl: cleanWebUrl } });
+  } catch {
+    // Optional compatibility path for the PnP controls' bundled PnP v2 runtime.
+  }
+
+  try {
+    const legacySp = require('@pnp/spfx-controls-react/node_modules/@pnp/sp');
+    legacySp.sp?.setup?.({ sp: { baseUrl: cleanWebUrl } });
+  } catch {
+    // Package managers may hoist/dedupe the v2 dependency differently.
+  }
+}
