@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   buildSanitizedSpfxContext,
   configureLegacyPnPBaseUrl,
+  installSharePointApiUrlFetchSanitizer,
+  sanitizeSharePointApiUrl,
   sanitizeSharePointSiteUrl,
 } from '../../../lib/utilities/context/urlSanitizer.js';
 
@@ -41,6 +43,17 @@ describe('SPContext URL sanitization', () => {
       assert.equal(sanitizeSharePointSiteUrl(input), expected);
     });
   }
+
+  test('already-composed API URL removes layouts segment before _api only', () => {
+    assert.equal(
+      sanitizeSharePointApiUrl('https://contoso.sharepoint.com/sites/demo/_layouts/15/_api/v2.1/termstore/sets/example'),
+      'https://contoso.sharepoint.com/sites/demo/_api/v2.1/termstore/sets/example'
+    );
+    assert.equal(
+      sanitizeSharePointApiUrl('https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6'),
+      'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6'
+    );
+  });
 
   test('sanitized SPFx context proxy cleans web URL properties only', () => {
     const raw = {
@@ -90,6 +103,18 @@ describe('SPContext URL sanitization', () => {
 
     assert.equal(
       await toAbsoluteUrl('_api/v2.1/termstore/sets/example'),
+      'https://contoso.sharepoint.com/sites/demo/_api/v2.1/termstore/sets/example'
+    );
+  });
+
+  test('fetch sanitizer rewrites late layouts-based SharePoint API requests', async () => {
+    const target = {
+      fetch: async (input) => input,
+    };
+    installSharePointApiUrlFetchSanitizer(target);
+
+    assert.equal(
+      await target.fetch('https://contoso.sharepoint.com/sites/demo/_layouts/15/_api/v2.1/termstore/sets/example'),
       'https://contoso.sharepoint.com/sites/demo/_api/v2.1/termstore/sets/example'
     );
   });
