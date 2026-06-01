@@ -30,20 +30,32 @@ export async function writeToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Trigger a download for a `text/markdown`/`application/json` blob. */
-export function downloadText(filename: string, text: string, mime: string): void {
-  if (typeof document === 'undefined') return;
+/**
+ * Trigger a download for a `text/markdown`/`application/json` blob.
+ * Returns `true` on success, `false` if the environment can't download or the
+ * browser blocked it. Never throws — host apps must stay safe.
+ */
+export function downloadText(filename: string, text: string, mime: string): boolean {
+  if (typeof document === 'undefined') return false;
   try {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    // Revoke well after the browser has started the download. Revoking on a
+    // 0ms timeout can race the download in some browsers. `unref` keeps Node
+    // test runs from hanging on the pending timer.
+    const timer = setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (timer && typeof (timer as { unref?: () => void }).unref === 'function') {
+      (timer as { unref: () => void }).unref();
+    }
+    return true;
   } catch {
-    /* swallow — never break the host app */
+    return false;
   }
 }
