@@ -22,6 +22,7 @@
 
 // --- Lightweight components (safe to import from this barrel) ---
 export * from './Card';
+export * from './SPNotificationBar';
 export * from './ConflictDetector';
 export * from './DocumentLink';
 export * from './ErrorBoundary';

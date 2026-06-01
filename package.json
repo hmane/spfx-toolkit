@@ -86,6 +86,16 @@
       "import": "./lib/components/SPListItemAttachments/index.js",
       "require": "./lib/components/SPListItemAttachments/index.js"
     },
+    "./components/SPNotificationBar": {
+      "types": "./lib/components/SPNotificationBar/index.d.ts",
+      "import": "./lib/components/SPNotificationBar/index.js",
+      "require": "./lib/components/SPNotificationBar/index.js"
+    },
+    "./components/SPSiteSelector": {
+      "types": "./lib/components/SPSiteSelector/index.d.ts",
+      "import": "./lib/components/SPSiteSelector/index.js",
+      "require": "./lib/components/SPSiteSelector/index.js"
+    },
     "./components/UserPersona": {
       "types": "./lib/components/UserPersona/index.d.ts",
       "import": "./lib/components/UserPersona/index.js",
@@ -220,6 +230,11 @@
       "types": "./lib/utilities/listItemHelper/index.d.ts",
       "import": "./lib/utilities/listItemHelper/index.js",
       "require": "./lib/utilities/listItemHelper/index.js"
+    },
+    "./utilities/notifications": {
+      "types": "./lib/utilities/notifications/index.d.ts",
+      "import": "./lib/utilities/notifications/index.js",
+      "require": "./lib/utilities/notifications/index.js"
     },
     "./utilities/permissionHelper": {
       "types": "./lib/utilities/permissionHelper/index.d.ts",

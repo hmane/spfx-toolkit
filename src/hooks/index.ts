@@ -21,3 +21,6 @@ export * from './useDebouncedValue';
 export * from './useListItems';
 export * from './useSPPagedQuery';
 export * from './useSPFieldMetadata';
+
+// SharePoint search hooks
+export * from './useSharePointSearch';

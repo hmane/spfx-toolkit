@@ -46,6 +46,8 @@ Each component has a dedicated export. Use the `./components/<Name>` form.
 | ManageAccess | `import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';` |
 | SPDynamicForm | `import { SPDynamicForm } from 'spfx-toolkit/components/SPDynamicForm';` |
 | SPListItemAttachments | `import { SPListItemAttachments } from 'spfx-toolkit/components/SPListItemAttachments';` |
+| SPNotificationBar | `import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';` — also in the light barrel `spfx-toolkit/components` |
+| SPSiteSelector | `import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';` ⚠️ deep subpath only — NOT in `spfx-toolkit/components` barrel; requires `@pnp/sp/search` (loaded automatically) |
 | UserPersona | `import { UserPersona } from 'spfx-toolkit/components/UserPersona';` |
 | VersionHistory | `import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';` |
 | WorkflowStepper | `import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';` |
@@ -197,7 +199,7 @@ import {
 
 ## 4. Hooks
 
-Most hooks are re-exported through the `./hooks` barrel, which is fine for the lightweight general-purpose hooks. The data-fetching hooks (`useListItems`, `useSPPagedQuery`, `useSPFieldMetadata`) and the debounce hooks (`useDebouncedValue`, `useDebouncedCallback`) also have per-hook deep paths for maximum tree-shaking.
+Most hooks are re-exported through the `./hooks` barrel, which is fine for the lightweight general-purpose hooks. The data-fetching hooks (`useListItems`, `useSPPagedQuery`, `useSPFieldMetadata`, `useSharePointSearch`) and the debounce hooks (`useDebouncedValue`, `useDebouncedCallback`) also have per-hook deep paths for maximum tree-shaking.
 
 ```typescript
 // ✅ Barrel — fine for lightweight hooks
@@ -208,6 +210,7 @@ import { useDebouncedValue, useDebouncedCallback } from 'spfx-toolkit/lib/hooks/
 import { useListItems } from 'spfx-toolkit/lib/hooks/useListItems';
 import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks/useSPPagedQuery';
 import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
+import { useSharePointSearch } from 'spfx-toolkit/lib/hooks/useSharePointSearch';
 ```
 
 ### Hook reference
@@ -221,6 +224,7 @@ import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
 | `useListItems` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useListItems` | `({ listId, select?, filter?, orderBy?, top?, expand?, caml?, enabled?, sp? }) => { items, loading, error, refresh, count }` |
 | `useSPPagedQuery` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPPagedQuery` | `({ listId, … }) => { pages, items, loadMore, hasMore, loading, error, reset }` |
 | `useSPFieldMetadata` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPFieldMetadata` | `({ listId }) => { fields, loading, error, refresh }` — sessionStorage-cached |
+| `useSharePointSearch` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSharePointSearch` | `<T>({ query, selectProperties?, rowLimit?, trimDuplicates?, sourceId?, enabled?, sp? }) => { results, totalRows, loading, error, refresh }` — requires `@pnp/sp/search` (loaded automatically) |
 
 (Component-specific hooks live with their component — e.g. `useConflictDetection` is exported from `spfx-toolkit/components/ConflictDetector`, `useCardController` from `spfx-toolkit/components/Card`.)
 
@@ -246,6 +250,7 @@ Each utility has a dedicated subpath. Always import the specific one you need.
 | UserPhotoHelper | `import { ... } from 'spfx-toolkit/utilities/userPhotoHelper';` |
 | SPHelper | `import { ... } from 'spfx-toolkit/utilities/spHelper';` |
 | CamlBuilder | `import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';` |
+| Notifications (imperative + hook) | `import { notify, dismiss, dismissAll, useNotifications } from 'spfx-toolkit/utilities/notifications';` |
 | Debug (bridge utilities) | `import { attachHttpInspector, SPDebug } from 'spfx-toolkit/utilities/debug';` — see [§15 SPDebug Panel](#15-spdebug-panel) |
 
 ❌ Do NOT use `spfx-toolkit/utils` or `spfx-toolkit/utilities` (barrels — pulls everything).
@@ -355,7 +360,7 @@ See [FluentUI-TreeShaking-Guide.md](./FluentUI-TreeShaking-Guide.md) for the ful
 | Pattern | Why it's wrong |
 |---------|---------------|
 | `import { X } from 'spfx-toolkit'` | Pulls the root barrel — entire library, including all DevExtreme wrappers. |
-| `import { VersionHistory } from 'spfx-toolkit/components'` | Heavy components (VersionHistory, SPDynamicForm, ManageAccess, Comments, GroupUsersPicker, spForm, spFields, SPListItemAttachments, userAccess) are intentionally excluded from the barrel. Use their deep subpath. |
+| `import { VersionHistory } from 'spfx-toolkit/components'` | Heavy components (VersionHistory, SPDynamicForm, ManageAccess, Comments, GroupUsersPicker, spForm, spFields, SPListItemAttachments, userAccess, SPSiteSelector) are intentionally excluded from the barrel. Use their deep subpath. |
 | `import { X } from 'spfx-toolkit/utils'` | Pulls every utility (alias for `spfx-toolkit/utilities`). |
 | `import { X } from 'spfx-toolkit/utilities'` | Same as above — pulls every utility. |
 | `import { SPLookupField } from 'spfx-toolkit/components/spFields'` | Intentionally not exported from the barrel — use the `lib/` path. |
@@ -450,6 +455,56 @@ const { fields, loading } = useSPFieldMetadata({ listId: 'Tasks' });
 import { useDebouncedValue } from 'spfx-toolkit/lib/hooks/useDebouncedValue';
 
 const debouncedQuery = useDebouncedValue(searchQuery, 300);
+```
+
+**KQL search across SharePoint (typed results):**
+```typescript
+// Add the search augmentation once, near your web part entry
+import 'spfx-toolkit/utilities/context/pnpImports/search';
+
+import { useSharePointSearch } from 'spfx-toolkit/lib/hooks/useSharePointSearch';
+
+interface ISiteResult { Title?: string; Path?: string; SiteId?: string; }
+
+const { results, totalRows, loading, error } = useSharePointSearch<ISiteResult>({
+  query: 'contentclass:STS_Site contoso',
+  selectProperties: ['Title', 'Path', 'SiteId'],
+  rowLimit: 8,
+});
+```
+
+**Search-backed site picker:**
+```typescript
+// ⚠️ DEEP SUBPATH ONLY — not exported from spfx-toolkit/components barrel
+import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';
+import type { ISPSiteItem } from 'spfx-toolkit/components/SPSiteSelector';
+
+// Requires @pnp/sp/search to be loaded (loaded automatically by the component)
+<SPSiteSelector
+  placeholder="Search for a site..."
+  rowLimit={8}
+  onSiteSelected={(site: ISPSiteItem) => console.log(site.url)}
+/>
+```
+
+**Toast notifications (global, works outside React):**
+```typescript
+// Place the bar once, at your web part root:
+import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';
+<SPNotificationBar position="top" maxVisible={5} />
+
+// Trigger from anywhere — no React context needed:
+import { notify, dismiss, dismissAll } from 'spfx-toolkit/utilities/notifications';
+
+notify({ type: 'success', message: 'Item saved.' });
+notify({ type: 'error', message: 'Failed to load data.' });   // sticky — no auto-dismiss
+notify({ type: 'warning', message: 'Session expiring soon.', duration: 8000 });
+dismiss(id);     // cancel one
+dismissAll();    // clear all
+
+// Or subscribe in a component:
+import { useNotifications } from 'spfx-toolkit/utilities/notifications';
+const { notifications, notify, dismiss } = useNotifications();
 ```
 
 ---

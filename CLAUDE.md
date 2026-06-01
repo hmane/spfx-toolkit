@@ -207,6 +207,8 @@ import { Card } from 'spfx-toolkit';
 | [**MyAccessView**](./src/components/userAccess/)           | Self-service "what can I see" view | Low      | Plain-English UAT view, drill-down on demand |
 | [**UserAccessAdmin**](./src/components/userAccess/)        | Admin investigation + bulk group editor | Medium | Pivot tabs, allowBrowse prop, PermissionKind gate |
 | [**GroupMembersList**](./src/components/userAccess/)       | List members of a SharePoint group | Low      | Search filter, persona rows               |
+| [**SPNotificationBar**](./src/components/SPNotificationBar/) | Toast notification stack  | Low           | Fluent MessageBars, auto-dismiss, position top/bottom |
+| [**SPSiteSelector**](./src/components/SPSiteSelector/)     | Search-backed site picker (deep subpath only) | Low | Debounced KQL search, recentSites, keyboard nav |
 
 ### 🎣 Custom Hooks
 
@@ -222,6 +224,8 @@ import { Card } from 'spfx-toolkit';
 | `useListItems`         | Reactive list read         | Fetching SP list items with filter/orderBy/CAML |
 | `useSPPagedQuery`      | Paged/infinite-scroll read | Large list views, load-more UX   |
 | `useSPFieldMetadata`   | List field schema (cached) | Dynamic form rendering, field inspection |
+| `useSharePointSearch`  | Typed KQL search hook      | Site pickers, cross-list search, people search |
+| `useNotifications`     | Subscribe to notification store | Component-level toast reactions |
 
 ### 🛠️ Core Utilities
 
@@ -234,6 +238,7 @@ import { Card } from 'spfx-toolkit';
 | [**StringUtils**](./src/utilities/stringUtils/)           | String manipulation         | `.getFileName()`, `.getInitials()`         |
 | [**DateUtils**](./src/utilities/dateUtils/)               | Date operations             | `.formatDate()`, `.getRelativeTime()`      |
 | [**CamlBuilder**](./src/utilities/camlBuilder/)           | Fluent CAML query builder   | `.where().field().neq().orderBy().rowLimit().build()` |
+| [**Notifications**](./src/utilities/notifications/)       | Transient toast store       | `notify()`, `dismiss()`, `dismissAll()`, `useNotifications()` |
 
 ---
 
