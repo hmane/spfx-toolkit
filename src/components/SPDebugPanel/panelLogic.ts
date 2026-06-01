@@ -174,7 +174,7 @@ export const RIGHT_WIDTH_MAX = 1200;
 export const BOTTOM_HEIGHT_MIN = 200;
 export const BOTTOM_HEIGHT_MAX = 800;
 
-const VALID_TABS = ['console', 'data', 'workflows', 'settings'];
+const VALID_TABS = ['console', 'data', 'workflows', 'network', 'permissions', 'fields', 'settings'];
 
 export function normalizeSelectedTab(tab: unknown): string {
   if (tab === 'timeline' || tab === 'errors') return 'console';

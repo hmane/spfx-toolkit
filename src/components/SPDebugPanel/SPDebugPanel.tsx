@@ -7,10 +7,19 @@
  *
  * Per spec: Fluent UI only, right + bottom dock, lazy-loaded, no DevExtreme,
  * no floating mode in v1.
+ *
+ * Tabs:
+ *  - Console   — timeline entries (existing DebugConsoleList)
+ *  - Data      — snapshots + tables (existing DebugTablesPane / DebugSnapshotsPane)
+ *  - Workflows — traces (existing DebugWorkflowsPane)
+ *  - Network   — REST/fetch inspector (new DebugNetworkPane)
+ *  - Perms     — permission checks (new DebugPermissionsPane)
+ *  - Fields    — SPDynamicForm field inspector (new DebugFieldInspectorPane)
  */
 
 import * as React from 'react';
 import { DefaultButton, IconButton } from '@fluentui/react/lib/Button';
+import { Pivot, PivotItem } from '@fluentui/react/lib/Pivot';
 import { Text } from '@fluentui/react/lib/Text';
 import './SPDebugPanel.css';
 
@@ -20,6 +29,8 @@ import type {
   SPDebugEntry,
 } from '../../utilities/debug/SPDebugTypes';
 
+import { NETWORK_TABLE_KEY } from '../../utilities/debug/httpBridge';
+
 import { useDebugStore } from './hooks/useDebugStore';
 import {
   PanelFilters,
@@ -27,6 +38,7 @@ import {
   clampRightWidth,
   emptyFilters,
   loadPanelPrefs,
+  normalizeSelectedTab,
   savePanelPrefs,
   shouldRequireReview,
 } from './panelLogic';
@@ -40,6 +52,12 @@ import {
   buildConsoleItems,
   filterConsoleItems,
 } from './components/DebugConsoleList';
+import { DebugTablesPane } from './components/DebugTablesPane';
+import { DebugSnapshotsPane } from './components/DebugSnapshotsPane';
+import { DebugWorkflowsPane } from './components/DebugWorkflowsPane';
+import { DebugNetworkPane } from './components/DebugNetworkPane';
+import { DebugPermissionsPane, PERMISSIONS_TABLE_KEY } from './components/DebugPermissionsPane';
+import { DebugFieldInspectorPane, FORM_FIELDS_TABLE_KEY } from './components/DebugFieldInspectorPane';
 
 // Selectors: each component reads only what it needs.
 const selectEntries = (s: ReturnType<typeof debugStore.getState>): SPDebugEntry[] =>
@@ -67,9 +85,19 @@ const SPDebugPanel: React.FC = () => {
   const tracesMap = useDebugStore(selectTracesMap);
   const metricsMap = useDebugStore(selectMetricsMap);
   const snapshots = React.useMemo(() => Array.from(snapshotsMap.values()), [snapshotsMap]);
-  const tables = React.useMemo(() => Array.from(tablesMap.values()), [tablesMap]);
+  const tables = React.useMemo(
+    () => Array.from(tablesMap.values()).filter(
+      (t) => t.key !== NETWORK_TABLE_KEY && t.key !== PERMISSIONS_TABLE_KEY && t.key !== FORM_FIELDS_TABLE_KEY
+    ),
+    [tablesMap]
+  );
   const traces = React.useMemo(() => Array.from(tracesMap.values()), [tracesMap]);
   const metrics = React.useMemo(() => Array.from(metricsMap.values()), [metricsMap]);
+
+  // Dedicated store slices for special tabs.
+  const networkTable = React.useMemo(() => tablesMap.get(NETWORK_TABLE_KEY), [tablesMap]);
+  const permissionsTable = React.useMemo(() => tablesMap.get(PERMISSIONS_TABLE_KEY), [tablesMap]);
+  const fieldInspectorTable = React.useMemo(() => tablesMap.get(FORM_FIELDS_TABLE_KEY), [tablesMap]);
 
   // Local UI state — preferences persisted in session storage.
   const initialPrefs = React.useMemo(loadPanelPrefs, []);
@@ -79,17 +107,20 @@ const SPDebugPanel: React.FC = () => {
     initialPrefs.bottomHeight
   );
   const [filters, setFilters] = React.useState<PanelFilters>(initialPrefs.filters || emptyFilters());
+  const [selectedTab, setSelectedTab] = React.useState<string>(
+    normalizeSelectedTab(initialPrefs.selectedTab)
+  );
   const [exportOpen, setExportOpen] = React.useState(false);
   const [isMaximized, setIsMaximized] = React.useState(false);
 
   // Persist UI prefs whenever they change.
   React.useEffect(() => {
-    savePanelPrefs({ dock, rightWidth, bottomHeight, selectedTab: 'console', filters });
-  }, [dock, rightWidth, bottomHeight, filters]);
+    savePanelPrefs({ dock, rightWidth, bottomHeight, selectedTab, filters });
+  }, [dock, rightWidth, bottomHeight, selectedTab, filters]);
 
   const consoleItems = React.useMemo(
-    () => buildConsoleItems({ entries, snapshots, tables, metrics, traces }),
-    [entries, snapshots, tables, metrics, traces]
+    () => buildConsoleItems({ entries, snapshots, tables: Array.from(tablesMap.values()), metrics, traces }),
+    [entries, snapshots, tablesMap, metrics, traces]
   );
   const filtered = React.useMemo(
     () => filterConsoleItems(consoleItems, filters),
@@ -132,6 +163,11 @@ const SPDebugPanel: React.FC = () => {
       estimatedBytesInMemory: 0,
     });
   };
+
+  // Network row count for badge.
+  const networkRowCount = networkTable ? networkTable.rows.length : 0;
+  const permissionsRowCount = permissionsTable ? permissionsTable.rows.length : 0;
+  const fieldRowCount = fieldInspectorTable ? fieldInspectorTable.rows.length : 0;
 
   return (
     <div
@@ -204,18 +240,85 @@ const SPDebugPanel: React.FC = () => {
         </div>
       </div>
 
-      <DebugToolbar
-        filters={filters}
-        onFiltersChange={setFilters}
-        entryCount={consoleItems.length}
-        filteredCount={filtered.length}
-        origins={originOptions}
-        sources={sourceOptions}
-        components={componentOptions}
-      />
+      {selectedTab === 'console' && (
+        <DebugToolbar
+          filters={filters}
+          onFiltersChange={setFilters}
+          entryCount={consoleItems.length}
+          filteredCount={filtered.length}
+          origins={originOptions}
+          sources={sourceOptions}
+          components={componentOptions}
+        />
+      )}
 
       <div className="spdebug-panel-content">
-        <DebugConsoleList items={filtered} />
+        <Pivot
+          selectedKey={selectedTab}
+          onLinkClick={(item) => {
+            if (item?.props.itemKey) setSelectedTab(item.props.itemKey);
+          }}
+          aria-label="Debug panel tabs"
+          styles={{ root: { borderBottom: '1px solid #edebe9', flexShrink: 0 } }}
+        >
+          <PivotItem headerText="Console" itemKey="console" />
+          <PivotItem headerText="Data" itemKey="data" />
+          <PivotItem headerText="Workflows" itemKey="workflows" />
+          <PivotItem
+            headerText={'Network' + (networkRowCount > 0 ? ' (' + networkRowCount + ')' : '')}
+            itemKey="network"
+          />
+          <PivotItem
+            headerText={'Perms' + (permissionsRowCount > 0 ? ' (' + permissionsRowCount + ')' : '')}
+            itemKey="permissions"
+          />
+          <PivotItem
+            headerText={'Fields' + (fieldRowCount > 0 ? ' (' + fieldRowCount + ')' : '')}
+            itemKey="fields"
+          />
+        </Pivot>
+
+        <div className="spdebug-tab-pane">
+          {selectedTab === 'console' && <DebugConsoleList items={filtered} />}
+          {selectedTab === 'data' && (
+            <div className="spdebug-data-pane">
+              <div className="spdebug-data-section">
+                <div className="spdebug-section-heading">
+                  <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
+                    Snapshots
+                  </Text>
+                  <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                    {snapshots.length}
+                  </Text>
+                </div>
+                <DebugSnapshotsPane snapshots={snapshots} />
+              </div>
+              <div className="spdebug-data-section">
+                <div className="spdebug-section-heading">
+                  <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
+                    Tables
+                  </Text>
+                  <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                    {tables.length}
+                  </Text>
+                </div>
+                <DebugTablesPane tables={tables} />
+              </div>
+            </div>
+          )}
+          {selectedTab === 'workflows' && (
+            <DebugWorkflowsPane traces={traces} />
+          )}
+          {selectedTab === 'network' && (
+            <DebugNetworkPane networkTable={networkTable} />
+          )}
+          {selectedTab === 'permissions' && (
+            <DebugPermissionsPane permissionsTable={permissionsTable} />
+          )}
+          {selectedTab === 'fields' && (
+            <DebugFieldInspectorPane fieldInspectorTable={fieldInspectorTable} />
+          )}
+        </div>
       </div>
 
       <DebugSessionControls active={activeSession} entryCount={entries.length} />

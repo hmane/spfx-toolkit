@@ -28,6 +28,14 @@ export type { RedactionCounters } from './SPDebugStore';
 export { attachLoggerToStore } from './loggerBridge';
 export { attachMultiSiteToStore } from './multiSiteBridge';
 export {
+  attachHttpInspector,
+  buildNetworkRow,
+  redactQueryString,
+  NETWORK_TABLE_KEY,
+  DEFAULT_SLOW_THRESHOLD_MS,
+} from './httpBridge';
+export type { HttpInspectorOptions, NetworkRow } from './httpBridge';
+export {
   KEEP,
   REDACT,
   REDACTED_MARKER,

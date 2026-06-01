@@ -37,6 +37,13 @@ import type {
   SPDebugTableOptions,
   SPDebugTimerOptions,
 } from '../../utilities/debug/SPDebugTypes';
+import type { IFieldMetadata } from '../SPDynamicForm/types/fieldMetadata';
+
+/** Reserved table key for `useSPDebugPermission`. */
+const PERMISSIONS_TABLE_KEY = '__permissions__';
+
+/** Reserved table key for `useSPDebugFormFields`. */
+const FORM_FIELDS_TABLE_KEY = '__form_fields__';
 
 // ----------------------------------------------------------------------------
 // Internal store-slice subscription (works in React 17 / 18 without
@@ -252,5 +259,146 @@ export function useSPDebugSession(): UseSPDebugSessionApi {
       },
     }),
     [active]
+  );
+}
+
+// ----------------------------------------------------------------------------
+// C2: useSPDebugPermission
+// ----------------------------------------------------------------------------
+
+/**
+ * Record a permission check result into the `__permissions__` store table.
+ *
+ * **Disabled-cost contract**: performs no work (no store writes, no object
+ * construction) while capture is off.
+ *
+ * Composable with `useHasPermission` — pass the resulting `allowed` flag:
+ *
+ * ```tsx
+ * const canEdit = useHasPermission(PermissionKind.EditListItems);
+ * useSPDebugPermission('Edit Items', canEdit);
+ * ```
+ *
+ * Each call upserts a row keyed by `label` — the latest value for a given
+ * label wins (same semantics as `SPDebug.table` latest-rows-win at the table
+ * level: we read existing rows and merge).
+ */
+export function useSPDebugPermission(
+  label: string,
+  allowed: boolean,
+  loading?: boolean
+): void {
+  const enabled = useStoreSlice(selectCaptureEnabled);
+  React.useEffect(() => {
+    if (!enabled) return;
+    const state = debugStore.getState();
+    const existing = state.tables.get(PERMISSIONS_TABLE_KEY);
+    const newRow = {
+      label,
+      allowed,
+      loading: loading ?? false,
+      checkedAt: Date.now(),
+    };
+    // Upsert: replace an existing row with the same label, or append.
+    const prevRows = existing
+      ? (existing.rows as Array<{ label: string; allowed: boolean; loading: boolean; checkedAt: number }>)
+      : [];
+    const idx = prevRows.findIndex((r) => r.label === label);
+    const nextRows =
+      idx >= 0
+        ? prevRows.map((r, i) => (i === idx ? newRow : r))
+        : prevRows.concat([newRow]);
+    SPDebug.table(PERMISSIONS_TABLE_KEY, nextRows, { source: 'Permissions' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, label, allowed, loading]);
+}
+
+// ----------------------------------------------------------------------------
+// C3: useSPDebugFormFields
+// ----------------------------------------------------------------------------
+
+/**
+ * Returns a callback suitable for `SPDynamicForm`'s `onResolvedField` prop.
+ *
+ * When capture is enabled, each resolved field is recorded (upserted by
+ * `internalName`) into the `__form_fields__` store table.
+ *
+ * **Disabled-cost contract**: the returned callback is a stable no-op
+ * function while capture is off.
+ *
+ * Usage:
+ * ```tsx
+ * const onResolvedField = useSPDebugFormFields();
+ * <SPDynamicForm ... onResolvedField={onResolvedField} />
+ * ```
+ *
+ * The `resolved` parameter contains the field after override application;
+ * `original` is the unmodified field. `overrideApplied` is true when any
+ * presentation property differs between the two.
+ */
+export function useSPDebugFormFields(): (
+  resolved: IFieldMetadata,
+  original: IFieldMetadata
+) => void {
+  const enabled = useStoreSlice(selectCaptureEnabled);
+
+  // Stable ref so the returned callback identity is stable even when
+  // `enabled` changes — matching `useSPDebugTrace`'s apiRef pattern.
+  const enabledRef = React.useRef(enabled);
+  enabledRef.current = enabled;
+
+  return React.useCallback(
+    (resolved: IFieldMetadata, original: IFieldMetadata) => {
+      if (!enabledRef.current) return;
+      try {
+        const state = debugStore.getState();
+        if (!state.captureEnabled) return;
+
+        // `IFieldMetadata` carries required/readOnly/hidden but NOT disabled —
+        // the disabled state is computed at render time from form-level props.
+        const overrideApplied =
+          resolved.required !== original.required ||
+          resolved.hidden !== original.hidden ||
+          resolved.readOnly !== original.readOnly ||
+          resolved.displayName !== original.displayName ||
+          resolved.description !== original.description;
+
+        const newRow = {
+          fieldName: resolved.internalName,
+          type: String(resolved.fieldType),
+          label: resolved.displayName,
+          required: resolved.required,
+          hidden: resolved.hidden,
+          readOnly: resolved.readOnly,
+          overrideApplied,
+        };
+
+        const existing = state.tables.get(FORM_FIELDS_TABLE_KEY);
+        const prevRows = existing
+          ? (existing.rows as Array<{ fieldName: string }>)
+          : [];
+        const idx = prevRows.findIndex((r) => r.fieldName === newRow.fieldName);
+        const nextRows =
+          idx >= 0
+            ? prevRows.map((r, i) => (i === idx ? newRow : r))
+            : prevRows.concat([newRow]);
+
+        SPDebug.table(FORM_FIELDS_TABLE_KEY, nextRows, {
+          source: 'FieldInspector',
+          columns: [
+            { key: 'fieldName', label: 'Internal Name' },
+            { key: 'type', label: 'Type' },
+            { key: 'label', label: 'Label' },
+            { key: 'required', label: 'Required' },
+            { key: 'hidden', label: 'Hidden' },
+            { key: 'readOnly', label: 'Read Only' },
+            { key: 'overrideApplied', label: 'Override Applied' },
+          ],
+        });
+      } catch {
+        /* never throw into the host app */
+      }
+    },
+    [] // stable — reads enabledRef at call time
   );
 }

@@ -217,6 +217,11 @@ import { Card } from 'spfx-toolkit';
 | `useCardController`    | Programmatic card control  | External card state management   |
 | `useConflictDetection` | Conflict monitoring        | Form applications                |
 | `useErrorHandler`      | Error boundary integration | Component error handling         |
+| `useDebouncedValue`    | Debounce a reactive value  | Search inputs, filter fields     |
+| `useDebouncedCallback` | Debounce a callback        | Auto-save, typeahead triggers    |
+| `useListItems`         | Reactive list read         | Fetching SP list items with filter/orderBy/CAML |
+| `useSPPagedQuery`      | Paged/infinite-scroll read | Large list views, load-more UX   |
+| `useSPFieldMetadata`   | List field schema (cached) | Dynamic form rendering, field inspection |
 
 ### 🛠️ Core Utilities
 
@@ -228,6 +233,7 @@ import { Card } from 'spfx-toolkit';
 | [**ListItemHelper**](./src/utilities/listItemHelper/)     | Field extraction/updates    | `createSPExtractor()`, `createSPUpdater()` |
 | [**StringUtils**](./src/utilities/stringUtils/)           | String manipulation         | `.getFileName()`, `.getInitials()`         |
 | [**DateUtils**](./src/utilities/dateUtils/)               | Date operations             | `.formatDate()`, `.getRelativeTime()`      |
+| [**CamlBuilder**](./src/utilities/camlBuilder/)           | Fluent CAML query builder   | `.where().field().neq().orderBy().rowLimit().build()` |
 
 ---
 

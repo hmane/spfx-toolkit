@@ -29,6 +29,7 @@ import * as React from 'react';
 import {
   attachLoggerToStore,
   attachMultiSiteToStore,
+  attachHttpInspector,
   clearPersistedState,
   debugStore,
   DEFAULT_CONFIG,
@@ -37,6 +38,7 @@ import {
   persistState,
   SPDebug,
 } from '../../utilities/debug';
+import type { HttpInspectorOptions } from '../../utilities/debug';
 import type {
   ResolvedDebugConfig,
   SPDebugProviderConfig,
@@ -67,6 +69,18 @@ export interface SPDebugProviderProps extends SPDebugProviderConfig {
    * Multi-site API to auto-attach against. Typically `SPContext.sites`.
    */
   sites?: SitesAPILike;
+  /**
+   * Optional HTTP client to inspect. Typically `SPContext.http`. When provided
+   * AND debug capture is enabled, outgoing GET/POST calls are recorded in the
+   * `__network__` store table for display in the Network tab. Opt-in — global
+   * fetch is never auto-wrapped.
+   */
+  http?: unknown;
+  /**
+   * Configuration for the HTTP inspector (query string redaction, slow
+   * threshold). Ignored when `http` is not supplied.
+   */
+  httpInspector?: HttpInspectorOptions;
   children?: React.ReactNode;
 }
 
@@ -309,6 +323,12 @@ export const SPDebugProvider: React.FC<SPDebugProviderProps> = (props) => {
     // Multi-site auto-attach.
     if (props.sites) {
       const detach = attachMultiSiteToStore(props.sites);
+      cleanup.push(detach);
+    }
+
+    // HTTP inspector (opt-in).
+    if (props.http) {
+      const detach = attachHttpInspector(props.http, props.httpInspector);
       cleanup.push(detach);
     }
 

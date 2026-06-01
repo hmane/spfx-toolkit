@@ -171,6 +171,11 @@
       "import": "./lib/utilities/browserStorage/index.js",
       "require": "./lib/utilities/browserStorage/index.js"
     },
+    "./utilities/camlBuilder": {
+      "types": "./lib/utilities/camlBuilder/index.d.ts",
+      "import": "./lib/utilities/camlBuilder/index.js",
+      "require": "./lib/utilities/camlBuilder/index.js"
+    },
     "./utilities/context": {
       "types": "./lib/utilities/context/index.d.ts",
       "import": "./lib/utilities/context/index.js",

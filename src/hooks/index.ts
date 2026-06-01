@@ -13,3 +13,11 @@ export * from './useBrokenInheritanceLists';
 export * from './useUserAccessComparison';
 export * from './useGroupMembershipEditor';
 // _useAsyncResource is intentionally NOT exported
+
+// Utility hooks
+export * from './useDebouncedValue';
+
+// SharePoint list hooks
+export * from './useListItems';
+export * from './useSPPagedQuery';
+export * from './useSPFieldMetadata';

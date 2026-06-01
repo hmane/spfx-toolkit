@@ -197,11 +197,30 @@ import {
 
 ## 4. Hooks
 
-`./hooks` is a single barrel — there is no per-hook subpath. All hooks are cheap (no heavy deps) so the barrel is fine.
+Most hooks are re-exported through the `./hooks` barrel, which is fine for the lightweight general-purpose hooks. The data-fetching hooks (`useListItems`, `useSPPagedQuery`, `useSPFieldMetadata`) and the debounce hooks (`useDebouncedValue`, `useDebouncedCallback`) also have per-hook deep paths for maximum tree-shaking.
 
 ```typescript
+// ✅ Barrel — fine for lightweight hooks
 import { useLocalStorage, useViewport } from 'spfx-toolkit/hooks';
+
+// ✅ Per-hook deep path — saves bundle bytes when you only need one hook
+import { useDebouncedValue, useDebouncedCallback } from 'spfx-toolkit/lib/hooks/useDebouncedValue';
+import { useListItems } from 'spfx-toolkit/lib/hooks/useListItems';
+import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks/useSPPagedQuery';
+import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
 ```
+
+### Hook reference
+
+| Hook | Import (barrel) | Deep path | Signature / return |
+|------|----------------|-----------|--------------------|
+| `useLocalStorage` | `spfx-toolkit/hooks` | — | `[value, setValue]` |
+| `useViewport` | `spfx-toolkit/hooks` | — | `{ isMobile, isTablet, isDesktop }` |
+| `useDebouncedValue` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useDebouncedValue` | `useDebouncedValue<T>(value, delayMs): T` |
+| `useDebouncedCallback` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useDebouncedValue` | `useDebouncedCallback(fn, delayMs): fn` |
+| `useListItems` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useListItems` | `({ listId, select?, filter?, orderBy?, top?, expand?, caml?, enabled?, sp? }) => { items, loading, error, refresh, count }` |
+| `useSPPagedQuery` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPPagedQuery` | `({ listId, … }) => { pages, items, loadMore, hasMore, loading, error, reset }` |
+| `useSPFieldMetadata` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPFieldMetadata` | `({ listId }) => { fields, loading, error, refresh }` — sessionStorage-cached |
 
 (Component-specific hooks live with their component — e.g. `useConflictDetection` is exported from `spfx-toolkit/components/ConflictDetector`, `useCardController` from `spfx-toolkit/components/Card`.)
 
@@ -226,7 +245,8 @@ Each utility has a dedicated subpath. Always import the specific one you need.
 | BrowserStorage | `import { ... } from 'spfx-toolkit/utilities/browserStorage';` |
 | UserPhotoHelper | `import { ... } from 'spfx-toolkit/utilities/userPhotoHelper';` |
 | SPHelper | `import { ... } from 'spfx-toolkit/utilities/spHelper';` |
-| Debug | `import { ... } from 'spfx-toolkit/utilities/debug';` |
+| CamlBuilder | `import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';` |
+| Debug (bridge utilities) | `import { attachHttpInspector, SPDebug } from 'spfx-toolkit/utilities/debug';` — see [§15 SPDebug Panel](#15-spdebug-panel) |
 
 ❌ Do NOT use `spfx-toolkit/utils` or `spfx-toolkit/utilities` (barrels — pulls everything).
 
@@ -402,6 +422,36 @@ import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 import { LazyVersionHistory, LazyManageAccessPanel } from 'spfx-toolkit/components/lazy';
 ```
 
+**A reactive list read with optional CAML filter:**
+```typescript
+import { useListItems } from 'spfx-toolkit/lib/hooks/useListItems';
+import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';
+
+const caml = CamlBuilder.where().field('Status').neq('Completed').orderBy('Created', false).rowLimit(50).build();
+const { items, loading, error, refresh } = useListItems<ITask>({ listId: 'Tasks', caml });
+```
+
+**Paged / infinite-scroll list read:**
+```typescript
+import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks/useSPPagedQuery';
+
+const { items, loadMore, hasMore, loading } = useSPPagedQuery<ITask>({ listId: 'Tasks', top: 20 });
+```
+
+**Inspect a list's field schema:**
+```typescript
+import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
+
+const { fields, loading } = useSPFieldMetadata({ listId: 'Tasks' });
+```
+
+**Debounce a search input:**
+```typescript
+import { useDebouncedValue } from 'spfx-toolkit/lib/hooks/useDebouncedValue';
+
+const debouncedQuery = useDebouncedValue(searchQuery, 300);
+```
+
 ---
 
 ## 14. User Access
@@ -430,7 +480,85 @@ import { GroupMembersList, IGroupMembersListProps } from 'spfx-toolkit/component
 
 ---
 
-## 15. Bundle Verification
+## 15. SPDebug Panel
+
+The SPDebug panel is an opt-in diagnostic overlay for development/staging. It now includes six tabs: **Console**, **Data**, **Workflows**, **Network**, **Permissions (Perms)**, and **Fields**.
+
+### Provider and hooks (from `spfx-toolkit/components/debug`)
+
+```typescript
+import {
+  SPDebugProvider,           // wraps your web part root — renders the panel
+  useSPDebugEnabled,         // boolean — is the panel open?
+  useSPDebugValue,           // push a single key/value into the Data tab
+  useSPDebugTable,           // push a table into the Data tab
+  useSPDebugTimer,           // time a span and display it
+  useSPDebugTrace,           // structured trace for async operations
+  useSPDebugSession,         // export / clear the current session
+  useSPDebugPermission,      // feed the Permissions tab (see below)
+  useSPDebugFormFields,      // feed the Fields tab (see below)
+} from 'spfx-toolkit/components/debug';
+```
+
+### Network tab — `attachHttpInspector` (from `spfx-toolkit/utilities/debug`)
+
+Opt in to REST call inspection by attaching the inspector to the SPContext HTTP client:
+
+```typescript
+import { attachHttpInspector } from 'spfx-toolkit/utilities/debug';
+
+// Option A — attach programmatically after SPContext is initialised
+attachHttpInspector(SPContext.http, { slowThresholdMs: 1000 });
+
+// Option B — declarative, via SPDebugProvider props
+<SPDebugProvider http={SPContext.http} httpInspector={{ slowThresholdMs: 1000 }}>
+  <App />
+</SPDebugProvider>
+```
+
+`HttpInspectorOptions`:
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `slowThresholdMs` | `number` | `3000` | Requests slower than this are flagged |
+| `redactQueryStringKeys` | `string[]` | built-in list | Query-string keys to redact before logging |
+| `maxRows` | `number` | `200` | Max network rows retained in memory |
+
+### Permissions tab — `useSPDebugPermission`
+
+```typescript
+import { useSPDebugPermission } from 'spfx-toolkit/components/debug';
+import { useHasPermission } from 'spfx-toolkit/hooks';
+
+function MyComponent() {
+  const { allowed, loading } = useHasPermission('EditListItems');
+  useSPDebugPermission('Edit list items', allowed, loading);
+  // …
+}
+```
+
+Signature: `useSPDebugPermission(label: string, allowed: boolean | undefined, loading?: boolean): void`
+
+### Fields tab — `useSPDebugFormFields`
+
+```typescript
+import { useSPDebugFormFields } from 'spfx-toolkit/components/debug';
+
+function MyForm() {
+  const onResolvedField = useSPDebugFormFields();
+  return (
+    <SPDynamicForm
+      listId="…"
+      onResolvedField={onResolvedField}
+    />
+  );
+}
+```
+
+`useSPDebugFormFields()` returns a callback compatible with `SPDynamicForm`'s `onResolvedField` prop. Each resolved field is surfaced in the panel's Fields tab.
+
+---
+
+## 16. Bundle Verification
 
 After importing, verify the bundle impact in your SPFx project:
 
