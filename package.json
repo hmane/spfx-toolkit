@@ -246,7 +246,7 @@
       "import": "./lib/utilities/CssLoader/index.js",
       "require": "./lib/utilities/CssLoader/index.js"
     },
-    "./lib/*": "./lib/*"
+    "./lib/*": { "types": "./lib/*.d.ts", "require": "./lib/*.js", "import": "./lib/*.js" }
   },
   "license": "MIT",
   "files": [
@@ -262,9 +262,9 @@
   "sideEffects": [
     "**/*.css",
     "**/*.scss",
-    "**/CssLoader.js",
     "**/context/sp-context.js",
-    "**/context/pnpImports/*.js"
+    "**/context/pnpImports/*.js",
+    "**/utilities/spHelper/spHelper.js"
   ],
   "engines": {
     "node": ">=18 <23"
@@ -282,7 +282,14 @@
     }
   },
   "peerDependencies": {
-    "@fluentui/react": "8.106.4",
+    "@fluentui/react": "^8.106.4",
+    "@microsoft/sp-component-base": ">=1.21.1",
+    "@microsoft/sp-core-library": ">=1.21.1",
+    "@microsoft/sp-extension-base": ">=1.21.1",
+    "@microsoft/sp-http": ">=1.21.1",
+    "@microsoft/sp-loader": ">=1.21.1",
+    "@microsoft/sp-lodash-subset": ">=1.21.1",
+    "@microsoft/sp-webpart-base": ">=1.21.1",
     "@pnp/logging": "^4.16.0",
     "@pnp/queryable": "^3.20.1",
     "@pnp/sp": "^3.20.1",
@@ -292,7 +299,23 @@
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-hook-form": "^7.45.4",
+    "react-mentions": "^4.4.0",
     "zustand": "^4.3.9"
+  },
+  "peerDependenciesMeta": {
+    "@microsoft/sp-component-base": { "optional": true },
+    "@microsoft/sp-core-library": { "optional": true },
+    "@microsoft/sp-extension-base": { "optional": true },
+    "@microsoft/sp-http": { "optional": true },
+    "@microsoft/sp-loader": { "optional": true },
+    "@microsoft/sp-lodash-subset": { "optional": true },
+    "@microsoft/sp-webpart-base": { "optional": true },
+    "@pnp/spfx-controls-react": { "optional": true },
+    "devextreme": { "optional": true },
+    "devextreme-react": { "optional": true },
+    "react-hook-form": { "optional": true },
+    "react-mentions": { "optional": true },
+    "zustand": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^18.19.0",

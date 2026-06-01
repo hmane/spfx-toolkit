@@ -1182,16 +1182,50 @@ export function createSPUpdater() {
         throw new Error('Field name is required');
       }
 
-      // Determine if third param is original value or explicit type
+      // Determine if third param is original value or explicit type.
+      //
+      // Disambiguation rule:
+      //  - When a 4th argument (explicitType) is provided, it is always the type;
+      //    the 3rd argument is always the original value for change-detection.
+      //    This is the "typed-with-original" form used internally by all typed
+      //    setters (setText, setChoice, …) and available to external callers.
+      //  - When only 3 arguments are provided:
+      //    • If the 3rd arg is a valid SPUpdateFieldType name AND the new value is
+      //      NOT a non-null string, treat the 3rd arg as an explicit type (backward
+      //      compatible: `set('Tags', [], 'lookupMulti')`, `set('F', null, 'boolean')`).
+      //    • If the 3rd arg is a valid SPUpdateFieldType name AND the new value IS
+      //      a non-null string, treat the 3rd arg as the original value for change
+      //      detection.  This fixes the bug where a Choice/Text field whose previous
+      //      value happens to spell a type name (e.g. 'boolean', 'date', 'choice')
+      //      was silently mis-typed and change detection was lost.
+      //    • If the 3rd arg is NOT a valid type name, treat as original value.
+      //
+      // Typed setter methods that have no original value call
+      // `set(fieldName, value, type)` — 3 args with a non-string-value or with
+      // the 4-arg form `set(fieldName, value, undefined, type)` for string values.
+      // The rule above keeps both paths correct.
       let originalValue: any | undefined;
       let originalValueProvided = false;
       let type: SPUpdateFieldType | undefined = explicitType;
 
-      if (typeof originalValueOrType === 'string' && isValidFieldType(originalValueOrType)) {
-        // Third param is explicit type
+      if (explicitType !== undefined) {
+        // 4-arg form: explicitType is set; 3rd arg is the original value
+        originalValue = originalValueOrType;
+        originalValueProvided = arguments.length >= 3;
+      } else if (
+        typeof originalValueOrType === 'string' &&
+        isValidFieldType(originalValueOrType) &&
+        (value === null || value === undefined || typeof value !== 'string')
+      ) {
+        // 3-arg form, value is NOT a non-null string, 3rd arg is a valid type name:
+        // treat as explicit type (backward compat for `set('Tags', [], 'lookupMulti')`)
         type = originalValueOrType as SPUpdateFieldType;
       } else {
-        // Third param is original value
+        // 3-arg form with string value, OR 3rd arg is not a valid type name:
+        // treat as original value.  This is the common case AND it also handles
+        // the bug where a Choice/Text field's original value happens to spell a
+        // type name (e.g. 'boolean', 'date') — such values must be used for
+        // change-detection instead of being mis-interpreted as an explicit type.
         originalValue = originalValueOrType;
         originalValueProvided = arguments.length >= 3;
       }
@@ -1229,6 +1263,36 @@ export function createSPUpdater() {
     },
 
     // ============================================================
+    // INTERNAL HELPER: set with an explicit type but NO original value.
+    // Used by typed setters (setText, setChoice, …) when the caller
+    // did NOT supply an original value.  We cannot reuse the public
+    // `set(field, value, type)` 3-arg form here because when the new
+    // value happens to equal the type name (e.g. setChoice('S','choice'))
+    // the 3-arg disambiguation treats the type string as the original value,
+    // making change-detection conclude "no change" and silently drop the
+    // update.  By going directly to fieldUpdates we bypass the overload
+    // ambiguity and guarantee hasChanged = true.
+    // ============================================================
+
+    _setWithType: function (fieldName: string, value: any, type: SPUpdateFieldType) {
+      const normalizedValue = normalizeValue(value, type);
+      const existingIndex = fieldUpdates.findIndex(u => u.fieldName === fieldName);
+      const update: FieldUpdate = {
+        fieldName,
+        value: normalizedValue,
+        originalValue: undefined,
+        hasChanged: true,
+        explicitType: type,
+      };
+      if (existingIndex >= 0) {
+        fieldUpdates[existingIndex] = update;
+      } else {
+        fieldUpdates.push(update);
+      }
+      return this;
+    },
+
+    // ============================================================
     // TYPED SETTER METHODS
     // These provide better type safety and clearer intent
     // ============================================================
@@ -1240,7 +1304,7 @@ export function createSPUpdater() {
     setText: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'string')
-        : this.set(fieldName, value, 'string');
+        : this._setWithType(fieldName, value, 'string');
     },
 
     /**
@@ -1250,7 +1314,7 @@ export function createSPUpdater() {
     setNumber: function (fieldName: string, value: number | null | undefined, originalValue?: number | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'number')
-        : this.set(fieldName, value, 'number');
+        : this._setWithType(fieldName, value, 'number');
     },
 
     /**
@@ -1260,7 +1324,7 @@ export function createSPUpdater() {
     setBoolean: function (fieldName: string, value: boolean | null | undefined, originalValue?: boolean | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'boolean')
-        : this.set(fieldName, value, 'boolean');
+        : this._setWithType(fieldName, value, 'boolean');
     },
 
     /**
@@ -1280,7 +1344,7 @@ export function createSPUpdater() {
     setDate: function (fieldName: string, value: Date | null | undefined, originalValue?: Date | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'date')
-        : this.set(fieldName, value, 'date');
+        : this._setWithType(fieldName, value, 'date');
     },
 
     /**
@@ -1304,9 +1368,13 @@ export function createSPUpdater() {
       value: Date | string | null | undefined,
       originalValue?: Date | string | null | undefined
     ) {
+      // Use 4-arg form (with-original) or _setWithType (no original) so the
+      // 'dateOnly' explicit type is preserved even when value is a string
+      // (auto-detection would give 'string', losing the locale-formatted
+      // validate path for YYYY-MM-DD inputs).
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'dateOnly')
-        : this.set(fieldName, value, 'dateOnly');
+        : this._setWithType(fieldName, value, 'dateOnly');
     },
 
     /**
@@ -1316,7 +1384,7 @@ export function createSPUpdater() {
     setChoice: function (fieldName: string, value: string | null | undefined, originalValue?: string | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'choice')
-        : this.set(fieldName, value, 'choice');
+        : this._setWithType(fieldName, value, 'choice');
     },
 
     /**
@@ -1326,7 +1394,7 @@ export function createSPUpdater() {
     setMultiChoice: function (fieldName: string, value: string[] | null | undefined, originalValue?: string[] | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'multiChoice')
-        : this.set(fieldName, value, 'multiChoice');
+        : this._setWithType(fieldName, value, 'multiChoice');
     },
 
     /**
@@ -1336,7 +1404,7 @@ export function createSPUpdater() {
     setUser: function (fieldName: string, value: IPrincipal | null | undefined, originalValue?: IPrincipal | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'user')
-        : this.set(fieldName, value, 'user');
+        : this._setWithType(fieldName, value, 'user');
     },
 
     /**
@@ -1346,7 +1414,7 @@ export function createSPUpdater() {
     setUserMulti: function (fieldName: string, value: IPrincipal[] | null | undefined, originalValue?: IPrincipal[] | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'userMulti')
-        : this.set(fieldName, value, 'userMulti');
+        : this._setWithType(fieldName, value, 'userMulti');
     },
 
     /**
@@ -1356,7 +1424,7 @@ export function createSPUpdater() {
     setLookup: function (fieldName: string, value: { Id: number; Title?: string } | null | undefined, originalValue?: { Id: number; Title?: string } | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'lookup')
-        : this.set(fieldName, value, 'lookup');
+        : this._setWithType(fieldName, value, 'lookup');
     },
 
     /**
@@ -1366,7 +1434,7 @@ export function createSPUpdater() {
     setLookupMulti: function (fieldName: string, value: Array<{ Id: number; Title?: string }> | null | undefined, originalValue?: Array<{ Id: number; Title?: string }> | null | undefined) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'lookupMulti')
-        : this.set(fieldName, value, 'lookupMulti');
+        : this._setWithType(fieldName, value, 'lookupMulti');
     },
 
     /**
@@ -1389,7 +1457,7 @@ export function createSPUpdater() {
     ) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'taxonomy')
-        : this.set(fieldName, value, 'taxonomy');
+        : this._setWithType(fieldName, value, 'taxonomy');
     },
 
     /**
@@ -1418,7 +1486,7 @@ export function createSPUpdater() {
     ) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'taxonomyMulti')
-        : this.set(fieldName, value, 'taxonomyMulti');
+        : this._setWithType(fieldName, value, 'taxonomyMulti');
     },
 
     /**
@@ -1432,7 +1500,7 @@ export function createSPUpdater() {
     ) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'url')
-        : this.set(fieldName, value, 'url');
+        : this._setWithType(fieldName, value, 'url');
     },
 
     /**
@@ -1446,7 +1514,7 @@ export function createSPUpdater() {
     ) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'location')
-        : this.set(fieldName, value, 'location');
+        : this._setWithType(fieldName, value, 'location');
     },
 
     /**
@@ -1474,7 +1542,7 @@ export function createSPUpdater() {
     ) {
       return arguments.length >= 3
         ? this.set(fieldName, value, originalValue, 'image')
-        : this.set(fieldName, value, 'image');
+        : this._setWithType(fieldName, value, 'image');
     },
 
     /**

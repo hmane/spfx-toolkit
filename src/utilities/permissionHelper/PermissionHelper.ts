@@ -622,33 +622,50 @@ export class PermissionHelper {
   /**
    * Invalidate user role cache
    *
-   * Removes cached user group memberships and role checks.
-   * Use after user group membership changes.
+   * Role-membership results are cached under two distinct key shapes:
+   * - `user_role_{groupName}` — shared per *group name* (not per user); records
+   *   whether the current user belongs to that named group.
+   * - `user_groups_{userId}` — per-user list of the groups a given user belongs to.
    *
-   * @param userId - Optional user ID. If not provided, clears current user's cache.
+   * When a specific `userId` is supplied only that user's `user_groups_{userId}`
+   * entry is removed.  The shared `user_role_*` cache is intentionally left intact
+   * because those entries are keyed by group name, not by user, and are still valid
+   * for any other user whose membership hasn't changed.
+   *
+   * When called without a `userId` all `user_role_*` entries, all `user_groups_*`
+   * entries, and the `currentUserCache` are cleared (full invalidation).
+   *
+   * @param userId - Optional user ID. When provided, only removes that user's
+   *   `user_groups_{userId}` cache entry. When omitted, clears all role and
+   *   group-membership entries.
    * @returns Number of cache entries removed
    *
    * @example
    * ```typescript
-   * // After adding user to a group
+   * // After adding user to a group — remove only that user's group list
    * await addUserToGroup(userId, 'Owners');
    * const removed = permissionHelper.invalidateUserRoles(userId);
+   *
+   * // Full invalidation (e.g. bulk membership change)
+   * permissionHelper.invalidateUserRoles();
    * ```
    */
   public invalidateUserRoles(userId?: number): number {
-    const prefix = userId !== undefined ? `user_role_` : `user_role_`;
-    const groupPrefix = userId !== undefined ? `user_groups_${userId}` : `user_groups_`;
+    let removed: number;
 
-    const removed = this.cache.deleteWhere(([key]) => {
-      if (typeof key !== 'string') return false;
-      if (userId === undefined) {
-        return key.startsWith(prefix) || key.startsWith(groupPrefix);
-      }
-      return key === `user_groups_${userId}` || key.startsWith(prefix);
-    });
-
-    // Also clear current user cache if no specific user provided
-    if (userId === undefined) {
+    if (userId !== undefined) {
+      // Scoped invalidation: only remove this user's group-membership entry.
+      // The shared user_role_{groupName} cache is keyed per group, not per user,
+      // so it remains valid and must NOT be cleared here.
+      removed = this.cache.deleteWhere(
+        ([key]) => typeof key === 'string' && key === `user_groups_${userId}`
+      );
+    } else {
+      // Full invalidation: clear all user_role_* and user_groups_* entries.
+      removed = this.cache.deleteWhere(([key]) => {
+        if (typeof key !== 'string') return false;
+        return key.startsWith('user_role_') || key.startsWith('user_groups_');
+      });
       this.currentUserCache = undefined;
     }
 

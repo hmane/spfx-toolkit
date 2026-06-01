@@ -5,8 +5,18 @@
 }
 .spf-groupmembers__row {
   padding: 4px 0;
-  cursor: pointer;
 }
 .spf-groupmembers__row:hover {
   background: #f3f2f1;
+}
+/* Reset button defaults so interactive rows look identical to non-interactive ones. */
+.spf-groupmembers__row--btn {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }

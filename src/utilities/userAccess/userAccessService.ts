@@ -33,6 +33,7 @@ import type {
   IUserAccessLevel1,
   ListRef,
   LoginInput,
+  MatchedPrincipalKind,
   PermissionLevelLabel,
 } from './types';
 
@@ -65,9 +66,12 @@ async function ensureSiteUser(login: LoginInput): Promise<ISiteUser> {
 }
 
 async function getUserSiteGroupsRaw(userId: number): Promise<ISiteGroup[]> {
+  // Use a high $top to avoid the SP default 100-row page limit.
+  // A user could belong to a large number of groups on enterprise tenants.
   const raw: any[] = await (SPContext.sp.web.siteUsers
     .getById(userId) as any)
     .groups
+    .top(5000)
     .select('Id', 'LoginName', 'Title', 'Description')();
   return raw.map((g: any) => ({
     id: g.Id,
@@ -130,11 +134,35 @@ function derivePermissionLevelFromMask(
 interface IRawRoleAssignment {
   Member: {
     Id: number;
-    PrincipalType: number; // 1=User, 8=SharePointGroup
+    /** 1=User, 4=SecurityGroup/Entra, 8=SharePointGroup */
+    PrincipalType: number;
     Title: string;
     LoginName?: string;
   };
   RoleDefinitionBindings: Array<{ Id: number; Name: string; Hidden?: boolean }>;
+}
+
+/**
+ * Returns true when a role-assignment member matches a well-known "Everyone"
+ * or "Everyone except external users" claim, regardless of tenant configuration.
+ *
+ * SharePoint represents these as synthetic security-principal entries whose
+ * LoginName contains one of the following patterns (tenant-specific prefix
+ * varies, so we match on the claim-value suffix only):
+ *   - `spo-grid-all-users/<tenantId>` (Everyone)
+ *   - `c:0(.s|true`  (Everyone – federated claim form)
+ *   - `c:0-.f|rolemanager|spo-grid-all-users` (Everyone – role-manager form)
+ *   - `c:0!.s|windows`  (NT AUTHORITY\authenticated users)
+ * We also match on a normalised Title for robustness.
+ */
+function isEveryoneClaim(member: IRawRoleAssignment['Member']): boolean {
+  const login = (member.LoginName ?? '').toLowerCase();
+  const title = member.Title.toLowerCase();
+  if (title === 'everyone' || title === 'everyone except external users') return true;
+  if (login.includes('spo-grid-all-users')) return true;
+  // Federated claim forms: c:0(.s|true, c:0-.f|rolemanager|...
+  if (login.startsWith('c:0(') || login.startsWith('c:0-') || login.startsWith('c:0!')) return true;
+  return false;
 }
 
 async function fetchListRoleAssignments(
@@ -155,17 +183,73 @@ async function fetchListRoleAssignments(
     )()) as IRawRoleAssignment[];
 }
 
-function matchAssignments(
+interface IMatchedAssignment {
+  raw: IRawRoleAssignment;
+  principalKind: MatchedPrincipalKind;
+  membershipUnverified: boolean;
+}
+
+/**
+ * Matches role assignments against a user and their SP groups, and also
+ * surfaces Entra security-group and "Everyone"/"Everyone except external users"
+ * claim principals as unverified candidate sources.
+ *
+ * Returns all assignments that are plausibly relevant:
+ *  - PrincipalType 1 (User): confirmed match when Id equals the user's Id.
+ *  - PrincipalType 8 (SP group): confirmed match when the group is in groupIds.
+ *  - PrincipalType 4 (Entra/AD security group): included as `membershipUnverified`
+ *    — the toolkit cannot enumerate Entra group membership via this API.
+ *  - "Everyone" / "Everyone except external users" claims (any PrincipalType):
+ *    always included as `membershipUnverified` because they apply to all users.
+ *
+ * Permission-level derivation is NOT affected; only the source list is enriched.
+ */
+export function matchAssignments(
   assignments: ReadonlyArray<IRawRoleAssignment>,
   user: ISiteUser,
   groupIds: Set<number>
-): IRawRoleAssignment[] {
-  return assignments.filter(a => {
+): IMatchedAssignment[] {
+  const results: IMatchedAssignment[] = [];
+
+  for (const a of assignments) {
     const m = a.Member;
-    if (m.PrincipalType === 1) return m.Id === user.id;
-    if (m.PrincipalType === 8) return groupIds.has(m.Id);
-    return false;
-  });
+
+    if (m.PrincipalType === 1) {
+      if (m.Id === user.id) {
+        results.push({ raw: a, principalKind: 'user', membershipUnverified: false });
+      }
+      continue;
+    }
+
+    if (m.PrincipalType === 8) {
+      if (groupIds.has(m.Id)) {
+        results.push({ raw: a, principalKind: 'spGroup', membershipUnverified: false });
+      }
+      continue;
+    }
+
+    // Everyone / Everyone except external users — applies to all users
+    if (isEveryoneClaim(m)) {
+      logger().info(
+        'userAccess.matchAssignments: surfacing Everyone/claim principal (membership unverified)',
+        { principalId: m.Id, principalType: m.PrincipalType, title: m.Title, loginName: m.LoginName }
+      );
+      results.push({ raw: a, principalKind: 'securityGroupOrClaim', membershipUnverified: true });
+      continue;
+    }
+
+    // Entra/AD security group (PrincipalType 4) — cannot verify membership
+    if (m.PrincipalType === 4) {
+      logger().info(
+        'userAccess.matchAssignments: surfacing security group as unverified candidate source',
+        { principalId: m.Id, principalType: m.PrincipalType, title: m.Title, loginName: m.LoginName }
+      );
+      results.push({ raw: a, principalKind: 'securityGroupOrClaim', membershipUnverified: true });
+      continue;
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -216,20 +300,23 @@ function invalidateAfterMembershipChange(
   invalidatePrefix('groupMembers:');
 }
 
-function buildDirectListPermission(
+export function buildDirectListPermission(
   list: IListWithUniqueRoles,
-  matched: IRawRoleAssignment,
-  user: ISiteUser
+  matched: IMatchedAssignment,
+  _user: ISiteUser
 ): IDirectListPermission {
-  const isDirect = matched.Member.PrincipalType === 1 && matched.Member.Id === user.id;
-  const roles = matched.RoleDefinitionBindings.filter(r => !r.Hidden);
+  const m = matched.raw.Member;
+  const roles = matched.raw.RoleDefinitionBindings.filter(r => !r.Hidden);
+  const isDirect = matched.principalKind === 'user';
   return {
     list,
     source: isDirect
       ? 'Direct'
-      : { viaGroupId: matched.Member.Id, viaGroupTitle: matched.Member.Title },
+      : { viaGroupId: m.Id, viaGroupTitle: m.Title },
     roleDefinitions: roles.map(r => ({ id: r.Id, name: r.Name })),
     permissionLevel: derivePermissionLevel(roles.map(r => r.Name)),
+    principalKind: matched.principalKind,
+    ...(matched.membershipUnverified ? { membershipUnverified: true as const } : {}),
   };
 }
 
@@ -354,8 +441,13 @@ export const userAccessService = {
 
     const assignments = await fetchListRoleAssignments(listInfo.id);
     const matched = matchAssignments(assignments, user, groupIds);
-    const allRoles = matched.flatMap(m =>
-      m.RoleDefinitionBindings.filter(r => !r.Hidden)
+    // Only confirmed matches (user/spGroup) are used to derive the role-based
+    // permission level. Unverified sources (security groups, Everyone claims)
+    // are included in matchedAssignments for UI display but must not inflate the
+    // derived level — the effective-permissions mask handles the fallback.
+    const confirmedMatched = matched.filter(m => !m.membershipUnverified);
+    const allRoles = confirmedMatched.flatMap(m =>
+      m.raw.RoleDefinitionBindings.filter(r => !r.Hidden)
     );
     const roleBasedLevel = derivePermissionLevel(allRoles.map(r => r.Name));
 
@@ -376,16 +468,18 @@ export const userAccessService = {
       list: listInfo,
       permissionLevel,
       permissionMask,
-      matchedAssignments: matched.map(m => ({
+      matchedAssignments: matched.map(ma => ({
         principal: {
-          type: m.Member.PrincipalType === 1 ? 'user' : 'group',
-          id: m.Member.Id,
-          title: m.Member.Title,
+          type: ma.raw.Member.PrincipalType === 1 ? 'user' : 'group',
+          id: ma.raw.Member.Id,
+          title: ma.raw.Member.Title,
         },
-        roleDefinitions: m.RoleDefinitionBindings.filter(r => !r.Hidden).map(r => ({
+        roleDefinitions: ma.raw.RoleDefinitionBindings.filter(r => !r.Hidden).map(r => ({
           id: r.Id,
           name: r.Name,
         })),
+        principalKind: ma.principalKind,
+        ...(ma.membershipUnverified ? { membershipUnverified: true as const } : {}),
       })),
     };
     setCache(cacheKey, result, TTL.level2);
@@ -456,16 +550,18 @@ export const userAccessService = {
           'RoleDefinitionBindings/Hidden'
         )()) as IRawRoleAssignment[];
       const matched = matchAssignments(raw, user, groupIds);
-      matchedAssignments = matched.map(m => ({
+      matchedAssignments = matched.map(ma => ({
         principal: {
-          type: m.Member.PrincipalType === 1 ? 'user' : 'group',
-          id: m.Member.Id,
-          title: m.Member.Title,
+          type: ma.raw.Member.PrincipalType === 1 ? 'user' : 'group',
+          id: ma.raw.Member.Id,
+          title: ma.raw.Member.Title,
         },
-        roleDefinitions: m.RoleDefinitionBindings.filter(r => !r.Hidden).map(r => ({
+        roleDefinitions: ma.raw.RoleDefinitionBindings.filter(r => !r.Hidden).map(r => ({
           id: r.Id,
           name: r.Name,
         })),
+        principalKind: ma.principalKind,
+        ...(ma.membershipUnverified ? { membershipUnverified: true as const } : {}),
       }));
     } catch (err) {
       // Item likely inherits — role assignments lookup is best-effort.
@@ -475,7 +571,11 @@ export const userAccessService = {
       );
     }
 
-    const allRoles = matchedAssignments.flatMap(m => m.roleDefinitions);
+    // Only use confirmed assignments for permission-level derivation; unverified
+    // sources (security groups, Everyone claims) must not inflate the level.
+    const allRoles = matchedAssignments
+      .filter(m => !m.membershipUnverified)
+      .flatMap(m => m.roleDefinitions);
     let permissionLevel: PermissionLevelLabel = derivePermissionLevel(allRoles.map(r => r.name));
     const permissionMask = { high: String(perms.High), low: String(perms.Low) };
 
@@ -555,8 +655,13 @@ export const userAccessService = {
     // execute() can throw at the batch level (network, CSRF, throttle). Per-op
     // rejection handlers don't fire in that case, so synthesize a failure entry
     // for any groupId not already represented in items[] before returning.
+    // IMPORTANT: await the per-op promises INSIDE the try block, immediately
+    // after execute(), using Promise.allSettled (purely defensive — the .then/.catch
+    // handlers already push into items[]).  The catch block must NOT await them
+    // because on batch failure PnP leaves them permanently unsettled → hang.
     try {
       await execute();
+      await Promise.allSettled(promises);
     } catch (batchErr) {
       const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
       const seen = new Set(items.map(i => i.groupId));
@@ -564,7 +669,6 @@ export const userAccessService = {
         if (!seen.has(gid)) items.push({ groupId: gid, success: false, error: msg });
       }
     }
-    await Promise.all(promises);
 
     invalidateAfterMembershipChange(login, user.loginName, uniqueIds);
     return fromItems(items);
@@ -598,8 +702,13 @@ export const userAccessService = {
     // execute() can throw at the batch level (network, CSRF, throttle). Per-op
     // rejection handlers don't fire in that case, so synthesize a failure entry
     // for any groupId not already represented in items[] before returning.
+    // IMPORTANT: await the per-op promises INSIDE the try block, immediately
+    // after execute(), using Promise.allSettled (purely defensive — the .then/.catch
+    // handlers already push into items[]).  The catch block must NOT await them
+    // because on batch failure PnP leaves them permanently unsettled → hang.
     try {
       await execute();
+      await Promise.allSettled(promises);
     } catch (batchErr) {
       const msg = batchErr instanceof Error ? batchErr.message : String(batchErr);
       const seen = new Set(items.map(i => i.groupId));
@@ -607,7 +716,6 @@ export const userAccessService = {
         if (!seen.has(gid)) items.push({ groupId: gid, success: false, error: msg });
       }
     }
-    await Promise.all(promises);
 
     invalidateAfterMembershipChange(login, user.loginName, uniqueIds);
     return fromItems(items);
@@ -640,9 +748,11 @@ export const userAccessService = {
     const group = ref.id
       ? (SPContext.sp.web.siteGroups.getById(ref.id) as any)
       : (SPContext.sp.web.siteGroups.getByName(ref.name!) as any);
-    const raw: any[] = await group.users.select(
-      'Id', 'LoginName', 'Title', 'Email', 'IsHiddenInUI'
-    )();
+    // Use a high $top to avoid the SP default 100-row page limit.
+    // Large SharePoint groups (e.g. "All Company") can have thousands of members.
+    const raw: any[] = await group.users
+      .top(5000)
+      .select('Id', 'LoginName', 'Title', 'Email', 'IsHiddenInUI')();
     const result = raw.map<ISiteUser>(u => ({
       id: u.Id,
       loginName: u.LoginName,

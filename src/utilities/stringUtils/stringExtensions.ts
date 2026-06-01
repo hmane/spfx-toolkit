@@ -442,19 +442,35 @@ export const StringUtils = {
    * StringUtils.getQueryStringMap('id=123&name=test'); // { id: '123', name: 'test' }
    */
   getQueryStringMap: (str: string): { [key: string]: string } => {
-    const queryString = str.indexOf('?') >= 0 ? str.substring(str.indexOf('?') + 1) : str;
+    // Three input forms are supported:
+    //   1. Leading '?'  → strip the '?' and use the rest as the query string.
+    //   2. Full URL      → extract the substring after the FIRST '?'.
+    //      A full URL is identified by a URL scheme ('https://', 'http://', etc.)
+    //      at the very start of the string.  A bare query string whose VALUE
+    //      contains a URL (e.g. 'redirect=https://x/?a=1') does NOT match this
+    //      because 'redirect=…' is not a scheme at position 0.
+    //   3. Bare params   → use as-is.
+    // Matches RFC-3986 scheme: letter followed by letter/digit/+/-/. then '://'.
+    const FULL_URL_RE = /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//;
+    const firstQ = str.indexOf('?');
+    const isFullUrl = FULL_URL_RE.test(str);
+    const queryString = str.startsWith('?')
+      ? str.substring(1)
+      : isFullUrl
+        ? (firstQ >= 0 ? str.substring(firstQ + 1) : '')
+        : str;
     const params: { [key: string]: string } = {};
 
     if (!queryString) return params;
 
     const pairs = queryString.split('&');
     for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i].split('=');
-      if (pair.length === 2) {
-        const key = decodeURIComponent(pair[0]);
-        const value = decodeURIComponent(pair[1]);
-        params[key] = value;
-      }
+      const pair = pairs[i];
+      const eq = pair.indexOf('=');
+      if (eq < 0) continue; // no '=' at all → skip (bare token without value)
+      const key = decodeURIComponent(pair.substring(0, eq));
+      const value = decodeURIComponent(pair.substring(eq + 1));
+      if (key) params[key] = value;
     }
 
     return params;

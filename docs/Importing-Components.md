@@ -6,16 +6,24 @@
 
 ## The Rule
 
-**Always import from the deepest, most specific path available.** Never import from `spfx-toolkit` (root) or `spfx-toolkit/components` (top barrel) — they pull the entire library surface, including DevExtreme-heavy modules, and break tree-shaking.
+**Always import from the deepest, most specific path available.** Never import from `spfx-toolkit` (root) — it pulls the entire library surface and breaks tree-shaking.
+
+`spfx-toolkit/components` (the top barrel) is now restricted to **lightweight components only** (Card, ConflictDetector, DocumentLink, ErrorBoundary, GroupViewer, UserPersona, WorkflowStepper). If you only need those, the barrel is safe to use. For heavy components (DevExtreme, people-picker, PnP-augmentation-bound), always use the per-component deep subpath.
 
 ```typescript
-// ✅ CORRECT — minimal bundle impact
+// ✅ CORRECT — per-component deep subpath (minimal bundle, always safe)
 import { Card } from 'spfx-toolkit/components/Card';
 import { SPContext } from 'spfx-toolkit/utilities/context';
 
+// ✅ ALSO OK — barrel is now lightweight-only
+import { Card, ErrorBoundary, GroupViewer } from 'spfx-toolkit/components';
+
 // ❌ WRONG — pulls the full library
 import { Card } from 'spfx-toolkit';
-import { Card } from 'spfx-toolkit/components';
+
+// ❌ WRONG for heavy components — use the deep subpath instead
+import { VersionHistory } from 'spfx-toolkit/components';   // not exported from barrel
+import { SPDynamicForm } from 'spfx-toolkit/components';    // not exported from barrel
 ```
 
 **Why:** The barrel `index.ts` files use `export *`, which causes bundlers to eagerly load every re-exported module. The toolkit ships compatibility proxy entrypoints so the subpaths below resolve in modern SPFx, classic SPFx, and `npm link` setups. Legacy `spfx-toolkit/lib/*` imports still work for backward compatibility and are required for a few specific cases (see [Legacy `lib/*` paths](#legacy-lib-paths)).
@@ -29,7 +37,7 @@ Each component has a dedicated export. Use the `./components/<Name>` form.
 | Component | Canonical import |
 |-----------|------------------|
 | Card | `import { Card } from 'spfx-toolkit/components/Card';` |
-| Comments | `import { Comments } from 'spfx-toolkit/components/Comments';` |
+| Comments | `import { Comments } from 'spfx-toolkit/components/Comments';` ⚠️ requires `react-mentions` peer — see note below |
 | ConflictDetector | `import { ConflictDetector, useConflictDetection } from 'spfx-toolkit/components/ConflictDetector';` |
 | DocumentLink | `import { DocumentLink } from 'spfx-toolkit/components/DocumentLink';` |
 | ErrorBoundary | `import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/components/ErrorBoundary';` |
@@ -41,6 +49,12 @@ Each component has a dedicated export. Use the `./components/<Name>` form.
 | UserPersona | `import { UserPersona } from 'spfx-toolkit/components/UserPersona';` |
 | VersionHistory | `import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';` |
 | WorkflowStepper | `import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';` |
+
+> **Comments — `react-mentions` peer dependency required.** `Comments` uses `react-mentions` for @-mention support. This package is declared as an optional peer dependency in `spfx-toolkit`. Install it explicitly in your consuming project:
+> ```bash
+> npm install react-mentions@^4.4.0
+> ```
+> Without it, importing `spfx-toolkit/components/Comments` will fail at runtime. `react-mentions` does **not** resolve transitively through `@pnp/spfx-controls-react`.
 
 Types live in the same module:
 
@@ -321,7 +335,7 @@ See [FluentUI-TreeShaking-Guide.md](./FluentUI-TreeShaking-Guide.md) for the ful
 | Pattern | Why it's wrong |
 |---------|---------------|
 | `import { X } from 'spfx-toolkit'` | Pulls the root barrel — entire library, including all DevExtreme wrappers. |
-| `import { X } from 'spfx-toolkit/components'` | Pulls the top components barrel — every component, heavy ones included. |
+| `import { VersionHistory } from 'spfx-toolkit/components'` | Heavy components (VersionHistory, SPDynamicForm, ManageAccess, Comments, GroupUsersPicker, spForm, spFields, SPListItemAttachments, userAccess) are intentionally excluded from the barrel. Use their deep subpath. |
 | `import { X } from 'spfx-toolkit/utils'` | Pulls every utility (alias for `spfx-toolkit/utilities`). |
 | `import { X } from 'spfx-toolkit/utilities'` | Same as above — pulls every utility. |
 | `import { SPLookupField } from 'spfx-toolkit/components/spFields'` | Intentionally not exported from the barrel — use the `lib/` path. |
