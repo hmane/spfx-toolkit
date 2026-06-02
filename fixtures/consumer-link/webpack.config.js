@@ -12,7 +12,7 @@
 // type-check gate, so we don't need every peer's .d.ts resolvable.
 const path = require('path');
 
-module.exports = {
+const config = {
   entry: {
     // Card only — the lightweight-component baseline Phase 1 must not regress.
     light: './src/light.ts',
@@ -49,3 +49,11 @@ module.exports = {
   },
   stats: { modules: true, assets: true, modulesSpace: 9999 }
 };
+
+// When TOOLKIT_FIX=1, route the config through the shipped build helper to exercise
+// the same npm-link webpack fixes a real consumer would apply. Helper-off vs helper-on
+// metrics are compared in fixtures/verify.mjs.
+module.exports =
+  process.env.TOOLKIT_FIX === '1'
+    ? require('spfx-toolkit/build').applyToolkitWebpackFixes(config, { consumerRoot: __dirname })
+    : config;

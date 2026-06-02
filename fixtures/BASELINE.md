@@ -86,6 +86,43 @@ The fixture reproduces `npm link` by symlinking the toolkit (with its own `node_
 
 **Accepted trade-off (Option 1):** raw `SPContext.sp.web.lists(...)` usage by a consumer who imports **no** PnP-backed toolkit feature still relies on the consumer loading the documented `pnpImports` bundle (the pre-existing status quo). The toolkit's own PnP-backed features each load their needed presets, so they work without consumer config.
 
+## Phase 2 result / build helper (final, measured 2026-06-02, Node v22.14.0)
+
+Phase 2 ships `spfx-toolkit/build` → `applyToolkitWebpackFixes(config, options?)`, a build-tool-agnostic
+webpack transform for `npm link` debugging (see [`../docs/NPM-Link-Debug-Workflow.md`](../docs/NPM-Link-Debug-Workflow.md)).
+`verify.mjs` now builds the **same** link fixture twice — helper-off and helper-on (`TOOLKIT_FIX=1`,
+which routes `consumer-link/webpack.config.js` through the helper) — and gates the helper-on build.
+**GATE: PASS.**
+
+| Metric (npm-link fixture) | Helper off | Helper on (`TOOLKIT_FIX=1`) | Effect |
+|---|---|---|---|
+| Webpack build | ok / 0 errors | **ok / 0 errors** | helper does not break the build ✓ |
+| `light.js` (Card-only) bytes | 836,138 | **649,212** | **−186,926 (−22.4%)** — react/react-dom deduped to one copy |
+| `app.js` (PnP feature) bytes | 879,432 | **692,326** | **−187,106 (−21.3%)** |
+
+**Default-alias-peer copies in the helper-on bundle (the scoped dedup gate — each must be ≤ 1):**
+
+| Peer | Copies | | Peer | Copies |
+|---|---|---|---|---|
+| `react` | **1** | | `devextreme` | 0 (not imported) |
+| `react-dom` | **1** | | `devextreme-react` | 0 |
+| `@fluentui/react` | **1** | | `react-hook-form` | 0 |
+| `@pnp/spfx-controls-react` | 0 (not imported) | | `react-mentions` | 0 |
+| `zustand` | 0 (not imported) | | | |
+
+All nine `DEFAULT_ALIAS_PEERS` collapse to ≤ 1 copy → **gate passes**. (A `0` means the measured
+`light`/`app` entries don't import that peer; the gate only requires `≤ 1`, never double-bundled.)
+
+**PnP core copies — REPORTED, never gated:** `@pnp/sp` = **2**, `@pnp/queryable` = **2**.
+These are intentionally **excluded** from `DEFAULT_ALIAS_PEERS` and from the gate: `@pnp/spfx-controls-react`
+bundles PnP **v2**, so aliasing core PnP to the consumer's v3 copy would redirect the controls' nested
+v2 imports to v3 and break them. `resolve.symlinks = false` is the primary dedup mechanism for them.
+The counts here match the published-style baseline (`@pnp/sp` = 2), i.e. the helper does not regress them.
+
+**Published fixture not regressed:** the published-style consumer (tarball install, no helper) still builds
+clean with `card-only = 836,190` / `pnp-feature = 879,503` — identical to the Phase 1 baseline above. The
+helper is link-only; the published path is untouched.
+
 ## Files
 - `fixtures/consumer-published/` — tarball-install consumer (minimal `tsconfig` + webpack + `light`/`app` entries).
 - `fixtures/consumer-link/` — npm-link-equivalent consumer (toolkit symlinked by `verify.mjs`).
