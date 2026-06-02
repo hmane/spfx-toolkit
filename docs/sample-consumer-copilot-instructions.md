@@ -40,6 +40,12 @@ If a path or signature is uncertain, open those files and copy from them. Do not
 7. **Pass stable references to data hooks.** Use `SPContext.sp` and a memoized options object — never a
    freshly-created instance or inline object literal each render (it re-fires the query).
 8. **Load `pnpImports` only when you call raw `SPContext.sp` yourself** (see "PnP augmentation" below).
+9. **Never add a `sideEffects` field to this app's `package.json` to fix toolkit styles.** The toolkit
+   declares its own `sideEffects` (CSS/SCSS + augmentation); toolkit CSS bundles automatically on a published
+   install with zero config. Adding `sideEffects` here — especially `sideEffects: false` — can *drop* your own
+   side-effect imports (`import './pnpImports'`, `import 'devextreme/dist/css/dx.light.css'`). Leave it absent.
+   Unstyled `@pnp/spfx-controls-react` controls are an **`npm link`-only** problem fixed by the build helper
+   (see last section), not by `sideEffects`.
 
 ## Per-feature peer dependencies
 
@@ -113,6 +119,8 @@ import 'spfx-toolkit/utilities/context/pnpImports/siteGroups'; // group-membersh
 | Call `SPContext.sp.web.lists…` with no augmentation loaded | Import the matching `pnpImports/*` once at the entry |
 | New `sp`/options object each render into a data hook | `SPContext.sp` + a memoized options object |
 | `import { x } from 'spfx-toolkit/utils'` (whole barrel) | `import { x } from 'spfx-toolkit/utilities/<name>'` |
+| Add `sideEffects` to this app's `package.json` to fix toolkit/PnP styles | Leave it absent — toolkit CSS auto-bundles; under `npm link` use the build helper instead |
+| "Fix" unstyled `@pnp/spfx-controls-react` controls with a manual webpack/`sideEffects` edit | Published: no fix needed. `npm link`: apply `applyToolkitWebpackFixes` from `spfx-toolkit/build` |
 
 ## Debugging a local toolkit checkout via `npm link` only
 
