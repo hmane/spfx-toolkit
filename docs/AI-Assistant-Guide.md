@@ -237,3 +237,4 @@ attachHttpInspector(SPContext.http, { slowThresholdMs: 1000 });
 - Point the assistant at `node_modules/spfx-toolkit/docs/Importing-Components.md` as the **authoritative** source for import paths — instruct it to copy paths from there rather than guessing deep subpaths.
 - These rules are tool-agnostic: they apply equally to Claude Code, Claude, GitHub Copilot, Cursor, and any other LLM coding assistant.
 - When the assistant proposes an import, it should verify the subpath exists in `spfx-toolkit`'s `package.json` `exports` (or is a valid `./lib/*` path). If unsure of a path or signature, prefer the canonical `spfx-toolkit/components/<Name>` form and check the doc.
+- **Debugging a local toolkit checkout via `npm link`?** Apply the one-call `spfx-toolkit/build` helper in the consumer's webpack config — see [`NPM-Link-Debug-Workflow.md`](./NPM-Link-Debug-Workflow.md). A normal published install needs no such change.
