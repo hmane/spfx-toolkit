@@ -1,0 +1,14 @@
+{
+  "//": "MINIMAL consumer tsconfig. This file IS the 'no toolkit-induced tsconfig edits' assertion: the build must pass with only these standard SPFx-style options and nothing added.",
+  "compilerOptions": {
+    "target": "es5",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "jsx": "react",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["es2017", "dom"],
+    "types": []
+  },
+  "include": ["src"]
+}

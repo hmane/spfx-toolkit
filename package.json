@@ -405,6 +405,7 @@
     "type-check": "tsc --noEmit",
     "test": "node --test --test-reporter=spec",
     "test:build": "npm run build && npm run test",
+    "fixtures:verify": "node fixtures/verify.mjs",
     "version:alpha": "npm version prerelease --preid=alpha --no-git-tag-version",
     "version:beta": "npm version prerelease --preid=beta --no-git-tag-version",
     "version:patch": "npm version patch --no-git-tag-version",
