@@ -8,7 +8,7 @@ const gulp = require('gulp');
 
 const ROOT_DIR = __dirname;
 const CJS_OUT_DIR = path.join(ROOT_DIR, 'lib');
-const GENERATED_PROXY_DIRS = ['components', 'hooks', 'types', 'utilities', 'utils'].map(dir =>
+const GENERATED_PROXY_DIRS = ['build', 'components', 'hooks', 'types', 'utilities', 'utils'].map(dir =>
   path.join(ROOT_DIR, dir)
 );
 
