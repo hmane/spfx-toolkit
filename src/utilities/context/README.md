@@ -39,7 +39,7 @@ npm install spfx-toolkit
 Install PnP dependencies in your SPFx project:
 
 ```bash
-npm install @pnp/sp@^3.20.1 @pnp/logging@^4.16.0 @pnp/queryable@^3.20.1
+npm install @pnp/sp@^3.20.1 @pnp/queryable@^3.20.1
 ```
 
 ### 3. Tree-Shakable PnP Module Imports

@@ -128,7 +128,7 @@ npm install spfx-toolkit
 
 # Install required peer dependencies
 npm install @fluentui/react@8.106.4
-npm install @pnp/sp@^3.20.1 @pnp/logging@^4.16.0 @pnp/queryable@^3.20.1
+npm install @pnp/sp@^3.20.1 @pnp/queryable@^3.20.1
 npm install devextreme@^22.2.3 devextreme-react@^22.2.3
 npm install react-hook-form@^7.45.4 zustand@^4.3.9
 ```
@@ -152,7 +152,7 @@ npx vsts-npm-auth -config .npmrc
 Write-Host "Installing SPFx Toolkit and dependencies..." -ForegroundColor Yellow
 npm install spfx-toolkit
 npm install @fluentui/react@8.106.4
-npm install @pnp/sp@^3.20.1 @pnp/logging@^4.16.0 @pnp/queryable@^3.20.1
+npm install @pnp/sp@^3.20.1 @pnp/queryable@^3.20.1
 npm install devextreme@^22.2.3 devextreme-react@^22.2.3
 npm install react-hook-form@^7.45.4 zustand@^4.3.9
 
@@ -796,7 +796,6 @@ Write-Host "Installing peer dependencies..." -ForegroundColor Yellow
 $peerDeps = @(
     "@fluentui/react@8.106.4",
     "@pnp/sp@^3.20.1",
-    "@pnp/logging@^4.16.0",
     "@pnp/queryable@^3.20.1",
     "devextreme@^22.2.3",
     "devextreme-react@^22.2.3",

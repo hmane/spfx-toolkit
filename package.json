@@ -266,7 +266,11 @@
       "import": "./lib/utilities/CssLoader/index.js",
       "require": "./lib/utilities/CssLoader/index.js"
     },
-    "./lib/*": { "types": "./lib/*.d.ts", "require": "./lib/*.js", "import": "./lib/*.js" }
+    "./lib/*": {
+      "types": "./lib/*.d.ts",
+      "require": "./lib/*.js",
+      "import": "./lib/*.js"
+    }
   },
   "license": "MIT",
   "files": [
@@ -287,7 +291,7 @@
     "**/utilities/spHelper/spHelper.js"
   ],
   "engines": {
-    "node": ">=18 <23"
+    "node": ">=22.14.0 <23.0.0"
   },
   "overrides": {
     "fast-xml-parser": "5.5.10",
@@ -310,7 +314,6 @@
     "@microsoft/sp-loader": ">=1.21.1",
     "@microsoft/sp-lodash-subset": ">=1.21.1",
     "@microsoft/sp-webpart-base": ">=1.21.1",
-    "@pnp/logging": "^4.16.0",
     "@pnp/queryable": "^3.20.1",
     "@pnp/sp": "^3.20.1",
     "@pnp/spfx-controls-react": "^3.22.0",
@@ -320,29 +323,78 @@
     "react-dom": "^17.0.1",
     "react-hook-form": "^7.45.4",
     "react-mentions": "^4.4.0",
-    "zustand": "^4.3.9"
+    "zustand": "^4.3.9",
+    "@microsoft/sp-page-context": ">=1.21.1"
   },
   "peerDependenciesMeta": {
-    "@microsoft/sp-component-base": { "optional": true },
-    "@microsoft/sp-core-library": { "optional": true },
-    "@microsoft/sp-extension-base": { "optional": true },
-    "@microsoft/sp-http": { "optional": true },
-    "@microsoft/sp-loader": { "optional": true },
-    "@microsoft/sp-lodash-subset": { "optional": true },
-    "@microsoft/sp-webpart-base": { "optional": true },
-    "@pnp/spfx-controls-react": { "optional": true },
-    "devextreme": { "optional": true },
-    "devextreme-react": { "optional": true },
-    "react-hook-form": { "optional": true },
-    "react-mentions": { "optional": true },
-    "zustand": { "optional": true }
+    "@microsoft/sp-component-base": {
+      "optional": true
+    },
+    "@microsoft/sp-core-library": {
+      "optional": true
+    },
+    "@microsoft/sp-extension-base": {
+      "optional": true
+    },
+    "@microsoft/sp-http": {
+      "optional": true
+    },
+    "@microsoft/sp-loader": {
+      "optional": true
+    },
+    "@microsoft/sp-lodash-subset": {
+      "optional": true
+    },
+    "@microsoft/sp-webpart-base": {
+      "optional": true
+    },
+    "@pnp/spfx-controls-react": {
+      "optional": true
+    },
+    "devextreme": {
+      "optional": true
+    },
+    "devextreme-react": {
+      "optional": true
+    },
+    "react-hook-form": {
+      "optional": true
+    },
+    "react-mentions": {
+      "optional": true
+    },
+    "zustand": {
+      "optional": true
+    },
+    "@microsoft/sp-page-context": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@fluentui/react": "8.106.4",
+    "@microsoft/sp-component-base": "1.21.1",
+    "@microsoft/sp-core-library": "1.21.1",
+    "@microsoft/sp-extension-base": "1.21.1",
+    "@microsoft/sp-http": "1.21.1",
+    "@microsoft/sp-loader": "1.21.1",
+    "@microsoft/sp-lodash-subset": "1.21.1",
+    "@microsoft/sp-page-context": "1.21.1",
+    "@microsoft/sp-webpart-base": "1.21.1",
+    "@pnp/queryable": "3.26.0",
+    "@pnp/sp": "3.26.0",
+    "@pnp/spfx-controls-react": "3.22.0",
     "@types/node": "^18.19.0",
     "@types/react": "^17.0.83",
     "@types/react-dom": "^17.0.25",
+    "devextreme": "22.2.3",
+    "devextreme-react": "22.2.3",
     "gulp": "^4.0.2",
-    "typescript": "^4.7.4"
+    "react": "17.0.1",
+    "react-dom": "17.0.1",
+    "react-hook-form": "7.45.4",
+    "react-mentions": "4.4.0",
+    "typescript": "^4.7.4",
+    "zustand": "4.3.9"
   },
   "scripts": {
     "clean": "gulp clean",
@@ -361,7 +413,7 @@
     "publish:alpha": "npm publish --access public --tag alpha",
     "publish:beta": "npm publish --access public --tag beta",
     "publish:latest": "npm publish --access public --tag latest",
-    "prepublishOnly": "npm run build && npm run validate"
+    "prepublishOnly": "npm run build && npm run validate && npm run test"
   },
   "keywords": [
     "spfx",

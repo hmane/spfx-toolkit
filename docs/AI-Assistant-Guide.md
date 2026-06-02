@@ -29,7 +29,7 @@ The toolkit's `peerDependencies` are all that consumers may install. `peerDepend
 
 | Feature / Component | Peer deps to install (beyond core React + `@fluentui/react` + `@pnp/sp`) |
 |---|---|
-| `SPContext`, most hooks, Card, UserPersona, GroupViewer, ErrorBoundary, ConflictDetector, WorkflowStepper, DocumentLink | none extra (`@pnp/sp`, `@pnp/logging`, `@pnp/queryable`, `@fluentui/react`, `react`, `react-dom`) |
+| `SPContext`, most hooks, Card, UserPersona, GroupViewer, ErrorBoundary, ConflictDetector, WorkflowStepper, DocumentLink | none extra (`@pnp/sp`, `@pnp/queryable`, `@fluentui/react`, `react`, `react-dom`) |
 | `DocumentLink` (file-type icons), `ManageAccess`, PnP people pickers (`PnPPeoplePicker`) | `@pnp/spfx-controls-react@^3.22.0` |
 | `Comments` (@-mentions) | `react-mentions@^4.4.0` — optional peer; **does not** resolve transitively, install explicitly |
 | `VersionHistory`, `GroupUsersPicker`, `spForm` (DevExtreme wrappers), `spFields` | `devextreme@^22.2.3`, `devextreme-react@^22.2.3` (+ `import 'devextreme/dist/css/dx.light.css'` once) |

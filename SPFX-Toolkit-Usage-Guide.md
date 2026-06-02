@@ -109,7 +109,7 @@ If you are using `npm link`, rebuild the toolkit after changing package entrypoi
 
 ### Prerequisites
 
-- **Node.js**: 18.x - 22.x
+- **Node.js**: **22.14.0+** (matches the SPFx 1.21.1 toolchain; a `.nvmrc` pins `22.14.0`). The package is CommonJS but its `@pnp` peers (v3+/v4) ship as ESM, so any Node-side `require()` of the compiled `lib/` needs Node ≥ 22.12's `require(ESM)` support. SPFx web parts bundle via webpack and are unaffected.
 - **SPFx Version**: >= 1.21.1
 - **TypeScript**: >= 4.7
 - **React**: ^17.0.1
@@ -128,7 +128,6 @@ The toolkit has **ZERO runtime dependencies** - everything is a peer dependency:
 # Core SPFx dependencies (usually already installed)
 npm install @fluentui/react@8.106.4 --save
 npm install @pnp/sp@^3.20.1 --save
-npm install @pnp/logging@^4.16.0 --save
 npm install @pnp/queryable@^3.20.1 --save
 npm install react@^17.0.1 --save
 npm install react-dom@^17.0.1 --save
