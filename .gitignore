@@ -18,7 +18,7 @@ lerna-debug.log*
 .pnpm-debug.log*
 
 # Package manager files
-package-lock.json
+# package-lock.json is intentionally tracked for reproducible `npm ci` builds in CI.
 yarn.lock
 pnpm-lock.yaml
 .yarn/
