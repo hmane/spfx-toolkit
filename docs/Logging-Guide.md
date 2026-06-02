@@ -8,7 +8,7 @@ The SPFx Toolkit provides a comprehensive logging system through `SPContext.logg
 
 ## Log Levels
 
-The logger supports four log levels based on `@pnp/logging.LogLevel`:
+The logger supports four log levels based on the toolkit's own `LogLevel` enum — a local mirror of PnP's values, exported from `spfx-toolkit/utilities/context` so it can be used without pulling in the ESM-only `@pnp/logging` package:
 
 | Level | Value | Method | Use Case | Visibility |
 |-------|-------|--------|----------|------------|
@@ -58,7 +58,7 @@ const duration = timer(); // Returns duration in ms
 ### Runtime Log Level Control
 
 ```typescript
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from 'spfx-toolkit/utilities/context';
 
 // Get current log level
 const currentLevel = SPContext.logger.getLevel();
@@ -76,7 +76,7 @@ SPContext.logger.setLevel(LogLevel.Verbose); // Enable debug logs
 ```typescript
 import { Version } from '@microsoft/sp-core-library';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from 'spfx-toolkit/utilities/context';
 import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export default class MyWebPart extends BaseClientSideWebPart<IMyWebPartProps> {
@@ -302,7 +302,7 @@ SPContext.logger.clear();
 ```typescript
 import { Version } from '@microsoft/sp-core-library';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
-import { LogLevel } from '@pnp/logging';
+import { LogLevel } from 'spfx-toolkit/utilities/context';
 import { SPContext } from 'spfx-toolkit/lib/utilities/context';
 
 export interface IMyWebPartProps {

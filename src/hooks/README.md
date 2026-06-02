@@ -148,6 +148,85 @@ interface UseViewportOptions {
 - `lg`: 1024-1279px (desktop)
 - `xl`: 1280px+ (large desktop)
 
+### useListItems
+
+Fetches items from a SharePoint list (identified by GUID or title). Supports OData clauses (`select`, `filter`, `orderBy`, `top`, `expand`) and CAML queries. Returns `{ items, loading, error, refresh, count }`.
+
+```typescript
+import { useListItems } from 'spfx-toolkit/lib/hooks';
+
+const { items, loading, error, refresh } = useListItems<ITask>({
+  listId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  select: ['Id', 'Title', 'Status'],
+  filter: "Status eq 'Active'",
+  orderBy: { field: 'Title' },
+  top: 100,
+});
+```
+
+**Stable reference note**: `select`, `expand`, and `orderBy` are compared by value internally — passing inline literals does NOT cause a refetch on every render. The optional `sp` instance is compared by reference; pass a stable (memoized) instance to avoid unintended refetches.
+
+---
+
+### useSPPagedQuery
+
+Fetches a SharePoint list page-by-page using PnP v3 `getPaged()` / `getNext()`. Call `loadMore()` to append the next page; call `reset()` to restart from page 1.
+
+```typescript
+import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks';
+
+const { items, loadMore, hasMore, loading, reset } = useSPPagedQuery<ITask>({
+  listId: 'Tasks',
+  select: ['Id', 'Title'],
+  pageSize: 50,
+});
+```
+
+**Stable reference note**: same as `useListItems` — `select`, `expand`, and `orderBy` are value-compared. Pass a stable `sp` instance.
+
+---
+
+### useSPFieldMetadata
+
+Loads field metadata for a SharePoint list. Results are cached in `sessionStorage` with a configurable TTL (default 5 min).
+
+```typescript
+import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks';
+
+const { fields, loading, error, refresh } = useSPFieldMetadata({
+  listId: 'Tasks',
+  internalNames: ['Title', 'Status', 'AssignedTo'],
+});
+```
+
+**Stable reference note**: `internalNames` is compared by value internally — passing an inline array literal is safe. Pass a stable `sp` instance.
+
+---
+
+### useDebouncedValue
+
+Returns a debounced copy of `value` that only updates after `delayMs` ms of inactivity.
+
+```typescript
+import { useDebouncedValue } from 'spfx-toolkit/lib/hooks';
+
+const debouncedSearch = useDebouncedValue(search, 300);
+```
+
+---
+
+### useDebouncedCallback
+
+Returns a stable debounced wrapper around a callback. The wrapper identity is stable across renders (uses `useRef` internally).
+
+```typescript
+import { useDebouncedCallback } from 'spfx-toolkit/lib/hooks';
+
+const save = useDebouncedCallback((text: string) => saveToServer(text), 500);
+```
+
+---
+
 ### useIsTouchDevice
 
 Simple hook to detect touch-capable devices.

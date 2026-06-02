@@ -25,9 +25,14 @@ export async function getListsWithUniqueRoleAssignments(
 ): Promise<IListWithUniqueRoles[]> {
   const lists = SPContext.sp.web.lists;
 
+  // Use a high $top value to avoid the SharePoint default 100-row page limit.
+  // Sites can have hundreds of lists; without paging we would silently truncate.
+  const PAGE_SIZE = 5000;
+
   let raw: RawList[];
   try {
     raw = (await lists
+      .top(PAGE_SIZE)
       .filter('HasUniqueRoleAssignments eq true')
       .select(...(SELECT as unknown as string[]))()) as RawList[];
 
@@ -40,7 +45,7 @@ export async function getListsWithUniqueRoleAssignments(
       'brokenInheritance: server-side filter unavailable, falling back to client-side',
       err
     );
-    const all = (await lists.select(...(SELECT as unknown as string[]))()) as RawList[];
+    const all = (await lists.top(PAGE_SIZE).select(...(SELECT as unknown as string[]))()) as RawList[];
     raw = all.filter(r => r.HasUniqueRoleAssignments === true);
   }
 

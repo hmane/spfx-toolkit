@@ -1,5 +1,5 @@
 // src/utilities/userAccess/index.ts
-export { userAccessService } from './userAccessService';
+export { userAccessService, matchAssignments } from './userAccessService';
 export { UserAccessError } from './UserAccessError';
 export type { UserAccessErrorCode } from './UserAccessError';
 export { diffUserAccess } from './userAccessDiff';
@@ -54,5 +54,6 @@ export type {
   IUserAccessLevel1,
   ListRef,
   LoginInput,
+  MatchedPrincipalKind,
   PermissionLevelLabel,
 } from './types';

@@ -6,16 +6,24 @@
 
 ## The Rule
 
-**Always import from the deepest, most specific path available.** Never import from `spfx-toolkit` (root) or `spfx-toolkit/components` (top barrel) — they pull the entire library surface, including DevExtreme-heavy modules, and break tree-shaking.
+**Always import from the deepest, most specific path available.** Never import from `spfx-toolkit` (root) — it pulls the entire library surface and breaks tree-shaking.
+
+`spfx-toolkit/components` (the top barrel) is now restricted to **lightweight components only** (Card, ConflictDetector, DocumentLink, ErrorBoundary, GroupViewer, UserPersona, WorkflowStepper). If you only need those, the barrel is safe to use. For heavy components (DevExtreme, people-picker, PnP-augmentation-bound), always use the per-component deep subpath.
 
 ```typescript
-// ✅ CORRECT — minimal bundle impact
+// ✅ CORRECT — per-component deep subpath (minimal bundle, always safe)
 import { Card } from 'spfx-toolkit/components/Card';
 import { SPContext } from 'spfx-toolkit/utilities/context';
 
+// ✅ ALSO OK — barrel is now lightweight-only
+import { Card, ErrorBoundary, GroupViewer } from 'spfx-toolkit/components';
+
 // ❌ WRONG — pulls the full library
 import { Card } from 'spfx-toolkit';
-import { Card } from 'spfx-toolkit/components';
+
+// ❌ WRONG for heavy components — use the deep subpath instead
+import { VersionHistory } from 'spfx-toolkit/components';   // not exported from barrel
+import { SPDynamicForm } from 'spfx-toolkit/components';    // not exported from barrel
 ```
 
 **Why:** The barrel `index.ts` files use `export *`, which causes bundlers to eagerly load every re-exported module. The toolkit ships compatibility proxy entrypoints so the subpaths below resolve in modern SPFx, classic SPFx, and `npm link` setups. Legacy `spfx-toolkit/lib/*` imports still work for backward compatibility and are required for a few specific cases (see [Legacy `lib/*` paths](#legacy-lib-paths)).
@@ -29,7 +37,7 @@ Each component has a dedicated export. Use the `./components/<Name>` form.
 | Component | Canonical import |
 |-----------|------------------|
 | Card | `import { Card } from 'spfx-toolkit/components/Card';` |
-| Comments | `import { Comments } from 'spfx-toolkit/components/Comments';` |
+| Comments | `import { Comments } from 'spfx-toolkit/components/Comments';` ⚠️ requires `react-mentions` peer — see note below |
 | ConflictDetector | `import { ConflictDetector, useConflictDetection } from 'spfx-toolkit/components/ConflictDetector';` |
 | DocumentLink | `import { DocumentLink } from 'spfx-toolkit/components/DocumentLink';` |
 | ErrorBoundary | `import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/components/ErrorBoundary';` |
@@ -38,9 +46,17 @@ Each component has a dedicated export. Use the `./components/<Name>` form.
 | ManageAccess | `import { ManageAccess } from 'spfx-toolkit/components/ManageAccess';` |
 | SPDynamicForm | `import { SPDynamicForm } from 'spfx-toolkit/components/SPDynamicForm';` |
 | SPListItemAttachments | `import { SPListItemAttachments } from 'spfx-toolkit/components/SPListItemAttachments';` |
+| SPNotificationBar | `import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';` — also in the light barrel `spfx-toolkit/components` |
+| SPSiteSelector | `import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';` ⚠️ deep subpath only — NOT in `spfx-toolkit/components` barrel; requires `@pnp/sp/search` (loaded automatically) |
 | UserPersona | `import { UserPersona } from 'spfx-toolkit/components/UserPersona';` |
 | VersionHistory | `import { VersionHistory } from 'spfx-toolkit/components/VersionHistory';` |
 | WorkflowStepper | `import { WorkflowStepper } from 'spfx-toolkit/components/WorkflowStepper';` |
+
+> **Comments — `react-mentions` peer dependency required.** `Comments` uses `react-mentions` for @-mention support. This package is declared as an optional peer dependency in `spfx-toolkit`. Install it explicitly in your consuming project:
+> ```bash
+> npm install react-mentions@^4.4.0
+> ```
+> Without it, importing `spfx-toolkit/components/Comments` will fail at runtime. `react-mentions` does **not** resolve transitively through `@pnp/spfx-controls-react`.
 
 Types live in the same module:
 
@@ -183,11 +199,32 @@ import {
 
 ## 4. Hooks
 
-`./hooks` is a single barrel — there is no per-hook subpath. All hooks are cheap (no heavy deps) so the barrel is fine.
+Most hooks are re-exported through the `./hooks` barrel, which is fine for the lightweight general-purpose hooks. The data-fetching hooks (`useListItems`, `useSPPagedQuery`, `useSPFieldMetadata`, `useSharePointSearch`) and the debounce hooks (`useDebouncedValue`, `useDebouncedCallback`) also have per-hook deep paths for maximum tree-shaking.
 
 ```typescript
+// ✅ Barrel — fine for lightweight hooks
 import { useLocalStorage, useViewport } from 'spfx-toolkit/hooks';
+
+// ✅ Per-hook deep path — saves bundle bytes when you only need one hook
+import { useDebouncedValue, useDebouncedCallback } from 'spfx-toolkit/lib/hooks/useDebouncedValue';
+import { useListItems } from 'spfx-toolkit/lib/hooks/useListItems';
+import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks/useSPPagedQuery';
+import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
+import { useSharePointSearch } from 'spfx-toolkit/lib/hooks/useSharePointSearch';
 ```
+
+### Hook reference
+
+| Hook | Import (barrel) | Deep path | Signature / return |
+|------|----------------|-----------|--------------------|
+| `useLocalStorage` | `spfx-toolkit/hooks` | — | `[value, setValue]` |
+| `useViewport` | `spfx-toolkit/hooks` | — | `{ isMobile, isTablet, isDesktop }` |
+| `useDebouncedValue` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useDebouncedValue` | `useDebouncedValue<T>(value, delayMs): T` |
+| `useDebouncedCallback` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useDebouncedValue` | `useDebouncedCallback(fn, delayMs): fn` |
+| `useListItems` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useListItems` | `({ listId, select?, filter?, orderBy?, top?, expand?, caml?, enabled?, sp? }) => { items, loading, error, refresh, count }` |
+| `useSPPagedQuery` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPPagedQuery` | `({ listId, … }) => { pages, items, loadMore, hasMore, loading, error, reset }` |
+| `useSPFieldMetadata` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSPFieldMetadata` | `({ listId }) => { fields, loading, error, refresh }` — sessionStorage-cached |
+| `useSharePointSearch` | `spfx-toolkit/hooks` | `spfx-toolkit/lib/hooks/useSharePointSearch` | `<T>({ query, selectProperties?, rowLimit?, trimDuplicates?, sourceId?, enabled?, sp? }) => { results, totalRows, loading, error, refresh }` — requires `@pnp/sp/search` (loaded automatically) |
 
 (Component-specific hooks live with their component — e.g. `useConflictDetection` is exported from `spfx-toolkit/components/ConflictDetector`, `useCardController` from `spfx-toolkit/components/Card`.)
 
@@ -212,7 +249,9 @@ Each utility has a dedicated subpath. Always import the specific one you need.
 | BrowserStorage | `import { ... } from 'spfx-toolkit/utilities/browserStorage';` |
 | UserPhotoHelper | `import { ... } from 'spfx-toolkit/utilities/userPhotoHelper';` |
 | SPHelper | `import { ... } from 'spfx-toolkit/utilities/spHelper';` |
-| Debug | `import { ... } from 'spfx-toolkit/utilities/debug';` |
+| CamlBuilder | `import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';` |
+| Notifications (imperative + hook) | `import { notify, dismiss, dismissAll, useNotifications } from 'spfx-toolkit/utilities/notifications';` |
+| Debug (bridge utilities) | `import { attachHttpInspector, SPDebug } from 'spfx-toolkit/utilities/debug';` — see [§15 SPDebug Panel](#15-spdebug-panel) |
 
 ❌ Do NOT use `spfx-toolkit/utils` or `spfx-toolkit/utilities` (barrels — pulls everything).
 
@@ -321,7 +360,7 @@ See [FluentUI-TreeShaking-Guide.md](./FluentUI-TreeShaking-Guide.md) for the ful
 | Pattern | Why it's wrong |
 |---------|---------------|
 | `import { X } from 'spfx-toolkit'` | Pulls the root barrel — entire library, including all DevExtreme wrappers. |
-| `import { X } from 'spfx-toolkit/components'` | Pulls the top components barrel — every component, heavy ones included. |
+| `import { VersionHistory } from 'spfx-toolkit/components'` | Heavy components (VersionHistory, SPDynamicForm, ManageAccess, Comments, GroupUsersPicker, spForm, spFields, SPListItemAttachments, userAccess, SPSiteSelector) are intentionally excluded from the barrel. Use their deep subpath. |
 | `import { X } from 'spfx-toolkit/utils'` | Pulls every utility (alias for `spfx-toolkit/utilities`). |
 | `import { X } from 'spfx-toolkit/utilities'` | Same as above — pulls every utility. |
 | `import { SPLookupField } from 'spfx-toolkit/components/spFields'` | Intentionally not exported from the barrel — use the `lib/` path. |
@@ -388,6 +427,86 @@ import { BatchBuilder } from 'spfx-toolkit/utilities/batchBuilder';
 import { LazyVersionHistory, LazyManageAccessPanel } from 'spfx-toolkit/components/lazy';
 ```
 
+**A reactive list read with optional CAML filter:**
+```typescript
+import { useListItems } from 'spfx-toolkit/lib/hooks/useListItems';
+import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';
+
+const caml = CamlBuilder.where().field('Status').neq('Completed').orderBy('Created', false).rowLimit(50).build();
+const { items, loading, error, refresh } = useListItems<ITask>({ listId: 'Tasks', caml });
+```
+
+**Paged / infinite-scroll list read:**
+```typescript
+import { useSPPagedQuery } from 'spfx-toolkit/lib/hooks/useSPPagedQuery';
+
+const { items, loadMore, hasMore, loading } = useSPPagedQuery<ITask>({ listId: 'Tasks', top: 20 });
+```
+
+**Inspect a list's field schema:**
+```typescript
+import { useSPFieldMetadata } from 'spfx-toolkit/lib/hooks/useSPFieldMetadata';
+
+const { fields, loading } = useSPFieldMetadata({ listId: 'Tasks' });
+```
+
+**Debounce a search input:**
+```typescript
+import { useDebouncedValue } from 'spfx-toolkit/lib/hooks/useDebouncedValue';
+
+const debouncedQuery = useDebouncedValue(searchQuery, 300);
+```
+
+**KQL search across SharePoint (typed results):**
+```typescript
+// Add the search augmentation once, near your web part entry
+import 'spfx-toolkit/utilities/context/pnpImports/search';
+
+import { useSharePointSearch } from 'spfx-toolkit/lib/hooks/useSharePointSearch';
+
+interface ISiteResult { Title?: string; Path?: string; SiteId?: string; }
+
+const { results, totalRows, loading, error } = useSharePointSearch<ISiteResult>({
+  query: 'contentclass:STS_Site contoso',
+  selectProperties: ['Title', 'Path', 'SiteId'],
+  rowLimit: 8,
+});
+```
+
+**Search-backed site picker:**
+```typescript
+// ⚠️ DEEP SUBPATH ONLY — not exported from spfx-toolkit/components barrel
+import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';
+import type { ISPSiteItem } from 'spfx-toolkit/components/SPSiteSelector';
+
+// Requires @pnp/sp/search to be loaded (loaded automatically by the component)
+<SPSiteSelector
+  placeholder="Search for a site..."
+  rowLimit={8}
+  onSiteSelected={(site: ISPSiteItem) => console.log(site.url)}
+/>
+```
+
+**Toast notifications (global, works outside React):**
+```typescript
+// Place the bar once, at your web part root:
+import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';
+<SPNotificationBar position="top" maxVisible={5} />
+
+// Trigger from anywhere — no React context needed:
+import { notify, dismiss, dismissAll } from 'spfx-toolkit/utilities/notifications';
+
+notify({ type: 'success', message: 'Item saved.' });
+notify({ type: 'error', message: 'Failed to load data.' });   // sticky — no auto-dismiss
+notify({ type: 'warning', message: 'Session expiring soon.', duration: 8000 });
+dismiss(id);     // cancel one
+dismissAll();    // clear all
+
+// Or subscribe in a component:
+import { useNotifications } from 'spfx-toolkit/utilities/notifications';
+const { notifications, notify, dismiss } = useNotifications();
+```
+
 ---
 
 ## 14. User Access
@@ -416,7 +535,85 @@ import { GroupMembersList, IGroupMembersListProps } from 'spfx-toolkit/component
 
 ---
 
-## 15. Bundle Verification
+## 15. SPDebug Panel
+
+The SPDebug panel is an opt-in diagnostic overlay for development/staging. It now includes six tabs: **Console**, **Data**, **Workflows**, **Network**, **Permissions (Perms)**, and **Fields**.
+
+### Provider and hooks (from `spfx-toolkit/components/debug`)
+
+```typescript
+import {
+  SPDebugProvider,           // wraps your web part root — renders the panel
+  useSPDebugEnabled,         // boolean — is the panel open?
+  useSPDebugValue,           // push a single key/value into the Data tab
+  useSPDebugTable,           // push a table into the Data tab
+  useSPDebugTimer,           // time a span and display it
+  useSPDebugTrace,           // structured trace for async operations
+  useSPDebugSession,         // export / clear the current session
+  useSPDebugPermission,      // feed the Permissions tab (see below)
+  useSPDebugFormFields,      // feed the Fields tab (see below)
+} from 'spfx-toolkit/components/debug';
+```
+
+### Network tab — `attachHttpInspector` (from `spfx-toolkit/utilities/debug`)
+
+Opt in to REST call inspection by attaching the inspector to the SPContext HTTP client:
+
+```typescript
+import { attachHttpInspector } from 'spfx-toolkit/utilities/debug';
+
+// Option A — attach programmatically after SPContext is initialised
+attachHttpInspector(SPContext.http, { slowThresholdMs: 1000 });
+
+// Option B — declarative, via SPDebugProvider props
+<SPDebugProvider http={SPContext.http} httpInspector={{ slowThresholdMs: 1000 }}>
+  <App />
+</SPDebugProvider>
+```
+
+`HttpInspectorOptions`:
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `slowThresholdMs` | `number` | `3000` | Requests slower than this are flagged |
+| `redactQueryStringKeys` | `string[]` | built-in list | Query-string keys to redact before logging |
+| `maxRows` | `number` | `200` | Max network rows retained in memory |
+
+### Permissions tab — `useSPDebugPermission`
+
+```typescript
+import { useSPDebugPermission } from 'spfx-toolkit/components/debug';
+import { useHasPermission } from 'spfx-toolkit/hooks';
+
+function MyComponent() {
+  const { allowed, loading } = useHasPermission('EditListItems');
+  useSPDebugPermission('Edit list items', allowed, loading);
+  // …
+}
+```
+
+Signature: `useSPDebugPermission(label: string, allowed: boolean | undefined, loading?: boolean): void`
+
+### Fields tab — `useSPDebugFormFields`
+
+```typescript
+import { useSPDebugFormFields } from 'spfx-toolkit/components/debug';
+
+function MyForm() {
+  const onResolvedField = useSPDebugFormFields();
+  return (
+    <SPDynamicForm
+      listId="…"
+      onResolvedField={onResolvedField}
+    />
+  );
+}
+```
+
+`useSPDebugFormFields()` returns a callback compatible with `SPDynamicForm`'s `onResolvedField` prop. Each resolved field is surfaced in the panel's Fields tab.
+
+---
+
+## 16. Bundle Verification
 
 After importing, verify the bundle impact in your SPFx project:
 

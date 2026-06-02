@@ -30,5 +30,7 @@ export {
   useSPDebugTimer,
   useSPDebugTrace,
   useSPDebugSession,
+  useSPDebugPermission,
+  useSPDebugFormFields,
 } from './hooks';
 export type { UseSPDebugTraceApi, UseSPDebugSessionApi } from './hooks';

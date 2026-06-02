@@ -43,6 +43,19 @@ export interface IDirectListPermission {
   roleDefinitions: IRoleDefinitionRef[];
   /** Derived label for badge display. */
   permissionLevel: PermissionLevelLabel;
+  /**
+   * How this assignment was resolved.  Mirrors the same field on
+   * `IListPermission.matchedAssignments`.  Absent for confirmed direct/SP-group
+   * matches (`'user'` / `'spGroup'`).
+   */
+  principalKind?: MatchedPrincipalKind;
+  /**
+   * True when membership in the source principal could not be verified via the
+   * SharePoint API (e.g. Entra/AD security group, "Everyone" claim).  The UI
+   * should visually distinguish these entries and explain that the attribution
+   * is unconfirmed.
+   */
+  membershipUnverified?: true;
 }
 
 export interface IUserAccessLevel1 {
@@ -50,6 +63,18 @@ export interface IUserAccessLevel1 {
   siteGroups: ISiteGroup[];
   directListPermissions: IDirectListPermission[];
 }
+
+/**
+ * Describes how a matched role-assignment principal was resolved.
+ *
+ * - `'user'`  — directly matched the queried user (PrincipalType 1).
+ * - `'spGroup'` — matched a SharePoint group the user belongs to (PrincipalType 8).
+ * - `'securityGroupOrClaim'` — a security group (PrincipalType 4), "Everyone",
+ *   "Everyone except external users", or a similar claim principal.  Membership
+ *   cannot be verified via this API, so the assignment is surfaced as a
+ *   **candidate** source.  The UI should explain that membership is unconfirmed.
+ */
+export type MatchedPrincipalKind = 'user' | 'spGroup' | 'securityGroupOrClaim';
 
 export interface IListPermission {
   list: IListWithUniqueRoles;
@@ -60,6 +85,24 @@ export interface IListPermission {
   matchedAssignments: Array<{
     principal: { type: 'user' | 'group'; id: number; title: string };
     roleDefinitions: IRoleDefinitionRef[];
+    /**
+     * How this assignment was resolved.
+     *
+     * Present when the assignment is not a confirmed direct/SP-group match.
+     * `'securityGroupOrClaim'` means the principal is an Entra security group,
+     * "Everyone", "Everyone except external users", or another claim whose
+     * membership the toolkit cannot enumerate.  The assignment is included as a
+     * candidate source — the user **may** have access via this principal.
+     *
+     * Absent (or `'user'` / `'spGroup'`) for confirmed matches.
+     */
+    principalKind?: MatchedPrincipalKind;
+    /**
+     * True when membership in this principal could not be verified via the
+     * SharePoint API.  Consumers should treat this assignment as a candidate
+     * source rather than a confirmed grant.
+     */
+    membershipUnverified?: true;
   }>;
 }
 

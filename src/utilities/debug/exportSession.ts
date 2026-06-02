@@ -31,7 +31,11 @@ import type {
   SPDebugSnapshot,
   SPDebugTable,
   SPDebugTrace,
+  SPDebugTraceStep,
 } from './SPDebugTypes';
+
+/** Max table rows rendered inline in the Markdown report. Full data is in the JSON export. */
+const MAX_TABLE_ROWS_RENDERED = 50;
 
 export interface ExportedSession {
   version: string;
@@ -112,6 +116,66 @@ function safeJson(value: unknown): string {
   }
 }
 
+function tableColumnsFor(
+  tbl: SPDebugTable
+): ReadonlyArray<{ key: string; label: string }> | null {
+  if (tbl.columns && tbl.columns.length > 0) {
+    return tbl.columns.map((c) => ({ key: c.key, label: c.label || c.key }));
+  }
+  const first = tbl.rows.find(
+    (r) => r !== null && typeof r === 'object' && !Array.isArray(r)
+  );
+  if (first) {
+    return Object.keys(first as Record<string, unknown>).map((k) => ({ key: k, label: k }));
+  }
+  return null;
+}
+
+function pushTableRows(lines: string[], tbl: SPDebugTable): void {
+  lines.push(
+    '### ' +
+      escapeCell(tbl.key) +
+      '   _(' +
+      tbl.source +
+      ' · ' +
+      tbl.rows.length +
+      ' rows · ' +
+      fmtBytes(tbl.bytes) +
+      ')_'
+  );
+  lines.push('');
+  const cols = tableColumnsFor(tbl);
+  const shown = tbl.rows.slice(0, MAX_TABLE_ROWS_RENDERED);
+  if (cols) {
+    lines.push('| ' + cols.map((c) => escapeCell(c.label)).join(' | ') + ' |');
+    lines.push('|' + cols.map(() => '---').join('|') + '|');
+    for (const row of shown) {
+      if (row === null || typeof row !== 'object') {
+        // Primitive row under provided columns — surface the value in the first
+        // cell rather than rendering silently-empty cells.
+        const cells = cols.map((c, i) => (i === 0 ? escapeCell(row) : ''));
+        lines.push('| ' + cells.join(' | ') + ' |');
+        continue;
+      }
+      const r = row as Record<string, unknown>;
+      lines.push('| ' + cols.map((c) => escapeCell(r[c.key])).join(' | ') + ' |');
+    }
+  } else {
+    lines.push('```json');
+    lines.push(safeJson(shown));
+    lines.push('```');
+  }
+  if (tbl.rows.length > MAX_TABLE_ROWS_RENDERED) {
+    lines.push('');
+    lines.push(
+      '_… ' +
+        (tbl.rows.length - MAX_TABLE_ROWS_RENDERED) +
+        ' more rows — see JSON export for full data_'
+    );
+  }
+  lines.push('');
+}
+
 function timelineRow(entry: SPDebugEntry, t0: number): string {
   const dt = entry.timestamp - t0;
   return [
@@ -159,6 +223,29 @@ function groupTracesByCorrelation(traces: SPDebugTrace[]): CorrelationGroup[] {
   groups.forEach((g) => g.traces.sort((a, b) => a.startedAt - b.startedAt));
   groups.sort((a, b) => a.label.localeCompare(b.label));
   return groups;
+}
+
+function pushTraceStep(
+  lines: string[],
+  step: SPDebugTraceStep,
+  startedAt: number,
+  depth: number
+): void {
+  const indent = '  '.repeat(depth + 1);
+  const dt = step.timestamp - startedAt;
+  const status = step.status ? ' [' + step.status + ']' : '';
+  lines.push(indent + '- +' + dt + 'ms' + status + ' ' + step.label);
+  if (step.data !== undefined) {
+    const fenceIndent = indent + '  ';
+    lines.push(fenceIndent + '```json');
+    for (const dl of safeJson(step.data).split('\n')) lines.push(fenceIndent + dl);
+    lines.push(fenceIndent + '```');
+  }
+  if (step.subSteps && step.subSteps.length > 0) {
+    for (const sub of step.subSteps) {
+      pushTraceStep(lines, sub, startedAt, depth + 1);
+    }
+  }
 }
 
 export function exportMarkdown(): string {
@@ -237,6 +324,16 @@ export function exportMarkdown(): string {
         lines.push(cells + ' |');
       }
       lines.push('');
+      const withData = group.entries.filter((en) => en.data !== undefined);
+      for (const en of withData) {
+        const dt = en.timestamp - t0;
+        lines.push('**+' + dt + 'ms · ' + escapeCell(en.message) + '**');
+        lines.push('');
+        lines.push('```json');
+        lines.push(safeJson(en.data));
+        lines.push('```');
+        lines.push('');
+      }
     }
   }
 
@@ -284,9 +381,32 @@ export function exportMarkdown(): string {
       );
     }
     lines.push('');
+    for (const tbl of e.tables) pushTableRows(lines, tbl);
   }
 
-  // ---- 8. Workflows ----
+  // ---- 8. Metrics ----
+  if (e.metrics.length > 0) {
+    lines.push('## Metrics');
+    lines.push('');
+    lines.push('| Key | Value | Source | Updated |');
+    lines.push('|---|---|---|---|');
+    for (const m of e.metrics) {
+      lines.push(
+        '| ' +
+          escapeCell(m.key) +
+          ' | ' +
+          escapeCell(m.value) +
+          ' | ' +
+          escapeCell(m.source) +
+          ' | ' +
+          new Date(m.updatedAt).toISOString() +
+          ' |'
+      );
+    }
+    lines.push('');
+  }
+
+  // ---- 9. Workflows ----
   if (e.traces.length > 0) {
     lines.push('## Workflows');
     lines.push('');
@@ -313,9 +433,7 @@ export function exportMarkdown(): string {
             flagStr
         );
         for (const step of trace.steps) {
-          const dt = step.timestamp - trace.startedAt;
-          const status = step.status ? ' [' + step.status + ']' : '';
-          lines.push('  - +' + dt + 'ms' + status + ' ' + step.label);
+          pushTraceStep(lines, step, trace.startedAt, 0);
         }
       }
       lines.push('');

@@ -3,7 +3,7 @@
 **Version:** 1.0.0-alpha.1
 **For:** SharePoint Framework (SPFx) >= 1.21.1
 **Author:** SPFx Toolkit Team
-**Last Updated:** May 13, 2026
+**Last Updated:** June 2026
 
 ---
 
@@ -13,8 +13,20 @@
 2. [Installation & Setup](#installation--setup)
 3. [Context System (MUST READ)](#context-system-must-read)
 4. [Components](#components)
+   - §1–15 — existing components
+   - [§16. User Access Suite](#16-user-access-suite---self-service--admin-permission-explorer)
+   - [§17. SPNotificationBar](#17-spnotificationbar---toast-notification-bar)
+   - [§18. SPSiteSelector](#18-spsiteselector---sharepoint-site-search-picker)
 5. [Custom Hooks](#custom-hooks)
+   - [useListItems](#uselistitems---sharepoint-list-query-hook)
+   - [useSPPagedQuery](#usesppaged-query---paged-list-fetching)
+   - [useSPFieldMetadata](#usespfieldmetadata---list-field-metadata)
+   - [useDebouncedValue / useDebouncedCallback](#usedebouncedvalue--usedebouncedcallback)
+   - [useSharePointSearch](#usesharepointsearch---sharepoint-search-api)
+   - [User Access Hooks](#user-access-hooks)
 6. [Utilities](#utilities)
+   - [CamlBuilder](#9-camlbuilder---fluent-caml-query-builder)
+   - [Notifications](#10-notifications---toast-notification-store)
 7. [TypeScript Types](#typescript-types)
 8. [Bundle Size Optimization](#bundle-size-optimization)
 9. [SPDebug — Debug Layer](#spdebug--debug-layer)
@@ -97,7 +109,7 @@ If you are using `npm link`, rebuild the toolkit after changing package entrypoi
 
 ### Prerequisites
 
-- **Node.js**: 18.x - 22.x
+- **Node.js**: **22.14.0+** (matches the SPFx 1.21.1 toolchain; a `.nvmrc` pins `22.14.0`). The package is CommonJS but its `@pnp` peers (v3+/v4) ship as ESM, so any Node-side `require()` of the compiled `lib/` needs Node ≥ 22.12's `require(ESM)` support. SPFx web parts bundle via webpack and are unaffected.
 - **SPFx Version**: >= 1.21.1
 - **TypeScript**: >= 4.7
 - **React**: ^17.0.1
@@ -116,7 +128,6 @@ The toolkit has **ZERO runtime dependencies** - everything is a peer dependency:
 # Core SPFx dependencies (usually already installed)
 npm install @fluentui/react@8.106.4 --save
 npm install @pnp/sp@^3.20.1 --save
-npm install @pnp/logging@^4.16.0 --save
 npm install @pnp/queryable@^3.20.1 --save
 npm install react@^17.0.1 --save
 npm install react-dom@^17.0.1 --save
@@ -126,8 +137,25 @@ npm install @pnp/spfx-controls-react@^3.22.0 --save  # For ManageAccess, PeopleP
 npm install devextreme@^22.2.3 --save  # For VersionHistory, spForm
 npm install devextreme-react@^22.2.3 --save
 npm install react-hook-form@^7.45.4 --save  # For spForm, SPDynamicForm, SPField components
+npm install react-mentions@^4.4.0 --save   # Required by the Comments component
 npm install zustand@^4.3.9 --save  # For spForm state management
 ```
+
+> **Host-injected SPFx packages** — `@microsoft/sp-*` packages (`sp-webpart-base`, `sp-core-library`, `sp-http`, etc.) are declared as **optional** peer dependencies. They are injected by the SPFx host at runtime; you do not need to install them manually. They are listed in `peerDependencies` only so TypeScript resolves the types.
+
+> **Heavy components via deep subpath** — the `spfx-toolkit/components` barrel exposes **lightweight** components only. Heavy components must be imported via their own deep subpaths to avoid pulling their peer-dependency weight into every consumer:
+> - `spfx-toolkit/components/Comments`
+> - `spfx-toolkit/components/spForm`
+> - `spfx-toolkit/components/spFields`
+> - `spfx-toolkit/components/SPDynamicForm`
+> - `spfx-toolkit/components/VersionHistory`
+> - `spfx-toolkit/components/ManageAccess`
+> - `spfx-toolkit/components/SPListItemAttachments`
+> - `spfx-toolkit/components/GroupUsersPicker`
+> - `spfx-toolkit/components/userAccess`
+> - `spfx-toolkit/components/SPSiteSelector`
+>
+> See [`docs/Importing-Components.md`](./docs/Importing-Components.md) for the authoritative list.
 
 If you are consuming the toolkit through `npm link`, rebuild the toolkit after changes so the linked `lib/` folder stays current:
 
@@ -2876,6 +2904,269 @@ Use `preloadComponent` or `useLazyPreload` to warm caches when users show intent
 
 ---
 
+### 16. User Access Suite - Self-Service & Admin Permission Explorer
+
+**Bundle Impact:** Low (MyAccessView, GroupMembersList) / Medium (UserAccessAdmin)
+**Use Case:** Inspect a user's effective SharePoint permissions and group memberships; bulk-edit group membership as an admin.
+**Peer Dependencies:** `@pnp/sp@^3.20.1`
+
+The User Access suite provides three surface components and a layer of shared primitives and hooks. All import from the deep subpath `spfx-toolkit/components/userAccess` (not included in the light barrel).
+
+```typescript
+import {
+  MyAccessView,
+  UserAccessAdmin,
+  GroupMembersList,
+} from 'spfx-toolkit/components/userAccess';
+
+// Individual deep imports (if you need only one):
+import { MyAccessView } from 'spfx-toolkit/components/userAccess/MyAccessView';
+import { UserAccessAdmin } from 'spfx-toolkit/components/userAccess/UserAccessAdmin';
+import { GroupMembersList } from 'spfx-toolkit/components/userAccess/GroupMembersList';
+```
+
+#### 16a. MyAccessView — Self-Service View
+
+Renders a plain-English summary of the **current user's** group memberships and list-level permissions. Designed for business users doing self-service UAT: "what can I see and do here?" Drill-down on demand — it does not enumerate every list up front.
+
+```tsx
+import { MyAccessView } from 'spfx-toolkit/components/userAccess/MyAccessView';
+
+const MyPage: React.FC = () => (
+  <MyAccessView
+    title="My Permissions"
+    showRefresh
+    onError={(err) => console.error(err)}
+  />
+);
+```
+
+**Props Reference (`IMyAccessViewProps`)**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `className` | `string` | — | Additional CSS class for the root element |
+| `title` | `string` | — | Optional heading rendered above the view |
+| `showRefresh` | `boolean` | `false` | Show a Refresh button to re-fetch access data |
+| `onError` | `(error: UserAccessError) => void` | — | Called when a fetch error occurs |
+
+#### 16b. UserAccessAdmin — Admin Investigation + Bulk Group Editor
+
+Pivot-tab UI for admins. Tabs: **Browse** (look up any user), **Compare** (diff two users side-by-side), **Manage Groups** (bulk add/remove a user from groups). Privileged actions (Manage Groups, and Browse/Compare when `allowBrowse` is false) are gated behind a `PermissionKind` check.
+
+```tsx
+import { UserAccessAdmin } from 'spfx-toolkit/components/userAccess/UserAccessAdmin';
+import { PermissionKind } from '@pnp/sp/security';
+
+const AdminPage: React.FC = () => {
+  const { allowed: isAdmin } = useHasPermission(PermissionKind.ManageWeb);
+
+  return (
+    <UserAccessAdmin
+      title="Site Access Administration"
+      allowBrowse={isAdmin}   // ⚠️ see security warning below
+      managePermission={PermissionKind.ManageWeb}
+      onError={(err) => console.error(err)}
+    />
+  );
+};
+```
+
+**Props Reference (`IUserAccessAdminProps`)**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `className` | `string` | — | Additional CSS class for the root element |
+| `title` | `string` | — | Optional heading |
+| `managePermission` | `PermissionKind` | `PermissionKind.ManageWeb` | Permission required for the Manage Groups tab (and to broaden Browse/Compare beyond `allowBrowse`) |
+| `allowBrowse` | `boolean` | `false` | Allow non-admin users to use the Browse and Compare tabs. See security warning below. |
+| `onError` | `(error: UserAccessError) => void` | — | Called when a fetch error occurs |
+
+> **Security warning for `allowBrowse`:** When `allowBrowse={true}`, any user who can render this component can look up any resolvable login and enumerate the SharePoint groups that login belongs to, as well as view the list-level permissions derived from those memberships. SharePoint's own read restrictions on users, groups, and role assignments are often permissive by default, so in practice this can expose organisational membership data to non-privileged users. **Always gate `allowBrowse` behind your own admin check before passing `true`.** Do not rely solely on this prop to restrict access to sensitive membership data.
+
+#### 16c. GroupMembersList — Group Members Widget
+
+Standalone component that renders the members of a specific SharePoint group with search filtering, persona rows, keyboard accessibility, and virtualisation for large groups.
+
+```tsx
+import { GroupMembersList } from 'spfx-toolkit/components/userAccess/GroupMembersList';
+
+const GroupPage: React.FC = () => (
+  <GroupMembersList
+    groupRef={{ name: 'Site Members' }}
+    showSearch
+    maxHeight={400}
+    emptyText="No members found."
+    onMemberClick={(userId) => console.log('Clicked user', userId)}
+  />
+);
+```
+
+**Props Reference (`IGroupMembersListProps`)**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `groupRef` | `{ id?: number; name?: string }` | **required** | Identify the group by numeric ID or title (at least one must be provided) |
+| `className` | `string` | — | Additional CSS class |
+| `showSearch` | `boolean` | `false` | Show a search filter input above the list |
+| `maxHeight` | `number \| string` | — | Max-height CSS value for the scrollable list container |
+| `onMemberClick` | `(userId: number) => void` | — | Called when a persona row is clicked |
+| `emptyText` | `string` | — | Text shown when the group has no members |
+
+#### 16d. Primitives (building blocks)
+
+The following lower-level components are exported individually from the `spfx-toolkit/components/userAccess/*` subpaths and can be composed into custom UIs:
+
+| Component | Subpath | Purpose |
+|---|---|---|
+| `DirectPermissionsTable` | `spfx-toolkit/components/userAccess/DirectPermissionsTable` | Table of direct list-level permissions; props: `lists`, `onListClick?`, `className?`, `emptyText?` |
+| `PermissionLevelBadge` | `spfx-toolkit/components/userAccess/PermissionLevelBadge` | Coloured badge for a permission level label; props: `level`, `tooltip?`, `className?` |
+| `RequirePermission` | `spfx-toolkit/components/userAccess/RequirePermission` | Conditionally renders `children` when the current user has `kind`; shows `fallback` otherwise; props: `kind?`, `fallback?`, `children` |
+| `UserGroupChips` | `spfx-toolkit/components/userAccess/UserGroupChips` | Chip list of SharePoint site groups; props: `groups`, `onChipClick?`, `className?`, `emptyText?` |
+
+#### 16e. Service & hooks layer
+
+All data fetching goes through `spfx-toolkit/utilities/userAccess` (`userAccessService`, `UserAccessError`, pure helpers `diffUserAccess`, `accessExportToCsv`) and the hooks in `spfx-toolkit/hooks`. See the [User Access Hooks](#user-access-hooks) section for the full hook reference.
+
+**Architecture note:** The loading model is progressive. Level 1 (on open) fetches site groups and lists where the user has a matched role assignment. Level 2 (list selected) fetches effective permission on that list. Level 3 (item ID entered) fetches effective permission on that item. The default open does **not** enumerate every list and check effective permissions.
+
+**Limitation note:** The toolkit surfaces matched SharePoint role assignments only. It does not expand Entra ID security groups, sharing links, app-only grants, or tenant-level overlays.
+
+---
+
+### 17. SPNotificationBar - Toast Notification Bar
+
+**Bundle Impact:** Low (~5KB component + store)
+**Use Case:** Application-level toast notifications for errors, warnings, success, and info messages. Pair with the `notify()` / `dismiss()` / `useNotifications()` API from `spfx-toolkit/utilities/notifications`.
+**Peer Dependencies:** `zustand@^4.3.9`
+
+```typescript
+import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';
+import { notify, dismiss, dismissAll } from 'spfx-toolkit/utilities/notifications';
+```
+
+#### Basic Usage
+
+Mount `<SPNotificationBar />` once near the root of your app (inside the SPFx web part DOM). Call `notify(...)` from anywhere — React components, service modules, event handlers.
+
+```tsx
+import * as React from 'react';
+import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';
+import { notify } from 'spfx-toolkit/utilities/notifications';
+
+// App root — render the bar once
+const AppRoot: React.FC = () => (
+  <div>
+    <SPNotificationBar position="top" maxVisible={5} />
+    <MainContent />
+  </div>
+);
+
+// Anywhere else — fire notifications imperatively
+async function saveItem(): Promise<void> {
+  try {
+    await SPContext.sp.web.lists.getByTitle('Tasks').items.add({ Title: 'My task' });
+    notify({ type: 'success', message: 'Task saved.' });
+  } catch (err) {
+    notify({ type: 'error', message: `Save failed: ${err.message}` });
+    // Error notifications are sticky (no auto-dismiss)
+  }
+}
+```
+
+#### Props Reference (`ISPNotificationBarProps`)
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `position` | `'top' \| 'bottom'` | `'top'` | Fixed position relative to the nearest positioned ancestor |
+| `maxVisible` | `number` | `5` | Maximum notifications shown simultaneously. Older ones stay in the store and surface once newer ones are dismissed. |
+| `className` | `string` | — | Additional CSS class on the root container |
+
+#### Notification Store API (`spfx-toolkit/utilities/notifications`)
+
+| Export | Signature | Description |
+|---|---|---|
+| `notify` | `(input: { type, message, duration? }) => string` | Add a notification; returns its generated ID. `duration` defaults per type (see below). |
+| `dismiss` | `(id: string) => void` | Dismiss a notification by ID; clears any pending auto-dismiss timer. |
+| `dismissAll` | `() => void` | Dismiss all active notifications. |
+| `useNotifications` | `() => { notifications, notify, dismiss, dismissAll }` | React hook that re-renders only when the notifications array changes. |
+
+**Default auto-dismiss durations:**
+
+| Type | Duration | Behaviour |
+|---|---|---|
+| `success` | 3000 ms | Auto-dismissed after 3 seconds |
+| `info` | 3000 ms | Auto-dismissed after 3 seconds |
+| `warning` | 5000 ms | Auto-dismissed after 5 seconds |
+| `error` | 0 (sticky) | **Never** auto-dismissed — requires manual `dismiss()` |
+
+Pass a custom `duration` (in ms) to override the default. Pass `duration: 0` to make any type sticky.
+
+---
+
+### 18. SPSiteSelector - SharePoint Site Search Picker
+
+**Bundle Impact:** Low
+**Use Case:** Let users search for and select a SharePoint site by title/URL. Useful for cross-site data widgets. Loads `@pnp/sp/search` automatically.
+**Peer Dependencies:** `@pnp/sp@^3.20.1`
+
+> **Import note:** `SPSiteSelector` is a **deep-subpath-only** import — it is not included in the `spfx-toolkit/components` light barrel.
+
+```typescript
+import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';
+import type { ISPSiteItem } from 'spfx-toolkit/components/SPSiteSelector';
+```
+
+#### Basic Usage
+
+```tsx
+import * as React from 'react';
+import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';
+import type { ISPSiteItem } from 'spfx-toolkit/components/SPSiteSelector';
+
+const SitePicker: React.FC = () => {
+  const [selectedSite, setSelectedSite] = React.useState<ISPSiteItem | null>(null);
+
+  return (
+    <div>
+      <SPSiteSelector
+        placeholder="Search for a site..."
+        rowLimit={8}
+        onSiteSelected={(site) => setSelectedSite(site)}
+        recentSites={[
+          { url: 'https://contoso.sharepoint.com/sites/hr', title: 'HR Hub' },
+        ]}
+      />
+      {selectedSite && <p>Selected: {selectedSite.title} — {selectedSite.url}</p>}
+    </div>
+  );
+};
+```
+
+#### Props Reference (`ISPSiteSelectorProps`)
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `onSiteSelected` | `(site: ISPSiteItem) => void` | **required** | Callback fired when the user selects a site |
+| `placeholder` | `string` | `'Search for a site...'` | Placeholder text for the search input |
+| `rowLimit` | `number` | `8` | Maximum number of search results to return |
+| `recentSites` | `ISPSiteItem[]` | — | Sites shown when the search box is empty (pinned/recently visited list) |
+| `disabled` | `boolean` | `false` | Render the control in a disabled state |
+| `className` | `string` | — | Additional CSS class on the root container |
+| `sp` | `SPFI` | `SPContext.sp` | Custom PnP SPFI instance |
+
+**`ISPSiteItem` shape:**
+
+```typescript
+interface ISPSiteItem {
+  url: string;       // Absolute URL of the site
+  title: string;     // Display title
+  webId?: string;    // Web GUID (when available)
+}
+```
+
+---
+
 ## Custom Hooks
 
 ### useLocalStorage - Persistent State Management
@@ -3064,6 +3355,260 @@ interface ICardController {
 
 function useCardController(cardId: string): ICardController;
 ```
+
+---
+
+### useListItems - SharePoint List Query Hook
+
+**Use Case:** Fetch items from a SharePoint list with OData or CAML filtering. Cancellation-safe; re-fetches on dependency changes.
+
+```typescript
+import { useListItems } from 'spfx-toolkit/hooks';
+import type { IUseListItemsOptions } from 'spfx-toolkit/hooks';
+```
+
+```tsx
+interface ITask { Id: number; Title: string; Status: string; }
+
+const TaskList: React.FC = () => {
+  const { items, loading, error, refresh, count } = useListItems<ITask>({
+    listId: 'Tasks',                        // GUID or title
+    select: ['Id', 'Title', 'Status'],
+    filter: "Status eq 'Active'",
+    orderBy: { field: 'Title', ascending: true },
+    top: 100,
+  });
+
+  if (loading) return <Spinner />;
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{count} tasks <button onClick={refresh}>Refresh</button></div>;
+};
+```
+
+**Options (`IUseListItemsOptions`)**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `listId` | `string` | **required** | List GUID or title |
+| `select` | `string[]` | — | OData `$select` fields |
+| `filter` | `string` | — | OData `$filter` expression |
+| `orderBy` | `{ field: string; ascending?: boolean }` | — | OData `$orderby` |
+| `top` | `number` | — | OData `$top` row limit |
+| `expand` | `string[]` | — | OData `$expand` |
+| `caml` | `string` | — | CAML `ViewXml` string; when provided, bypasses OData and uses `getItemsByCAMLQuery` |
+| `enabled` | `boolean` | `true` | When `false`, the hook stays idle |
+| `sp` | `SPFI` | `SPContext.sp` | Custom PnP instance (pass a **stable** reference) |
+
+**Return shape (`IUseListItemsResult<T>`)**
+
+```typescript
+{ items: T[]; loading: boolean; error: Error | null; refresh: () => void; count: number }
+```
+
+> **Stable reference note:** `select`, `expand`, and `orderBy` are compared by value via a JSON key — inline array/object literals are safe and will not cause refetches. The `sp` instance is compared by reference; pass a memoized value.
+
+---
+
+### useSPPagedQuery - Paged List Fetching
+
+**Use Case:** Incrementally load large lists page by page using PnP v3 `getPaged()` / `getNext()`.
+
+```typescript
+import { useSPPagedQuery } from 'spfx-toolkit/hooks';
+```
+
+```tsx
+const { items, loadMore, hasMore, loading, error, reset, pages } = useSPPagedQuery<ITask>({
+  listId: 'Tasks',
+  select: ['Id', 'Title'],
+  pageSize: 50,
+});
+
+return (
+  <div>
+    {items.map(t => <div key={t.Id}>{t.Title}</div>)}
+    {hasMore && <button onClick={loadMore} disabled={loading}>Load more</button>}
+    <button onClick={reset}>Reset</button>
+  </div>
+);
+```
+
+**Options (`IUseSPPagedQueryOptions`)** — same fields as `IUseListItemsOptions` except `top` is replaced by `pageSize` (default `100`), and `caml` is not supported.
+
+**Return shape:**
+
+```typescript
+{
+  pages: T[][];        // Each fetched page as a sub-array
+  items: T[];          // All items accumulated across pages
+  loadMore: () => void;
+  hasMore: boolean;
+  loading: boolean;
+  error: Error | null;
+  reset: () => void;   // Clears pages and re-fetches page 1
+}
+```
+
+---
+
+### useSPFieldMetadata - List Field Metadata
+
+**Use Case:** Load field definitions for a SharePoint list. Results are cached in `sessionStorage` (default TTL: 5 minutes).
+
+```typescript
+import { useSPFieldMetadata } from 'spfx-toolkit/hooks';
+import type { ISPFieldMetadata } from 'spfx-toolkit/hooks';
+```
+
+```tsx
+const { fields, loading, error, refresh } = useSPFieldMetadata({
+  listId: 'Tasks',
+  internalNames: ['Title', 'Status', 'AssignedTo'],
+  includeHidden: false,
+  ttlMs: 300000,
+});
+```
+
+**Options (`IUseSPFieldMetadataOptions`)**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `listId` | `string` | **required** | List GUID or title |
+| `internalNames` | `string[]` | — | Only return these fields (omit to return all visible fields) |
+| `includeHidden` | `boolean` | `false` | Include hidden fields |
+| `sp` | `SPFI` | `SPContext.sp` | Custom PnP instance |
+| `ttlMs` | `number` | `300000` | Cache TTL in ms |
+
+**Return shape:** `{ fields: ISPFieldMetadata[]; loading: boolean; error: Error | null; refresh: () => void }`
+
+Each `ISPFieldMetadata` includes: `internalName`, `displayName`, `typeAsString`, `fieldTypeKind`, `required`, `readOnly`, `hidden`, `description`, `defaultValue`, `group`, `fieldId`.
+
+---
+
+### useDebouncedValue / useDebouncedCallback
+
+**Use Case:** Delay reacting to rapidly-changing values (e.g., search inputs, resize handlers).
+
+```typescript
+import { useDebouncedValue, useDebouncedCallback } from 'spfx-toolkit/hooks';
+```
+
+```tsx
+// useDebouncedValue — returns a lagged copy of `value`
+const [search, setSearch] = React.useState('');
+const debouncedSearch = useDebouncedValue(search, 300); // lags 300 ms
+
+// useDebouncedCallback — returns a stable debounced function
+const save = useDebouncedCallback((text: string) => saveToServer(text), 500);
+// Calling `save('hello')` repeatedly resets the 500 ms timer each time.
+```
+
+**Signatures:**
+
+```typescript
+function useDebouncedValue<T>(value: T, delayMs: number): T;
+function useDebouncedCallback<A extends unknown[]>(fn: (...args: A) => void, delayMs: number): (...args: A) => void;
+```
+
+The callback returned by `useDebouncedCallback` is stable (same reference across renders). Any pending invocation is cancelled on unmount.
+
+---
+
+### useSharePointSearch - SharePoint Search API
+
+**Use Case:** Run KQL queries against SharePoint Search. Loads `@pnp/sp/search` automatically.
+
+```typescript
+import { useSharePointSearch } from 'spfx-toolkit/hooks';
+import type { IUseSharePointSearchOptions } from 'spfx-toolkit/hooks';
+```
+
+```tsx
+interface ISiteResult { Title?: string; Path?: string; }
+
+const SiteSearch: React.FC = () => {
+  const [query, setQuery] = React.useState('');
+  const { results, totalRows, loading, error, refresh } = useSharePointSearch<ISiteResult>({
+    query,
+    selectProperties: ['Title', 'Path', 'SiteId'],
+    rowLimit: 8,
+    trimDuplicates: true,
+    enabled: query.length > 2,
+  });
+
+  return (
+    <div>
+      <input value={query} onChange={e => setQuery(e.target.value)} />
+      <p>{totalRows} results</p>
+      {results.map(r => <div key={r.Path}>{r.Title}</div>)}
+    </div>
+  );
+};
+```
+
+**Options (`IUseSharePointSearchOptions`)**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | **required** | KQL query text (`Querytext`) |
+| `selectProperties` | `string[]` | — | Managed properties to return (`SelectProperties`) |
+| `rowLimit` | `number` | — | Max rows (`RowLimit`) |
+| `trimDuplicates` | `boolean` | — | Trim near-duplicate results |
+| `sourceId` | `string` | — | Search result source GUID |
+| `enabled` | `boolean` | `true` | When `false`, the hook stays idle |
+| `sp` | `SPFI` | `SPContext.sp` | Custom PnP instance (stable reference) |
+
+**Return shape:** `{ results: T[]; totalRows: number; loading: boolean; error: Error | null; refresh: () => void }`
+
+---
+
+### User Access Hooks
+
+All user-access hooks are exported from `spfx-toolkit/hooks`. Each hook accepts a nullable first argument — passing `null` puts the hook in idle state (no fetch, no error). All hooks expose a `refresh()` method that also busts the service-level cache for that resource.
+
+| Hook | Signature | Return | Purpose |
+|---|---|---|---|
+| `useUserAccess` | `(login: LoginInput \| null)` | `IAsyncResource<IUserAccessLevel1>` | Fetch all site groups + list-level assignments for a login |
+| `useUserAccessComparison` | `(loginA, loginB: LoginInput \| null)` | `{ diff, loading, error, refresh, userA, userB }` | Compare two users' access; `diff` is `IAccessDiff \| null` |
+| `useEffectiveListPermission` | `(login, listRef: ListRef \| null)` | `IAsyncResource<IListPermission>` | Effective permission mask for a user on a specific list |
+| `useEffectiveItemPermission` | `(login, listRef, itemId: number \| null)` | `IAsyncResource<IItemPermission>` | Effective permission mask for a user on a specific list item |
+| `useHasPermission` | `(kind?: PermissionKind)` | `{ allowed, loading, error }` | Check if the **current user** has a given permission kind (default: `ManageWeb`) |
+| `useSiteGroups` | `()` | `IAsyncResource<ISiteGroup[]>` | All site groups with id, title, description, owner |
+| `useGroupMembers` | `(ref: GroupRef \| null)` | `IAsyncResource<ISiteUser[]>` | Members of a group identified by `{ id?, name? }` |
+| `useGroupMembershipEditor` | `(login, managePermission?)` | See below | Bulk add/remove a user from groups with optimistic diff + server reconciliation |
+| `useBrokenInheritanceLists` | `()` | `IAsyncResource<IListWithUniqueRoles[]>` | Lists/libraries where permission inheritance is broken |
+
+**`useGroupMembershipEditor` return shape:**
+
+```typescript
+{
+  allGroups: ISiteGroup[];
+  currentMembership: ReadonlySet<number>;
+  pendingMembership: ReadonlySet<number>;
+  pendingAdds: number[];
+  pendingRemoves: number[];
+  isDirty: boolean;
+  toggle: (groupId: number) => void;
+  reset: () => void;
+  apply: () => Promise<IBulkResult>;
+  applying: boolean;
+  lastResult: IBulkResult | null;
+  loading: boolean;
+  error: UserAccessError | null;
+}
+```
+
+`apply()` re-checks the manage permission at call time and performs server-side reconciliation before writing (idempotent: won't add to a group the user is already in, won't remove from a group they're not in).
+
+**`IAsyncResource<T>` shape:**
+
+```typescript
+{ data: T | null; loading: boolean; error: UserAccessError | null; refresh: () => void }
+```
+
+**`LoginInput`** accepts a string login name / email / claim, or `{ id: number }` for a SharePoint user ID.
+
+**`ListRef`** is `{ id?: string; title?: string }` (list GUID or title).
 
 ---
 
@@ -4104,6 +4649,108 @@ import type {
 **Bundle Size Impact:** ~15KB (shared Fluent UI dependencies)
 
 **Documentation:** See [DialogService README](./src/utilities/dialogService/README.md) for comprehensive examples
+
+---
+
+### 9. CamlBuilder - Fluent CAML Query Builder
+
+**Use Case:** Build type-safe, readable CAML `ViewXml` strings without manual XML concatenation. Output can be passed directly to `useListItems({ caml: ... })` or PnP's `getItemsByCAMLQuery`.
+
+```typescript
+import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';
+```
+
+#### Basic Usage
+
+```typescript
+// Filtered, ordered, limited query
+const caml = CamlBuilder
+  .where()
+  .field('Status').neq('Completed')
+  .and()
+  .field('DueDate', 'DateTime').lt({ today: true, offsetDays: 7 })
+  .orderBy('DueDate', true)   // ascending
+  .rowLimit(50)
+  .build();
+
+// caml is now a complete <View><Query>...</Query><RowLimit>50</RowLimit></View> string
+const { items } = useListItems<ITask>({ listId: 'Tasks', caml });
+
+// No filter — return all items ordered by title
+const allCaml = CamlBuilder.all().orderBy('Title').build();
+
+// Raw CAML escape hatch — pass an existing hand-written string through the same pipeline
+const rawCaml = CamlBuilder.viewXml('<View><Query>...</Query></View>').build();
+```
+
+#### Special Value Types
+
+```typescript
+// Current user (User fields)
+CamlBuilder.where().field('AssignedTo', 'User').eq({ userId: true }).build();
+
+// Today / relative offset (DateTime fields)
+CamlBuilder.where().field('DueDate', 'DateTime').lt({ today: true }).build();
+CamlBuilder.where().field('DueDate', 'DateTime').lt({ today: true, offsetDays: -7 }).build();
+```
+
+#### Available Operators
+
+| Operator method | CAML element | Notes |
+|---|---|---|
+| `.eq(value)` | `<Eq>` | Equal |
+| `.neq(value)` | `<Neq>` | Not equal |
+| `.lt(value)` | `<Lt>` | Less than |
+| `.lte(value)` | `<Leq>` | Less than or equal |
+| `.gt(value)` | `<Gt>` | Greater than |
+| `.gte(value)` | `<Geq>` | Greater than or equal |
+| `.contains(value)` | `<Contains>` | String contains |
+| `.beginsWith(value)` | `<BeginsWith>` | String begins with |
+| `.isNull()` | `<IsNull>` | Field is null (no value argument) |
+| `.isNotNull()` | `<IsNotNull>` | Field is not null (no value argument) |
+
+**Supported field types** for the second argument to `.field(name, type?)`:
+`'Text'` (default), `'Number'`, `'Integer'`, `'Boolean'`, `'DateTime'`, `'Lookup'`, `'User'`, `'Choice'`, `'Counter'`, `'Note'`, `'Guid'`.
+
+**Logical joins:** `.and()` / `.or()` between conditions. Conditions are left-folded: `A.and().B.or().C` → `((A AND B) OR C)`.
+
+**API:**
+
+```typescript
+class CamlBuilder {
+  static where(): QueryBuilder;         // Start a filtered query
+  static all(): QueryBuilder;           // Start an unfiltered query (no <Where>)
+  static viewXml(raw: string): { build(): string }; // Raw string pass-through
+}
+
+class QueryBuilder {
+  field(name: string, type?: CamlFieldType): FieldRefBuilder; // Begin a condition
+  and(): QueryBuilder;
+  or(): QueryBuilder;
+  orderBy(fieldName: string, ascending?: boolean): QueryBuilder; // Default ascending
+  rowLimit(limit: number): QueryBuilder;
+  build(): string; // Produces the full <View>...</View> XML string
+}
+```
+
+---
+
+### 10. Notifications - Toast Notification Store
+
+The `notifications` utility is the **store and API** that powers `SPNotificationBar`. It is documented in full alongside the component — see [§17. SPNotificationBar](#17-spnotificationbar---toast-notification-bar).
+
+Quick reference:
+
+```typescript
+import { notify, dismiss, dismissAll, useNotifications } from 'spfx-toolkit/utilities/notifications';
+
+notify({ type: 'success', message: 'Saved!' });
+notify({ type: 'error', message: 'Failed.', duration: 0 });   // sticky
+notify({ type: 'warning', message: 'Slow response.', duration: 8000 });
+dismiss(id);
+dismissAll();
+const { notifications } = useNotifications();  // React hook
+```
 
 ---
 
@@ -5805,6 +6452,8 @@ Two surfaces:
 - `SPDebug.export.json()` returns a structured `ExportedSession` — useful for
   uploading to a back-end ticket system if your app does that.
 
+The Markdown export is **lossless**: it renders table rows with full entry JSON payloads, a Metrics section, and trace steps including nested sub-steps. The download is reliable. The review dialog offers **Copy** and **Download** for both Markdown and JSON formats, with an inline failure message if either operation fails.
+
 Markdown sections (in order):
 
 1. Summary (timestamps, label, note, active-at-export marker)
@@ -5813,17 +6462,90 @@ Markdown sections (in order):
 4. Console rows (full, chronological)
 5. Entries grouped by source
 6. Snapshots (key → JSON)
-7. Tables (key → row count + meta)
-8. Workflows (traces grouped by `(name, correlationId)`)
+7. Tables (key → row count + meta, full row data)
+8. Metrics section
+9. Workflows (traces grouped by `(name, correlationId)`, including nested sub-steps)
 
-The panel itself is intentionally one main console stream. Logs, events,
-timers, JSON payloads, snapshots, tables, metrics, and workflow traces appear
-in one chronological list with different row templates. Use search and filters
-to narrow the stream instead of switching tabs.
+The panel provides **six tabs**: Console, Data, Workflows, **Network**, **Permissions**, **Fields**. Use search and filters on the Console tab to narrow the stream.
 
 Review-before-export is governed by `export={{ requireReview: 'always' |
 'production' | 'never' }}` (default `'production'`). In production, users see
 a warning + preview before the copy/download buttons.
+
+### Network tab — opt-in REST inspector
+
+Attach the HTTP inspector to capture REST call method, URL, status, duration, and response size in the Network panel tab.
+
+```typescript
+import { attachHttpInspector } from 'spfx-toolkit/utilities/debug';
+
+// Option A — attach explicitly
+const detach = attachHttpInspector(SPContext.http, {
+  redactQueryStrings: true,   // Replace ?... with ?[redacted] in recorded URLs
+  slowThresholdMs: 2000,      // Rows above this threshold are flagged as slow
+});
+// Restore originals when done (e.g. on unmount / dispose)
+detach();
+
+// Option B — pass http prop to SPDebugProvider
+<SPDebugProvider
+  logger={SPContext.logger}
+  sites={SPContext.sites}
+  http={SPContext.http}
+  httpInspector={{ redactQueryStrings: true }}
+>
+  <App />
+</SPDebugProvider>
+```
+
+Each recorded row contains: `method`, `url` (optionally redacted), `status`, `durationMs`, `sizeBytes`, `source`, `recordedAt`, `slow`.
+
+**Disabled-cost contract:** when `captureEnabled === false`, the wrapped `get`/`post` methods call through to the originals with zero extra work.
+
+**Idempotency:** a second `attachHttpInspector` call on the same object is a no-op and returns a no-op detach function.
+
+### Permissions tab — per-component permission tracing
+
+```typescript
+import { useSPDebugPermission } from 'spfx-toolkit/components/debug';
+import { useHasPermission } from 'spfx-toolkit/hooks';
+import { PermissionKind } from '@pnp/sp/security';
+
+// Compose with useHasPermission
+const canEdit = useHasPermission(PermissionKind.EditListItems);
+useSPDebugPermission('Edit Items', canEdit.allowed, canEdit.loading);
+
+const canManage = useHasPermission(PermissionKind.ManageWeb);
+useSPDebugPermission('Manage Web', canManage.allowed, canManage.loading);
+```
+
+Each call upserts a row keyed by `label` into the `__permissions__` store table (rendered in the Permissions panel tab). No-op while capture is disabled.
+
+**Signature:**
+```typescript
+function useSPDebugPermission(label: string, allowed: boolean, loading?: boolean): void;
+```
+
+### Fields tab — SPDynamicForm field inspector
+
+```typescript
+import { useSPDebugFormFields } from 'spfx-toolkit/components/debug';
+
+const onResolvedField = useSPDebugFormFields();
+
+<SPDynamicForm
+  listId="..."
+  itemId={42}
+  onResolvedField={onResolvedField}   // ← wire here
+/>
+```
+
+Each resolved field is upserted into the `__form_fields__` store table (rendered in the Fields panel tab). Records `fieldName`, `type`, `label`, `required`, `hidden`, `readOnly`, and `overrideApplied` (true when any presentation property differs between `resolved` and `original`). The returned callback is a stable no-op while capture is disabled.
+
+**Signature:**
+```typescript
+function useSPDebugFormFields(): (resolved: IFieldMetadata, original: IFieldMetadata) => void;
+```
 
 ### Privacy note
 
@@ -6515,6 +7237,11 @@ SPContext.reset(): void;
 | spForm Controls | `name`, `control` | Field-specific props (`items`, `placeholder`, `rules`, etc.) |
 | SPField Components | `name`, `control` | `label`, `rules`, field-specific options (choices, allowMultiple, formatting) |
 | Lazy Components | Same as underlying component (`VersionHistory`, `ManageAccess`, etc.) | Use `preloadComponent` / `useLazyPreload` for smoother UX |
+| MyAccessView | _(none required)_ | `title`, `showRefresh`, `className`, `onError` |
+| UserAccessAdmin | _(none required)_ | `title`, `managePermission`, `allowBrowse`, `className`, `onError` |
+| GroupMembersList | `groupRef` | `showSearch`, `maxHeight`, `className`, `onMemberClick`, `emptyText` |
+| SPNotificationBar | _(none required)_ | `position`, `maxVisible`, `className` |
+| SPSiteSelector | `onSiteSelected` | `placeholder`, `rowLimit`, `recentSites`, `disabled`, `className`, `sp` |
 
 ---
 
@@ -6605,6 +7332,47 @@ import {
 // ErrorBoundary
 import { ErrorBoundary, useErrorHandler } from 'spfx-toolkit/components/ErrorBoundary';
 import type { IErrorBoundaryProps } from 'spfx-toolkit/components/ErrorBoundary';
+
+// SPNotificationBar (deep subpath — not in light barrel)
+import { SPNotificationBar } from 'spfx-toolkit/components/SPNotificationBar';
+import type { ISPNotificationBarProps } from 'spfx-toolkit/components/SPNotificationBar';
+
+// SPSiteSelector (deep subpath — not in light barrel)
+import { SPSiteSelector } from 'spfx-toolkit/components/SPSiteSelector';
+import type { ISPSiteSelectorProps, ISPSiteItem } from 'spfx-toolkit/components/SPSiteSelector';
+
+// User Access suite (deep subpath — not in light barrel)
+import {
+  MyAccessView,
+  UserAccessAdmin,
+  GroupMembersList,
+} from 'spfx-toolkit/components/userAccess';
+
+// Individual user access subpaths
+import { MyAccessView } from 'spfx-toolkit/components/userAccess/MyAccessView';
+import type { IMyAccessViewProps } from 'spfx-toolkit/components/userAccess/MyAccessView';
+import { UserAccessAdmin } from 'spfx-toolkit/components/userAccess/UserAccessAdmin';
+import type { IUserAccessAdminProps } from 'spfx-toolkit/components/userAccess/UserAccessAdmin';
+import { GroupMembersList } from 'spfx-toolkit/components/userAccess/GroupMembersList';
+import type { IGroupMembersListProps } from 'spfx-toolkit/components/userAccess/GroupMembersList';
+
+// User access primitives
+import { DirectPermissionsTable } from 'spfx-toolkit/components/userAccess/DirectPermissionsTable';
+import { PermissionLevelBadge } from 'spfx-toolkit/components/userAccess/PermissionLevelBadge';
+import { RequirePermission } from 'spfx-toolkit/components/userAccess/RequirePermission';
+import { UserGroupChips } from 'spfx-toolkit/components/userAccess/UserGroupChips';
+
+// SPDebug hooks
+import {
+  useSPDebugEnabled,
+  useSPDebugValue,
+  useSPDebugTable,
+  useSPDebugTimer,
+  useSPDebugTrace,
+  useSPDebugSession,
+  useSPDebugPermission,
+  useSPDebugFormFields,
+} from 'spfx-toolkit/components/debug';
 ```
 
 ### Hooks
@@ -6612,8 +7380,35 @@ import type { IErrorBoundaryProps } from 'spfx-toolkit/components/ErrorBoundary'
 Prefer these subpaths by default. Generated compatibility proxies allow them to resolve in classic SPFx projects too; keep `spfx-toolkit/lib/...` only as a legacy fallback during migration.
 
 ```typescript
+// Core hooks
 import { useLocalStorage } from 'spfx-toolkit/hooks';
 import { useViewport } from 'spfx-toolkit/hooks';
+
+// Debounce hooks
+import { useDebouncedValue, useDebouncedCallback } from 'spfx-toolkit/hooks';
+
+// SharePoint list / search hooks
+import { useListItems } from 'spfx-toolkit/hooks';
+import type { IUseListItemsOptions, IUseListItemsResult } from 'spfx-toolkit/hooks';
+import { useSPPagedQuery } from 'spfx-toolkit/hooks';
+import type { IUseSPPagedQueryOptions, IUseSPPagedQueryResult } from 'spfx-toolkit/hooks';
+import { useSPFieldMetadata } from 'spfx-toolkit/hooks';
+import type { IUseSPFieldMetadataOptions, ISPFieldMetadata } from 'spfx-toolkit/hooks';
+import { useSharePointSearch } from 'spfx-toolkit/hooks';
+import type { IUseSharePointSearchOptions, ISearchResultItem } from 'spfx-toolkit/hooks';
+
+// User access hooks
+import {
+  useHasPermission,
+  useUserAccess,
+  useUserAccessComparison,
+  useEffectiveListPermission,
+  useEffectiveItemPermission,
+  useSiteGroups,
+  useGroupMembers,
+  useGroupMembershipEditor,
+  useBrokenInheritanceLists,
+} from 'spfx-toolkit/hooks';
 ```
 
 ### Utilities
@@ -6655,6 +7450,32 @@ import {
   preloadComponent,
   useLazyPreload,
 } from 'spfx-toolkit/utilities/lazyLoader';
+
+// Notifications (also powers SPNotificationBar)
+import { notify, dismiss, dismissAll, useNotifications } from 'spfx-toolkit/utilities/notifications';
+import type { INotification, NotificationType } from 'spfx-toolkit/utilities/notifications';
+
+// CamlBuilder — fluent CAML query builder
+import { CamlBuilder } from 'spfx-toolkit/utilities/camlBuilder';
+import type { CamlFieldType, CamlFieldValue } from 'spfx-toolkit/utilities/camlBuilder';
+
+// UserAccess service & types
+import { userAccessService, UserAccessError, diffUserAccess } from 'spfx-toolkit/utilities/userAccess';
+import type {
+  IUserAccessLevel1,
+  IListPermission,
+  IItemPermission,
+  ISiteGroup,
+  ISiteUser,
+  IAccessDiff,
+  IBulkResult,
+  LoginInput,
+  ListRef,
+} from 'spfx-toolkit/utilities/userAccess';
+
+// Debug utilities
+import { attachHttpInspector } from 'spfx-toolkit/utilities/debug';
+import type { HttpInspectorOptions } from 'spfx-toolkit/utilities/debug';
 ```
 
 ---
@@ -6681,7 +7502,7 @@ import {
 
 ---
 
-**Last Updated:** March 7, 2026
+**Last Updated:** June 2026
 **Toolkit Version:** 1.0.0-alpha.1
 **Maintained By:** SPFx Toolkit Team
 

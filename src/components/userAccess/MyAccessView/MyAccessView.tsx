@@ -23,14 +23,21 @@ import './MyAccessView.css';
 
 function plainEnglishSummary(
   hasGroups: boolean,
-  hasDirect: boolean
+  hasDirect: boolean,
+  allDirectUnverified: boolean
 ): string {
   if (!hasGroups && !hasDirect) return 'No permissions detected on this site.';
   if (hasGroups && !hasDirect)
     return "You're a member of one or more site groups.";
-  if (!hasGroups && hasDirect)
-    return 'You have permissions granted on specific lists.';
-  return "You're a member of site groups AND have list-specific permissions.";
+  if (!hasGroups && hasDirect) {
+    return allDirectUnverified
+      ? 'You may have permissions on specific lists via group or Everyone membership — attribution could not be individually confirmed.'
+      : 'You have permissions granted on specific lists.';
+  }
+  // hasGroups && hasDirect
+  return allDirectUnverified
+    ? "You're a member of site groups. List-specific permissions were detected via group or Everyone membership and could not be individually confirmed."
+    : "You're a member of site groups AND have list-specific permissions.";
 }
 
 export const MyAccessView: React.FC<IMyAccessViewProps> = ({
@@ -88,7 +95,9 @@ export const MyAccessView: React.FC<IMyAccessViewProps> = ({
               <Text>
                 {plainEnglishSummary(
                   data.siteGroups.length > 0,
-                  data.directListPermissions.length > 0
+                  data.directListPermissions.length > 0,
+                  data.directListPermissions.length > 0 &&
+                    data.directListPermissions.every(d => d.membershipUnverified)
                 )}
               </Text>
 

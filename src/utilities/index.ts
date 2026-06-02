@@ -1,4 +1,6 @@
 export * from './batchBuilder';
+export * from './notifications';
+export * from './camlBuilder';
 export * from './browserStorage';
 export * from './context';
 export * from './dateUtils';

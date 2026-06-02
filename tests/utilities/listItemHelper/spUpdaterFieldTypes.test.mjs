@@ -911,3 +911,109 @@ describe('spUpdater — setDateOnly (Date Only column)', () => {
     assert.equal(u.hasChanges(), false);
   });
 });
+
+// ----------------------------------------------------------------------------
+// A3 regression: set() overload disambiguation when original value spells a type
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — set() original-value vs explicit-type disambiguation', () => {
+  // Core regression: a Choice field whose OLD value is the string 'boolean'
+  // must NOT be mis-classified as a boolean type.  The change must be detected.
+  test('set("Status","Active","boolean") — "boolean" is the original choice value, change is detected', () => {
+    // 3 args: field=Status, newValue='Active', originalValue='boolean'
+    // 'boolean' is a valid SPUpdateFieldType name, so the old code wrongly
+    // treated it as an explicit type rather than the original value.
+    const u = createSPUpdater().set('Status', 'Active', 'boolean');
+    // 'Active' !== 'boolean', so there MUST be a change
+    assert.equal(u.hasChanges(), true, 'change should be detected');
+    assert.deepEqual(u.getUpdates(), { Status: 'Active' });
+  });
+
+  test('set("Status","boolean","boolean") — same original as new value → no change', () => {
+    const u = createSPUpdater().set('Status', 'boolean', 'boolean');
+    assert.equal(u.hasChanges(), false, 'identical original and new value → no change');
+    assert.deepEqual(u.getUpdates(), {});
+  });
+
+  test('set("Status","Active","choice") — "choice" is the original value, change detected', () => {
+    const u = createSPUpdater().set('Status', 'Active', 'choice');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Status: 'Active' });
+  });
+
+  test('set("Status","date","date") — original value same as new → no change', () => {
+    const u = createSPUpdater().set('Status', 'date', 'date');
+    assert.equal(u.hasChanges(), false);
+  });
+
+  // 4-arg explicit type: original IS provided AND a separate explicit type
+  test('set("Status","Active","OldValue","choice") — 4-arg form uses explicit type and detects change', () => {
+    const u = createSPUpdater().set('Status', 'Active', 'OldValue', 'choice');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Status: 'Active' });
+  });
+
+  test('set("Status","same","same","choice") — 4-arg form, no change', () => {
+    const u = createSPUpdater().set('Status', 'same', 'same', 'choice');
+    assert.equal(u.hasChanges(), false);
+    assert.deepEqual(u.getUpdates(), {});
+  });
+
+  // Backward-compat: existing 3-arg use for empty arrays with explicit type MUST still work
+  test('set("Tags",[],"lookupMulti") — empty array + explicit type still works (no original)', () => {
+    const u = createSPUpdater().set('Tags', [], 'lookupMulti');
+    // empty array → no change by default (hasChanged depends on normalisation),
+    // but the update should be tagged as lookupMulti (TagsId: [])
+    assert.deepEqual(u.getUpdates(true), { TagsId: [] });
+  });
+
+  test('set("Choices",[],"multiChoice") — empty multiChoice still works', () => {
+    const u = createSPUpdater().set('Choices', [], 'multiChoice');
+    assert.deepEqual(u.getUpdates(true), { Choices: [] });
+  });
+});
+
+// ----------------------------------------------------------------------------
+// I2 regression: typed setters must not drop type-name-string values when
+// no original value is provided (the new value happens to spell a type name)
+// ----------------------------------------------------------------------------
+
+describe('spUpdater — typed setters with type-name-string values and no original', () => {
+  // setChoice('Status', 'choice') — the new value IS 'choice' (a type-name string)
+  // with NO original. Without a fix the setter calls set('Status','choice','choice')
+  // which puts 'choice' in the originalValue slot → no change detected → update dropped.
+  test('setChoice with value="choice" and no original writes the value', () => {
+    const u = createSPUpdater().setChoice('Status', 'choice');
+    assert.equal(u.hasChanges(), true, 'hasChanges() must be true');
+    assert.deepEqual(u.getUpdates(), { Status: 'choice' });
+  });
+
+  // setText('Field','boolean') — 'boolean' is a valid type name; must still write
+  test('setText with value="boolean" and no original writes the value', () => {
+    const u = createSPUpdater().setText('Field', 'boolean');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Field: 'boolean' });
+  });
+
+  // setChoice with a different type-name-string value
+  test('setChoice with value="date" and no original writes the value', () => {
+    const u = createSPUpdater().setChoice('X', 'date');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { X: 'date' });
+  });
+
+  // setText with value='string' (also a type name)
+  test('setText with value="string" and no original writes the value', () => {
+    const u = createSPUpdater().setText('Label', 'string');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Label: 'string' });
+  });
+
+  // Re-confirm the original A3 fix: 3-arg set() with type-name as original value
+  // must still detect a change (not misinterpret 3rd arg as explicit type)
+  test('set("Status","Active","boolean") — "boolean" is original value, change detected (A3 regression guard)', () => {
+    const u = createSPUpdater().set('Status', 'Active', 'boolean');
+    assert.equal(u.hasChanges(), true);
+    assert.deepEqual(u.getUpdates(), { Status: 'Active' });
+  });
+});
