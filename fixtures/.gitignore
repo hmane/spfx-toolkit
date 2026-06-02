@@ -3,3 +3,5 @@
 */dist/
 */stats.json
 last-verify-report.json
+# Lockfiles pin a per-build toolkit tarball integrity (causes staleness/churn) — not committed.
+*/package-lock.json

@@ -1,8 +1,8 @@
 // src/hooks/useGroupMembershipEditor.ts
 import * as React from 'react';
 import { PermissionKind } from '@pnp/sp/security';
-import '@pnp/sp/security';
-import '@pnp/sp/webs';
+import '../utilities/context/pnpImports/core';
+import '../utilities/context/pnpImports/security';
 
 import { SPContext } from '../utilities/context';
 import {

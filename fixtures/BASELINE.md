@@ -66,6 +66,26 @@ The fixture reproduces `npm link` by symlinking the toolkit (with its own `node_
 
 **§D — Numbers are environment-relative.** Compare Phase 1 deltas in the same environment; do not treat absolute bytes as portable.
 
+## Phase 1 result / delta (final, measured 2026-06-02, Node v22.14.0)
+
+`npm run fixtures:verify` after the Phase 1 refactor implemented as **Option 1 — per-feature minimal preset imports** (the central full-preset bootstrap was **rejected**, see below). **GATE: PASS.** Card-only did not regress — it improved. (A `verify.mjs` fix was also required: the fixture `package-lock.json` pinned the previous tarball's integrity, so the published fixture had been installing stale toolkit code; fixture lockfiles are now removed before install and git-ignored.)
+
+| Metric (published-style) | Phase 0 | Phase 1 (Option 1) | Delta |
+|---|---|---|---|
+| `light.js` (Card-only) | 884,502 | **836,190** | **−48,312 (−5.5%) — improved, no regression ✓** |
+| `app.js` (PnP feature) | 915,666 | **879,503** | **−36,163 (−3.9%) — improved** |
+| CSS bundled | true | true | ✓ |
+| no-extra-config build | true | true | ✓ |
+| `@pnp/sp` copies in bundle | 3 | **2** | improved |
+| `@pnp/spfx-controls-react` copies | 2 | **0** | improved |
+| `@fluentui/react` copies | 1 | 1 | — |
+
+`light.js` now contains **zero** PnP augmentation (`TermStore`/`siteGroups`/`taxonomy` all absent) — `Card` (PnP-free) pulls no augmentation.
+
+**Why the central full-preset bootstrap was rejected (recorded for posterity).** The first Phase 1 attempt centralized augmentation behind a single `ensurePnPAugmentations()` (full preset set) called from `SPContext.initialize()`. It regressed Card-only by ~+61 KB. Root cause (traced via webpack `reasons`): the toolkit compiles to **`module: commonjs`**, and tsc downlevels dynamic `await import('./x')` into an eager `require('./x')`, which webpack bundles into the same chunk (only a *true* surviving `import()` code-splits). Because `Card` imports `SPContext` (for `.logger`), and `sp-context.js` `require`d the bootstrap, the full preset graph landed in `Card`'s bundle. Three tuning fixes (lazy `import()`, dropping the `sideEffects` entry, removing the barrel re-export) all failed for the same reason — the constraint is the CJS compile target, not the import style. **Conclusion:** in a CJS library, reaching a full-preset bootstrap from `SPContext` necessarily bundles it into every `SPContext` consumer. So the bootstrap was deleted and each feature module now imports only the preset(s) it needs.
+
+**Accepted trade-off (Option 1):** raw `SPContext.sp.web.lists(...)` usage by a consumer who imports **no** PnP-backed toolkit feature still relies on the consumer loading the documented `pnpImports` bundle (the pre-existing status quo). The toolkit's own PnP-backed features each load their needed presets, so they work without consumer config.
+
 ## Files
 - `fixtures/consumer-published/` — tarball-install consumer (minimal `tsconfig` + webpack + `light`/`app` entries).
 - `fixtures/consumer-link/` — npm-link-equivalent consumer (toolkit symlinked by `verify.mjs`).

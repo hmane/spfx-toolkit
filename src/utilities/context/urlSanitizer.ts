@@ -66,30 +66,21 @@ export function buildSanitizedSpfxContext(ctx: any): any {
 }
 
 /**
- * PnP SPFx controls v3 bundles PnP JS v2 and its controls share a mutable
- * default runtime. The v2 URL resolver prefers `sp.baseUrl` over
- * `spfxContext`, so setting a clean base URL prevents another control's raw
- * `sp.setup({ pageContext })` call from reintroducing `/_layouts/15`.
+ * Installs the global `fetch` sanitizer so any late, layouts-based SharePoint
+ * `_api` request (e.g. from a PnP SPFx control that re-resolved a dirty
+ * `/_layouts/15` base) is rewritten to the clean `_api` URL at request time.
+ *
+ * The previous best-effort `require('@pnp/common')` and
+ * `require('@pnp/spfx-controls-react/node_modules/@pnp/sp')` base-URL mutations
+ * were removed: they reached into ESM-only / nested package paths (brittle, and
+ * they reinforced dependency nesting). The `fetch` interception below is the
+ * authoritative mechanism and needs no `@pnp` runtime module.
  */
 export function configureLegacyPnPBaseUrl(ctx: any): void {
   const cleanWebUrl = sanitizeSharePointSiteUrl(ctx?.pageContext?.web?.absoluteUrl);
   if (!cleanWebUrl) return;
 
   installSharePointApiUrlFetchSanitizer();
-
-  try {
-    const common = require('@pnp/common');
-    common.setup?.({ sp: { baseUrl: cleanWebUrl } });
-  } catch {
-    // Optional compatibility path for the PnP controls' bundled PnP v2 runtime.
-  }
-
-  try {
-    const legacySp = require('@pnp/spfx-controls-react/node_modules/@pnp/sp');
-    legacySp.sp?.setup?.({ sp: { baseUrl: cleanWebUrl } });
-  } catch {
-    // Package managers may hoist/dedupe the v2 dependency differently.
-  }
 }
 
 const FETCH_PATCH_FLAG = '__spfxToolkitSharePointApiUrlFetchSanitizer';

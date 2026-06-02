@@ -1,8 +1,6 @@
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/batching';
-import '@pnp/sp/items';
-import '@pnp/sp/lists';
-import '@pnp/sp/webs';
+import '../context/pnpImports/core';
+import '../context/pnpImports/lists';
 import { IBatchOperation } from '../../types/batchOperationTypes';
 
 /**

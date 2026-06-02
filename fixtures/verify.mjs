@@ -108,6 +108,9 @@ function cssBundled(distDir) {
   rmSync(join(PUBLISHED, 'node_modules'), { recursive: true, force: true });
   rmSync(join(PUBLISHED, 'dist'), { recursive: true, force: true });
   rmSync(join(PUBLISHED, 'stats.json'), { force: true });
+  // Remove the lockfile: it pins the previous tarball's integrity, which makes
+  // npm restore stale toolkit content even after the tarball is rebuilt.
+  rmSync(join(PUBLISHED, 'package-lock.json'), { force: true });
   const install = sh('npm install --no-audit --no-fund', PUBLISHED);
   stage.install = install.ok;
   if (!install.ok) stage.installError = install.out.slice(-2000);
@@ -134,6 +137,7 @@ function cssBundled(distDir) {
   rmSync(join(LINK, 'node_modules'), { recursive: true, force: true });
   rmSync(join(LINK, 'dist'), { recursive: true, force: true });
   rmSync(join(LINK, 'stats.json'), { force: true });
+  rmSync(join(LINK, 'package-lock.json'), { force: true });
   const install = sh('npm install --no-audit --no-fund', LINK);
   stage.install = install.ok;
   if (!install.ok) stage.installError = install.out.slice(-2000);
