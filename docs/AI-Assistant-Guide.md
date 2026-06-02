@@ -19,6 +19,7 @@
 - **Use tree-shakable Fluent UI imports** — `import { Button } from '@fluentui/react/lib/Button'`, never the bare barrel `import { Button } from '@fluentui/react'` (pulls 200–500KB+).
 - **Install only the peer deps a chosen feature needs** — see the matrix in §3. The `@microsoft/sp-*` packages are host-injected by SPFx (already present); don't add them.
 - **Never add a non-peer-dependency package.** The toolkit has zero runtime deps and the consuming app inherits that constraint.
+- **Load `pnpImports` only when you call raw `SPContext.sp` yourself.** Toolkit features that use PnP register the augmentation they need automatically. But `@pnp/sp` is modular — `.lists`, `.items`, `.fields`, `.search`, `.attachments`, etc. only exist after their augmentation module is imported. If *your own* code calls `SPContext.sp.web.lists.getByTitle(...)` (or any PnP chain) and no PnP-backed toolkit feature is mounted in that web part to pull it in, import the matching `spfx-toolkit/utilities/context/pnpImports/<key>` bundles **once** at your web part entry — otherwise the call fails at runtime (e.g. `.lists is not a function`). See §3 → "When do I need `pnpImports`?".
 - **Pass stable references to data hooks.** Don't pass a freshly-created `sp` instance or inline options object that changes every render — it re-fires the query.
 
 ---
@@ -39,6 +40,44 @@ The toolkit's `peerDependencies` are all that consumers may install. `peerDepend
 | `@microsoft/sp-*` (component-base, core-library, http, loader, webpart-base, etc.) | **host-injected** — already present in any SPFx project; do not install |
 
 CSS: toolkit components ship their own CSS automatically. Fluent UI CSS is already loaded by SPFx. DevExtreme CSS must be imported once globally if you use any DevExtreme wrapper.
+
+### When do I need `pnpImports`?
+
+`@pnp/sp` is modular: methods like `.web`, `.lists`, `.items`, `.fields`, `.search`, `.attachments`, `.taxonomy` only exist on the `sp` instance **after** their augmentation module has been imported once. The toolkit's own PnP-backed features import the presets they use, so they work with no setup.
+
+**You only load augmentation yourself when both are true:** (1) your code calls raw PnP through `SPContext.sp` / `spCached` / `spPessimistic`, **and** (2) no PnP-backed toolkit feature is mounted in that web part to register it for you. If you exclusively consume toolkit components/hooks/utilities and never write `SPContext.sp.web…` yourself, **skip this entirely.**
+
+Import once near your web part entry — these are **side-effect imports** (no symbols), and each is additive bundle weight, so load only the keys you use:
+
+```typescript
+// src/webparts/<yourWebPart>/pnpImports.ts  — import this file once from your web part
+import 'spfx-toolkit/utilities/context/pnpImports/core';     // .web, site users/groups, profiles (load first)
+import 'spfx-toolkit/utilities/context/pnpImports/lists';    // .lists, .items, .fields, .views, batching
+import 'spfx-toolkit/utilities/context/pnpImports/content';  // content types, list/site columns
+import 'spfx-toolkit/utilities/context/pnpImports/files';    // files, folders, attachments
+import 'spfx-toolkit/utilities/context/pnpImports/security'; // role assignments, sharing
+import 'spfx-toolkit/utilities/context/pnpImports/search';   // .search (KQL)
+import 'spfx-toolkit/utilities/context/pnpImports/taxonomy'; // .taxonomy (term store)
+import 'spfx-toolkit/utilities/context/pnpImports/siteGroups'; // site groups (for group/permission code)
+```
+
+```typescript
+// then, once, in your web part onInit (or the module that bootstraps it):
+import './pnpImports';
+```
+
+| Preset key | Enables (PnP surface) |
+|---|---|
+| `core` | `.web`, site users, site groups (read), profiles — the base; load it first |
+| `lists` | `.lists`, `.items`, `.fields`, `.views`, batching |
+| `content` | content types, list & site columns, column defaults |
+| `files` | files, folders, attachments |
+| `security` | role assignments / permission checks, sharing |
+| `search` | `.search` (KQL) — needed for `useSharePointSearch`, `SPSiteSelector` if you query yourself |
+| `taxonomy` | `.taxonomy` term store |
+| `siteGroups` | `.web.siteGroups` add/remove (group-membership editing) |
+
+> A convenience `pnpImports/presets` bundle re-exports most augmentations at once — handy for prototyping, but it pulls a large PnP surface; prefer the specific keys above for production bundles.
 
 ---
 
@@ -233,7 +272,8 @@ attachHttpInspector(SPContext.http, { slowThresholdMs: 1000 });
 
 ## 7. How to wire this into an AI assistant
 
-- Copy the **Golden rules (§2)** and the **per-feature peer-dep matrix (§3)** into the consuming project's `CLAUDE.md` and/or `.github/copilot-instructions.md`.
+- **Fastest path:** copy [`sample-consumer-copilot-instructions.md`](./sample-consumer-copilot-instructions.md) into your solution as `.github/copilot-instructions.md` (or `CLAUDE.md`). It distills the golden rules, peer-dep matrix, PnP-augmentation rule, and npm-link helper into a ready-to-use instruction file that points back to this guide and `Importing-Components.md` for detail.
+- Or hand-copy the **Golden rules (§2)** and the **per-feature peer-dep matrix (§3)** into the consuming project's `CLAUDE.md` and/or `.github/copilot-instructions.md`.
 - Point the assistant at `node_modules/spfx-toolkit/docs/Importing-Components.md` as the **authoritative** source for import paths — instruct it to copy paths from there rather than guessing deep subpaths.
 - These rules are tool-agnostic: they apply equally to Claude Code, Claude, GitHub Copilot, Cursor, and any other LLM coding assistant.
 - When the assistant proposes an import, it should verify the subpath exists in `spfx-toolkit`'s `package.json` `exports` (or is a valid `./lib/*` path). If unsure of a path or signature, prefer the canonical `spfx-toolkit/components/<Name>` form and check the doc.
