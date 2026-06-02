@@ -1,11 +1,9 @@
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/items';
-import '@pnp/sp/lists';
-import '@pnp/sp/security';
+import '../context/pnpImports/core';
+import '../context/pnpImports/lists';
+import '../context/pnpImports/security';
+import '../context/pnpImports/siteGroups';
 import { PermissionKind } from '@pnp/sp/security';
-import '@pnp/sp/site-groups';
-import '@pnp/sp/site-users';
-import '@pnp/sp/webs';
 
 import { SPContext } from '../context';
 import {

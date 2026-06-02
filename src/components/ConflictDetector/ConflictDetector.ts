@@ -1,6 +1,5 @@
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/lists';
-import '@pnp/sp/items';
+import '../../utilities/context/pnpImports/lists';
 import {
   ConflictDetectionOptions,
   ConflictInfo,

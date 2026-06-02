@@ -19,6 +19,8 @@
 - **Use tree-shakable Fluent UI imports** — `import { Button } from '@fluentui/react/lib/Button'`, never the bare barrel `import { Button } from '@fluentui/react'` (pulls 200–500KB+).
 - **Install only the peer deps a chosen feature needs** — see the matrix in §3. The `@microsoft/sp-*` packages are host-injected by SPFx (already present); don't add them.
 - **Never add a non-peer-dependency package.** The toolkit has zero runtime deps and the consuming app inherits that constraint.
+- **Do NOT add a `sideEffects` field to the consuming app's `package.json` to "fix" toolkit styles.** The toolkit already declares its own `sideEffects` (CSS/SCSS + augmentation), which ships with the package and protects its styles in any bundler — a published install bundles toolkit CSS with **zero** consumer config. Adding `sideEffects` (especially `sideEffects: false`) to your app can instead *drop* your own side-effect imports (`import './pnpImports'`, `import 'devextreme/dist/css/dx.light.css'`). Leave the field absent (SPFx default). See §3.1. Missing `@pnp/spfx-controls-react` styles are an **`npm link`-only** problem — fix them with the build helper (§3.1), not a `sideEffects` edit.
+- **Load `pnpImports` only when you call raw `SPContext.sp` yourself.** Toolkit features that use PnP register the augmentation they need automatically. But `@pnp/sp` is modular — `.lists`, `.items`, `.fields`, `.search`, `.attachments`, etc. only exist after their augmentation module is imported. If *your own* code calls `SPContext.sp.web.lists.getByTitle(...)` (or any PnP chain) and no PnP-backed toolkit feature is mounted in that web part to pull it in, import the matching `spfx-toolkit/utilities/context/pnpImports/<key>` bundles **once** at your web part entry — otherwise the call fails at runtime (e.g. `.lists is not a function`). See §3 → "When do I need `pnpImports`?".
 - **Pass stable references to data hooks.** Don't pass a freshly-created `sp` instance or inline options object that changes every render — it re-fires the query.
 
 ---
@@ -39,6 +41,65 @@ The toolkit's `peerDependencies` are all that consumers may install. `peerDepend
 | `@microsoft/sp-*` (component-base, core-library, http, loader, webpart-base, etc.) | **host-injected** — already present in any SPFx project; do not install |
 
 CSS: toolkit components ship their own CSS automatically. Fluent UI CSS is already loaded by SPFx. DevExtreme CSS must be imported once globally if you use any DevExtreme wrapper.
+
+### 3.1 Styling — how component CSS loads (and the `sideEffects` trap)
+
+**On a normal published / Artifacts install, all styling works with zero consumer config.** Do not add webpack tweaks or a `package.json` `sideEffects` entry to make toolkit styles appear — that is an anti-pattern that masks the real cause and can break your own builds.
+
+- **Toolkit's own component CSS** (Card, etc.): bundles automatically. The toolkit's `package.json` declares `sideEffects: ["**/*.css", "**/*.scss", …]`, which travels with the package and tells the bundler not to tree-shake those styles. Nothing to do in the consumer.
+- **Do NOT set `sideEffects` in the consuming app to fix this.** Your app's `sideEffects` field governs *your* files, not the toolkit's. Worse, `sideEffects: false` can make the bundler drop *your own* side-effect imports — `import './pnpImports'`, `import 'devextreme/dist/css/dx.light.css'` — causing missing PnP augmentation or unstyled DevExtreme controls. Leave the field absent (the SPFx default).
+- **DevExtreme controls** (VersionHistory, spForm, spFields, GroupUsersPicker): import the theme CSS **once**, globally — `import 'devextreme/dist/css/dx.light.css';`. This is a deliberate consumer import, not a `sideEffects` workaround.
+- **`@pnp/spfx-controls-react` controls** (ManageAccess people picker, PnP pickers): styled automatically on a published install — there is a single top-level copy and SPFx's SCSS-module loader compiles its `.module.scss`. **If these controls render *unstyled*, you are almost certainly running under `npm link`** (see next point) — it is **not** fixed by a `sideEffects` change.
+
+**`npm link` (debugging a local toolkit checkout) is the one case that needs a build change.** A linked toolkit keeps its own nested `@pnp/spfx-controls-react`, and SPFx's SCSS-module loader is path-scoped — it does not compile the nested copy's `.module.scss`, so PnP controls render unstyled (and heavy peers double-bundle). Fix it with the shipped, build-tool-agnostic helper — **not** a `sideEffects` edit:
+
+```js
+// config/fast-serve/webpack.extend.js  — npm link ONLY; a published install needs none of this
+const { applyToolkitWebpackFixes } = require('spfx-toolkit/build');
+module.exports = {
+  transformConfig: (cfg) => applyToolkitWebpackFixes(cfg, { consumerRoot: __dirname }),
+};
+```
+
+The helper dedupes the duplicated heavy peers and rewrites the nested controls' `.module.scss` → `.module.scss.js` so styles resolve. Full guide (incl. Heft + options): [`NPM-Link-Debug-Workflow.md`](./NPM-Link-Debug-Workflow.md). Never wire it into a production build.
+
+### When do I need `pnpImports`?
+
+`@pnp/sp` is modular: methods like `.web`, `.lists`, `.items`, `.fields`, `.search`, `.attachments`, `.taxonomy` only exist on the `sp` instance **after** their augmentation module has been imported once. The toolkit's own PnP-backed features import the presets they use, so they work with no setup.
+
+**You only load augmentation yourself when both are true:** (1) your code calls raw PnP through `SPContext.sp` / `spCached` / `spPessimistic`, **and** (2) no PnP-backed toolkit feature is mounted in that web part to register it for you. If you exclusively consume toolkit components/hooks/utilities and never write `SPContext.sp.web…` yourself, **skip this entirely.**
+
+Import once near your web part entry — these are **side-effect imports** (no symbols), and each is additive bundle weight, so load only the keys you use:
+
+```typescript
+// src/webparts/<yourWebPart>/pnpImports.ts  — import this file once from your web part
+import 'spfx-toolkit/utilities/context/pnpImports/core';     // .web, site users/groups, profiles (load first)
+import 'spfx-toolkit/utilities/context/pnpImports/lists';    // .lists, .items, .fields, .views, batching
+import 'spfx-toolkit/utilities/context/pnpImports/content';  // content types, list/site columns
+import 'spfx-toolkit/utilities/context/pnpImports/files';    // files, folders, attachments
+import 'spfx-toolkit/utilities/context/pnpImports/security'; // role assignments, sharing
+import 'spfx-toolkit/utilities/context/pnpImports/search';   // .search (KQL)
+import 'spfx-toolkit/utilities/context/pnpImports/taxonomy'; // .taxonomy (term store)
+import 'spfx-toolkit/utilities/context/pnpImports/siteGroups'; // site groups (for group/permission code)
+```
+
+```typescript
+// then, once, in your web part onInit (or the module that bootstraps it):
+import './pnpImports';
+```
+
+| Preset key | Enables (PnP surface) |
+|---|---|
+| `core` | `.web`, site users, site groups (read), profiles — the base; load it first |
+| `lists` | `.lists`, `.items`, `.fields`, `.views`, batching |
+| `content` | content types, list & site columns, column defaults |
+| `files` | files, folders, attachments |
+| `security` | role assignments / permission checks, sharing |
+| `search` | `.search` (KQL) — needed for `useSharePointSearch`, `SPSiteSelector` if you query yourself |
+| `taxonomy` | `.taxonomy` term store |
+| `siteGroups` | `.web.siteGroups` add/remove (group-membership editing) |
+
+> A convenience `pnpImports/presets` bundle re-exports most augmentations at once — handy for prototyping, but it pulls a large PnP surface; prefer the specific keys above for production bundles.
 
 ---
 
@@ -228,12 +289,16 @@ attachHttpInspector(SPContext.http, { slowThresholdMs: 1000 });
 | Use `Comments`/`VersionHistory`/`spForm` without their peer deps | Install per-feature peer deps from §3 (`react-mentions`, `devextreme*`, `react-hook-form`, …) |
 | Pass a new `sp`/options object each render to data hooks | Pass `SPContext.sp` + memoized options |
 | `import { x } from 'spfx-toolkit/utils'` (whole barrel) | Import the specific `spfx-toolkit/utilities/<name>` |
+| Add `sideEffects` (esp. `sideEffects: false`) to the app `package.json` to "fix" toolkit styles | Leave it absent — toolkit CSS bundles automatically; setting it can drop your own `pnpImports`/DevExtreme CSS imports (§3.1) |
+| "Fix" unstyled `@pnp/spfx-controls-react` controls with a `sideEffects`/manual webpack edit | If published: no fix needed. If `npm link`: apply `applyToolkitWebpackFixes` from `spfx-toolkit/build` (§3.1) |
 
 ---
 
 ## 7. How to wire this into an AI assistant
 
-- Copy the **Golden rules (§2)** and the **per-feature peer-dep matrix (§3)** into the consuming project's `CLAUDE.md` and/or `.github/copilot-instructions.md`.
+- **Fastest path:** copy [`sample-consumer-copilot-instructions.md`](./sample-consumer-copilot-instructions.md) into your solution as `.github/copilot-instructions.md` (or `CLAUDE.md`). It distills the golden rules, peer-dep matrix, PnP-augmentation rule, and npm-link helper into a ready-to-use instruction file that points back to this guide and `Importing-Components.md` for detail.
+- Or hand-copy the **Golden rules (§2)** and the **per-feature peer-dep matrix (§3)** into the consuming project's `CLAUDE.md` and/or `.github/copilot-instructions.md`.
 - Point the assistant at `node_modules/spfx-toolkit/docs/Importing-Components.md` as the **authoritative** source for import paths — instruct it to copy paths from there rather than guessing deep subpaths.
 - These rules are tool-agnostic: they apply equally to Claude Code, Claude, GitHub Copilot, Cursor, and any other LLM coding assistant.
 - When the assistant proposes an import, it should verify the subpath exists in `spfx-toolkit`'s `package.json` `exports` (or is a valid `./lib/*` path). If unsure of a path or signature, prefer the canonical `spfx-toolkit/components/<Name>` form and check the doc.
+- **Debugging a local toolkit checkout via `npm link`?** Apply the one-call `spfx-toolkit/build` helper in the consumer's webpack config — see [`NPM-Link-Debug-Workflow.md`](./NPM-Link-Debug-Workflow.md). A normal published install needs no such change.

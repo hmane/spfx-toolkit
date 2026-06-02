@@ -1,6 +1,6 @@
 import { SPContext } from '../context';
-import '@pnp/sp/lists';
-import '@pnp/sp/webs';
+import '../context/pnpImports/core';
+import '../context/pnpImports/lists';
 import type { IListWithUniqueRoles, IUserAccessConfig } from './types';
 
 type RawList = {

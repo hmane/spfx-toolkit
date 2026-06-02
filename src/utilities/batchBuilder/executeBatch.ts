@@ -1,5 +1,5 @@
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/batching';
+import '../context/pnpImports/lists';
 import {
   ExecuteBatchReturn,
   IBatchedOperationTracker,

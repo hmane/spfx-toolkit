@@ -1,9 +1,8 @@
 // src/hooks/useSPPagedQuery.ts
 import * as React from 'react';
 import type { SPFI } from '@pnp/sp';
-import '@pnp/sp/webs';
-import '@pnp/sp/lists';
-import '@pnp/sp/items';
+import '../utilities/context/pnpImports/core';
+import '../utilities/context/pnpImports/lists';
 import { SPContext } from '../utilities/context';
 import { buildListQuery, isGuid, IListQueryOptions } from './useListItems';
 

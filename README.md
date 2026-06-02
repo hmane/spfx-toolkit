@@ -27,6 +27,8 @@ This package now ships compatibility proxy entrypoints, so `spfx-toolkit/compone
 
 See [Bundle Size Optimization](#-bundle-size-optimization) for additional bundle-impact details.
 
+**Debugging a local checkout via `npm link`?** See [docs/NPM-Link-Debug-Workflow.md](docs/NPM-Link-Debug-Workflow.md) — a one-call `spfx-toolkit/build` helper that dedupes heavy peers and fixes nested `@pnp/spfx-controls-react` styles under link. A normal published install needs none of this.
+
 ---
 
 ## ✨ Features

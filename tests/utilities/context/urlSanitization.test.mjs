@@ -79,32 +79,29 @@ describe('SPContext URL sanitization', () => {
     assert.equal(sanitized.serviceScope, raw.serviceScope);
   });
 
-  test('legacy PnP v2 base URL is forced clean even after dirty pageContext setup', async () => {
-    const [{ sp }, { toAbsoluteUrl }] = await Promise.all([
-      import('../../../node_modules/@pnp/spfx-controls-react/node_modules/@pnp/sp/index.js'),
-      import('../../../node_modules/@pnp/spfx-controls-react/node_modules/@pnp/sp/utils/toabsoluteurl.js'),
-    ]);
-
-    sp.setup({
-      pageContext: {
-        web: {
-          absoluteUrl: 'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6',
+  test('configureLegacyPnPBaseUrl installs the fetch sanitizer (no @pnp runtime module) and rewrites dirty /_layouts/15/_api URLs', () => {
+    const prevFetch = globalThis.fetch;
+    const seen = [];
+    globalThis.fetch = (input) => {
+      seen.push(String(input));
+      return Promise.resolve({ ok: true });
+    };
+    // Ensure not already patched by a prior test so the install actually wraps our stub.
+    delete globalThis.__spfxToolkitSharePointApiUrlFetchSanitizer;
+    try {
+      configureLegacyPnPBaseUrl({
+        pageContext: {
+          web: {
+            absoluteUrl: 'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6',
+          },
         },
-      },
-    });
-
-    configureLegacyPnPBaseUrl({
-      pageContext: {
-        web: {
-          absoluteUrl: 'https://contoso.sharepoint.com/sites/demo/_layouts/15/SPListForm.aspx?PageType=6',
-        },
-      },
-    });
-
-    assert.equal(
-      await toAbsoluteUrl('_api/v2.1/termstore/sets/example'),
-      'https://contoso.sharepoint.com/sites/demo/_api/v2.1/termstore/sets/example'
-    );
+      });
+      globalThis.fetch('https://contoso.sharepoint.com/sites/demo/_layouts/15/_api/web/lists');
+      assert.equal(seen[0], 'https://contoso.sharepoint.com/sites/demo/_api/web/lists');
+    } finally {
+      globalThis.fetch = prevFetch;
+      delete globalThis.__spfxToolkitSharePointApiUrlFetchSanitizer;
+    }
   });
 
   test('fetch sanitizer rewrites late layouts-based SharePoint API requests', async () => {

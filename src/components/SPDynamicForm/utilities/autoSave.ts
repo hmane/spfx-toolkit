@@ -19,9 +19,8 @@
  */
 
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/items';
-import '@pnp/sp/lists';
-import '@pnp/sp/webs';
+import '../../../utilities/context/pnpImports/core';
+import '../../../utilities/context/pnpImports/lists';
 import { SPContext } from '../../../utilities/context';
 import { getListByNameOrId } from '../../../utilities/spHelper';
 import { createSPUpdater } from '../../../utilities/listItemHelper';

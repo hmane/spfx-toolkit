@@ -6,8 +6,8 @@
  */
 
 import { SPFI } from '@pnp/sp';
-import '@pnp/sp/webs';
-import '@pnp/sp/lists';
+import '../context/pnpImports/core';
+import '../context/pnpImports/lists';
 
 /**
  * Checks if a string is a valid GUID (Globally Unique Identifier)
