@@ -20,6 +20,7 @@ import { TagBox } from 'devextreme-react/tag-box';
 import TextBox from 'devextreme-react/text-box';
 import * as React from 'react';
 import { Controller, RegisterOptions, useWatch } from 'react-hook-form';
+import { ensureDevExtremeListSelection } from '../../../utilities/devextreme/ensureListSelection';
 import {
   DefaultSPChoiceFieldProps,
   ISPChoiceFieldProps,
@@ -31,6 +32,8 @@ import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/val
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
+
+ensureDevExtremeListSelection();
 
 /**
  * SPChoiceField component for choice and multi-choice selection

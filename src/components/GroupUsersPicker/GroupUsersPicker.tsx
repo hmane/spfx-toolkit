@@ -15,8 +15,11 @@ import { DefaultGroupUsersPickerProps, IGroupUser, IGroupUsersPickerProps } from
 import { useGroupUsers } from './hooks/useGroupUsers';
 import { ensureUsers } from './utils/ensureUserHelper';
 import { getInitials } from '../UserPersona/UserPersonaUtils';
+import { ensureDevExtremeListSelection } from '../../utilities/devextreme/ensureListSelection';
 import { SPContext } from '../../utilities/context';
 import './GroupUsersPicker.css';
+
+ensureDevExtremeListSelection();
 
 /**
  * Avatar component with state-driven fallback for image errors

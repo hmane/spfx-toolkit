@@ -20,6 +20,7 @@ import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import { Icon } from '@fluentui/react/lib/Icon';
 import { mergeStyles } from '@fluentui/react/lib/Styling';
 import { useTheme } from '@fluentui/react/lib/Theme';
+import { ensureDevExtremeListSelection } from '../../../utilities/devextreme/ensureListSelection';
 import { ISPLookupFieldProps, SPLookupDisplayMode } from './SPLookupField.types';
 import { ISPLookupFieldValue } from '../types';
 import { SPContext } from '../../../utilities/context';
@@ -28,6 +29,8 @@ import { isDevExtremeUserValueChange } from '../../spForm/DevExtremeControls/val
 import { useFormContext } from '../../spForm/context/FormContext';
 import { addValidateRule, hasValue, resolveFieldValidationState, shouldRenderFieldValidationMessage } from '../validation';
 import '../spFields.css';
+
+ensureDevExtremeListSelection();
 
 // Lazy load ListItemPicker to avoid loading its CSS when SPLookupField is not used in searchable mode
 // This prevents ComboBoxListItemPicker.module.scss from being bundled when not needed

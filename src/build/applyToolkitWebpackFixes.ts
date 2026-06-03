@@ -9,10 +9,11 @@
  * SPFx's normal gulp build resolves the bare `.module.scss` request to that artifact; fast-serve's webpack
  * does not, so the import fails ("Can't resolve './X.module.scss'"). This helper adds a single
  * `NormalModuleReplacementPlugin` that rewrites the request to whichever artifact actually exists.
+ * It also aliases `@microsoft/sp-lodash-subset` to a tiny local shim for fast-serve form customizers,
+ * where SharePoint can otherwise try to load that SPFx framework external from `relative-path.invalid`.
  *
- * INTENTIONALLY NARROW: no dependency dedupe, no peer aliasing, no `resolve.symlinks` changes. It only
- * rewrites `@pnp/spfx-controls-react` `.module.scss` requests (top-level OR nested copy) and is a no-op
- * for everything else. Production builds and stock `gulp serve` need none of this.
+ * INTENTIONALLY NARROW: no dependency dedupe, no broad peer aliasing, no `resolve.symlinks` changes.
+ * Production builds and stock `gulp serve` need none of this.
  */
 import * as path from 'path';
 import * as fs from 'fs';
@@ -22,6 +23,8 @@ export interface ToolkitWebpackFixOptions {
   webpack?: { NormalModuleReplacementPlugin: any };
   /** Optional warning sink. Default: no-op. */
   onWarn?: (message: string) => void;
+  /** Alias `@microsoft/sp-lodash-subset` to a local shim. Default: true. */
+  shimSpLodashSubset?: boolean;
 }
 
 /** Path fragment identifying the `@pnp/spfx-controls-react` compiled controls dir, at ANY nesting depth —
@@ -76,6 +79,12 @@ export function applyToolkitWebpackFixes<T extends { plugins?: any[] }>(
   options: ToolkitWebpackFixOptions = {}
 ): T {
   const onWarn = options.onWarn || ((): void => undefined);
+  if (options.shimSpLodashSubset !== false) {
+    const cfg = config as T & { resolve?: { alias?: Record<string, string> } };
+    cfg.resolve = cfg.resolve || {};
+    cfg.resolve.alias = cfg.resolve.alias || {};
+    cfg.resolve.alias['@microsoft/sp-lodash-subset'] = path.join(__dirname, 'spLodashSubsetShim.js');
+  }
 
   let webpack = options.webpack;
   if (!webpack) {

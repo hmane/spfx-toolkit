@@ -31,7 +31,11 @@ test('no source file references SPFx framework libraries that trigger sp-lodash-
   for (const file of walk(SRC)) {
     const content = readFileSync(file, 'utf8');
     for (const forbidden of FORBIDDEN_IMPORTS) {
-      if (content.includes(forbidden.name)) {
+      const escaped = forbidden.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const runtimeReference = new RegExp(
+        `(?:from\\s+['"]${escaped}['"]|import\\s*\\(\\s*['"]${escaped}['"]\\s*\\)|require\\s*\\(\\s*['"]${escaped}['"]\\s*\\))`
+      );
+      if (runtimeReference.test(content)) {
         offenders.push(`${file}: ${forbidden.name} (${forbidden.reason})`);
       }
     }

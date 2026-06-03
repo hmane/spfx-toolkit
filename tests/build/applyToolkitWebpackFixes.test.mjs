@@ -50,8 +50,8 @@ describe('rewriteControlScssRequest (pure, artifact-aware)', () => {
   });
 });
 
-describe('applyToolkitWebpackFixes (narrow: scss-rewrite plugin only)', () => {
-  test('adds ONLY the NormalModuleReplacementPlugin and preserves unrelated config; no symlinks/alias', () => {
+describe('applyToolkitWebpackFixes (narrow: scss rewrite + form-customizer lodash shim)', () => {
+  test('adds the scss plugin and only the lodash-subset shim alias; no symlink/dedupe aliases', () => {
     class FakeNMRP {
       constructor(re, cb) {
         this.re = re;
@@ -71,9 +71,19 @@ describe('applyToolkitWebpackFixes (narrow: scss-rewrite plugin only)', () => {
     assert.deepEqual(out.module, { rules: [] }, 'module untouched');
     assert.equal(out.plugins[0].name, 'keep', 'existing plugin preserved');
 
-    // No dedupe/alias behavior remains:
+    // No dedupe behavior returns:
     assert.equal(out.resolve.symlinks, undefined, 'must NOT set resolve.symlinks');
-    assert.deepEqual(out.resolve.alias, { existing: '/x' }, 'must NOT add any resolve.alias entries');
+    assert.equal(out.resolve.alias.existing, '/x', 'existing alias preserved');
+    assert.match(
+      out.resolve.alias['@microsoft/sp-lodash-subset'],
+      /spLodashSubsetShim\.js$/,
+      'only framework shim alias should be added'
+    );
+    assert.deepEqual(
+      Object.keys(out.resolve.alias).sort(),
+      ['@microsoft/sp-lodash-subset', 'existing'].sort(),
+      'must not add broad peer aliases'
+    );
 
     // Exactly one plugin added, and it is the scss NMRP:
     assert.equal(out.plugins.length, 2);
@@ -104,6 +114,20 @@ describe('applyToolkitWebpackFixes (narrow: scss-rewrite plugin only)', () => {
       onWarn: (m) => warnings.push(m),
     });
     assert.equal(out.plugins.length, 0, 'no plugin added when NMRP unavailable');
+    assert.match(out.resolve.alias['@microsoft/sp-lodash-subset'], /spLodashSubsetShim\.js$/);
     assert.ok(warnings.some((w) => w.includes('NormalModuleReplacementPlugin')), 'should warn');
+  });
+
+  test('can disable the lodash-subset shim alias explicitly', () => {
+    class FakeNMRP {
+      constructor(re, cb) {
+        this.cb = cb;
+      }
+    }
+    const out = applyToolkitWebpackFixes({ resolve: { alias: {} } }, {
+      webpack: { NormalModuleReplacementPlugin: FakeNMRP },
+      shimSpLodashSubset: false,
+    });
+    assert.equal(out.resolve.alias['@microsoft/sp-lodash-subset'], undefined);
   });
 });

@@ -1,4 +1,5 @@
 import { isEqual } from '../../../utilities/internal/isEqual';
+import { ensureDevExtremeListSelection } from '../../../utilities/devextreme/ensureListSelection';
 import { SelectBox } from 'devextreme-react/select-box';
 import * as React from 'react';
 import { Controller, FieldValues, Path } from 'react-hook-form';
@@ -10,6 +11,8 @@ import {
   resolveDevExtremeValidationState,
   useControllableValue,
 } from './validation';
+
+ensureDevExtremeListSelection();
 
 export interface IDevExtremeSelectBoxProps<T extends FieldValues> extends IDevExtremeValidationProps {
   name: Path<T> | string;
