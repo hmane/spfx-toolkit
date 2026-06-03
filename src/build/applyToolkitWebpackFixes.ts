@@ -1,131 +1,117 @@
 /**
- * Build-tool-agnostic webpack fixes for consuming spfx-toolkit via `npm link`.
+ * Narrow webpack fix for consuming `@pnp/spfx-controls-react` controls in build pipelines that do
+ * NOT replicate SPFx's SCSS-module resolution (notably spfx-fast-serve, and potentially Heft).
  *
- * `buildPeerAliases` and `rewriteControlScssRequest` are PURE. `applyToolkitWebpackFixes`
- * is an ADDITIVE IN-PLACE transform: it mutates the passed webpack config (adding
- * `resolve.symlinks=false`, dedup aliases, and one NormalModuleReplacementPlugin) and
- * returns the SAME object. Unrelated config keys are preserved. No SPFx/runtime
- * dependency; safe to call from fast-serve `webpack.extend.js` and a Heft webpack hook.
+ * `@pnp/spfx-controls-react` controls do `import styles from './X.module.scss'` but ship a precompiled
+ * artifact instead of a raw `.module.scss`:
+ *   - v3.24+ ships `X.module.scss.css` (real CSS)
+ *   - v3.22  ships `X.module.scss.js` (a styles module)
+ * SPFx's normal gulp build resolves the bare `.module.scss` request to that artifact; fast-serve's webpack
+ * does not, so the import fails ("Can't resolve './X.module.scss'"). This helper adds a single
+ * `NormalModuleReplacementPlugin` that rewrites the request to whichever artifact actually exists.
+ *
+ * INTENTIONALLY NARROW: no dependency dedupe, no peer aliasing, no `resolve.symlinks` changes. It only
+ * rewrites `@pnp/spfx-controls-react` `.module.scss` requests (top-level OR nested copy) and is a no-op
+ * for everything else. Production builds and stock `gulp serve` need none of this.
  */
 import * as path from 'path';
+import * as fs from 'fs';
 
 export interface ToolkitWebpackFixOptions {
-  /** Peers to alias to the consumer's single copy. `false` disables aliasing. Default: DEFAULT_ALIAS_PEERS. */
-  aliasPeers?: ReadonlyArray<string> | false;
-  /** Set `resolve.symlinks = false` so a linked toolkit resolves peers from the consumer tree. Default: true. */
-  dedupeSymlinks?: boolean;
-  /** Rewrite nested @pnp/spfx-controls-react `.module.scss` -> `.module.scss.js`. Default: true. */
-  rewriteControlScss?: boolean;
-  /** Root to resolve the consumer's peers (and webpack) from. Default: process.cwd(). */
-  consumerRoot?: string;
-  /** Inject the webpack instance to use for the plugin. If omitted, webpack is lazy-resolved from consumerRoot. */
+  /** Inject the webpack instance for the plugin. If omitted, webpack is resolved via require('webpack'). */
   webpack?: { NormalModuleReplacementPlugin: any };
   /** Optional warning sink. Default: no-op. */
   onWarn?: (message: string) => void;
 }
 
-/** Default alias set: version-stable peers + `@pnp/spfx-controls-react`.
- *  `@pnp/sp` and `@pnp/queryable` are intentionally EXCLUDED — `@pnp/spfx-controls-react`
- *  bundles @pnp/sp v2, so aliasing the bare core PnP packages to the consumer's v3 copy
- *  would redirect the controls' nested v2 imports to v3 and break them. Opt in via
- *  `options.aliasPeers` only if you understand that hazard. */
-export const DEFAULT_ALIAS_PEERS: ReadonlyArray<string> = [
-  'react',
-  'react-dom',
-  '@fluentui/react',
-  '@pnp/spfx-controls-react',
-  'devextreme',
-  'devextreme-react',
-  'react-hook-form',
-  'react-mentions',
-  'zustand',
-];
+/** Path fragment identifying the `@pnp/spfx-controls-react` compiled controls dir, at ANY nesting depth —
+ *  matches both the top-level `node_modules/@pnp/spfx-controls-react/lib/` and a nested
+ *  `node_modules/spfx-toolkit/node_modules/@pnp/spfx-controls-react/lib/`. */
+const CONTROLS_LIB_NEEDLE =
+  `${path.sep}node_modules${path.sep}@pnp${path.sep}spfx-controls-react${path.sep}lib${path.sep}`;
 
-/** PURE: build a `resolve.alias` map pointing each resolvable peer at the consumer's package dir. */
-export function buildPeerAliases(
-  peers: ReadonlyArray<string>,
-  resolvePeer: (peer: string) => string | undefined
-): Record<string, string> {
-  const alias: Record<string, string> = {};
-  for (const peer of peers) {
-    const dir = resolvePeer(peer);
-    if (dir) {
-      alias[peer] = dir; // bare name -> consumer dir (also covers subpath imports)
-    }
-  }
-  return alias;
-}
+/** css-loader options for the precompiled `.module.scss.css` (real CSS) case. `[local]` preserves the
+ *  control's own class names so `styles.x` lines up with the shipped CSS. */
+const CSS_LOADER_QUERY = JSON.stringify({ modules: { localIdentName: '[local]' } });
 
-/** PURE: given a webpack request + importing context, return the rewritten request
- *  (or undefined to leave it alone). Rewrites ONLY `.module.scss` imported from the
- *  NESTED linked-toolkit controls copy
- *  (`.../node_modules/spfx-toolkit/node_modules/@pnp/spfx-controls-react/...`),
- *  never a top-level consumer copy of `@pnp/spfx-controls-react`. */
-export function rewriteControlScssRequest(request: string, context: string): string | undefined {
+/**
+ * PURE: given a webpack request + importing context, return the rewritten request (or `undefined` to
+ * leave it alone). Rewrites ONLY `.module.scss` imported from a `@pnp/spfx-controls-react/lib` directory,
+ * artifact/version aware:
+ *   - if `<request>.css` exists  -> inline-loader chain for that CSS (v3.24+)
+ *   - else if `<request>.js` exists -> `<request>.js` (v3.22)
+ *   - else -> undefined (never touch a real `.scss` or an unknown layout)
+ *
+ * `fileExists` is injected so this stays pure and testable. The `.css` case is pinned to an inline loader
+ * chain (leading `!!`) so a consumer's own `.css` rule (e.g. fast-serve's) does not ALSO process it — that
+ * double pass is what produces the css-loader "Unknown word: import" error.
+ */
+export function rewriteControlScssRequest(
+  request: string,
+  context: string,
+  fileExists: (absolutePath: string) => boolean
+): string | undefined {
   if (!request.endsWith('.module.scss')) {
     return undefined;
   }
-  const needle =
-    `${path.sep}node_modules${path.sep}spfx-toolkit${path.sep}node_modules${path.sep}` +
-    `@pnp${path.sep}spfx-controls-react${path.sep}`;
-  if (!context || context.indexOf(needle) < 0) {
+  if (!context || context.indexOf(CONTROLS_LIB_NEEDLE) < 0) {
     return undefined;
   }
-  return `${request}.js`;
+  const base = path.resolve(context, request);
+  if (fileExists(base + '.css')) {
+    return `!!style-loader!css-loader?${CSS_LOADER_QUERY}!${request}.css`;
+  }
+  if (fileExists(base + '.js')) {
+    return `${request}.js`;
+  }
+  return undefined;
 }
 
-export function applyToolkitWebpackFixes<T extends { resolve?: any; plugins?: any[] }>(
+/**
+ * Add the `@pnp/spfx-controls-react` `.module.scss` resolver plugin to a webpack config, in place, and
+ * return the same config object. Adds nothing else — no aliases, no `resolve.symlinks`, no dedupe.
+ */
+export function applyToolkitWebpackFixes<T extends { plugins?: any[] }>(
   config: T,
   options: ToolkitWebpackFixOptions = {}
 ): T {
-  const consumerRoot = options.consumerRoot || process.cwd();
   const onWarn = options.onWarn || ((): void => undefined);
 
-  config.resolve = config.resolve || {};
-  config.resolve.alias = config.resolve.alias || {};
+  let webpack = options.webpack;
+  if (!webpack) {
+    try {
+      // Provided by the consumer's build (fast-serve / Heft both bundle webpack).
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      webpack = require('webpack');
+    } catch {
+      onWarn('spfx-toolkit/build: webpack not resolvable; skipping @pnp/spfx-controls-react .module.scss fix');
+      return config;
+    }
+  }
+  if (!webpack || !webpack.NormalModuleReplacementPlugin) {
+    onWarn('spfx-toolkit/build: webpack.NormalModuleReplacementPlugin unavailable; skipping fix');
+    return config;
+  }
+
   config.plugins = config.plugins || [];
-
-  // 1. dedupe linked-toolkit peers to the consumer tree (primary mechanism)
-  if (options.dedupeSymlinks !== false) {
-    config.resolve.symlinks = false;
-  }
-
-  // 2. alias version-stable peers to the consumer's single copy
-  if (options.aliasPeers !== false) {
-    const peers = Array.isArray(options.aliasPeers) ? options.aliasPeers : DEFAULT_ALIAS_PEERS;
-    const resolvePeer = (peer: string): string | undefined => {
-      try {
-        return path.dirname((require as any).resolve(`${peer}/package.json`, { paths: [consumerRoot] }));
-      } catch {
-        onWarn(`spfx-toolkit/build: peer '${peer}' not resolvable from ${consumerRoot}; skipping alias`);
-        return undefined;
-      }
-    };
-    Object.assign(config.resolve.alias, buildPeerAliases(peers, resolvePeer));
-  }
-
-  // 3. rewrite nested linked-toolkit @pnp/spfx-controls-react .module.scss -> precompiled .module.scss.js
-  if (options.rewriteControlScss !== false) {
-    let webpack = options.webpack;
-    if (!webpack) {
-      try {
-        // webpack is provided by the consumer build (fast-serve / Heft); resolve from consumerRoot.
-        webpack = require((require as any).resolve('webpack', { paths: [consumerRoot] }));
-      } catch {
-        onWarn('spfx-toolkit/build: webpack not resolvable; skipping .module.scss rewrite');
-      }
-    }
-    if (webpack && webpack.NormalModuleReplacementPlugin) {
-      config.plugins.push(
-        new webpack.NormalModuleReplacementPlugin(/\.module\.scss$/, (resource: any) => {
-          const rewritten = rewriteControlScssRequest(resource.request, resource.context || '');
-          if (rewritten) {
-            resource.request = rewritten;
+  config.plugins.push(
+    new webpack.NormalModuleReplacementPlugin(/\.module\.scss$/, (resource: any) => {
+      const rewritten = rewriteControlScssRequest(
+        resource.request,
+        resource.context || '',
+        (p: string): boolean => {
+          try {
+            return fs.existsSync(p);
+          } catch {
+            return false;
           }
-        })
+        }
       );
-    }
-  }
+      if (rewritten) {
+        resource.request = rewritten;
+      }
+    })
+  );
 
   return config;
 }
