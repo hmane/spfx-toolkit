@@ -1,5 +1,5 @@
 import { BaseComponentContext } from '@microsoft/sp-component-base';
-import { isEqual } from '@microsoft/sp-lodash-subset';
+import { isEqual } from '../../../utilities/internal/isEqual';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
 import * as React from 'react';
 

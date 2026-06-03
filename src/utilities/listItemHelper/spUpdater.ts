@@ -45,7 +45,7 @@
  * @packageDocumentation
  */
 
-import { isEqual } from '@microsoft/sp-lodash-subset';
+import { isEqual } from '../internal/isEqual';
 import { IListItemFormUpdateValue, IPrincipal } from '../../types';
 
 /**
