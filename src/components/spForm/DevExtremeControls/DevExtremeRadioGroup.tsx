@@ -1,4 +1,4 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
+import { isEqual } from '../../../utilities/internal/isEqual';
 import { RadioGroup } from 'devextreme-react/radio-group';
 import * as React from 'react';
 import { Controller, FieldValues, Path } from 'react-hook-form';

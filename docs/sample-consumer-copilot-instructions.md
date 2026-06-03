@@ -44,8 +44,8 @@ If a path or signature is uncertain, open those files and copy from them. Do not
    declares its own `sideEffects` (CSS/SCSS + augmentation); toolkit CSS bundles automatically on a published
    install with zero config. Adding `sideEffects` here — especially `sideEffects: false` — can *drop* your own
    side-effect imports (`import './pnpImports'`, `import 'devextreme/dist/css/dx.light.css'`). Leave it absent.
-   Unstyled `@pnp/spfx-controls-react` controls are an **`npm link`-only** problem fixed by the build helper
-   (see last section), not by `sideEffects`.
+   A `Can't resolve './X.module.scss'` from `@pnp/spfx-controls-react` is a **fast-serve-only** gap fixed by
+   the narrow build helper (see last section), not by `sideEffects`.
 
 ## Per-feature peer dependencies
 
@@ -119,20 +119,28 @@ import 'spfx-toolkit/utilities/context/pnpImports/siteGroups'; // group-membersh
 | Call `SPContext.sp.web.lists…` with no augmentation loaded | Import the matching `pnpImports/*` once at the entry |
 | New `sp`/options object each render into a data hook | `SPContext.sp` + a memoized options object |
 | `import { x } from 'spfx-toolkit/utils'` (whole barrel) | `import { x } from 'spfx-toolkit/utilities/<name>'` |
-| Add `sideEffects` to this app's `package.json` to fix toolkit/PnP styles | Leave it absent — toolkit CSS auto-bundles; under `npm link` use the build helper instead |
-| "Fix" unstyled `@pnp/spfx-controls-react` controls with a manual webpack/`sideEffects` edit | Published: no fix needed. `npm link`: apply `applyToolkitWebpackFixes` from `spfx-toolkit/build` |
+| Add `sideEffects` to this app's `package.json` to fix toolkit/PnP styles | Leave it absent — toolkit CSS auto-bundles; gulp serve/production need nothing |
+| "Fix" `Can't resolve './X.module.scss'` (@pnp controls) with a manual webpack/`sideEffects` edit | gulp serve/production: no fix needed. fast-serve: call `applyToolkitWebpackFixes` from `spfx-toolkit/build` |
 
-## Debugging a local toolkit checkout via `npm link` only
+## Local toolkit dev + the fast-serve `@pnp` SCSS fallback
 
-For a **published install you need none of this.** If you `npm link` a local `spfx-toolkit` checkout to debug
-it, add the shipped webpack helper to your build so duplicated heavy peers and broken nested
-`@pnp/spfx-controls-react` styles are fixed automatically:
+**Production and stock `gulp serve` need NO toolkit build config.** Two cases that do:
+
+- **Testing a local toolkit build:** use a flat tarball install, NOT `npm link`. In the toolkit clone:
+  `npm run build && npm pack`; in the app: `npm install <path>\spfx-toolkit-<version>.tgz`. (npm link symlinks
+  and breaks SPFx framework-lib resolution.)
+- **fast-serve + `@pnp/spfx-controls-react` controls:** fast-serve can't resolve the controls' precompiled
+  `.module.scss`, so they fail with `Can't resolve './X.module.scss'`. This is a fast-serve + `@pnp` gap (any
+  app using `@pnp@3.24` controls under fast-serve hits it). Apply the shipped narrow helper:
 
 ```js
-// config/fast-serve/webpack.extend.js
+// config/fast-serve/webpack.extend.js — fast-serve only; gulp serve / production need nothing
 const { applyToolkitWebpackFixes } = require('spfx-toolkit/build');
-module.exports = { transformConfig: (cfg) => applyToolkitWebpackFixes(cfg, { consumerRoot: __dirname }) };
+const webpackConfig = {};
+const transformConfig = (cfg) => applyToolkitWebpackFixes(cfg);
+module.exports = { webpackConfig, transformConfig };
 ```
 
-See `node_modules/spfx-toolkit/docs/NPM-Link-Debug-Workflow.md` for Heft usage and options. **Never** wire
-this into a production build.
+The helper does ONLY a `@pnp/spfx-controls-react` `.module.scss` rewrite (artifact-aware) — no dedupe, no
+aliasing, no `resolve.symlinks`. See `node_modules/spfx-toolkit/docs/NPM-Link-Debug-Workflow.md` for Heft +
+options. **Never** wire this into a production build.

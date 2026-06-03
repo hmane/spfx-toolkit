@@ -108,14 +108,14 @@ function cssBundled(distDir) {
   report.stages.toolkit = stage;
 }
 
-// The shipped build helper's default alias set drives the link+helper dedup gate.
-// Import after Stage 1 so lib/build/index.js is freshly built.
-let DEFAULT_ALIAS_PEERS = [];
-const PNP_CORE_PEERS = ['@pnp/sp', '@pnp/queryable']; // reported, never gated (v2/v3 hazard — see helper docs)
+// Confirm the build helper is importable after Stage 1 (the helper is now narrow:
+// a single @pnp/spfx-controls-react .module.scss resolver — no alias/dedupe behavior).
+let helperImportOk = false;
 try {
-  ({ DEFAULT_ALIAS_PEERS } = await import(join(ROOT, 'lib', 'build', 'index.js')));
+  const mod = await import(join(ROOT, 'lib', 'build', 'index.js'));
+  helperImportOk = typeof mod.applyToolkitWebpackFixes === 'function';
 } catch (e) {
-  report.stages.toolkit.aliasPeersImportError = (e && e.message) || String(e);
+  report.stages.toolkit.helperImportError = (e && e.message) || String(e);
 }
 
 // ---- Stage 2: published-style fixture ------------------------------------
@@ -188,6 +188,8 @@ try {
 
     // ---- Stage 3b: same link fixture, but routed through the shipped build helper.
     // TOOLKIT_FIX=1 makes consumer-link/webpack.config.js apply applyToolkitWebpackFixes.
+    // The helper is now narrow (a @pnp/spfx-controls-react .module.scss resolver only), so this
+    // stage only proves the helper does NOT break a build — there is no alias/dedup behavior to gate.
     const helper = {};
     rmSync(join(LINK, 'dist'), { recursive: true, force: true });
     rmSync(statsPath, { force: true });
@@ -200,15 +202,6 @@ try {
     helper.cardOnlyBytes = helper.assetSizes ? helper.assetSizes['light.js'] : null;
     helper.pnpFeatureBytes = helper.assetSizes ? helper.assetSizes['app.js'] : null;
     helper.cssBundled = cssBundled(join(LINK, 'dist'));
-    // Dedup target: every DEFAULT_ALIAS_PEER the helper aliases should collapse to <=1 copy.
-    helper.aliasPeers = [...DEFAULT_ALIAS_PEERS];
-    helper.heavyDepCopiesInBundle = Object.fromEntries(
-      DEFAULT_ALIAS_PEERS.map(d => [d, duplicateCopiesFromStats(statsPath, d)])
-    );
-    // PnP core copies are REPORTED only — never gated (controls bundle PnP v2; aliasing would break them).
-    helper.pnpCoreCopies = Object.fromEntries(
-      PNP_CORE_PEERS.map(d => [d, duplicateCopiesFromStats(statsPath, d)])
-    );
     stage.withHelper = helper;
   }
   report.stages.link = stage;
@@ -234,10 +227,8 @@ console.log('  duplication precondition:', JSON.stringify(l.duplicationPrecondit
 console.log('  heavy-dep copies in bundle:', JSON.stringify(l.heavyDepCopiesInBundle));
 console.log('  card-only bytes:', l.cardOnlyBytes, '| pnp-feature bytes:', l.pnpFeatureBytes);
 const lh = l.withHelper || {};
-console.log('\n[npm-link + build helper (TOOLKIT_FIX=1)]');
+console.log('\n[npm-link + build helper (TOOLKIT_FIX=1)]  (narrow @pnp scss resolver — proves no-break only)');
 console.log('  webpack build:', lh.webpackBuild ? 'ok' : 'FAIL');
-console.log('  default-alias-peer copies in bundle:', JSON.stringify(lh.heavyDepCopiesInBundle));
-console.log('  pnp-core copies (reported, not gated):', JSON.stringify(lh.pnpCoreCopies));
 console.log('  card-only bytes:', lh.cardOnlyBytes, '| pnp-feature bytes:', lh.pnpFeatureBytes);
 console.log('\nfull report -> fixtures/last-verify-report.json');
 console.log('=========================================================\n');
@@ -257,23 +248,18 @@ if (l.symlinked !== true) failures.push('npm-link fixture symlink not created');
 if (l.webpackBuild !== true) failures.push(`npm-link fixture webpack build had errors (${l.errorCount ?? '?'})`);
 if (l.assetSizes == null) failures.push('npm-link fixture produced no stats/assets');
 
-// ---- Gate: npm-link + build helper (Phase 2) ------------------------------
+// ---- Gate: npm-link + build helper (narrow @pnp scss resolver) ------------
+// The helper is intentionally narrow now (no alias/dedupe), so the only assertion is that applying it
+// does NOT break the build. (There are no copy-count expectations to gate.)
+if (helperImportOk !== true) {
+  failures.push('lib/build/index.js did not export applyToolkitWebpackFixes');
+}
 const lhGate = report.stages.link.withHelper;
-if (DEFAULT_ALIAS_PEERS.length === 0) {
-  failures.push('could not import DEFAULT_ALIAS_PEERS from lib/build (helper gate skipped)');
-} else if (!lhGate) {
+if (!lhGate) {
   failures.push('npm-link + helper stage did not run');
 } else {
   if (lhGate.webpackBuild !== true) failures.push(`npm-link + helper webpack build had errors (${lhGate.errorCount ?? '?'})`);
   if (lhGate.assetSizes == null) failures.push('npm-link + helper produced no stats/assets');
-  // Scoped dedup gate: each aliased default peer must collapse to a single bundled copy.
-  for (const d of DEFAULT_ALIAS_PEERS) {
-    const copies = lhGate.heavyDepCopiesInBundle ? lhGate.heavyDepCopiesInBundle[d] : null;
-    if (copies != null && copies > 1) {
-      failures.push(`npm-link + helper: '${d}' has ${copies} copies in bundle (expected <=1)`);
-    }
-  }
-  // @pnp/sp & @pnp/queryable are intentionally NOT gated — reported above only.
 }
 
 report.gate = { passed: failures.length === 0, failures };

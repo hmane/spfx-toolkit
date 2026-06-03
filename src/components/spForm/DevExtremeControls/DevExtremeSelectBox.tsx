@@ -1,4 +1,4 @@
-import { isEqual } from '@microsoft/sp-lodash-subset';
+import { isEqual } from '../../../utilities/internal/isEqual';
 import { SelectBox } from 'devextreme-react/select-box';
 import * as React from 'react';
 import { Controller, FieldValues, Path } from 'react-hook-form';

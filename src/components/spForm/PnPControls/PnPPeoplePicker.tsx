@@ -1,6 +1,6 @@
 import { IPersonaProps } from '@fluentui/react/lib/Persona';
 import { Spinner, SpinnerSize } from '@fluentui/react/lib/Spinner';
-import { isEqual } from '@microsoft/sp-lodash-subset';
+import { isEqual } from '../../../utilities/internal/isEqual';
 import type { IPeoplePickerContext } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import * as React from 'react';
 

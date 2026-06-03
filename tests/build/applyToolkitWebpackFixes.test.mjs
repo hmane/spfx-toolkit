@@ -2,87 +2,108 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import {
-  buildPeerAliases,
   rewriteControlScssRequest,
   applyToolkitWebpackFixes,
-  DEFAULT_ALIAS_PEERS,
 } from '../../lib/build/index.js';
 
-describe('buildPeerAliases (pure)', () => {
-  test('maps each resolvable peer to its resolved dir; skips unresolvable', () => {
-    const resolved = buildPeerAliases(['react', 'devextreme', 'missing-xyz'], (p) =>
-      p === 'missing-xyz' ? undefined : `/consumer/node_modules/${p}`
-    );
-    assert.equal(resolved['react'], '/consumer/node_modules/react');
-    assert.equal(resolved['devextreme'], '/consumer/node_modules/devextreme');
-    assert.equal('missing-xyz' in resolved, false);
-  });
-});
+const sep = (p) => p.split('/').join(path.sep);
+const topLevelCtx = sep('/app/node_modules/@pnp/spfx-controls-react/lib/controls/errorMessage');
+const nestedCtx = sep('/app/node_modules/spfx-toolkit/node_modules/@pnp/spfx-controls-react/lib/controls/dragDropFiles');
+const unrelatedCtx = sep('/app/src/webparts/foo');
 
-describe('DEFAULT_ALIAS_PEERS', () => {
-  test('includes version-stable peers + @pnp/spfx-controls-react', () => {
-    for (const p of ['react', 'react-dom', '@fluentui/react', '@pnp/spfx-controls-react',
-      'devextreme', 'devextreme-react', 'react-hook-form', 'react-mentions', 'zustand']) {
-      assert.equal(DEFAULT_ALIAS_PEERS.includes(p), true, `${p} should be aliased by default`);
-    }
-  });
-  test('EXCLUDES @pnp/sp and @pnp/queryable (v2/v3 hazard — controls bundle PnP v2)', () => {
-    assert.equal(DEFAULT_ALIAS_PEERS.includes('@pnp/sp'), false);
-    assert.equal(DEFAULT_ALIAS_PEERS.includes('@pnp/queryable'), false);
-  });
-});
+// fileExists fake: control which artifact "exists" for a given request base.
+const existsFor = (exts) => (abs) => exts.some((e) => abs.endsWith('.module.scss' + e));
+const CSS_CHAIN_PREFIX = `!!style-loader!css-loader?${JSON.stringify({ modules: { localIdentName: '[local]' } })}!`;
 
-describe('rewriteControlScssRequest (pure)', () => {
-  const sep = (p) => p.split('/').join(path.sep);
-  const nestedToolkitCtx = sep('/app/node_modules/spfx-toolkit/node_modules/@pnp/spfx-controls-react/lib/controls/peoplePicker');
-  const topLevelCtx = sep('/app/node_modules/@pnp/spfx-controls-react/lib/controls/peoplePicker');
-  test('rewrites .module.scss -> .module.scss.js ONLY for the nested linked-toolkit controls path', () => {
-    assert.equal(rewriteControlScssRequest('./X.module.scss', nestedToolkitCtx), './X.module.scss.js');
+describe('rewriteControlScssRequest (pure, artifact-aware)', () => {
+  test('top-level @pnp controls path rewrites to inline .css chain when .css exists (v3.24+)', () => {
+    const out = rewriteControlScssRequest('./ErrorMessage.module.scss', topLevelCtx, existsFor(['.css']));
+    assert.equal(out, `${CSS_CHAIN_PREFIX}./ErrorMessage.module.scss.css`);
   });
-  test('does NOT rewrite a top-level consumer @pnp/spfx-controls-react context', () => {
-    assert.equal(rewriteControlScssRequest('./X.module.scss', topLevelCtx), undefined);
+
+  test('nested @pnp controls path rewrites to inline .css chain when .css exists', () => {
+    const out = rewriteControlScssRequest('./DragDropFiles.module.scss', nestedCtx, existsFor(['.css']));
+    assert.ok(out && out.startsWith(CSS_CHAIN_PREFIX));
+    assert.ok(out.endsWith('!./DragDropFiles.module.scss.css'));
   });
-  test('does NOT rewrite an unrelated context', () => {
-    assert.equal(rewriteControlScssRequest('./X.module.scss', sep('/app/src/webparts')), undefined);
+
+  test('rewrites to .js when only .js exists (v3.22)', () => {
+    const out = rewriteControlScssRequest('./ErrorMessage.module.scss', topLevelCtx, existsFor(['.js']));
+    assert.equal(out, './ErrorMessage.module.scss.js');
   });
+
+  test('prefers .css when BOTH .css and .js exist', () => {
+    const out = rewriteControlScssRequest('./ErrorMessage.module.scss', topLevelCtx, existsFor(['.css', '.js']));
+    assert.ok(out.endsWith('!./ErrorMessage.module.scss.css'), 'should pick .css over .js');
+  });
+
+  test('does NOT rewrite an unrelated (non-@pnp-controls) context', () => {
+    assert.equal(rewriteControlScssRequest('./X.module.scss', unrelatedCtx, existsFor(['.css', '.js'])), undefined);
+  });
+
+  test('does NOT rewrite when neither artifact exists (never touch a real .scss)', () => {
+    assert.equal(rewriteControlScssRequest('./X.module.scss', topLevelCtx, existsFor([])), undefined);
+  });
+
   test('does NOT rewrite non-.module.scss requests', () => {
-    assert.equal(rewriteControlScssRequest('./X.css', nestedToolkitCtx), undefined);
+    assert.equal(rewriteControlScssRequest('./X.css', topLevelCtx, existsFor(['.css'])), undefined);
   });
 });
 
-describe('applyToolkitWebpackFixes (additive in-place transform)', () => {
-  test('returns the SAME config object, adds dedup/aliases, preserves unrelated keys', () => {
+describe('applyToolkitWebpackFixes (narrow: scss-rewrite plugin only)', () => {
+  test('adds ONLY the NormalModuleReplacementPlugin and preserves unrelated config; no symlinks/alias', () => {
+    class FakeNMRP {
+      constructor(re, cb) {
+        this.re = re;
+        this.cb = cb;
+      }
+    }
+    const original = {
+      mode: 'production',
+      resolve: { alias: { existing: '/x' } },
+      plugins: [{ name: 'keep' }],
+      module: { rules: [] },
+    };
+    const out = applyToolkitWebpackFixes(original, { webpack: { NormalModuleReplacementPlugin: FakeNMRP } });
+
+    assert.equal(out, original, 'returns same config (in place)');
+    assert.equal(out.mode, 'production', 'unrelated keys untouched');
+    assert.deepEqual(out.module, { rules: [] }, 'module untouched');
+    assert.equal(out.plugins[0].name, 'keep', 'existing plugin preserved');
+
+    // No dedupe/alias behavior remains:
+    assert.equal(out.resolve.symlinks, undefined, 'must NOT set resolve.symlinks');
+    assert.deepEqual(out.resolve.alias, { existing: '/x' }, 'must NOT add any resolve.alias entries');
+
+    // Exactly one plugin added, and it is the scss NMRP:
+    assert.equal(out.plugins.length, 2);
+    const added = out.plugins.find((p) => p instanceof FakeNMRP);
+    assert.ok(added, 'NormalModuleReplacementPlugin should be added');
+    assert.equal(added.re.source, '\\.module\\.scss$');
+  });
+
+  test('the added plugin runs its callback without throwing for a @pnp controls request', () => {
+    class FakeNMRP {
+      constructor(re, cb) {
+        this.cb = cb;
+      }
+    }
+    const out = applyToolkitWebpackFixes({}, { webpack: { NormalModuleReplacementPlugin: FakeNMRP } });
+    const plugin = out.plugins[0];
+    // Real fs is consulted here; the fake path won't exist, so the request stays unchanged — we just
+    // assert the callback is wired and runs safely.
+    const resource = { request: './ErrorMessage.module.scss', context: topLevelCtx };
+    assert.doesNotThrow(() => plugin.cb(resource));
+    assert.equal(typeof resource.request, 'string');
+  });
+
+  test('no-ops gracefully when webpack.NormalModuleReplacementPlugin is unavailable (no plugin, warns)', () => {
     const warnings = [];
-    const original = { mode: 'production', resolve: { alias: { existing: '/x' } }, plugins: [{ name: 'keep' }], module: { rules: [] } };
-    const out = applyToolkitWebpackFixes(original, {
-      aliasPeers: ['react'],
-      rewriteControlScss: false,
-      consumerRoot: process.cwd(),
+    const out = applyToolkitWebpackFixes({ plugins: [] }, {
+      webpack: {},
       onWarn: (m) => warnings.push(m),
     });
-    assert.equal(out, original);                        // in-place: same reference returned
-    assert.equal(out.mode, 'production');               // unrelated keys untouched
-    assert.equal(out.resolve.alias.existing, '/x');     // existing alias preserved
-    assert.equal(typeof out.resolve.alias.react, 'string'); // react resolved (devDep present)
-    assert.deepEqual(out.module, { rules: [] });        // module untouched
-    assert.equal(out.plugins[0].name, 'keep');          // existing plugin preserved
-    assert.equal(out.resolve.symlinks, false);          // primary dedup mechanism applied
-  });
-  test('warns and skips a peer that cannot be resolved', () => {
-    const warnings = [];
-    const out = applyToolkitWebpackFixes({}, { aliasPeers: ['definitely-not-installed-xyz'], rewriteControlScss: false, onWarn: (m) => warnings.push(m) });
-    assert.equal('definitely-not-installed-xyz' in (out.resolve.alias || {}), false);
-    assert.equal(warnings.some((w) => w.includes('definitely-not-installed-xyz')), true);
-  });
-  test('uses an injected webpack.NormalModuleReplacementPlugin when provided', () => {
-    class FakeNMRP { constructor(re, cb) { this.re = re; this.cb = cb; } }
-    const out = applyToolkitWebpackFixes({}, {
-      aliasPeers: false,
-      webpack: { NormalModuleReplacementPlugin: FakeNMRP },
-      consumerRoot: process.cwd(),
-    });
-    const plugin = out.plugins.find((p) => p instanceof FakeNMRP);
-    assert.ok(plugin, 'NormalModuleReplacementPlugin from options.webpack should be added');
-    assert.equal(plugin.re.source, '\\.module\\.scss$');
+    assert.equal(out.plugins.length, 0, 'no plugin added when NMRP unavailable');
+    assert.ok(warnings.some((w) => w.includes('NormalModuleReplacementPlugin')), 'should warn');
   });
 });
