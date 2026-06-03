@@ -123,6 +123,28 @@ The counts here match the published-style baseline (`@pnp/sp` = 2), i.e. the hel
 clean with `card-only = 836,190` / `pnp-feature = 879,503` — identical to the Phase 1 baseline above. The
 helper is link-only; the published path is untouched.
 
+## Phase 2.1 update — helper narrowed, `@microsoft/sp-lodash-subset` removed
+
+The original Phase 2 helper (dedupe via `resolve.symlinks=false` + peer aliasing + a nested-only scss
+rewrite) proved fragile against the real SPFx runtime: aliasing leaked nested framework-lib copies and broke
+consumers' `exports`-map subpath imports. **The helper is now a single, narrow `@pnp/spfx-controls-react`
+`.module.scss` resolver:**
+
+- artifact-aware: rewrites to `.module.scss.css` (v3.24+) or `.module.scss.js` (v3.22), only if the target exists;
+- covers **top-level and nested** `@pnp/spfx-controls-react/lib` copies;
+- **no** `resolve.symlinks`, **no** aliasing, **no** dedupe.
+
+Consequently the fixture gate no longer asserts alias/copy counts — `verify.mjs` only proves the helper does
+**not break** a build (the `.css` vs `.js` artifact logic is unit-tested in
+`tests/build/applyToolkitWebpackFixes.test.mjs`). Recommended local-dev consumption is a **flat tarball
+install**, not `npm link`. The helper is needed only under **fast-serve / Heft** when they can't resolve the
+controls' precompiled SCSS artifact; **gulp serve and production need nothing.**
+
+Separately, the toolkit no longer imports `@microsoft/sp-lodash-subset` (replaced by
+`src/utilities/internal/isEqual.ts`), so consuming the toolkit never forces that SPFx framework external to
+load — which was the root cause of the form-customizer `relative-path.invalid/@microsoft/sp-lodash-subset.js`
+failures. A hygiene test (`tests/hygiene/no-sp-lodash-subset.test.mjs`) guards against reintroduction.
+
 ## Files
 - `fixtures/consumer-published/` — tarball-install consumer (minimal `tsconfig` + webpack + `light`/`app` entries).
 - `fixtures/consumer-link/` — npm-link-equivalent consumer (toolkit symlinked by `verify.mjs`).

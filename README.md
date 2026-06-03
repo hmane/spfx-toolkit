@@ -27,7 +27,7 @@ This package now ships compatibility proxy entrypoints, so `spfx-toolkit/compone
 
 See [Bundle Size Optimization](#-bundle-size-optimization) for additional bundle-impact details.
 
-**Debugging a local checkout via `npm link`?** See [docs/NPM-Link-Debug-Workflow.md](docs/NPM-Link-Debug-Workflow.md) — a one-call `spfx-toolkit/build` helper that dedupes heavy peers and fixes nested `@pnp/spfx-controls-react` styles under link. A normal published install needs none of this.
+**Testing a local toolkit build, or using `@pnp` controls under fast-serve?** See [docs/NPM-Link-Debug-Workflow.md](docs/NPM-Link-Debug-Workflow.md) — use a flat `npm pack` tarball install (not `npm link`) for local dev, and the optional one-call `spfx-toolkit/build` helper if fast-serve/Heft can't resolve `@pnp/spfx-controls-react` `.module.scss`. A published install and stock `gulp serve` need none of this.
 
 ---
 

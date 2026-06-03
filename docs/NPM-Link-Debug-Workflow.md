@@ -1,116 +1,96 @@
-# npm-link Debug Workflow
+# Local Development & the `@pnp` SCSS Helper
 
-When you need to debug an unreleased change to **spfx-toolkit** from inside a consuming
-SPFx web part, the fastest loop is to `npm link` (or `npm install ../spfx-toolkit`) the
-local toolkit checkout instead of publishing a throw-away version. That linked layout has
-two well-known hazards — this toolkit ships a one-call helper that fixes both.
+This covers two things for consumers of **spfx-toolkit**:
 
-> **This helper is ONLY for `npm link` debugging.** A normal **published install needs no
-> helper** and no `webpack.extend.js` / Heft change — the toolkit resolves its peers from
-> the consumer's flat `node_modules` like any other package. Do **not** wire the helper into
-> a production build.
+1. How to test an unreleased toolkit change in a consuming SPFx project **without publishing**.
+2. The one optional build helper the toolkit ships (`spfx-toolkit/build`) and exactly when you need it.
 
----
-
-## Why `npm link` needs a fix
-
-A linked toolkit keeps its **own** `node_modules`, so the consumer ends up with two
-physical copies of every heavy peer — one at the consumer top level and one nested under
-`node_modules/spfx-toolkit/node_modules/`. Two problems follow:
-
-1. **Duplicate heavy peers in the bundle.** A bundler resolving the toolkit's imports to
-   the nested copies while resolving the consumer's imports to the top-level copies bundles
-   **both** — `devextreme` (~108 MB on disk), `@fluentui/react`, `react`, etc. get double-bundled.
-   This is the duplication precondition captured in [`fixtures/BASELINE.md`](../fixtures/BASELINE.md)
-   (§2): under link, all the heavy peers exist *both* at the consumer top level *and* inside
-   the linked toolkit.
-2. **Broken `@pnp/spfx-controls-react` styles.** SPFx's SCSS-module loader is **path-scoped**
-   — it only fires for the consumer `src` and the *top-level* controls copy, not for a nested
-   one. So `@pnp/spfx-controls-react` controls imported through the linked toolkit (PeoplePicker,
-   FilePicker, RichText toolbar) render **unstyled** because their `.module.scss` requests are
-   never compiled. The control already ships a precompiled `X.module.scss.js` next to each
-   `X.module.scss`; the fix is to rewrite the nested request to it.
-
-The helper resolves #1 by deduping linked peers to the consumer's single copy and #2 by
-rewriting the nested `.module.scss` request — without any toolkit source change in the consumer.
+> **TL;DR — the toolkit needs no build config in normal use.** A published / Artifacts install, a
+> production build (`gulp bundle --ship`), and stock `gulp serve` all work with **zero** webpack changes.
+> The helper below is **only** relevant if you use `@pnp/spfx-controls-react` controls under
+> **spfx-fast-serve** (and possibly Heft), which has a SCSS-resolution gap unrelated to this toolkit.
 
 ---
 
-## Usage
+## Testing a local toolkit build without publishing
 
-The helper is a plain `(config) => config` transform with no SPFx or runtime dependency, so
-it works from any webpack-based SPFx build. It mutates the passed config in place **and**
-returns it, so either `applyToolkitWebpackFixes(config)` or `return applyToolkitWebpackFixes(config)`
-is fine.
+**Use a flat tarball install — not `npm link`.** `npm link` (and a bare `npm install ../path` / `file:`
+dependency) symlinks the toolkit, giving it its own nested `node_modules`. Under SPFx that produces
+duplicate copies of framework libraries and brittle module-resolution failures. A flat install behaves
+exactly like a published install — one deduped copy of everything — so it's the truest pre-publish test
+and needs no webpack workarounds.
 
-### fast-serve (`spfx-fast-serve`)
+```bash
+# in your spfx-toolkit clone:
+npm run build
+npm pack                 # -> spfx-toolkit-<version>.tgz (identical to what `npm publish` uploads)
 
-Create or edit `config/fast-serve/webpack.extend.js`:
+# in the consuming app:
+npm install /path/to/spfx-toolkit-<version>.tgz
+```
 
+Iterate by re-running `npm run build && npm pack` in the clone, then re-installing the tarball
+(delete `node_modules/spfx-toolkit` first to avoid a stale cache). `npm install <folder> --install-links`
+is an equivalent one-step alternative — just don't omit `--install-links` (that symlinks).
+
+---
+
+## The `@pnp/spfx-controls-react` SCSS helper (fast-serve / Heft only)
+
+`@pnp/spfx-controls-react` controls do `import styles from './X.module.scss'`, but the package ships a
+**precompiled** artifact, not a raw `.module.scss`:
+
+- v3.24+ ships `X.module.scss.css` (real CSS)
+- v3.22 ships `X.module.scss.js` (a styles module)
+
+SPFx's normal build (`gulp bundle` / `gulp serve`) resolves the bare `.module.scss` request to that
+artifact. **spfx-fast-serve's webpack does not**, so the import fails with `Can't resolve './X.module.scss'`.
+This affects **any** app using `@pnp@3.24` controls under fast-serve — with or without spfx-toolkit. If you
+hit it, apply the helper:
+
+### fast-serve (`config/fast-serve/webpack.extend.js`)
 ```js
 const { applyToolkitWebpackFixes } = require('spfx-toolkit/build');
 
+const webpackConfig = {};
 const transformConfig = function (initialWebpackConfig) {
-  return applyToolkitWebpackFixes(initialWebpackConfig, { consumerRoot: __dirname });
+  return applyToolkitWebpackFixes(initialWebpackConfig);
 };
 
-module.exports = { transformConfig };
+module.exports = { webpackConfig, transformConfig };
 ```
 
-### Heft (`@rushstack/heft-webpack5-plugin`)
-
-Apply the same helper from a Heft webpack config hook (`configureWebpack`). Because the
-helper is build-tool-agnostic, the only difference from fast-serve is where you get the
-config object:
-
+### Heft (`heft-webpack5-plugin` `configureWebpack`)
 ```js
 const { applyToolkitWebpackFixes } = require('spfx-toolkit/build');
-
 module.exports = {
-  configureWebpack: async (config) => {
-    return applyToolkitWebpackFixes(config, { consumerRoot: __dirname });
-  },
+  configureWebpack: async (config) => applyToolkitWebpackFixes(config),
 };
 ```
 
----
+The helper adds **one** `NormalModuleReplacementPlugin` that rewrites `@pnp/spfx-controls-react`
+`.module.scss` requests to whichever precompiled artifact actually exists — `.module.scss.css` (3.24+) or
+`.module.scss.js` (3.22) — for **both** the top-level `node_modules/@pnp/spfx-controls-react/lib` copy and a
+nested one. If neither artifact exists it leaves the request alone (so it never touches a real `.scss`).
 
 ## Options — `ToolkitWebpackFixOptions`
 
 | Option | Type | Default | Purpose |
 |---|---|---|---|
-| `aliasPeers` | `string[] \| false` | `DEFAULT_ALIAS_PEERS` | Peers to alias to the consumer's single copy. `false` disables aliasing entirely. |
-| `dedupeSymlinks` | `boolean` | `true` | Sets `resolve.symlinks = false` so a linked toolkit resolves peers from the consumer tree (primary dedup mechanism). |
-| `rewriteControlScss` | `boolean` | `true` | Rewrites nested `@pnp/spfx-controls-react` `.module.scss` → `.module.scss.js`. |
-| `consumerRoot` | `string` | `process.cwd()` | Root to resolve the consumer's peers (and webpack) from. Pass `__dirname` from the config file to be explicit. |
-| `webpack` | `{ NormalModuleReplacementPlugin }` | lazy-resolved from `consumerRoot` | Inject the webpack instance for the SCSS-rewrite plugin. If omitted, webpack is resolved from `consumerRoot`; if that fails the rewrite is skipped with a warning. |
-| `onWarn` | `(message: string) => void` | no-op | Warning sink for unresolvable peers / missing webpack. Wire to your logger to see what was skipped. |
+| `webpack` | `{ NormalModuleReplacementPlugin }` | `require('webpack')` | Inject the webpack instance for the plugin. If omitted, webpack is resolved from the consumer build. |
+| `onWarn` | `(message: string) => void` | no-op | Warning sink (e.g. if webpack can't be resolved and the fix is skipped). |
 
----
+## What the helper intentionally does NOT do
+This helper is **deliberately narrow**. It does **not**:
+- change `resolve.symlinks`
+- add any `resolve.alias` / dedupe peers
+- touch anything other than `@pnp/spfx-controls-react` `.module.scss` requests
 
-## Alias defaults — and the PnP v2/v3 hazard
-
-`DEFAULT_ALIAS_PEERS` aliases the version-stable peers **and** `@pnp/spfx-controls-react`:
-
-```
-react, react-dom, @fluentui/react, @pnp/spfx-controls-react,
-devextreme, devextreme-react, react-hook-form, react-mentions, zustand
-```
-
-**`@pnp/sp` and `@pnp/queryable` are intentionally NOT aliased by default.**
-`@pnp/spfx-controls-react` carries nested PnP **v2** dependencies. Aliasing the bare core
-PnP packages (`@pnp/sp` / `@pnp/queryable`) to the consumer's **v3** copy would redirect the
-controls' nested **v2** imports to v3 and break them. The default therefore leaves core PnP
-to resolve normally; `resolve.symlinks = false` already collapses most of the link-induced
-duplication for them.
-
-> ⚠️ You **can** opt them in via `options.aliasPeers: [...DEFAULT_ALIAS_PEERS, '@pnp/sp', '@pnp/queryable']`,
-> but only if you understand the v2/v3 hazard above and have verified your build still renders
-> `@pnp/spfx-controls-react` controls correctly.
-
----
+Earlier versions tried to "fix" `npm link` by deduping peers and disabling symlinks; that caused more
+problems than it solved (framework-lib resolution failures, exports-map breakage). The flat-install
+workflow above replaces all of that. **Never wire this helper into a production build.**
 
 ## See also
-
-- [`fixtures/BASELINE.md`](../fixtures/BASELINE.md) — measured helper-off vs helper-on copy counts under link.
-- [`fixtures/verify.mjs`](../fixtures/verify.mjs) — the automated check that exercises the helper (`TOOLKIT_FIX=1`).
+- [`../fixtures/BASELINE.md`](../fixtures/BASELINE.md) — fixture measurements.
+- The toolkit no longer imports `@microsoft/sp-lodash-subset` (uses an internal equality helper), so
+  consuming it never forces that SPFx framework external to load.
