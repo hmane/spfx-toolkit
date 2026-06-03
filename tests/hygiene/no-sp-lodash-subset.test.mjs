@@ -5,7 +5,16 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
-const NEEDLE = '@microsoft/sp-lodash-subset';
+const FORBIDDEN_IMPORTS = [
+  {
+    name: '@microsoft/sp-lodash-subset',
+    reason: 'use src/utilities/internal/isEqual instead',
+  },
+  {
+    name: '@microsoft/sp-loader',
+    reason: 'avoid indirectly forcing @microsoft/sp-lodash-subset in form customizers',
+  },
+];
 
 function walk(dir) {
   const out = [];
@@ -17,12 +26,21 @@ function walk(dir) {
   return out;
 }
 
-test('no source file references @microsoft/sp-lodash-subset (zero SPFx framework runtime imports)', () => {
-  const offenders = walk(SRC).filter((f) => readFileSync(f, 'utf8').includes(NEEDLE));
+test('no source file references SPFx framework libraries that trigger sp-lodash-subset loading', () => {
+  const offenders = [];
+  for (const file of walk(SRC)) {
+    const content = readFileSync(file, 'utf8');
+    for (const forbidden of FORBIDDEN_IMPORTS) {
+      if (content.includes(forbidden.name)) {
+        offenders.push(`${file}: ${forbidden.name} (${forbidden.reason})`);
+      }
+    }
+  }
+
   assert.deepEqual(
     offenders,
     [],
-    `These src files still reference ${NEEDLE} (use ../utilities/internal/isEqual instead):\n` +
+    'These src files still reference libraries that can trigger @microsoft/sp-lodash-subset:\n' +
       offenders.join('\n')
   );
 });

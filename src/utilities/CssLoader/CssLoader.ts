@@ -1,4 +1,3 @@
-import { SPComponentLoader } from '@microsoft/sp-loader';
 import { SPContext } from '../context';
 
 /**
@@ -35,8 +34,23 @@ export class CssLoader {
         const cleanWebUrl = webAbsoluteUrl.replace(/\/$/, '');
         const fileUrl = `${cleanWebUrl}/${libraryName}/${cssFile}`;
 
-        // Load CSS synchronously
-        SPComponentLoader.loadCss(fileUrl);
+        if (typeof document === 'undefined' || !document.head) {
+          SPContext.logger.warn('CssLoader: document.head is not available', { cssFile });
+          return;
+        }
+
+        const existingLinks = Array.prototype.slice.call(
+          document.head.querySelectorAll('link[data-spfx-toolkit-css]')
+        ) as HTMLLinkElement[];
+        const alreadyLoadedInDom = existingLinks.some(link => link.getAttribute('data-spfx-toolkit-css') === cssKey);
+
+        if (!alreadyLoadedInDom) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = fileUrl;
+          link.setAttribute('data-spfx-toolkit-css', cssKey);
+          document.head.appendChild(link);
+        }
 
         // Mark as loaded for caching
         if (cache) {

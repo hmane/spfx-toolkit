@@ -317,7 +317,6 @@
     "@microsoft/sp-core-library": ">=1.21.1",
     "@microsoft/sp-extension-base": ">=1.21.1",
     "@microsoft/sp-http": ">=1.21.1",
-    "@microsoft/sp-loader": ">=1.21.1",
     "@microsoft/sp-webpart-base": ">=1.21.1",
     "@pnp/queryable": "^3.20.1",
     "@pnp/sp": "^3.20.1",
@@ -342,9 +341,6 @@
       "optional": true
     },
     "@microsoft/sp-http": {
-      "optional": true
-    },
-    "@microsoft/sp-loader": {
       "optional": true
     },
     "@microsoft/sp-webpart-base": {
@@ -378,7 +374,6 @@
     "@microsoft/sp-core-library": "1.21.1",
     "@microsoft/sp-extension-base": "1.21.1",
     "@microsoft/sp-http": "1.21.1",
-    "@microsoft/sp-loader": "1.21.1",
     "@microsoft/sp-page-context": "1.21.1",
     "@microsoft/sp-webpart-base": "1.21.1",
     "@pnp/queryable": "3.26.0",

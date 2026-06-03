@@ -3,9 +3,9 @@
  * Utilities for fetching SharePoint user photos and detecting default images
  */
 
-import { SPComponentLoader } from '@microsoft/sp-loader';
 import { PersonaInitialsColor } from '@fluentui/react/lib/Persona';
 import { SPContext } from '../context';
+import { md5 } from '../internal/md5';
 import { IGetUserImageOptions, IUserImageResult, PhotoSize, PixelPhotoSize } from './userPhotoHelper.types';
 
 /**
@@ -22,11 +22,6 @@ const DEFAULT_PERSONA_IMG_HASHES = new Set([
   '808be61398a910bc29b81f4920de8741',
   'b04cfcc81483e3d264508991c989a538',
 ]);
-
-/**
- * SharePoint MD5 module ID for hash generation
- */
-const MD5_MODULE_ID = '8494e7d7-6b99-47b2-a741-59873e42f16f';
 
 /**
  * Cache for user photos to prevent redundant fetches
@@ -64,23 +59,6 @@ const summarizeUserIdentifierForLog = (identifier: string | undefined): Record<s
 });
 
 /**
- * Load SharePoint component by ID
- * @param componentId - The SharePoint component ID
- * @returns The loaded component
- */
-const loadSPComponentById = async (componentId: string): Promise<unknown> => {
-  return new Promise((resolve, reject) => {
-    SPComponentLoader.loadComponentById(componentId)
-      .then((component: any) => {
-        resolve(component);
-      })
-      .catch(error => {
-        reject(error);
-      });
-  });
-};
-
-/**
  * Fetch image and convert to base64
  * @param url - Image URL to fetch
  * @returns Base64 string (without data URI prefix) or undefined if failed
@@ -110,24 +88,7 @@ const getImageBase64 = async (url: string): Promise<string | undefined> => {
   }
 };
 
-/**
- * Generate MD5 hash for a string using SharePoint's MD5 library
- * @param value - String to hash
- * @returns MD5 hash or original value if hashing fails
- */
-const getMd5HashForUrl = async (value: string): Promise<string> => {
-  try {
-    const library: any = await loadSPComponentById(MD5_MODULE_ID);
-    const md5Hash = library.Md5Hash;
-    if (md5Hash) {
-      const convertedHash: string = md5Hash(value);
-      return convertedHash;
-    }
-  } catch (error) {
-    SPContext.logger.warn('Failed to load MD5 library', { error });
-  }
-  return value;
-};
+const getMd5HashForUrl = (value: string): string => md5(value);
 
 /**
  * Pending photo requests to deduplicate concurrent fetches
