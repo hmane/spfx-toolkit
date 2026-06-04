@@ -29,9 +29,22 @@ export type CamlFieldType =
   | 'Boolean'
   | 'DateTime'
   | 'Lookup'
+  | 'LookupMulti'
   | 'User'
+  | 'UserMulti'
   | 'Choice'
+  | 'MultiChoice'
+  | 'TaxonomyFieldType'
+  | 'TaxonomyFieldTypeMulti'
   | 'Counter'
+  | 'Currency'
+  | 'URL'
+  | 'File'
+  | 'Calculated'
+  | 'Computed'
+  | 'ContentTypeId'
+  | 'Attachments'
+  | 'ModStat'
   | 'Note'
   | 'Guid';
 
@@ -53,7 +66,7 @@ export interface ITodayValue {
 /**
  * A scalar field value or one of the two special value types.
  */
-export type CamlFieldValue = string | number | IUserIdValue | ITodayValue;
+export type CamlFieldValue = string | number | boolean | IUserIdValue | ITodayValue;
 
 // -------------------------------------------------------
 // Internal XML helpers
@@ -78,28 +91,60 @@ function escapeXml(val: string): string {
  * Handles the two special value types (userId, today) and plain strings.
  */
 function renderValue(type: CamlFieldType, value: CamlFieldValue): string {
+  if (shouldRenderBooleanValue(type) && typeof value === 'boolean') {
+    return `<Value Type="${type}">${value ? '1' : '0'}</Value>`;
+  }
+
   if (typeof value === 'object' && value !== null) {
     // { userId: true }
     if ((value as IUserIdValue).userId === true) {
-      return `<Value Type="${type}"><UserID /></Value>`;
+      return `<Value Type="Integer"><UserID /></Value>`;
     }
     // { today: true, offsetDays?: n }
     const todayVal = value as ITodayValue;
     if (todayVal.today === true) {
       if (todayVal.offsetDays !== undefined) {
+        if (!Number.isInteger(todayVal.offsetDays)) {
+          throw new Error('CamlBuilder: Today offsetDays must be an integer.');
+        }
         return `<Value Type="${type}"><Today OffsetDays="${todayVal.offsetDays}" /></Value>`;
       }
       return `<Value Type="${type}"><Today /></Value>`;
     }
   }
-  return `<Value Type="${type}">${escapeXml(String(value))}</Value>`;
+  const valueType = shouldRenderIntegerValue(type) ? 'Integer' : type;
+  return `<Value Type="${valueType}">${escapeXml(String(value))}</Value>`;
+}
+
+/**
+ * Taxonomy fields are queried against the hidden taxonomy lookup WssId.
+ */
+function shouldRenderIntegerValue(type: CamlFieldType): boolean {
+  return type === 'TaxonomyFieldType' || type === 'TaxonomyFieldTypeMulti';
+}
+
+function shouldRenderBooleanValue(type: CamlFieldType): boolean {
+  return type === 'Boolean' || type === 'Attachments';
+}
+
+/**
+ * Whether a field type should compare against the lookup/user item ID.
+ */
+function shouldRenderLookupId(type?: CamlFieldType): boolean {
+  return type === 'Lookup' ||
+    type === 'LookupMulti' ||
+    type === 'User' ||
+    type === 'UserMulti' ||
+    type === 'TaxonomyFieldType' ||
+    type === 'TaxonomyFieldTypeMulti';
 }
 
 /**
  * Render a CAML <FieldRef Name="..." /> element.
  */
-function renderFieldRef(name: string): string {
-  return `<FieldRef Name="${escapeXml(name)}" />`;
+function renderFieldRef(name: string, type?: CamlFieldType): string {
+  const lookupId = shouldRenderLookupId(type) ? ' LookupId="TRUE"' : '';
+  return `<FieldRef Name="${escapeXml(name)}"${lookupId} />`;
 }
 
 /**
@@ -147,13 +192,13 @@ export class FieldRefBuilder {
   private _binary(op: string, value: CamlFieldValue): QueryBuilder {
     const xml = wrapOperator(
       op,
-      renderFieldRef(this._name) + renderValue(this._type, value)
+      renderFieldRef(this._name, this._type) + renderValue(this._type, value)
     );
     return this._owner['_resolveCondition'](xml);
   }
 
   private _unary(op: string): QueryBuilder {
-    const xml = `<${op}>${renderFieldRef(this._name)}</${op}>`;
+    const xml = `<${op}>${renderFieldRef(this._name, this._type)}</${op}>`;
     return this._owner['_resolveCondition'](xml);
   }
 
@@ -171,6 +216,10 @@ export class FieldRefBuilder {
   gte(value: CamlFieldValue): QueryBuilder { return this._binary('Geq', value); }
   /** Contains — emits `<Contains>` */
   contains(value: CamlFieldValue): QueryBuilder { return this._binary('Contains', value); }
+  /** Includes — emits `<Includes>` for multi-value membership checks */
+  includes(value: CamlFieldValue): QueryBuilder { return this._binary('Includes', value); }
+  /** Not-includes — emits `<NotIncludes>` for multi-value membership checks */
+  notIncludes(value: CamlFieldValue): QueryBuilder { return this._binary('NotIncludes', value); }
   /** Begins-with — emits `<BeginsWith>` */
   beginsWith(value: CamlFieldValue): QueryBuilder { return this._binary('BeginsWith', value); }
   /** Is-null — emits `<IsNull>` (no Value) */
@@ -270,12 +319,7 @@ export class QueryBuilder {
    * @throws If a field() is pending (no operator was called after the last .field())
    */
   and(): QueryBuilder {
-    if (this._pendingField !== null) {
-      throw new Error(
-        `CamlBuilder: dangling field ref "${this._pendingField.name}" — ` +
-        `call an operator before calling .and().`
-      );
-    }
+    this._assertCanSetLogicalOperator('And');
     this._pendingOp = 'And';
     return this;
   }
@@ -286,14 +330,29 @@ export class QueryBuilder {
    * @throws If a field() is pending (no operator was called after the last .field())
    */
   or(): QueryBuilder {
+    this._assertCanSetLogicalOperator('Or');
+    this._pendingOp = 'Or';
+    return this;
+  }
+
+  private _assertCanSetLogicalOperator(op: 'And' | 'Or'): void {
     if (this._pendingField !== null) {
       throw new Error(
         `CamlBuilder: dangling field ref "${this._pendingField.name}" — ` +
-        `call an operator before calling .or().`
+        `call an operator before calling .${op.toLowerCase()}().`
       );
     }
-    this._pendingOp = 'Or';
-    return this;
+    if (this._conditions.length === 0) {
+      throw new Error(
+        `CamlBuilder: cannot call .${op.toLowerCase()}() before adding a condition.`
+      );
+    }
+    if (this._pendingOp !== null) {
+      throw new Error(
+        `CamlBuilder: cannot call .${op.toLowerCase()}() while .${this._pendingOp.toLowerCase()}() ` +
+        `is pending; add the next condition first.`
+      );
+    }
   }
 
   // -------------------------------------------------------
@@ -324,6 +383,9 @@ export class QueryBuilder {
    * @param limit - Maximum number of items to return
    */
   rowLimit(limit: number): QueryBuilder {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error('CamlBuilder: rowLimit must be a positive integer.');
+    }
     this._rowLimit = limit;
     return this;
   }

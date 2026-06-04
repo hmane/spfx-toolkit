@@ -271,6 +271,96 @@
       "import": "./lib/utilities/CssLoader/index.js",
       "require": "./lib/utilities/CssLoader/index.js"
     },
+    "./lib/components/Card": {
+      "types": "./lib/components/Card/index.d.ts",
+      "import": "./lib/components/Card/index.js",
+      "require": "./lib/components/Card/index.js"
+    },
+    "./lib/components/Comments": {
+      "types": "./lib/components/Comments/index.d.ts",
+      "import": "./lib/components/Comments/index.js",
+      "require": "./lib/components/Comments/index.js"
+    },
+    "./lib/components/ConflictDetector": {
+      "types": "./lib/components/ConflictDetector/index.d.ts",
+      "import": "./lib/components/ConflictDetector/index.js",
+      "require": "./lib/components/ConflictDetector/index.js"
+    },
+    "./lib/components/DocumentLink": {
+      "types": "./lib/components/DocumentLink/index.d.ts",
+      "import": "./lib/components/DocumentLink/index.js",
+      "require": "./lib/components/DocumentLink/index.js"
+    },
+    "./lib/components/ErrorBoundary": {
+      "types": "./lib/components/ErrorBoundary/index.d.ts",
+      "import": "./lib/components/ErrorBoundary/index.js",
+      "require": "./lib/components/ErrorBoundary/index.js"
+    },
+    "./lib/components/GroupViewer": {
+      "types": "./lib/components/GroupViewer/index.d.ts",
+      "import": "./lib/components/GroupViewer/index.js",
+      "require": "./lib/components/GroupViewer/index.js"
+    },
+    "./lib/components/ManageAccess": {
+      "types": "./lib/components/ManageAccess/index.d.ts",
+      "import": "./lib/components/ManageAccess/index.js",
+      "require": "./lib/components/ManageAccess/index.js"
+    },
+    "./lib/components/UserPersona": {
+      "types": "./lib/components/UserPersona/index.d.ts",
+      "import": "./lib/components/UserPersona/index.js",
+      "require": "./lib/components/UserPersona/index.js"
+    },
+    "./lib/components/WorkflowStepper": {
+      "types": "./lib/components/WorkflowStepper/index.d.ts",
+      "import": "./lib/components/WorkflowStepper/index.js",
+      "require": "./lib/components/WorkflowStepper/index.js"
+    },
+    "./lib/components/lazy": {
+      "types": "./lib/components/lazy/index.d.ts",
+      "import": "./lib/components/lazy/index.js",
+      "require": "./lib/components/lazy/index.js"
+    },
+    "./lib/components/spFields": {
+      "types": "./lib/components/spFields/index.d.ts",
+      "import": "./lib/components/spFields/index.js",
+      "require": "./lib/components/spFields/index.js"
+    },
+    "./lib/components/spForm": {
+      "types": "./lib/components/spForm/index.d.ts",
+      "import": "./lib/components/spForm/index.js",
+      "require": "./lib/components/spForm/index.js"
+    },
+    "./lib/components/spForm/customComponents": {
+      "types": "./lib/components/spForm/customComponents/index.d.ts",
+      "import": "./lib/components/spForm/customComponents/index.js",
+      "require": "./lib/components/spForm/customComponents/index.js"
+    },
+    "./lib/types": {
+      "types": "./lib/types/index.d.ts",
+      "import": "./lib/types/index.js",
+      "require": "./lib/types/index.js"
+    },
+    "./lib/utilities/context": {
+      "types": "./lib/utilities/context/index.d.ts",
+      "import": "./lib/utilities/context/index.js",
+      "require": "./lib/utilities/context/index.js"
+    },
+    "./lib/utilities/dialogService": {
+      "types": "./lib/utilities/dialogService/index.d.ts",
+      "import": "./lib/utilities/dialogService/index.js",
+      "require": "./lib/utilities/dialogService/index.js"
+    },
+    "./lib/utilities/listItemHelper": {
+      "types": "./lib/utilities/listItemHelper/index.d.ts",
+      "import": "./lib/utilities/listItemHelper/index.js",
+      "require": "./lib/utilities/listItemHelper/index.js"
+    },
+    "./lib/utilities/permissionHelper": {
+      "types": "./lib/utilities/permissionHelper/index.d.ts",
+      "import": "./lib/utilities/permissionHelper/index.js",
+      "require": "./lib/utilities/permissionHelper/index.js"
+    },
     "./lib/*": {
       "types": "./lib/*.d.ts",
       "require": "./lib/*.js",

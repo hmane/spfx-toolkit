@@ -77,12 +77,61 @@ Returns a `FieldRefBuilder` with these operators:
 | `.gt(value)` | `<Gt>` | |
 | `.gte(value)` | `<Geq>` | |
 | `.contains(value)` | `<Contains>` | |
+| `.includes(value)` | `<Includes>` | Multi-value membership checks |
+| `.notIncludes(value)` | `<NotIncludes>` | Multi-value membership exclusions |
 | `.beginsWith(value)` | `<BeginsWith>` | |
 | `.isNull()` | `<IsNull>` | No value argument |
 | `.isNotNull()` | `<IsNotNull>` | No value argument |
 
 `type` defaults to `'Text'`. Supported types: `Text`, `Number`, `Integer`,
-`Boolean`, `DateTime`, `Lookup`, `User`, `Choice`, `Counter`, `Note`, `Guid`.
+`Boolean`, `DateTime`, `Lookup`, `LookupMulti`, `User`, `UserMulti`, `Choice`,
+`MultiChoice`, `TaxonomyFieldType`, `TaxonomyFieldTypeMulti`, `Counter`, `Note`,
+`Guid`, `Currency`, `URL`, `File`, `Calculated`, `Computed`, `ContentTypeId`,
+`Attachments`, `ModStat`.
+
+### Lookup, user, and taxonomy fields
+
+`Lookup`, `LookupMulti`, `User`, `UserMulti`, `TaxonomyFieldType`, and
+`TaxonomyFieldTypeMulti` fields are treated as ID-based filters. The generated
+`<FieldRef>` includes `LookupId="TRUE"`.
+
+For lookup/user fields, pass the lookup item ID or user ID rather than display
+text. For taxonomy fields, pass the term's list-local WssId, not the term GUID
+or label:
+
+```typescript
+CamlBuilder.where().field('Department', 'Lookup').eq('7')
+// → <Eq><FieldRef Name="Department" LookupId="TRUE" /><Value Type="Lookup">7</Value></Eq>
+
+CamlBuilder.where().field('Approvers', 'UserMulti').includes({ userId: true })
+// → <Includes><FieldRef Name="Approvers" LookupId="TRUE" /><Value Type="Integer"><UserID /></Value></Includes>
+
+CamlBuilder.where().field('Topic', 'TaxonomyFieldType').eq('42')
+// → <Eq><FieldRef Name="Topic" LookupId="TRUE" /><Value Type="Integer">42</Value></Eq>
+
+CamlBuilder.where().field('Topics', 'TaxonomyFieldTypeMulti').includes(42)
+// → <Includes><FieldRef Name="Topics" LookupId="TRUE" /><Value Type="Integer">42</Value></Includes>
+```
+
+For multi-value fields (`LookupMulti`, `UserMulti`, `MultiChoice`,
+`TaxonomyFieldTypeMulti`), prefer `.includes()` / `.notIncludes()` when you mean
+"one of the values equals this value." Keep `.contains()` for text-style
+contains queries.
+
+Other field types are emitted as normal CAML value types unless called out below.
+
+### Boolean fields
+
+`Boolean` and `Attachments` fields accept real booleans and render the
+SharePoint CAML form:
+
+```typescript
+CamlBuilder.where().field('IsActive', 'Boolean').eq(true)
+// → <Value Type="Boolean">1</Value>
+
+CamlBuilder.where().field('Attachments', 'Attachments').eq(false)
+// → <Value Type="Attachments">0</Value>
+```
 
 ---
 
@@ -92,7 +141,7 @@ Returns a `FieldRefBuilder` with these operators:
 
 ```typescript
 .field('AssignedTo', 'User').eq({ userId: true })
-// → <Eq><FieldRef Name="AssignedTo" /><Value Type="User"><UserID /></Value></Eq>
+// → <Eq><FieldRef Name="AssignedTo" LookupId="TRUE" /><Value Type="Integer"><UserID /></Value></Eq>
 ```
 
 ### Today / date offset
@@ -162,6 +211,9 @@ Produces `(Status≠Completed AND DueDate<2026-01-01) OR Priority≥5`:
 // Row limit
 .rowLimit(100)
 ```
+
+`rowLimit()` must be a positive integer. Invalid limits throw before invalid
+CAML is emitted.
 
 ---
 

@@ -84,6 +84,24 @@ describe('CamlBuilder – single conditions', () => {
     assert.ok(where.includes('<Value Type="Text">Budget</Value>'));
   });
 
+  test('includes: emits <Includes> for multi-value fields', () => {
+    const xml = CamlBuilder.where().field('Tags', 'MultiChoice').includes('Legal').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Includes><FieldRef Name="Tags" /><Value Type="MultiChoice">Legal</Value></Includes>'
+    );
+  });
+
+  test('notIncludes: emits <NotIncludes> for multi-value fields', () => {
+    const xml = CamlBuilder.where().field('Tags', 'MultiChoice').notIncludes('Closed').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<NotIncludes><FieldRef Name="Tags" /><Value Type="MultiChoice">Closed</Value></NotIncludes>'
+    );
+  });
+
   test('beginsWith: emits <BeginsWith>', () => {
     const xml = CamlBuilder.where().field('Title').beginsWith('Q1').build();
     const where = innerXml(xml, 'Where');
@@ -122,10 +140,146 @@ describe('CamlBuilder – single conditions', () => {
     assert.ok(where.includes('<Value Type="Boolean">1</Value>'));
   });
 
-  test('Lookup field type', () => {
-    const xml = CamlBuilder.where().field('Category', 'Lookup').eq('HR').build();
+  test('Boolean field accepts true and renders SharePoint boolean 1', () => {
+    const xml = CamlBuilder.where().field('IsActive', 'Boolean').eq(true).build();
     const where = innerXml(xml, 'Where');
-    assert.ok(where.includes('<Value Type="Lookup">HR</Value>'));
+    assert.equal(
+      where,
+      '<Eq><FieldRef Name="IsActive" /><Value Type="Boolean">1</Value></Eq>'
+    );
+  });
+
+  test('Boolean field accepts false and renders SharePoint boolean 0', () => {
+    const xml = CamlBuilder.where().field('IsActive', 'Boolean').eq(false).build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Eq><FieldRef Name="IsActive" /><Value Type="Boolean">0</Value></Eq>'
+    );
+  });
+
+  test('Lookup field type', () => {
+    const xml = CamlBuilder.where().field('Category', 'Lookup').eq('3').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Eq><FieldRef Name="Category" LookupId="TRUE" /><Value Type="Lookup">3</Value></Eq>'
+    );
+  });
+
+  test('Lookup field type applies LookupId="TRUE" across binary operators', () => {
+    const xml = CamlBuilder.where().field('Department', 'Lookup').neq('7').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Neq><FieldRef Name="Department" LookupId="TRUE" /><Value Type="Lookup">7</Value></Neq>'
+    );
+  });
+
+  test('LookupMulti field type is supported and uses LookupId="TRUE"', () => {
+    const xml = CamlBuilder.where().field('Departments', 'LookupMulti').contains('7').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Contains><FieldRef Name="Departments" LookupId="TRUE" /><Value Type="LookupMulti">7</Value></Contains>'
+    );
+  });
+
+  test('TaxonomyFieldType uses LookupId="TRUE" and Integer WssId values', () => {
+    const xml = CamlBuilder.where().field('Topic', 'TaxonomyFieldType').eq('42').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Eq><FieldRef Name="Topic" LookupId="TRUE" /><Value Type="Integer">42</Value></Eq>'
+    );
+  });
+
+  test('TaxonomyFieldTypeMulti uses LookupId="TRUE" and Integer WssId values', () => {
+    const xml = CamlBuilder.where().field('Topics', 'TaxonomyFieldTypeMulti').includes(42).build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Includes><FieldRef Name="Topics" LookupId="TRUE" /><Value Type="Integer">42</Value></Includes>'
+    );
+  });
+
+  test('LookupMulti includes uses LookupId="TRUE" for membership checks', () => {
+    const xml = CamlBuilder.where().field('Departments', 'LookupMulti').includes('7').build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Includes><FieldRef Name="Departments" LookupId="TRUE" /><Value Type="LookupMulti">7</Value></Includes>'
+    );
+  });
+
+  test('UserMulti includes supports current user membership checks', () => {
+    const xml = CamlBuilder.where().field('Approvers', 'UserMulti').includes({ userId: true }).build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Includes><FieldRef Name="Approvers" LookupId="TRUE" /><Value Type="Integer"><UserID /></Value></Includes>'
+    );
+  });
+
+  test('typed unary operators preserve LookupId="TRUE" on lookup-like fields', () => {
+    const xml = CamlBuilder.where().field('Topics', 'TaxonomyFieldTypeMulti').isNotNull().build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<IsNotNull><FieldRef Name="Topics" LookupId="TRUE" /></IsNotNull>'
+    );
+  });
+
+  test('Currency and URL field types pass through as normal values', () => {
+    const currencyXml = CamlBuilder.where().field('Budget', 'Currency').gte(1000).build();
+    const urlXml = CamlBuilder.where().field('Website', 'URL').contains('contoso').build();
+
+    assert.equal(
+      innerXml(currencyXml, 'Where'),
+      '<Geq><FieldRef Name="Budget" /><Value Type="Currency">1000</Value></Geq>'
+    );
+    assert.equal(
+      innerXml(urlXml, 'Where'),
+      '<Contains><FieldRef Name="Website" /><Value Type="URL">contoso</Value></Contains>'
+    );
+  });
+
+  test('document and system field types pass through as normal values', () => {
+    const fileXml = CamlBuilder.where().field('FileLeafRef', 'File').beginsWith('Q1').build();
+    const contentTypeXml = CamlBuilder.where().field('ContentTypeId', 'ContentTypeId').beginsWith('0x0101').build();
+    const attachmentsXml = CamlBuilder.where().field('Attachments', 'Attachments').eq(true).build();
+    const modStatXml = CamlBuilder.where().field('_ModerationStatus', 'ModStat').eq(0).build();
+
+    assert.equal(
+      innerXml(fileXml, 'Where'),
+      '<BeginsWith><FieldRef Name="FileLeafRef" /><Value Type="File">Q1</Value></BeginsWith>'
+    );
+    assert.equal(
+      innerXml(contentTypeXml, 'Where'),
+      '<BeginsWith><FieldRef Name="ContentTypeId" /><Value Type="ContentTypeId">0x0101</Value></BeginsWith>'
+    );
+    assert.equal(
+      innerXml(attachmentsXml, 'Where'),
+      '<Eq><FieldRef Name="Attachments" /><Value Type="Attachments">1</Value></Eq>'
+    );
+    assert.equal(
+      innerXml(modStatXml, 'Where'),
+      '<Eq><FieldRef Name="_ModerationStatus" /><Value Type="ModStat">0</Value></Eq>'
+    );
+  });
+
+  test('calculated and computed field types pass through as normal values', () => {
+    const calculatedXml = CamlBuilder.where().field('Total', 'Calculated').eq('100').build();
+    const computedXml = CamlBuilder.where().field('LinkTitle', 'Computed').contains('Project').build();
+
+    assert.equal(
+      innerXml(calculatedXml, 'Where'),
+      '<Eq><FieldRef Name="Total" /><Value Type="Calculated">100</Value></Eq>'
+    );
+    assert.equal(
+      innerXml(computedXml, 'Where'),
+      '<Contains><FieldRef Name="LinkTitle" /><Value Type="Computed">Project</Value></Contains>'
+    );
   });
 });
 
@@ -278,6 +432,12 @@ describe('CamlBuilder – orderBy and rowLimit', () => {
     const query = innerXml(xml, 'Query');
     assert.ok(query.includes('<OrderBy>'), 'OrderBy must be inside Query');
   });
+
+  test('rowLimit rejects zero, negative, and fractional values', () => {
+    assert.throws(() => CamlBuilder.all().rowLimit(0), /rowLimit|positive integer/i);
+    assert.throws(() => CamlBuilder.all().rowLimit(-1), /rowLimit|positive integer/i);
+    assert.throws(() => CamlBuilder.all().rowLimit(1.5), /rowLimit|positive integer/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -350,10 +510,22 @@ describe('CamlBuilder – XML escaping', () => {
 // ---------------------------------------------------------------------------
 describe('CamlBuilder – special values', () => {
 
-  test('{ userId: true } emits <UserID /> inside User Value', () => {
+  test('{ userId: true } emits <UserID /> as an Integer lookup comparison', () => {
     const xml = CamlBuilder.where().field('Author', 'User').eq({ userId: true }).build();
     const where = innerXml(xml, 'Where');
-    assert.ok(where.includes('<Value Type="User"><UserID /></Value>'), `Expected UserID in value, got: ${where}`);
+    assert.equal(
+      where,
+      '<Eq><FieldRef Name="Author" LookupId="TRUE" /><Value Type="Integer"><UserID /></Value></Eq>'
+    );
+  });
+
+  test('{ userId: true } works with UserMulti contains queries', () => {
+    const xml = CamlBuilder.where().field('Approvers', 'UserMulti').contains({ userId: true }).build();
+    const where = innerXml(xml, 'Where');
+    assert.equal(
+      where,
+      '<Contains><FieldRef Name="Approvers" LookupId="TRUE" /><Value Type="Integer"><UserID /></Value></Contains>'
+    );
   });
 
   test('{ today: true } emits <Today /> inside DateTime Value', () => {
@@ -388,6 +560,13 @@ describe('CamlBuilder – special values', () => {
       `Expected Today OffsetDays="-3", got: ${where}`
     );
   });
+
+  test('{ today: true } rejects non-integer offsetDays', () => {
+    assert.throws(
+      () => CamlBuilder.where().field('DueDate', 'DateTime').lte({ today: true, offsetDays: 1.5 }).build(),
+      /offsetDays|integer/i
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -413,6 +592,30 @@ describe('CamlBuilder – dangling field guard', () => {
       () => CamlBuilder.where().field('Status').and(),
       /dangling|operator|incomplete|field/i,
       'Expected error when chaining and() on an incomplete condition'
+    );
+  });
+
+  test('calling and() before any condition throws', () => {
+    assert.throws(
+      () => CamlBuilder.where().and(),
+      /condition|operator|and/i,
+      'Expected error when and() has no previous condition'
+    );
+  });
+
+  test('calling or() before any condition throws', () => {
+    assert.throws(
+      () => CamlBuilder.where().or(),
+      /condition|operator|or/i,
+      'Expected error when or() has no previous condition'
+    );
+  });
+
+  test('consecutive logical operators throw instead of overwriting the first operator', () => {
+    assert.throws(
+      () => CamlBuilder.where().field('Status').eq('Active').and().or(),
+      /condition|operator|pending|or/i,
+      'Expected error for consecutive logical operators'
     );
   });
 });
