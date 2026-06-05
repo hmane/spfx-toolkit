@@ -28,5 +28,3 @@ import { MyAccessView } from 'spfx-toolkit/components/userAccess/MyAccessView';
 - Loads Level 1 on mount via `useUserAccess('current')`.
 - Drill-down: pick a list → Level 2; enter an item ID → Level 3.
 - Wrapped in `<ErrorBoundary>` internally.
-
-See [the design spec](../../../../docs/superpowers/specs/2026-05-22-user-access-toolkit-design.md).

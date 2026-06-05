@@ -31,5 +31,3 @@ import { GroupMembersList } from 'spfx-toolkit/components/userAccess/GroupMember
 - Uses `useGroupMembers` to fetch (cached 5 min).
 - Filters client-side by title, email, or login when the search box is non-empty.
 - Each row renders `<UserPersona>` for the member.
-
-See [the design spec](../../../../docs/superpowers/specs/2026-05-22-user-access-toolkit-design.md).

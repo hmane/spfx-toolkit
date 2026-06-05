@@ -30,5 +30,3 @@ The default open does not enumerate every list and check effective permissions.
 ## What the toolkit cannot explain
 
 It surfaces **matched SharePoint role assignments**. It does NOT expand Entra ID security groups, sharing links, app-only grants, or tenant-level overlays. The compare view marks list-level mask differences as `unexplainedDifference` when matched assignments don't account for them.
-
-See the full design spec: [`docs/superpowers/specs/2026-05-22-user-access-toolkit-design.md`](../../../docs/superpowers/specs/2026-05-22-user-access-toolkit-design.md).

@@ -40,5 +40,3 @@ import { PermissionKind } from '@pnp/sp/security';
 - Uses `useHasPermission(managePermission)` to gate tabs.
 - Each tab is its own React component lazy-loaded only if it's rendered.
 - ManageGroupsTab apply re-checks the permission server-side before dispatching writes.
-
-See [the design spec](../../../../docs/superpowers/specs/2026-05-22-user-access-toolkit-design.md).
