@@ -50,10 +50,4 @@ const config = {
   stats: { modules: true, assets: true, modulesSpace: 9999 }
 };
 
-// When TOOLKIT_FIX=1, route the config through the shipped build helper. The helper is now a narrow
-// @pnp/spfx-controls-react .module.scss resolver (no alias/dedupe); this just proves it doesn't break
-// the build. `webpack` is injected because this fixture uses plain webpack rather than fast-serve/Heft.
-module.exports =
-  process.env.TOOLKIT_FIX === '1'
-    ? require('spfx-toolkit/build').applyToolkitWebpackFixes(config, { webpack: require('webpack') })
-    : config;
+module.exports = config;

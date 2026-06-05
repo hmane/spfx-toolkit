@@ -108,16 +108,6 @@ function cssBundled(distDir) {
   report.stages.toolkit = stage;
 }
 
-// Confirm the build helper is importable after Stage 1 (the helper is now narrow:
-// a single @pnp/spfx-controls-react .module.scss resolver — no alias/dedupe behavior).
-let helperImportOk = false;
-try {
-  const mod = await import(join(ROOT, 'lib', 'build', 'index.js'));
-  helperImportOk = typeof mod.applyToolkitWebpackFixes === 'function';
-} catch (e) {
-  report.stages.toolkit.helperImportError = (e && e.message) || String(e);
-}
-
 // ---- Stage 2: published-style fixture ------------------------------------
 {
   const stage = {};
@@ -186,23 +176,6 @@ try {
     stage.cssBundled = cssBundled(join(LINK, 'dist'));
     stage.heavyDepCopiesInBundle = Object.fromEntries(HEAVY_DEPS.map(d => [d, duplicateCopiesFromStats(statsPath, d)]));
 
-    // ---- Stage 3b: same link fixture, but routed through the shipped build helper.
-    // TOOLKIT_FIX=1 makes consumer-link/webpack.config.js apply applyToolkitWebpackFixes.
-    // The helper is now narrow (a @pnp/spfx-controls-react .module.scss resolver only), so this
-    // stage only proves the helper does NOT break a build — there is no alias/dedup behavior to gate.
-    const helper = {};
-    rmSync(join(LINK, 'dist'), { recursive: true, force: true });
-    rmSync(statsPath, { force: true });
-    sh('npm run build', LINK, { TOOLKIT_FIX: '1' });
-    const herrs = statsErrors(statsPath);
-    helper.webpackBuild = Array.isArray(herrs) && herrs.length === 0;
-    helper.errorCount = Array.isArray(herrs) ? herrs.length : null;
-    if (herrs && herrs.length) helper.firstErrors = herrs.slice(0, 5).map(e => e.split('\n')[0]);
-    helper.assetSizes = assetSizesFromStats(statsPath);
-    helper.cardOnlyBytes = helper.assetSizes ? helper.assetSizes['light.js'] : null;
-    helper.pnpFeatureBytes = helper.assetSizes ? helper.assetSizes['app.js'] : null;
-    helper.cssBundled = cssBundled(join(LINK, 'dist'));
-    stage.withHelper = helper;
   }
   report.stages.link = stage;
 }
@@ -226,10 +199,6 @@ console.log('  install/build:', l.install ? 'ok' : 'FAIL', '/', l.webpackBuild ?
 console.log('  duplication precondition:', JSON.stringify(l.duplicationPrecondition));
 console.log('  heavy-dep copies in bundle:', JSON.stringify(l.heavyDepCopiesInBundle));
 console.log('  card-only bytes:', l.cardOnlyBytes, '| pnp-feature bytes:', l.pnpFeatureBytes);
-const lh = l.withHelper || {};
-console.log('\n[npm-link + build helper (TOOLKIT_FIX=1)]  (narrow @pnp scss resolver — proves no-break only)');
-console.log('  webpack build:', lh.webpackBuild ? 'ok' : 'FAIL');
-console.log('  card-only bytes:', lh.cardOnlyBytes, '| pnp-feature bytes:', lh.pnpFeatureBytes);
 console.log('\nfull report -> fixtures/last-verify-report.json');
 console.log('=========================================================\n');
 
@@ -247,20 +216,6 @@ if (l.install !== true) failures.push('npm-link fixture install failed');
 if (l.symlinked !== true) failures.push('npm-link fixture symlink not created');
 if (l.webpackBuild !== true) failures.push(`npm-link fixture webpack build had errors (${l.errorCount ?? '?'})`);
 if (l.assetSizes == null) failures.push('npm-link fixture produced no stats/assets');
-
-// ---- Gate: npm-link + build helper (narrow @pnp scss resolver) ------------
-// The helper is intentionally narrow now (no alias/dedupe), so the only assertion is that applying it
-// does NOT break the build. (There are no copy-count expectations to gate.)
-if (helperImportOk !== true) {
-  failures.push('lib/build/index.js did not export applyToolkitWebpackFixes');
-}
-const lhGate = report.stages.link.withHelper;
-if (!lhGate) {
-  failures.push('npm-link + helper stage did not run');
-} else {
-  if (lhGate.webpackBuild !== true) failures.push(`npm-link + helper webpack build had errors (${lhGate.errorCount ?? '?'})`);
-  if (lhGate.assetSizes == null) failures.push('npm-link + helper produced no stats/assets');
-}
 
 report.gate = { passed: failures.length === 0, failures };
 writeFileSync(join(FIXTURES_DIR, 'last-verify-report.json'), JSON.stringify(report, null, 2) + '\n');

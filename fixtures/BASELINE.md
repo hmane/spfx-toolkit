@@ -60,7 +60,7 @@ The fixture reproduces `npm link` by symlinking the toolkit (with its own `node_
 
 **§A — Plain webpack externalizes `@microsoft/sp-*` (required, and faithful).** Outside the real SPFx build, `@microsoft/sp-core-library` (and siblings) fail to resolve because they import SPFx-runtime-internal packages (`@ms/odsp-core-bundle`, `@msinternal/ecs-flight`) and `.resx` resources that only exist inside the SPFx bundler/runtime. The fixture webpack therefore externalizes `@microsoft/sp-*` / `@ms/*` / `@msinternal/*` — which is exactly what the real SPFx build does (those are provided by the page runtime, not bundled). `@pnp/*` and `@fluentui/react` remain bundled so the toolkit's pull-through is measurable.
 
-**§B — The `@pnp/spfx-controls-react` `.module.scss` failure is NOT automatable here.** That failure depends on SPFx's SCSS-loader **path scoping** (the loader only fires for the consumer `src` + the *top-level* controls copy, not a nested one). Plain webpack has no such scoped SCSS rule, so it can't reproduce the exact unstyled-control symptom. The fixture instead detects the **precondition** (the nested duplicate controls/PnP copies under link). **Manual SPFx repro (for the record):** in a real SPFx web part, `npm link` this toolkit, then render a toolkit feature that uses `@pnp/spfx-controls-react` (e.g. `ManageAccess`/`UserAccessAdmin` PeoplePicker); the PeoplePicker/FilePicker/RichText toolbar renders unstyled until a `NormalModuleReplacementPlugin` rewrites `.module.scss` for the nested controls path. Phase 2's build helper removes the need for that.
+**§B — The `@pnp/spfx-controls-react` `.module.scss` failure is NOT automatable here.** That failure depends on SPFx's SCSS-loader **path scoping**. Plain webpack has no such scoped SCSS rule, so it can't reproduce the exact symptom. The fixture instead detects the **precondition** (nested duplicate controls/PnP copies under link). This is retained as diagnostic evidence only; the package no longer ships a consumer build helper.
 
 **§C — No generated SPFx fixture.** Per the recorded decision, no `yo @microsoft/sharepoint` project is created; plain-webpack fixtures + the documented manual repro are accepted.
 
@@ -86,61 +86,16 @@ The fixture reproduces `npm link` by symlinking the toolkit (with its own `node_
 
 **Accepted trade-off (Option 1):** raw `SPContext.sp.web.lists(...)` usage by a consumer who imports **no** PnP-backed toolkit feature still relies on the consumer loading the documented `pnpImports` bundle (the pre-existing status quo). The toolkit's own PnP-backed features each load their needed presets, so they work without consumer config.
 
-## Phase 2 result / build helper (final, measured 2026-06-02, Node v22.14.0)
+## Phase 2 / 2.1 update — public build helper removed
 
-Phase 2 ships `spfx-toolkit/build` → `applyToolkitWebpackFixes(config, options?)`, a build-tool-agnostic
-webpack transform for `npm link` debugging (see [`../docs/NPM-Link-Debug-Workflow.md`](../docs/NPM-Link-Debug-Workflow.md)).
-`verify.mjs` now builds the **same** link fixture twice — helper-off and helper-on (`TOOLKIT_FIX=1`,
-which routes `consumer-link/webpack.config.js` through the helper) — and gates the helper-on build.
-**GATE: PASS.**
+The Phase 2 public build helper was removed because app-level webpack/gulp transforms caused more confusion
+than value. The toolkit should behave as a library: published/tarball installs, stock `gulp serve`, and
+production builds should not require toolkit-specific build configuration. `fixtures:verify` now gates only
+the package itself plus the published-style and npm-link-equivalent consumers.
 
-| Metric (npm-link fixture) | Helper off | Helper on (`TOOLKIT_FIX=1`) | Effect |
-|---|---|---|---|
-| Webpack build | ok / 0 errors | **ok / 0 errors** | helper does not break the build ✓ |
-| `light.js` (Card-only) bytes | 836,138 | **649,212** | **−186,926 (−22.4%)** — react/react-dom deduped to one copy |
-| `app.js` (PnP feature) bytes | 879,432 | **692,326** | **−187,106 (−21.3%)** |
+Recommended local-dev consumption is a **flat tarball install**, not `npm link`.
 
-**Default-alias-peer copies in the helper-on bundle (the scoped dedup gate — each must be ≤ 1):**
-
-| Peer | Copies | | Peer | Copies |
-|---|---|---|---|---|
-| `react` | **1** | | `devextreme` | 0 (not imported) |
-| `react-dom` | **1** | | `devextreme-react` | 0 |
-| `@fluentui/react` | **1** | | `react-hook-form` | 0 |
-| `@pnp/spfx-controls-react` | 0 (not imported) | | `react-mentions` | 0 |
-| `zustand` | 0 (not imported) | | | |
-
-All nine `DEFAULT_ALIAS_PEERS` collapse to ≤ 1 copy → **gate passes**. (A `0` means the measured
-`light`/`app` entries don't import that peer; the gate only requires `≤ 1`, never double-bundled.)
-
-**PnP core copies — REPORTED, never gated:** `@pnp/sp` = **2**, `@pnp/queryable` = **2**.
-These are intentionally **excluded** from `DEFAULT_ALIAS_PEERS` and from the gate: `@pnp/spfx-controls-react`
-bundles PnP **v2**, so aliasing core PnP to the consumer's v3 copy would redirect the controls' nested
-v2 imports to v3 and break them. `resolve.symlinks = false` is the primary dedup mechanism for them.
-The counts here match the published-style baseline (`@pnp/sp` = 2), i.e. the helper does not regress them.
-
-**Published fixture not regressed:** the published-style consumer (tarball install, no helper) still builds
-clean with `card-only = 836,190` / `pnp-feature = 879,503` — identical to the Phase 1 baseline above. The
-helper is link-only; the published path is untouched.
-
-## Phase 2.1 update — helper narrowed, `@microsoft/sp-lodash-subset` removed
-
-The original Phase 2 helper (dedupe via `resolve.symlinks=false` + peer aliasing + a nested-only scss
-rewrite) proved fragile against the real SPFx runtime: aliasing leaked nested framework-lib copies and broke
-consumers' `exports`-map subpath imports. **The helper is now a single, narrow `@pnp/spfx-controls-react`
-`.module.scss` resolver:**
-
-- artifact-aware: rewrites to `.module.scss.css` (v3.24+) or `.module.scss.js` (v3.22), only if the target exists;
-- covers **top-level and nested** `@pnp/spfx-controls-react/lib` copies;
-- **no** `resolve.symlinks`, **no** aliasing, **no** dedupe.
-
-Consequently the fixture gate no longer asserts alias/copy counts — `verify.mjs` only proves the helper does
-**not break** a build (the `.css` vs `.js` artifact logic is unit-tested in
-`tests/build/applyToolkitWebpackFixes.test.mjs`). Recommended local-dev consumption is a **flat tarball
-install**, not `npm link`. The helper is needed only under **fast-serve / Heft** when they can't resolve the
-controls' precompiled SCSS artifact; **gulp serve and production need nothing.**
-
-Separately, the toolkit no longer imports `@microsoft/sp-lodash-subset` (replaced by
+The toolkit no longer imports `@microsoft/sp-lodash-subset` (replaced by
 `src/utilities/internal/isEqual.ts`), so consuming the toolkit never forces that SPFx framework external to
 load — which was the root cause of the form-customizer `relative-path.invalid/@microsoft/sp-lodash-subset.js`
 failures. A hygiene test (`tests/hygiene/no-sp-lodash-subset.test.mjs`) guards against reintroduction.

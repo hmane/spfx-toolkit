@@ -156,11 +156,6 @@
       "import": "./lib/hooks/index.js",
       "require": "./lib/hooks/index.js"
     },
-    "./build": {
-      "types": "./lib/build/index.d.ts",
-      "import": "./lib/build/index.js",
-      "require": "./lib/build/index.js"
-    },
     "./utils": {
       "types": "./lib/utilities/index.d.ts",
       "import": "./lib/utilities/index.js",
@@ -370,7 +365,6 @@
   "license": "MIT",
   "files": [
     "lib/",
-    "build/",
     "components/",
     "hooks/",
     "utilities/",
