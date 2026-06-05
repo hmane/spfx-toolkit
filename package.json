@@ -16,6 +16,7 @@
       "import": "./lib/index.js",
       "require": "./lib/index.js"
     },
+    "./package.json": "./package.json",
     "./components": {
       "types": "./lib/components/index.d.ts",
       "import": "./lib/components/index.js",
@@ -341,6 +342,11 @@
       "import": "./lib/utilities/context/index.js",
       "require": "./lib/utilities/context/index.js"
     },
+    "./lib/utilities/batchBuilder": {
+      "types": "./lib/utilities/batchBuilder/index.d.ts",
+      "import": "./lib/utilities/batchBuilder/index.js",
+      "require": "./lib/utilities/batchBuilder/index.js"
+    },
     "./lib/utilities/dialogService": {
       "types": "./lib/utilities/dialogService/index.d.ts",
       "import": "./lib/utilities/dialogService/index.js",
@@ -356,6 +362,7 @@
       "import": "./lib/utilities/permissionHelper/index.js",
       "require": "./lib/utilities/permissionHelper/index.js"
     },
+    "./lib/*.css": "./lib/*.css",
     "./lib/*": {
       "types": "./lib/*.d.ts",
       "require": "./lib/*.js",

@@ -169,7 +169,7 @@ function generateCompatibilityProxies(done) {
   };
 
   Object.entries(exportsMap).forEach(([exportKey, exportValue]) => {
-    if (exportKey === '.' || exportKey === './lib/*') {
+    if (exportKey === '.' || exportKey === './package.json' || exportKey === './lib/*') {
       return;
     }
 
