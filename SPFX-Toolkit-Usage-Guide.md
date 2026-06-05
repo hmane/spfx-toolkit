@@ -52,8 +52,8 @@ npm install @fluentui/react@8.106.4 @pnp/sp@^3.20.1 react@^17.0.1 --save
 ### Import Path Compatibility
 
 - Use `spfx-toolkit/components/...`, `spfx-toolkit/hooks`, and `spfx-toolkit/utilities/...` as the default import paths.
-- This package now ships compatibility proxy entrypoints, so those subpaths also resolve in classic SPFx projects and `npm link` setups after you rebuild or reinstall the package.
-- Use `spfx-toolkit/lib/...` as a legacy fallback if a consumer is pinned to older package behavior.
+- This package ships compatibility proxy entrypoints, so those subpaths also resolve in classic SPFx projects after normal install/build.
+- Use `spfx-toolkit/lib/...` only as a legacy fallback while migrating older consumers.
 - Do not import UI components from the package root (`spfx-toolkit`).
 
 ### Your First Component (5 Minutes)
@@ -101,7 +101,16 @@ const MyComponent: React.FC = () => {
 
 **That's it!** You now have expandable cards with user personas working in your SPFx web part.
 
-If you are using `npm link`, rebuild the toolkit after changing package entrypoints so the generated proxy folders and `lib/` output are up to date.
+For local toolkit testing, prefer a flat tarball install over `npm link`:
+
+```bash
+# In the toolkit repo
+npm run build
+npm pack
+
+# In the consuming SPFx app
+npm install /path/to/spfx-toolkit/spfx-toolkit-1.0.0-alpha.1.tgz
+```
 
 ---
 
@@ -157,11 +166,17 @@ npm install zustand@^4.3.9 --save  # For spForm state management
 >
 > See [`docs/Importing-Components.md`](./docs/Importing-Components.md) for the authoritative list.
 
-If you are consuming the toolkit through `npm link`, rebuild the toolkit after changes so the linked `lib/` folder stays current:
+For local toolkit development, use a flat tarball install instead of `npm link`.
+This mirrors the published package shape and avoids nested dependency/build-tool
+resolution problems:
 
 ```bash
 cd /path/to/spfx-toolkit
 npm run build
+npm pack
+
+cd /path/to/your-spfx-app
+npm install /path/to/spfx-toolkit/spfx-toolkit-1.0.0-alpha.1.tgz
 ```
 
 ### Step 3: Centralize PnP Imports
@@ -230,7 +245,7 @@ import '@pnp/sp/sharing';
 - The `.d.ts` file lives under `src/types` and is automatically included by `tsconfig`.
 - When adding a new PnP module, update both files and mirror the change inside this toolkit’s own `src/types/pnp-augmentations.d.ts`, then rebuild.
 
-### Step 3: TypeScript Configuration
+### Step 4: TypeScript Configuration
 
 Ensure your `tsconfig.json` includes:
 
@@ -246,7 +261,7 @@ Ensure your `tsconfig.json` includes:
 }
 ```
 
-### Step 4: SharePoint API Permissions (Optional)
+### Step 5: SharePoint API Permissions (Optional)
 
 Some components require additional SharePoint permissions. Add to `config/package-solution.json`:
 
@@ -6138,8 +6153,8 @@ sites API so the bridge attaches automatically. The panel is lazy-loaded — it
 is NOT rendered until the user opens it.
 
 ```tsx
-import { SPContext } from 'spfx-toolkit/lib/utilities/context';
-import { SPDebugProvider } from 'spfx-toolkit/lib/components/debug';
+import { SPContext } from 'spfx-toolkit/utilities/context';
+import { SPDebugProvider } from 'spfx-toolkit/components/debug';
 
 export default function AppRoot() {
   return (
@@ -6306,7 +6321,7 @@ searching noisy text.
 ### Rich runtime — log/event/json/table/metric/timer/trace
 
 ```ts
-import { SPDebug } from 'spfx-toolkit/lib/utilities/debug';
+import { SPDebug } from 'spfx-toolkit/utilities/debug';
 
 // Plain log (source defaults to "App")
 SPDebug.log('Save button clicked');
@@ -6385,7 +6400,7 @@ import {
   useSPDebugTimer,
   useSPDebugTrace,
   useSPDebugSession,
-} from 'spfx-toolkit/lib/components/debug';
+} from 'spfx-toolkit/components/debug';
 
 function ClaimEditor({ claim }: Props) {
   // Publish keyed snapshot when the claim id changes.
@@ -6584,7 +6599,7 @@ production code without measurable overhead.
 
 ### Bundle and isolation
 
-- The runtime is at `spfx-toolkit/lib/utilities/debug` — small, no DevExtreme.
+- The runtime is at `spfx-toolkit/utilities/debug` — small, no DevExtreme.
 - The panel module is internal and intentionally NOT a public package export.
   Do not import it directly. It is loaded via dynamic `import()` from the
   provider only when the panel becomes visible.
