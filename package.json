@@ -17,6 +17,12 @@
       "require": "./lib/index.js"
     },
     "./package.json": "./package.json",
+    "./tooling": {
+      "require": "./tooling/index.js"
+    },
+    "./tooling/customize-webpack": {
+      "require": "./tooling/customize-webpack.js"
+    },
     "./components": {
       "types": "./lib/components/index.d.ts",
       "import": "./lib/components/index.js",
@@ -372,6 +378,7 @@
   "license": "MIT",
   "files": [
     "lib/",
+    "tooling/",
     "components/",
     "hooks/",
     "utilities/",
@@ -419,9 +426,13 @@
     "react-hook-form": "^7.45.4",
     "react-mentions": "^4.4.0",
     "zustand": "^4.3.9",
-    "@microsoft/sp-page-context": ">=1.21.1"
+    "@microsoft/sp-page-context": ">=1.21.1",
+    "webpack": ">=5.0.0"
   },
   "peerDependenciesMeta": {
+    "webpack": {
+      "optional": true
+    },
     "@microsoft/sp-component-base": {
       "optional": true
     },
